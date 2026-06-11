@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRM, VRMUtils, VRMLoaderPlugin } from '@pixiv/three-vrm';
 import type { MiraState, Mood } from '../core/types';
+import { audioLevel } from '../core/audio-level';
 import { LipSync } from './lipsync';
 import { applyHologram, beautifyFace, brightenBody, recolorClothes } from './hologram';
 
@@ -129,10 +130,13 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
     clock.current += d;
     const st = stateRef.current;
 
-    // Lip-sync: chỉ "nói" khi state = speaking → envelope âm tiết tổng hợp.
+    // Lip-sync: có audio thật (VieNeu/ElevenLabs) → khớp biên độ thật;
+    // không có (Web Speech) → envelope âm tiết tổng hợp như cũ.
     talk.current.timer -= d;
     if (st === 'speaking') {
-      if (talk.current.timer <= 0) {
+      if (audioLevel.active) {
+        talk.current.target = Math.min(1, audioLevel.value * 1.25);
+      } else if (talk.current.timer <= 0) {
         talk.current.target = 0.35 + Math.random() * 0.65;
         talk.current.timer = 0.08 + Math.random() * 0.12;
       }

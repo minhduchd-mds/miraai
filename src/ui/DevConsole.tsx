@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
-import { loadTTSConfig, type TTSConfig, type TTSDiagnostics } from '../core/tts';
+import { loadTTSConfig, VIENEU_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 
 interface Props {
   open: boolean;
@@ -26,6 +26,7 @@ export default function DevConsole({
   const [testing, setTesting] = useState(false);
   const [ttsEngine, setTtsEngine] = useState<TTSConfig['engine']>('system');
   const [ttsKey, setTtsKey] = useState('');
+  const [ttsServer, setTtsServer] = useState('');
   const [ttsSaved, setTtsSaved] = useState<string | null>(null);
 
   // Nạp config hiện tại mỗi lần mở popup.
@@ -39,6 +40,7 @@ export default function DevConsole({
     const t = loadTTSConfig();
     setTtsEngine(t.engine);
     setTtsKey(t.apiKey);
+    setTtsServer(t.serverUrl);
     setTtsSaved(null);
   }, [initial]);
 
@@ -79,11 +81,13 @@ export default function DevConsole({
     setTesting(false);
   };
   const saveTts = () => {
-    onSaveTTS({ engine: ttsEngine, apiKey: ttsKey.trim(), voiceId: '' });
+    onSaveTTS({ engine: ttsEngine, apiKey: ttsKey.trim(), voiceId: '', serverUrl: ttsServer.trim() });
     setTtsSaved(
-      ttsEngine === 'elevenlabs' && ttsKey.trim()
-        ? 'Đã đổi sang giọng ElevenLabs — bấm Đọc thử để nghe.'
-        : 'Đang dùng giọng hệ thống (miễn phí).',
+      ttsEngine === 'vieneu'
+        ? 'Đã đổi sang VieNeu (server nhà) — bấm Đọc thử để nghe.'
+        : ttsEngine === 'elevenlabs' && ttsKey.trim()
+          ? 'Đã đổi sang giọng ElevenLabs — bấm Đọc thử để nghe.'
+          : 'Đang dùng giọng hệ thống (miễn phí).',
     );
   };
 
@@ -143,7 +147,8 @@ export default function DevConsole({
             <label>Engine</label>
             <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value as TTSConfig['engine'])}>
               <option value="system">Giọng hệ thống (miễn phí)</option>
-              <option value="elevenlabs">ElevenLabs (tự nhiên hơn)</option>
+              <option value="vieneu">VieNeu — server nhà (tự nhiên, bảo mật)</option>
+              <option value="elevenlabs">ElevenLabs (cloud, cần key)</option>
             </select>
           </div>
           {ttsEngine === 'elevenlabs' && (
@@ -155,6 +160,18 @@ export default function DevConsole({
                 onChange={(e) => setTtsKey(e.target.value)}
                 placeholder="xi-…  (free tier ~10k ký tự/tháng)"
                 autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          )}
+          {ttsEngine === 'vieneu' && (
+            <div className="modal-row">
+              <label>Server URL</label>
+              <input
+                type="text"
+                value={ttsServer}
+                onChange={(e) => setTtsServer(e.target.value)}
+                placeholder={VIENEU_DEFAULT_URL}
                 spellCheck={false}
               />
             </div>
@@ -171,8 +188,9 @@ export default function DevConsole({
             )}
           </div>
           <div className="modal-note">
-            Giọng hệ thống (Linh) là giọng máy của macOS — muốn tự nhiên hẳn, chọn ElevenLabs (đăng ký
-            free tại elevenlabs.io → Profile → API key) rồi chọn giọng ở thanh dưới màn hình.
+            Giọng hệ thống (Linh) là giọng máy của macOS. Tự nhiên + bảo mật nhất: <b>VieNeu</b> — chạy
+            server trong thư mục <code>server/</code> của repo (xem server/README.md) rồi chọn ở trên;
+            miệng Mira sẽ khớp âm thanh thật. Nhanh gọn cloud: ElevenLabs (key free tại elevenlabs.io).
             Không nghe thấy gì khi bấm Đọc thử? Kiểm tra: âm lượng máy &amp; đúng thiết bị output,
             tab Chrome không bị tắt tiếng (chuột phải tab → Unmute). "ĐANG NÓI" hiện mà vẫn im →
             máy đang xuất âm ra thiết bị khác.

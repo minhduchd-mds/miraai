@@ -1,0 +1,8 @@
+# Tối thiểu (mock mode — dev UI/lipsync, CI): fastapi + uvicorn là đủ
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2
+
+# Giọng thật (bỏ comment 2 dòng dưới, hoặc: pip install vieneu vinorm)
+# vieneu
+# vinorm

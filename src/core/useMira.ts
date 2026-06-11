@@ -134,17 +134,21 @@ export function useMira() {
   }, []);
   const ttsDiagnostics = useCallback((): TTSDiagnostics => ttsRef.current!.diagnostics(), []);
 
-  // Developer Console: đổi engine giọng (hệ thống ⇄ ElevenLabs) — hot-swap như brain.
+  // Developer Console: đổi engine giọng (hệ thống / ElevenLabs / VieNeu) — hot-swap như brain.
   const applyTTSConfig = useCallback((cfg: TTSConfig) => {
     saveTTSConfig(cfg);
     ttsRef.current?.cancel();
     ttsRef.current = createTTS();
-    const vi = ttsRef.current.listVoices('vi');
-    const list = vi.length ? vi : ttsRef.current.listVoices();
-    setVoices(list);
-    const pick = (cfg.voiceId && list.find((v) => v.voiceURI === cfg.voiceId)) || list[0];
-    voiceURIRef.current = pick?.voiceURI;
-    setVoiceURI(pick?.voiceURI);
+    const refresh = () => {
+      const vi = ttsRef.current!.listVoices('vi');
+      const list = vi.length ? vi : ttsRef.current!.listVoices();
+      setVoices(list);
+      const pick = (cfg.voiceId && list.find((v) => v.voiceURI === cfg.voiceId)) || list[0];
+      voiceURIRef.current = pick?.voiceURI;
+      setVoiceURI(pick?.voiceURI);
+    };
+    refresh();
+    window.setTimeout(refresh, 1500); // VieNeu nạp preset voices async từ server → quét lại
   }, []);
 
   // Developer Console: gọi thử bộ não 1 câu, trả kết quả/lỗi THẬT để chẩn đoán tại chỗ.
