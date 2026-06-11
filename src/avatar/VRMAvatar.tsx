@@ -1,0 +1,191 @@
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
+import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { VRM, VRMUtils, VRMLoaderPlugin } from '@pixiv/three-vrm';
+import type { MiraState, Mood } from '../core/types';
+import { LipSync } from './lipsync';
+import { applyHologram, beautifyFace, brightenBody, recolorClothes } from './hologram';
+
+// Model quay mặt về -Z, camera ở +Z → xoay 180° để quay mặt về camera.
+const FACING_Y = Math.PI;
+
+interface Props {
+  url: string;
+  stateRef: MutableRefObject<MiraState>;
+  moodRef: MutableRefObject<Mood>;
+  accent: string;
+  onLoaded?: () => void;
+  onError?: () => void;
+}
+
+// Hạ tay từ T-pose về tư thế nghỉ tự nhiên (VRM không kèm animation idle sẵn).
+function relaxPose(vrm: VRM) {
+  const h = vrm.humanoid;
+  if (!h) return;
+  const set = (name: string, x: number, y: number, z: number) => {
+    const n = h.getNormalizedBoneNode(name as any);
+    if (n) n.rotation.set(x, y, z);
+  };
+  set('leftUpperArm', 0, 0, 1.2);
+  set('rightUpperArm', 0, 0, -1.2);
+  set('leftLowerArm', 0, -0.25, 0.1);
+  set('rightLowerArm', 0, 0.25, -0.1);
+}
+
+// Trộn biểu cảm cảm xúc về mục tiêu theo mood (lerp mượt mỗi frame).
+function applyMood(vrm: VRM, mood: Mood, delta: number) {
+  const em = vrm.expressionManager;
+  if (!em) return;
+  const target: Record<string, number> = { happy: 0, relaxed: 0, sad: 0, surprised: 0, angry: 0 };
+  if (mood === 'happy') target.happy = 0.6;
+  else if (mood === 'curious' || mood === 'thinking') target.relaxed = 0.5;
+  else if (mood === 'surprised') target.surprised = 0.6;
+  const k = Math.min(1, delta * 4);
+  for (const name of Object.keys(target)) {
+    const cur = em.getValue(name) ?? 0;
+    em.setValue(name, cur + (target[name] - cur) * k);
+  }
+}
+
+export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, onError }: Props) {
+  const [vrm, setVrm] = useState<VRM | null>(null);
+  const vrmRef = useRef<VRM | null>(null);
+  const lip = useRef(new LipSync());
+  const clock = useRef(0);
+  const blink = useRef({ t: 0, next: 2 + Math.random() * 3, prog: -1 });
+  const talk = useRef({ timer: 0, target: 0 });
+
+  // ── Nhìn theo chuột: mắt (lookAt VRM) + đầu xoay nhẹ ──
+  const lookTargetRef = useRef<THREE.Object3D | null>(null);
+  if (!lookTargetRef.current) {
+    lookTargetRef.current = new THREE.Object3D();
+    lookTargetRef.current.position.set(0, 1.35, 2.4); // mặc định: nhìn thẳng người xem
+  }
+  const pointerRef = useRef({ x: 0, y: 0 });
+  const headRotRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      pointerRef.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointerRef.current.y = -((e.clientY / window.innerHeight) * 2 - 1);
+    };
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, []);
+
+  // Nạp VRM (đăng ký VRMLoaderPlugin + dọn dẹp + sửa hướng VRM0).
+  useEffect(() => {
+    let disposed = false;
+    const loader = new GLTFLoader();
+    loader.register((parser) => new VRMLoaderPlugin(parser));
+    loader.load(
+      url,
+      (gltf) => {
+        const v = gltf.userData.vrm as VRM;
+        VRMUtils.combineSkeletons(gltf.scene);
+        VRMUtils.removeUnnecessaryVertices(gltf.scene);
+        // Model VRM0 này quay mặt sẵn về +Z (đúng hướng camera) → KHÔNG gọi rotateVRM0.
+        v.scene.traverse((o) => (o.frustumCulled = false));
+        if (disposed) {
+          VRMUtils.deepDispose(v.scene);
+          return;
+        }
+        relaxPose(v); // hạ tay khỏi T-pose
+        if (import.meta.env.DEV) (window as any).__vrm = v; // debug 3D trong dev
+        applyHologram(v.scene, accent);
+        brightenBody(v.scene); // nâng sáng tất/găng bake trong texture da → chân tay sáng
+        recolorClothes(v.scene, '#FFFFFF'); // váy áo trắng sáng (theo ảnh tham chiếu)
+        beautifyFace(v.scene); // môi hồng + khoang miệng hồng
+        if (v.lookAt) v.lookAt.target = lookTargetRef.current; // mắt nhìn theo target
+        vrmRef.current = v;
+        setVrm(v);
+        onLoaded?.();
+      },
+      undefined,
+      (err) => {
+        console.warn('[Mira VRM] load failed:', err);
+        if (!disposed) onError?.();
+      },
+    );
+    return () => {
+      disposed = true;
+      if (vrmRef.current) VRMUtils.deepDispose(vrmRef.current.scene);
+      vrmRef.current = null;
+      setVrm(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
+
+  // Đổi theme → nhuộm lại hologram (da/tóc); body + quần áo (_bright) giữ độ sáng cố định.
+  useEffect(() => {
+    if (vrmRef.current) applyHologram(vrmRef.current.scene, accent);
+  }, [accent]);
+
+  useFrame((_, delta) => {
+    const v = vrmRef.current;
+    if (!v) return;
+    const d = Math.min(delta, 0.05); // chặn delta nhảy vọt khi tab vừa active lại
+    clock.current += d;
+    const st = stateRef.current;
+
+    // Lip-sync: chỉ "nói" khi state = speaking → envelope âm tiết tổng hợp.
+    talk.current.timer -= d;
+    if (st === 'speaking') {
+      if (talk.current.timer <= 0) {
+        talk.current.target = 0.35 + Math.random() * 0.65;
+        talk.current.timer = 0.08 + Math.random() * 0.12;
+      }
+    } else {
+      talk.current.target = 0;
+    }
+    lip.current.update(v, d, talk.current.target);
+
+    // Chớp mắt định kỳ.
+    const b = blink.current;
+    let blinkVal = 0;
+    if (b.prog >= 0) {
+      b.prog += d / 0.16;
+      blinkVal = b.prog < 0.5 ? b.prog * 2 : Math.max(0, (1 - b.prog) * 2);
+      if (b.prog >= 1) {
+        b.prog = -1;
+        b.t = 0;
+        b.next = 2 + Math.random() * 3.5;
+      }
+    } else {
+      b.t += d;
+      if (b.t >= b.next) b.prog = 0;
+    }
+    v.expressionManager?.setValue('blink', Math.max(0, Math.min(1, blinkVal)));
+
+    // Cảm xúc theo mood + thở nhẹ (bob dọc) + lắc nhẹ khi nghĩ.
+    applyMood(v, moodRef.current, d);
+    const breathe = Math.sin(clock.current * 1.1) * 0.006;
+    v.scene.position.y = breathe;
+    v.scene.rotation.y = FACING_Y + (st === 'thinking' ? Math.sin(clock.current * 1.6) * 0.05 : 0);
+
+    // Nhìn theo chuột: mắt bám target, đầu xoay nhẹ theo (lerp mượt).
+    const p = pointerRef.current;
+    const lt = lookTargetRef.current!;
+    const k = Math.min(1, d * 6);
+    lt.position.x += (p.x * 1.6 - lt.position.x) * k;
+    lt.position.y += (1.35 + p.y * 0.7 - lt.position.y) * k;
+    const head = v.humanoid?.getNormalizedBoneNode('head' as any);
+    if (head) {
+      const hr = headRotRef.current;
+      const kh = Math.min(1, d * 5);
+      hr.y += (p.x * 0.3 - hr.y) * kh;
+      hr.x += (p.y * 0.18 - hr.x) * kh;
+      head.rotation.set(hr.x, hr.y, 0);
+    }
+
+    v.update(d); // springbone + lookAt + flush expressions
+  });
+
+  return vrm ? (
+    <>
+      <primitive object={vrm.scene} />
+      <primitive object={lookTargetRef.current} />
+    </>
+  ) : null;
+}
