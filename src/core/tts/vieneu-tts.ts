@@ -23,9 +23,18 @@ export class VieNeuTTS implements TTSAdapter {
     fetch(`${this.serverUrl}/voices`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        const names: string[] = j?.voices || [];
-        if (names.length) {
-          this.voices = names.map((n) => ({ name: `${n} (VieNeu)`, voiceURI: n, lang: 'vi-VN' }));
+        const raw: any[] = j?.voices || [];
+        const parsed = raw
+          .map((v) =>
+            typeof v === 'string'
+              ? { id: v, label: v }
+              : v && typeof v === 'object' && v.id
+                ? { id: String(v.id), label: String(v.label || v.id) }
+                : null,
+          )
+          .filter(Boolean) as { id: string; label: string }[];
+        if (parsed.length) {
+          this.voices = parsed.map((v) => ({ name: v.label, voiceURI: v.id, lang: 'vi-VN' }));
         }
       })
       .catch(() => {

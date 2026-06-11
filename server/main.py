@@ -24,6 +24,8 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 MOCK = os.environ.get("VIENEU_MOCK") == "1"
+# Giọng mặc định cho Mira (nữ). Đổi bằng env VIENEU_VOICE hoặc voice trong request.
+DEFAULT_VOICE = os.environ.get("VIENEU_VOICE", "Ngọc Lan")
 
 app = FastAPI(title="Mira TTS server (VieNeu)")
 app.add_middleware(
@@ -93,9 +95,16 @@ def health():
 @app.get("/voices")
 def voices():
     if MOCK:
-        return {"voices": ["Mock"]}
+        return {"voices": [{"id": "Mock", "label": "Mock"}]}
     try:
-        return {"voices": list(get_tts().list_preset_voices())}
+        # list_preset_voices() trả tuple (label, name) — chuẩn hoá thành {id, label}
+        out = []
+        for v in get_tts().list_preset_voices():
+            if isinstance(v, (list, tuple)) and len(v) >= 2:
+                out.append({"id": str(v[1]), "label": str(v[0])})
+            else:
+                out.append({"id": str(v), "label": str(v)})
+        return {"voices": out}
     except Exception as e:  # model chưa sẵn sàng → trả rỗng, client dùng giọng mặc định
         return {"voices": [], "error": str(e)[:200]}
 
@@ -111,7 +120,7 @@ def tts(inp: TTSIn):
     try:
         engine = get_tts()
         norm = normalize(text)
-        audio = engine.infer(norm, voice=inp.voice) if inp.voice else engine.infer(norm)
+        audio = engine.infer(norm, voice=inp.voice or DEFAULT_VOICE)
         # API save() ghi file → dùng file tạm rồi đọc bytes (an toàn với mọi định dạng audio trả về)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             path = f.name

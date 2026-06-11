@@ -6,12 +6,10 @@ vinorm (chuẩn hoá số/ngày → chữ) + [VieNeu-TTS](https://github.com/pnn
 ## Chạy giọng thật
 
 ```bash
-cd server
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pip install vieneu vinorm          # model tự tải từ HuggingFace ở lần gọi đầu (~vài phút)
-uvicorn main:app --port 8017
+./server/run.sh        # tự tạo venv + cài đặt lần đầu; model tự tải từ HuggingFace ở lần gọi đầu
 ```
+
+(thủ công: `python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt vieneu vinorm && ./.venv/bin/uvicorn main:app --port 8017`)
 
 Rồi trong app: **⌘ Developer Console → Giọng nói → VieNeu — server nhà → Lưu giọng → 🔊 Đọc thử.**
 Chọn giọng preset ở thanh dưới màn hình (danh sách lấy từ server). Miệng Mira khớp âm thanh thật
@@ -20,8 +18,7 @@ Chọn giọng preset ở thanh dưới màn hình (danh sách lấy từ server
 ## Mock mode (dev UI / CI — không cần model)
 
 ```bash
-pip install fastapi uvicorn pydantic
-VIENEU_MOCK=1 uvicorn main:app --port 8017
+./server/run.sh mock
 ```
 
 Trả WAV "beep" có nhịp như giọng nói — đủ để test pipeline audio + lipsync.
