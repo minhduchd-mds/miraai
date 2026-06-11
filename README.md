@@ -81,6 +81,7 @@ của model hiện tại — đổi model thì chỉnh lại hoặc tắt `beaut
 ## Lộ trình tiếp theo
 
 - [ ] Ô nhập text (chat không cần mic + fallback khi STT lỗi)
+- [ ] **TTS tiếng Việt tự nhiên self-host (VieNeu-TTS + vinorm) + lipsync Rhubarb** — xem đánh giá chi tiết ở [docs/DANH-GIA-TTS-TU-NHIEN.md](docs/DANH-GIA-TTS-TU-NHIEN.md)
 - [ ] TTS Vbee/Viettel (giọng nữ Việt tự nhiên, streaming theo câu) + lip-sync theo âm thanh thật (AnalyserNode)
 - [ ] STT Viettel/Whisper self-host cho vùng bảo mật cao
 - [ ] Silero VAD: always-on + barge-in bằng giọng nói
