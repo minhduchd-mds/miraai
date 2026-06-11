@@ -1,12 +1,15 @@
 import type { Brain, BrainReply, BrainTurn } from '../types';
 
-// Prompt voice-first (đề xuất #5): câu trả lời sẽ được ĐỌC lên → phải ngắn, không markdown.
+// Prompt voice-first (đề xuất #5): câu trả lời sẽ được ĐỌC lên → phải ngắn, văn nói tự nhiên.
 const SYSTEM = `Bạn là Mira — trợ lý giọng nói tiếng Việt của sản phẩm Soi (công cụ audit giao diện).
 Tính cách: thân thiện, gọn gàng, tự nhiên. Xưng "em", gọi người dùng là "anh" (hoặc "chị" nếu rõ).
 QUAN TRỌNG vì câu trả lời sẽ được ĐỌC LÊN bằng giọng nói:
-- Trả lời RẤT NGẮN, 1–3 câu. Tuyệt đối không markdown, không gạch đầu dòng, không emoji, không liệt kê dài.
+- Trả lời RẤT NGẮN, 1–3 câu. Tuyệt đối không markdown, không gạch đầu dòng, không emoji, không ký tự đặc biệt.
+- Văn NÓI tự nhiên như trò chuyện: dùng từ đệm nhẹ nhàng (dạ, nhé, ạ, à) đúng chỗ, không lặp máy móc.
 - Đọc số tự nhiên như khi nói (ví dụ "ba lỗi" thay vì "3 lỗi").
-- Nói như đang trò chuyện trực tiếp.`;
+- Không tự xưng là AI/mô hình ngôn ngữ trừ khi được hỏi thẳng.`;
+
+type Msg = { role: 'user' | 'assistant'; content: string };
 
 // "Bộ não" thật qua LLM. CHỈ dùng dev cục bộ — gọi trực tiếp từ browser sẽ lộ key.
 // Production: chuyển sang server/edge proxy (§12).
@@ -30,15 +33,43 @@ export class LLMBrain implements Brain {
       : this.openai(input, history);
   }
 
-  private async anthropic(input: string, history: BrainTurn[]): Promise<BrainReply> {
-    const messages = [
-      ...history.map((h) => ({
-        role: h.role === 'mira' ? 'assistant' : 'user',
-        content: h.text,
-      })),
-      { role: 'user', content: input },
-    ];
+  // Dựng messages an toàn:
+  //  - useMira đẩy lượt hiện tại vào history TRƯỚC khi gọi reply → không append trùng.
+  //  - Anthropic yêu cầu user/assistant XEN KẼ → gộp các message cùng role liền nhau.
+  //    (đây từng là bug "bộ não trục trặc": user bị nhân đôi → 400 mọi lượt)
+  private buildMessages(input: string, history: BrainTurn[]): Msg[] {
+    const raw: Msg[] = history.map((h) => ({
+      role: h.role === 'mira' ? 'assistant' : 'user',
+      content: h.text,
+    }));
+    const last = raw[raw.length - 1];
+    if (!last || last.role !== 'user' || last.content !== input) {
+      raw.push({ role: 'user', content: input });
+    }
+    const merged: Msg[] = [];
+    for (const m of raw) {
+      const prev = merged[merged.length - 1];
+      if (prev && prev.role === m.role) prev.content += '\n' + m.content;
+      else merged.push({ ...m });
+    }
+    while (merged.length && merged[0].role !== 'user') merged.shift(); // phải mở đầu bằng user
+    return merged;
+  }
 
+  private async readError(res: Response, provider: string): Promise<never> {
+    let detail = '';
+    try {
+      const j = await res.json();
+      detail = j?.error?.message || JSON.stringify(j).slice(0, 200);
+    } catch {
+      detail = res.statusText;
+    }
+    const err = new Error(`${provider} ${res.status}: ${detail}`);
+    console.error('[Mira Brain]', err.message);
+    throw err;
+  }
+
+  private async anthropic(input: string, history: BrainTurn[]): Promise<BrainReply> {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -51,34 +82,29 @@ export class LLMBrain implements Brain {
         model: this.model,
         max_tokens: 300,
         system: SYSTEM,
-        messages,
+        messages: this.buildMessages(input, history),
       }),
     });
-    if (!res.ok) throw new Error(`anthropic ${res.status}`);
+    if (!res.ok) await this.readError(res, 'Anthropic');
     const data = await res.json();
     const text = (data?.content?.[0]?.text ?? '').trim();
     return { text: text || 'Dạ em chưa rõ ý anh lắm.' };
   }
 
   private async openai(input: string, history: BrainTurn[]): Promise<BrainReply> {
-    const messages = [
-      { role: 'system', content: SYSTEM },
-      ...history.map((h) => ({
-        role: h.role === 'mira' ? 'assistant' : 'user',
-        content: h.text,
-      })),
-      { role: 'user', content: input },
-    ];
-
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         authorization: `Bearer ${this.apiKey}`,
       },
-      body: JSON.stringify({ model: this.model, max_tokens: 300, messages }),
+      body: JSON.stringify({
+        model: this.model,
+        max_tokens: 300,
+        messages: [{ role: 'system', content: SYSTEM }, ...this.buildMessages(input, history)],
+      }),
     });
-    if (!res.ok) throw new Error(`openai ${res.status}`);
+    if (!res.ok) await this.readError(res, 'OpenAI');
     const data = await res.json();
     const text = (data?.choices?.[0]?.message?.content ?? '').trim();
     return { text: text || 'Dạ em chưa rõ ý anh lắm.' };

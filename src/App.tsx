@@ -245,6 +245,8 @@ export default function App() {
         onClose={() => setShowConsole(false)}
         brainName={mira.brainName}
         onSaveLLM={mira.applyLLMConfig}
+        onSaveTTS={mira.applyTTSConfig}
+        onTestBrain={mira.testBrain}
         onTestVoice={mira.testVoice}
         getDiagnostics={mira.ttsDiagnostics}
       />

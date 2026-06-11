@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
-import type { TTSDiagnostics } from '../core/tts/webspeech-tts';
+import { loadTTSConfig, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   brainName: string;
   onSaveLLM: (cfg: LLMConfig) => void;
+  onSaveTTS: (cfg: TTSConfig) => void;
+  onTestBrain: () => Promise<string>;
   onTestVoice: () => void;
   getDiagnostics: () => TTSDiagnostics;
 }
 
 export default function DevConsole({
-  open, onClose, brainName, onSaveLLM, onTestVoice, getDiagnostics,
+  open, onClose, brainName, onSaveLLM, onSaveTTS, onTestBrain, onTestVoice, getDiagnostics,
 }: Props) {
   const initial = useMemo(() => (open ? loadLLMConfig() : null), [open]);
   const [provider, setProvider] = useState<LLMConfig['provider']>('anthropic');
@@ -20,6 +22,11 @@ export default function DevConsole({
   const [model, setModel] = useState('');
   const [saved, setSaved] = useState<string | null>(null);
   const [diag, setDiag] = useState<TTSDiagnostics | null>(null);
+  const [brainTest, setBrainTest] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [ttsEngine, setTtsEngine] = useState<TTSConfig['engine']>('system');
+  const [ttsKey, setTtsKey] = useState('');
+  const [ttsSaved, setTtsSaved] = useState<string | null>(null);
 
   // Nạp config hiện tại mỗi lần mở popup.
   useEffect(() => {
@@ -28,6 +35,11 @@ export default function DevConsole({
     setApiKey(initial.apiKey);
     setModel(initial.model);
     setSaved(null);
+    setBrainTest(null);
+    const t = loadTTSConfig();
+    setTtsEngine(t.engine);
+    setTtsKey(t.apiKey);
+    setTtsSaved(null);
   }, [initial]);
 
   // Live cập nhật bảng chẩn đoán TTS trong lúc popup mở.
@@ -59,6 +71,20 @@ export default function DevConsole({
     setModel('');
     onSaveLLM({ provider: '', apiKey: '', model: '' });
     setSaved('Đã xoá key — quay về brain demo.');
+  };
+  const runBrainTest = async () => {
+    setTesting(true);
+    setBrainTest('Đang gọi…');
+    setBrainTest(await onTestBrain());
+    setTesting(false);
+  };
+  const saveTts = () => {
+    onSaveTTS({ engine: ttsEngine, apiKey: ttsKey.trim(), voiceId: '' });
+    setTtsSaved(
+      ttsEngine === 'elevenlabs' && ttsKey.trim()
+        ? 'Đã đổi sang giọng ElevenLabs — bấm Đọc thử để nghe.'
+        : 'Đang dùng giọng hệ thống (miễn phí).',
+    );
   };
 
   return (
@@ -102,7 +128,8 @@ export default function DevConsole({
           <div className="modal-actions">
             <button className="mbtn primary" onClick={save}>Lưu</button>
             <button className="mbtn" onClick={clear}>Xoá key</button>
-            <span className="modal-status">{saved ?? `Đang chạy: ${brainName}`}</span>
+            <button className="mbtn" onClick={runBrainTest} disabled={testing}>🧠 Kiểm tra bộ não</button>
+            <span className="modal-status">{brainTest ?? saved ?? `Đang chạy: ${brainName}`}</span>
           </div>
           <div className="modal-note">
             ⚠️ Key lưu trong localStorage của trình duyệt và gọi LLM trực tiếp từ trang — chỉ dùng cho
@@ -111,21 +138,44 @@ export default function DevConsole({
         </div>
 
         <div className="modal-sec">
-          <div className="modal-tl">Kiểm tra giọng nói</div>
+          <div className="modal-tl">Giọng nói</div>
+          <div className="modal-row">
+            <label>Engine</label>
+            <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value as TTSConfig['engine'])}>
+              <option value="system">Giọng hệ thống (miễn phí)</option>
+              <option value="elevenlabs">ElevenLabs (tự nhiên hơn)</option>
+            </select>
+          </div>
+          {ttsEngine === 'elevenlabs' && (
+            <div className="modal-row">
+              <label>ElevenLabs key</label>
+              <input
+                type="password"
+                value={ttsKey}
+                onChange={(e) => setTtsKey(e.target.value)}
+                placeholder="xi-…  (free tier ~10k ký tự/tháng)"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          )}
           <div className="modal-actions">
-            <button className="mbtn primary" onClick={onTestVoice}>🔊 Đọc thử</button>
-            {diag && (
+            <button className="mbtn primary" onClick={saveTts}>Lưu giọng</button>
+            <button className="mbtn" onClick={onTestVoice}>🔊 Đọc thử</button>
+            {(ttsSaved || diag) && (
               <span className="modal-status">
-                giọng: {diag.voices} ({diag.viVoices} vi) · {diag.speaking ? 'ĐANG NÓI' : diag.pending ? 'chờ' : 'im'}
-                {diag.paused ? ' · PAUSED' : ''}
-                {diag.lastError ? ` · lỗi: ${diag.lastError}` : ''}
+                {ttsSaved ? `${ttsSaved} · ` : ''}
+                {diag &&
+                  `giọng: ${diag.voices} (${diag.viVoices} vi) · ${diag.speaking ? 'ĐANG NÓI' : diag.pending ? 'chờ' : 'im'}${diag.paused ? ' · PAUSED' : ''}${diag.lastError ? ` · lỗi: ${diag.lastError}` : ''}`}
               </span>
             )}
           </div>
           <div className="modal-note">
-            Không nghe thấy gì khi bấm Đọc thử? Kiểm tra: âm lượng máy &amp; thiết bị output đúng loa,
-            tab Chrome không bị tắt tiếng (chuột phải tab → Unmute), và System Settings → Spotlight/Siri
-            không chiếm mic. Nếu "ĐANG NÓI" hiện mà vẫn im → máy đang xuất âm ra thiết bị khác.
+            Giọng hệ thống (Linh) là giọng máy của macOS — muốn tự nhiên hẳn, chọn ElevenLabs (đăng ký
+            free tại elevenlabs.io → Profile → API key) rồi chọn giọng ở thanh dưới màn hình.
+            Không nghe thấy gì khi bấm Đọc thử? Kiểm tra: âm lượng máy &amp; đúng thiết bị output,
+            tab Chrome không bị tắt tiếng (chuột phải tab → Unmute). "ĐANG NÓI" hiện mà vẫn im →
+            máy đang xuất âm ra thiết bị khác.
           </div>
         </div>
       </div>

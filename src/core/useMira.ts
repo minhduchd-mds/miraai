@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
 import { WebSpeechSTT } from './stt/webspeech-stt';
-import { WebSpeechTTS, type TTSDiagnostics } from './tts/webspeech-tts';
+import {
+  createTTS,
+  saveTTSConfig,
+  type MiraTTS,
+  type TTSConfig,
+  type TTSDiagnostics,
+} from './tts';
 import { createBrain, saveLLMConfig, type LLMConfig } from './brain';
 
 const LANG = 'vi-VN';
@@ -24,10 +30,10 @@ const DEMO_COPY: Record<MiraState, { who: string; txt: string }> = {
 
 export function useMira() {
   const sttRef = useRef<WebSpeechSTT | null>(null);
-  const ttsRef = useRef<WebSpeechTTS | null>(null);
+  const ttsRef = useRef<MiraTTS | null>(null);
   const brainRef = useRef<ReturnType<typeof createBrain> | null>(null);
   if (!sttRef.current) sttRef.current = new WebSpeechSTT();
-  if (!ttsRef.current) ttsRef.current = new WebSpeechTTS();
+  if (!ttsRef.current) ttsRef.current = createTTS();
   if (!brainRef.current) brainRef.current = createBrain();
 
   const [state, setStateRaw] = useState<MiraState>('idle');
@@ -74,9 +80,10 @@ export function useMira() {
   }, []);
 
   // Nạp danh sách giọng vi-VN (getVoices() thường rỗng cho tới khi 'voiceschanged' bắn).
+  // Đọc ttsRef động để vẫn đúng sau khi hot-swap engine giọng.
   useEffect(() => {
-    const tts = ttsRef.current!;
     const load = () => {
+      const tts = ttsRef.current!;
       const vi = tts.listVoices('vi');
       const list = vi.length ? vi : tts.listVoices();
       setVoices(list);
@@ -127,6 +134,29 @@ export function useMira() {
   }, []);
   const ttsDiagnostics = useCallback((): TTSDiagnostics => ttsRef.current!.diagnostics(), []);
 
+  // Developer Console: đổi engine giọng (hệ thống ⇄ ElevenLabs) — hot-swap như brain.
+  const applyTTSConfig = useCallback((cfg: TTSConfig) => {
+    saveTTSConfig(cfg);
+    ttsRef.current?.cancel();
+    ttsRef.current = createTTS();
+    const vi = ttsRef.current.listVoices('vi');
+    const list = vi.length ? vi : ttsRef.current.listVoices();
+    setVoices(list);
+    const pick = (cfg.voiceId && list.find((v) => v.voiceURI === cfg.voiceId)) || list[0];
+    voiceURIRef.current = pick?.voiceURI;
+    setVoiceURI(pick?.voiceURI);
+  }, []);
+
+  // Developer Console: gọi thử bộ não 1 câu, trả kết quả/lỗi THẬT để chẩn đoán tại chỗ.
+  const testBrain = useCallback(async (): Promise<string> => {
+    try {
+      const r = await brainRef.current!.reply('Chào em, em nghe rõ không?', []);
+      return `OK — "${r.text.slice(0, 90)}"`;
+    } catch (e) {
+      return `LỖI: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }, []);
+
   // MỘT timer "nghe lại trễ" duy nhất cho cả vòng live lẫn barge-in.
   // clear-before-arm (chỉ lượt mới nhất tồn tại) + guard tại thời điểm bắn
   // → không bao giờ có 2 lượt nghe chồng nhau, và mọi điểm dừng đều huỷ được nó.
@@ -165,6 +195,15 @@ export function useMira() {
     schedulePendingListen(RESTART_DELAY, () => liveRef.current);
   }, [schedulePendingListen]);
 
+  // Văn bản ĐỌC: bỏ markdown/emoji lọt lưới (giọng đọc ký tự lạ nghe rất "AI").
+  const cleanForSpeech = (s: string) =>
+    s
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [text](link) → text
+      .replace(/[*_`#>~|]/g, '')
+      .replace(/\p{Extended_Pictographic}/gu, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
   const speak = useCallback(
     (text: string) => {
       sttRef.current!.abort(); // nhả mic trước khi nói (half-duplex: không nghe trong lúc nói → hết echo)
@@ -173,8 +212,9 @@ export function useMira() {
       setCaption(text);
       setState('speaking');
       ttsRef.current!.speak({
-        text,
+        text: cleanForSpeech(text) || text,
         lang: LANG,
+        rate: 1.04, // giọng hệ thống đọc hơi lê thê — nhanh nhẹ lên nghe tự nhiên hơn
         voiceURI: voiceURIRef.current,
         onEnd: () => {
           if (stateRef.current !== 'speaking') return;
@@ -194,6 +234,9 @@ export function useMira() {
   const handleUtterance = useCallback(
     async (text: string) => {
       emptyCountRef.current = 0; // người dùng có nói → reset bộ đếm im lặng
+      // QUAN TRỌNG: chốt history TRƯỚC khi push lượt hiện tại — LLMBrain sẽ tự append input.
+      // (bug cũ: push trước rồi truyền history chứa luôn input → user nhân đôi → Anthropic 400)
+      const prior = historyRef.current;
       pushHistory({ role: 'user', text });
       setWho('MIRA');
       setPartial(false);
@@ -202,14 +245,17 @@ export function useMira() {
       setState('thinking');
       const t0 = performance.now();
       try {
-        const reply = await brainRef.current!.reply(text, historyRef.current);
+        const reply = await brainRef.current!.reply(text, prior);
         setLatencyMs(Math.round(performance.now() - t0));
         if (stateRef.current !== 'thinking') return; // bị ngắt lúc đang nghĩ → bỏ
         setMoodBoth(reply.mood || 'neutral');
         pushHistory({ role: 'mira', text: reply.text });
         speak(reply.text);
-      } catch {
+      } catch (e) {
         setLatencyMs(Math.round(performance.now() - t0));
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[Mira Brain] reply failed:', e);
+        setError(`Bộ não lỗi: ${msg.slice(0, 160)}`); // hiện lý do thật trên errbar
         if (stateRef.current === 'thinking')
           speak('Xin lỗi anh, bộ não của em đang trục trặc. Anh thử lại giúp em nhé.');
       }
@@ -381,6 +427,8 @@ export function useMira() {
     ttsAvailable: ttsRef.current!.available,
     brainName,
     applyLLMConfig,
+    applyTTSConfig,
+    testBrain,
     testVoice,
     ttsDiagnostics,
     toggleMic,
