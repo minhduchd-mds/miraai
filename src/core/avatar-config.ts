@@ -113,14 +113,12 @@ export function saveAvatarSel(s: AvatarSel): void {
   }
 }
 
-// Model 3D cho lựa chọn (rỗng nếu chưa có → dùng look 2D).
+// Mỗi bộ một model 3D: public/avatars/<gender>-<scene>-<outfit>.vrm.
+// Chưa có file → VRMAvatar tự lùi về model idol mặc định (sân khấu luôn là 3D).
 export function resolveAvatarUrl(s: AvatarSel): string {
-  return KNOWN_3D[key(s)] || FALLBACK_AVATAR;
+  return KNOWN_3D[key(s)] || `/avatars/${key(s)}.vrm`;
 }
-export function has3DModel(s: AvatarSel): boolean {
-  return !!KNOWN_3D[key(s)];
-}
-// Ảnh 2D của bộ (fallback ảnh mặc định nếu chưa có).
+// Ảnh "look" 2D của bộ — CHỈ dùng để xem trước trong Cài đặt (sân khấu ngoài luôn 3D).
 export function lookImage(s: AvatarSel): string {
   return LOOKS[key(s)] || FALLBACK_LOOK;
 }

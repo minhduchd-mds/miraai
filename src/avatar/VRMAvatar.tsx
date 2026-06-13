@@ -6,6 +6,7 @@ import { VRM, VRMUtils, VRMLoaderPlugin } from '@pixiv/three-vrm';
 import type { MiraState, Mood } from '../core/types';
 import { audioLevel } from '../core/audio-level';
 import { faceData } from '../core/face/face-tracker';
+import { FALLBACK_AVATAR } from '../core/avatar-config';
 import { LipSync } from './lipsync';
 import { applyHologram } from './hologram';
 
@@ -85,35 +86,43 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
     let disposed = false;
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
-    loader.load(
-      url,
-      (gltf) => {
-        const v = gltf.userData.vrm as VRM;
-        VRMUtils.combineSkeletons(gltf.scene);
-        VRMUtils.removeUnnecessaryVertices(gltf.scene);
-        // Model VRM0 này quay mặt sẵn về +Z (đúng hướng camera) → KHÔNG gọi rotateVRM0.
-        v.scene.traverse((o) => (o.frustumCulled = false));
-        if (disposed) {
-          VRMUtils.deepDispose(v.scene);
-          return;
-        }
-        relaxPose(v); // hạ tay khỏi T-pose
-        if (import.meta.env.DEV) (window as any).__vrm = v; // debug 3D trong dev
-        applyHologram(v.scene, accent);
-        // Model idol đã chỉnh sẵn texture (áo lavender/trắng, mặt sạch) → KHÔNG ép màu/tô môi/nâng sáng
-        // như model mẫu nữa, để texture mới hiện đúng. (brightenBody/recolorClothes/beautifyFace vẫn còn
-        // trong hologram.ts nếu cần bật lại cho model khác.)
-        if (v.lookAt) v.lookAt.target = lookTargetRef.current; // mắt nhìn theo target
-        vrmRef.current = v;
-        setVrm(v);
-        onLoaded?.();
-      },
-      undefined,
-      (err) => {
+
+    const onSuccess = (gltf: any) => {
+      const v = gltf.userData.vrm as VRM;
+      VRMUtils.combineSkeletons(gltf.scene);
+      VRMUtils.removeUnnecessaryVertices(gltf.scene);
+      // Model VRM0 này quay mặt sẵn về +Z (đúng hướng camera) → KHÔNG gọi rotateVRM0.
+      v.scene.traverse((o) => (o.frustumCulled = false));
+      if (disposed) {
+        VRMUtils.deepDispose(v.scene);
+        return;
+      }
+      relaxPose(v); // hạ tay khỏi T-pose
+      if (import.meta.env.DEV) (window as any).__vrm = v; // debug 3D trong dev
+      applyHologram(v.scene, accent);
+      // Model đã chỉnh sẵn texture → KHÔNG ép màu/tô môi/nâng sáng (brightenBody/recolorClothes/
+      // beautifyFace vẫn còn trong hologram.ts nếu cần bật lại cho model khác).
+      if (v.lookAt) v.lookAt.target = lookTargetRef.current; // mắt nhìn theo target
+      vrmRef.current = v;
+      setVrm(v);
+      onLoaded?.();
+    };
+
+    // Bộ chưa có model riêng (404/ lỗi) → tự lùi về model idol mặc định; idol cũng lỗi → fallback 2D.
+    loader.load(url, onSuccess, undefined, (err) => {
+      if (disposed) return;
+      if (url !== FALLBACK_AVATAR) {
+        console.warn('[Mira VRM] chưa có model cho bộ này → dùng idol mặc định.', url);
+        loader.load(FALLBACK_AVATAR, onSuccess, undefined, (e2) => {
+          console.warn('[Mira VRM] load idol mặc định cũng lỗi:', e2);
+          if (!disposed) onError?.();
+        });
+      } else {
         console.warn('[Mira VRM] load failed:', err);
-        if (!disposed) onError?.();
-      },
-    );
+        onError?.();
+      }
+    });
+
     return () => {
       disposed = true;
       if (vrmRef.current) VRMUtils.deepDispose(vrmRef.current.scene);

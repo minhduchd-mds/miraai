@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
 import { startFaceTracking, stopFaceTracking } from './core/face/face-tracker';
-import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, lookImage, has3DModel, sceneBg, type AvatarSel } from './core/avatar-config';
+import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, sceneBg, type AvatarSel } from './core/avatar-config';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
@@ -282,8 +282,6 @@ export default function App() {
         theme={theme}
         displayMode={displayMode}
         avatarUrl={avatarUrl}
-        lookImage={lookImage(avatarSel)}
-        has3D={has3DModel(avatarSel)}
         avatarOpacity={avatarOpacity}
       />
 

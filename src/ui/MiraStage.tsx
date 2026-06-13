@@ -13,13 +13,11 @@ interface Props {
   theme: Theme;
   displayMode: DisplayMode;
   avatarUrl: string;
-  lookImage: string;
-  has3D: boolean;
   avatarOpacity: number;
 }
 
 // Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar VRM 3D (hoặc orb giọng nói).
-export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme, displayMode, avatarUrl, lookImage, has3D, avatarOpacity }: Props) {
+export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme, displayMode, avatarUrl, avatarOpacity }: Props) {
   return (
     <main className="center">
       <div className="scene">
@@ -37,7 +35,7 @@ export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme,
         {displayMode === 'orb' ? (
           <MiraOrb stateRef={stateRef} theme={theme} />
         ) : (
-          <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} avatarUrl={avatarUrl} lookImage={lookImage} has3D={has3D} avatarOpacity={avatarOpacity} />
+          <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} avatarUrl={avatarUrl} avatarOpacity={avatarOpacity} />
         )}
 
         <div className="chip">
