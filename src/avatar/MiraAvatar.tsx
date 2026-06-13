@@ -18,6 +18,7 @@ interface Props {
   avatarUrl: string;
   lookImage: string; // ảnh 2D của bộ đang chọn (fallback khi tải/ lỗi, hoặc khi bộ chưa có model 3D)
   has3D: boolean; // bộ này có file .vrm riêng → hiện 3D; không thì hiện ảnh 2D
+  avatarOpacity: number; // "độ hiển thị" (0..1)
 }
 
 // Ảnh look 2D, tự lùi về ảnh mặc định nếu file chưa có.
@@ -48,21 +49,21 @@ function CameraRig({ target }: { target: [number, number, number] }) {
   return null;
 }
 
-export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, lookImage, has3D }: Props) {
+export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, lookImage, has3D, avatarOpacity }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const accent = THEME_ACCENT[theme];
 
   // Bộ chưa có model 3D → chỉ hiện ảnh "look" 2D trong sân khấu hologram (không 3D/xoay đầu).
   if (!has3D) {
-    return <img className="figure breathe" id="avatar" alt="Mira" src={lookImage} onError={lookOnError} />;
+    return <img className="figure breathe" id="avatar" alt="Mira" src={lookImage} onError={lookOnError} style={{ opacity: avatarOpacity }} />;
   }
 
   return (
     <>
       {/* Fallback 2D: hiện trong lúc tải VRM, hoặc khi 3D lỗi (progressive enhancement). */}
       {(!loaded || failed) && (
-        <img className="figure breathe" id="avatar" alt="Mira hologram" src={lookImage} onError={lookOnError} />
+        <img className="figure breathe" id="avatar" alt="Mira hologram" src={lookImage} onError={lookOnError} style={{ opacity: avatarOpacity }} />
       )}
 
       {!failed && (
@@ -72,7 +73,7 @@ export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, lookIm
             gl={{ alpha: true, antialias: true }}
             camera={{ position: [0, 0.86, 3.15], fov: 28, near: 0.1, far: 20 }}
             onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
-            style={{ opacity: loaded ? 1 : 0 }}
+            style={{ opacity: (loaded ? 1 : 0) * avatarOpacity }}
           >
             <CameraRig target={[0, 0.92, 0]} />
             <ambientLight intensity={1.8} />

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
 import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
-import { SCENES, GENDERS, OUTFITS, type AvatarSel } from '../core/avatar-config';
+import { SCENES, GENDERS, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
 import type { Theme } from '../core/types';
 
 // Model gợi ý theo nhà cung cấp (vẫn cho "tự nhập" để dùng model bất kỳ).
@@ -68,14 +68,18 @@ interface Props {
   onTheme: (t: Theme) => void;
   avatarSel: AvatarSel;
   onAvatarChange: (s: AvatarSel) => void;
+  avatarOpacity: number;
+  onAvatarOpacity: (v: number) => void;
 }
 
 export default function DevConsole({
   open, onClose, brainName, onSaveLLM, onSaveTTS, onTestBrain, onTestVoice, getDiagnostics,
-  theme, onTheme, avatarSel, onAvatarChange,
+  theme, onTheme, avatarSel, onAvatarChange, avatarOpacity, onAvatarOpacity,
 }: Props) {
   const initial = useMemo(() => (open ? loadLLMConfig() : null), [open]);
   const [tab, setTab] = useState<Tab>('interface');
+  const [previewKey, setPreviewKey] = useState(0); // bust cache ảnh khi "Làm mới"
+  const thumbRow = useRef<HTMLDivElement>(null);
   const [provider, setProvider] = useState<LLMConfig['provider']>('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
@@ -166,6 +170,18 @@ export default function DevConsole({
   const setGender = (gender: AvatarSel['gender']) =>
     onAvatarChange({ ...avatarSel, gender, outfit: OUTFITS[gender][avatarSel.scene][0].id });
   const setOutfit = (outfit: string) => onAvatarChange({ ...avatarSel, outfit });
+  const sceneOrder: Scene[] = ['office', 'home', 'intimate'];
+  const nextScene = () => setScene(sceneOrder[(sceneOrder.indexOf(avatarSel.scene) + 1) % sceneOrder.length]);
+  const nextOutfit = () => {
+    const i = outfits.findIndex((o) => o.id === avatarSel.outfit);
+    setOutfit(outfits[(i + 1) % outfits.length].id);
+  };
+  const lookOf = (outfit: string) => lookImage({ ...avatarSel, outfit }) + (previewKey ? `?k=${previewKey}` : '');
+  const onLookErr = (e: { currentTarget: HTMLImageElement }) => {
+    const t = e.currentTarget;
+    if (!t.src.includes('mira.webp')) t.src = '/avatars/mira.webp';
+  };
+  const scrollThumbs = (d: number) => thumbRow.current?.scrollBy({ left: d, behavior: 'smooth' });
 
   const setNotifyKey = (k: keyof NotifyCfg, v: boolean) => {
     const n = { ...notify, [k]: v };
@@ -200,9 +216,10 @@ export default function DevConsole({
           ))}
         </div>
 
-        {/* ── GIAO DIỆN: nhân vật + màu + giọng nói ── */}
+        {/* ── GIAO DIỆN: trái = điều khiển, phải = xem trước "hình mẫu áo" ── */}
         {tab === 'interface' && (
-          <>
+          <div className="iface-grid">
+            <div className="iface-left">
             <div className="modal-sec">
               <div className="modal-tl">Nhân vật</div>
               <div className="modal-sub">Bối cảnh</div>
@@ -293,7 +310,42 @@ export default function DevConsole({
                 </span>
               </label>
             </div>
-          </>
+            </div>{/* /iface-left */}
+
+            {/* PHẢI: xem trước hình mẫu áo + chọn model + độ hiển thị */}
+            <div className="iface-right">
+              <div className="preview-head">
+                <div className="modal-tl">Hình mẫu áo</div>
+                <button className="mbtn" onClick={() => setPreviewKey((k) => k + 1)} title="Tải lại ảnh">↻ Làm mới</button>
+              </div>
+              <div className="preview-card">
+                <img className="preview-img" src={lookOf(avatarSel.outfit)} alt="Xem trước trang phục" onError={onLookErr} />
+                <div className="preview-actions">
+                  <button onClick={nextOutfit} title="Đổi trang phục">👗<small>Thay đổi</small></button>
+                  <button title="Đổi tư thế (sắp có)">🧍<small>Tư thế</small></button>
+                  <button onClick={nextScene} title="Đổi bối cảnh / nền">🖼️<small>Nền</small></button>
+                </div>
+              </div>
+              <div className="modal-sub">Chọn model</div>
+              <div className="thumbs">
+                <button className="thumb-arrow" onClick={() => scrollThumbs(-180)} aria-label="Trước">‹</button>
+                <div className="thumb-row" ref={thumbRow}>
+                  {outfits.map((o) => (
+                    <button key={o.id} className="thumb" aria-pressed={avatarSel.outfit === o.id} onClick={() => setOutfit(o.id)} title={o.label}>
+                      <img src={lookOf(o.id)} alt={o.label} onError={onLookErr} />
+                    </button>
+                  ))}
+                </div>
+                <button className="thumb-arrow" onClick={() => scrollThumbs(180)} aria-label="Sau">›</button>
+              </div>
+              <div className="slider-row">
+                <span>Độ hiển thị</span>
+                <input type="range" min={20} max={100} value={Math.round(avatarOpacity * 100)}
+                  onChange={(e) => onAvatarOpacity(Number(e.target.value) / 100)} />
+                <span className="slider-val">{Math.round(avatarOpacity * 100)}%</span>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ── MODEL (LLM) ── */}

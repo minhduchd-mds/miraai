@@ -18,6 +18,7 @@ export default function App() {
   const [displayMode, setDisplayMode] = useState<'avatar' | 'orb'>('avatar');
   const [faceOn, setFaceOn] = useState(false);
   const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
+  const [avatarOpacity, setAvatarOpacity] = useState(1);
   const avatarUrl = resolveAvatarUrl(avatarSel);
   const onAvatarChange = (s: AvatarSel) => {
     setAvatarSel(s);
@@ -283,6 +284,7 @@ export default function App() {
         avatarUrl={avatarUrl}
         lookImage={lookImage(avatarSel)}
         has3D={has3DModel(avatarSel)}
+        avatarOpacity={avatarOpacity}
       />
 
       <VoiceDock
@@ -320,6 +322,8 @@ export default function App() {
         onTheme={setTheme}
         avatarSel={avatarSel}
         onAvatarChange={onAvatarChange}
+        avatarOpacity={avatarOpacity}
+        onAvatarOpacity={setAvatarOpacity}
       />
     </div>
   );
