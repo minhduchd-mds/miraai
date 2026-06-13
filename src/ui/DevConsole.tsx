@@ -326,10 +326,7 @@ export default function DevConsole({
               </div>
               <label className="modal-check">
                 <input type="checkbox" checked={vadOn} onChange={(e) => { setVadOn(e.target.checked); saveVadEnabled(e.target.checked); }} />
-                <span>
-                  <b>Ngắt lời bằng giọng (VAD — thử nghiệm).</b> Mira đang nói mà anh cất tiếng là em dừng ngay
-                  (full-duplex như Grok). Lần đầu tải model ~1–2MB. Nên đeo tai nghe.
-                </span>
+                <span><b>Ngắt lời bằng giọng (VAD)</b></span>
               </label>
             </div>
             </div>{/* /iface-left */}
