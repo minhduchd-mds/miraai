@@ -242,7 +242,7 @@ export default function App() {
           >
             {displayMode === 'orb' ? '🧍 Avatar' : '🔮 Orb'}
           </button>
-          <button className="console" onClick={() => setShowConsole(true)}>⌘ <span className="lbl">Developer Console</span></button>
+          <button className="console" onClick={() => setShowConsole(true)}>⌘ <span className="lbl">Cài đặt</span></button>
         </div>
       </header>
 

@@ -3,6 +3,21 @@ import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
 import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 
+// Model gợi ý theo nhà cung cấp (vẫn cho "tự nhập" để dùng model bất kỳ).
+const MODELS: Record<'anthropic' | 'openai', { id: string; label: string }[]> = {
+  anthropic: [
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 — cân bằng' },
+    { id: 'claude-opus-4-8', label: 'Claude Opus 4.8 — mạnh nhất' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 — nhanh nhất' },
+  ],
+  openai: [
+    { id: 'gpt-4o-mini', label: 'GPT-4o mini — nhanh, rẻ' },
+    { id: 'gpt-4o', label: 'GPT-4o' },
+    { id: 'gpt-4.1-mini', label: 'GPT-4.1 mini' },
+  ],
+};
+const CUSTOM = '__custom__';
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -21,6 +36,7 @@ export default function DevConsole({
   const [provider, setProvider] = useState<LLMConfig['provider']>('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
+  const [custom, setCustom] = useState(false); // Model: chọn "Khác (tự nhập)"
   const [saved, setSaved] = useState<string | null>(null);
   const [diag, setDiag] = useState<TTSDiagnostics | null>(null);
   const [brainTest, setBrainTest] = useState<string | null>(null);
@@ -34,9 +50,11 @@ export default function DevConsole({
   // Nạp config hiện tại mỗi lần mở popup.
   useEffect(() => {
     if (!initial) return;
+    const p = initial.provider || 'anthropic';
     setProvider(initial.provider || 'anthropic');
     setApiKey(initial.apiKey);
     setModel(initial.model);
+    setCustom(!!initial.model && !MODELS[p as 'anthropic' | 'openai'].some((m) => m.id === initial.model));
     setSaved(null);
     setBrainTest(null);
     const t = loadTTSConfig();
@@ -74,6 +92,7 @@ export default function DevConsole({
   const clear = () => {
     setApiKey('');
     setModel('');
+    setCustom(false);
     onSaveLLM({ provider: '', apiKey: '', model: '' });
     setSaved('Đã xoá key — quay về brain demo.');
   };
@@ -98,9 +117,9 @@ export default function DevConsole({
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-label="Developer Console">
+      <div className="modal" role="dialog" aria-label="Cài đặt">
         <div className="modal-head">
-          <b>⌘ Developer Console</b>
+          <b>⌘ Cài đặt</b>
           <button className="modal-x" onClick={onClose} aria-label="Đóng">✕</button>
         </div>
 
@@ -108,7 +127,14 @@ export default function DevConsole({
           <div className="modal-tl">Bộ não (LLM)</div>
           <div className="modal-row">
             <label>Nhà cung cấp</label>
-            <select value={provider} onChange={(e) => setProvider(e.target.value as LLMConfig['provider'])}>
+            <select
+              value={provider}
+              onChange={(e) => {
+                setProvider(e.target.value as LLMConfig['provider']);
+                setModel(''); // đổi nhà cung cấp → về model mặc định (danh sách khác nhau)
+                setCustom(false);
+              }}
+            >
               <option value="anthropic">Claude (Anthropic)</option>
               <option value="openai">OpenAI</option>
             </select>
@@ -126,14 +152,40 @@ export default function DevConsole({
           </div>
           <div className="modal-row">
             <label>Model</label>
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder={defaultModelFor(provider) || 'mặc định'}
-              spellCheck={false}
-            />
+            <select
+              value={custom ? CUSTOM : model}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === CUSTOM) {
+                  setCustom(true);
+                  setModel('');
+                } else {
+                  setCustom(false);
+                  setModel(v);
+                }
+              }}
+            >
+              <option value="">Mặc định ({defaultModelFor(provider)})</option>
+              {MODELS[provider as 'anthropic' | 'openai'].map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+              <option value={CUSTOM}>Khác (tự nhập)…</option>
+            </select>
           </div>
+          {custom && (
+            <div className="modal-row">
+              <label>Tên model</label>
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={defaultModelFor(provider) || 'nhập tên model'}
+                spellCheck={false}
+              />
+            </div>
+          )}
           <div className="modal-actions">
             <button className="mbtn primary" onClick={save}>Lưu</button>
             <button className="mbtn" onClick={clear}>Xoá key</button>

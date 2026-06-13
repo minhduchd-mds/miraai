@@ -26,7 +26,7 @@ python -m venv .venv ; .\.venv\Scripts\pip install -r requirements.txt
 $env:MIRA_TTS_ENGINE='edge' ; .\.venv\Scripts\uvicorn main:app --port 8017
 ```
 
-Rồi trong app: **⌘ Developer Console → Giọng nói → Edge — Microsoft → Lưu giọng → 🔊 Đọc thử.**
+Rồi trong app: **⌘ Cài đặt → Giọng nói → Edge — Microsoft → Lưu giọng → 🔊 Đọc thử.**
 Chọn Hoài My (nữ) / Nam Minh (nam) ở thanh dưới. Miệng Mira khớp âm thanh thật (AnalyserNode).
 
 ## VieNeu (bảo mật cao, self-host)
