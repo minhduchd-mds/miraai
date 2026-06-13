@@ -196,10 +196,19 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 /* ---- Developer Console modal ---- */
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
   background: color-mix(in srgb, var(--bg) 62%, transparent); backdrop-filter: blur(6px); }
-.modal { width: min(940px, 96vw); max-height: 90vh; overflow-y: auto; border-radius: 16px; background: var(--bg2);
+.modal { width: min(1040px, 96vw); max-height: 90vh; overflow-y: auto; border-radius: 16px; background: var(--bg2);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5), 0 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
-  padding: 18px 22px 18px; }
+  padding: 18px 22px 18px;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 40%, transparent) transparent; }
+
+/* Thanh cuộn mảnh, không nền (modal + hàng cuộn ngang + menu dropdown) */
+.modal::-webkit-scrollbar, .scroll-x::-webkit-scrollbar, .dd-menu::-webkit-scrollbar { width: 6px; height: 6px; }
+.modal::-webkit-scrollbar-track, .scroll-x::-webkit-scrollbar-track, .dd-menu::-webkit-scrollbar-track { background: transparent; }
+.modal::-webkit-scrollbar-thumb, .scroll-x::-webkit-scrollbar-thumb, .dd-menu::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 32%, transparent); border-radius: 999px; }
+.modal::-webkit-scrollbar-thumb:hover, .scroll-x::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.scroll-x { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 32%, transparent) transparent; }
 
 /* tabs */
 .modal-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 6px; }
@@ -222,12 +231,13 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 /* Trang phục chọn bằng ảnh (thumbnail có hình) — cuộn ngang */
 .opt-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
 .opt-thumbs.scroll-x { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
-.opt-thumb { flex: none; width: 86px; display: flex; flex-direction: column; padding: 0; cursor: pointer; overflow: hidden;
+.opt-thumb { flex: none; width: 116px; display: flex; flex-direction: column; padding: 0; cursor: pointer; overflow: hidden;
   background: var(--glass); border: 2px solid var(--stroke); border-radius: 12px; transition: 0.18s; }
 .opt-thumb:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .opt-thumb[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent); }
 .opt-thumb img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; background: var(--bg); }
-.opt-thumb span { font-size: 10.5px; color: var(--dim); padding: 4px 3px 5px; text-align: center; line-height: 1.2; }
+.opt-thumb span { font-size: 11px; color: var(--dim); padding: 5px 6px 6px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .opt-thumb[aria-pressed='true'] span { color: var(--text); }
 
 /* Hàng thẻ cuộn ngang (giọng nói) + thẻ tính cách icon + khối Nâng cao */
@@ -253,8 +263,12 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 .guide b { color: var(--text); font-weight: 600; }
 
 /* Giao diện 2 cột: trái điều khiển, phải xem trước */
-.iface-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 24px; align-items: start; }
-@media (max-width: 760px) { .iface-grid { grid-template-columns: 1fr; } }
+.iface-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; align-items: start; }
+.iface-left { align-self: start; position: sticky; top: 0; }
+@media (max-width: 760px) {
+  .iface-grid { grid-template-columns: 1fr; }
+  .iface-left { position: static; }
+}
 .iface-left .modal-sec:first-child { border-top: none; padding-top: 0; }
 
 .preview-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 8px; }
