@@ -3,7 +3,12 @@ import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
 import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 import { SCENES, GENDERS, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
+import { voicePrefs, saveVoicePrefs, SPEEDS, PERSONAS } from '../core/voice-prefs';
 import type { Theme, VoiceOption, MiraState } from '../core/types';
+
+// Rút gọn tên giọng cho thẻ + sub mô tả ngắn.
+const shortVoice = (n: string) => n.replace(/Microsoft\s+/i, '').replace(/\s*[-–].*$/, '').trim() || n;
+const voiceSub = (v: VoiceOption) => (v.lang?.toLowerCase().startsWith('vi') ? 'Tiếng Việt' : v.lang || 'Hệ thống');
 
 const STATE_BTNS: { go: MiraState; label: string; warn?: boolean }[] = [
   { go: 'idle', label: 'Idle' },
@@ -158,6 +163,9 @@ export default function DevConsole({
   const [ttsSaved, setTtsSaved] = useState<string | null>(null);
   const [vadOn, setVadOn] = useState(false);
   const [notify, setNotify] = useState<NotifyCfg>({});
+  const [rate, setRate] = useState(voicePrefs.rate);
+  const [persona, setPersona] = useState(voicePrefs.persona);
+  const [showAdv, setShowAdv] = useState(false);
 
   useEffect(() => {
     if (!initial) return;
@@ -176,6 +184,8 @@ export default function DevConsole({
     setTtsSaved(null);
     setVadOn(loadVadEnabled());
     setNotify(loadNotify());
+    setRate(voicePrefs.rate);
+    setPersona(voicePrefs.persona);
   }, [initial]);
 
   useEffect(() => {
@@ -327,53 +337,80 @@ export default function DevConsole({
 
             <div className="modal-sec">
               <div className="modal-tl">Giọng nói</div>
-              <div className="modal-row">
-                <label>Engine</label>
-                <Dropdown
-                  value={ttsEngine}
-                  onChange={(v) => setTtsEngine(v as TTSConfig['engine'])}
-                  options={[
-                    { value: 'system', label: 'Giọng hệ thống (miễn phí)' },
-                    { value: 'edge', label: 'Edge — Microsoft (tiếng Việt, free)' },
-                    { value: 'vieneu', label: 'VieNeu — server nhà (bảo mật)' },
-                    { value: 'elevenlabs', label: 'ElevenLabs (cloud, cần key)' },
-                  ]}
-                />
-              </div>
-              {ttsEngine === 'elevenlabs' && (
-                <div className="modal-row">
-                  <label>ElevenLabs key</label>
-                  <input type="password" value={ttsKey} onChange={(e) => setTtsKey(e.target.value)}
-                    placeholder="xi-…  (free tier ~10k ký tự/tháng)" autoComplete="off" spellCheck={false} />
+
+              <div className="modal-sub">Chọn giọng (tự nhận thiết bị)</div>
+              {voices.length > 0 ? (
+                <div className="opt-row scroll-x">
+                  {voices.map((v) => (
+                    <button key={v.voiceURI} className="opt" aria-pressed={voiceURI === v.voiceURI} onClick={() => onSelectVoice(v.voiceURI)}>
+                      {shortVoice(v.name)}
+                      <small>{voiceSub(v)}</small>
+                    </button>
+                  ))}
                 </div>
-              )}
-              {(ttsEngine === 'vieneu' || ttsEngine === 'edge') && (
-                <div className="modal-row">
-                  <label>Server URL</label>
-                  <input type="text" value={ttsServer} onChange={(e) => setTtsServer(e.target.value)}
-                    placeholder={ttsEngine === 'edge' ? EDGE_DEFAULT_URL : VIENEU_DEFAULT_URL} spellCheck={false} />
-                </div>
-              )}
-              {voices.length > 0 && (
-                <div className="modal-row">
-                  <label>Chọn giọng</label>
-                  <Dropdown
-                    value={voiceURI ?? ''}
-                    onChange={onSelectVoice}
-                    options={voices.map((v) => ({ value: v.voiceURI, label: `${v.name} (${v.lang})` }))}
-                  />
-                </div>
+              ) : (
+                <div className="modal-note" style={{ marginTop: 0 }}>Đang dò giọng của thiết bị…</div>
               )}
               <div className="modal-actions">
-                <button className="mbtn primary" onClick={saveTts}>Lưu giọng</button>
                 <button className="mbtn" onClick={onTestVoice}>🔊 Đọc thử</button>
-                {(ttsSaved || diag) && (
+                {diag && (
                   <span className="modal-status">
-                    {ttsSaved ? `${ttsSaved} · ` : ''}
-                    {diag && `giọng: ${diag.voices} (${diag.viVoices} vi) · ${diag.speaking ? 'ĐANG NÓI' : diag.pending ? 'chờ' : 'im'}${diag.paused ? ' · PAUSED' : ''}${diag.lastError ? ` · lỗi: ${diag.lastError}` : ''}`}
+                    {`${diag.voices} giọng (${diag.viVoices} vi) · ${diag.speaking ? 'ĐANG NÓI' : diag.pending ? 'chờ' : 'im'}${diag.lastError ? ` · lỗi: ${diag.lastError}` : ''}`}
                   </span>
                 )}
               </div>
+
+              <div className="modal-sub">Tốc độ</div>
+              <div className="opt-row">
+                {SPEEDS.map((s) => (
+                  <button key={s.id} className="opt" aria-pressed={Math.abs(rate - s.rate) < 0.01}
+                    onClick={() => { setRate(s.rate); saveVoicePrefs({ rate: s.rate }); }}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="modal-sub">Tính cách</div>
+              <div className="opt-row">
+                {PERSONAS.map((p) => (
+                  <button key={p.id} className="opt opt-ic" aria-pressed={persona === p.id}
+                    onClick={() => { setPersona(p.id); saveVoicePrefs({ persona: p.id }); }}>
+                    <b className="ic">{p.icon}</b>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <button className="adv-toggle" aria-pressed={showAdv} onClick={() => setShowAdv((v) => !v)}>
+                ⚙ Nâng cao {showAdv ? '▲' : '▾'}
+              </button>
+              {showAdv && (
+                <div className="adv-box">
+                  <div className="modal-row">
+                    <label>Engine</label>
+                    <Dropdown value={ttsEngine} onChange={(v) => setTtsEngine(v as TTSConfig['engine'])}
+                      options={[
+                        { value: 'system', label: 'Giọng hệ thống (miễn phí)' },
+                        { value: 'edge', label: 'Edge — Microsoft (tiếng Việt, free)' },
+                        { value: 'vieneu', label: 'VieNeu — server nhà (bảo mật)' },
+                        { value: 'elevenlabs', label: 'ElevenLabs (cloud, cần key)' },
+                      ]} />
+                  </div>
+                  {ttsEngine === 'elevenlabs' && (
+                    <div className="modal-row"><label>ElevenLabs key</label>
+                      <input type="password" value={ttsKey} onChange={(e) => setTtsKey(e.target.value)} placeholder="xi-…" autoComplete="off" spellCheck={false} /></div>
+                  )}
+                  {(ttsEngine === 'vieneu' || ttsEngine === 'edge') && (
+                    <div className="modal-row"><label>Server URL</label>
+                      <input type="text" value={ttsServer} onChange={(e) => setTtsServer(e.target.value)} placeholder={ttsEngine === 'edge' ? EDGE_DEFAULT_URL : VIENEU_DEFAULT_URL} spellCheck={false} /></div>
+                  )}
+                  <div className="modal-actions">
+                    <button className="mbtn primary" onClick={saveTts}>Lưu giọng</button>
+                    {ttsSaved && <span className="modal-status">{ttsSaved}</span>}
+                  </div>
+                </div>
+              )}
+
               <label className="modal-check">
                 <input type="checkbox" checked={vadOn} onChange={(e) => { setVadOn(e.target.checked); saveVadEnabled(e.target.checked); }} />
                 <span><b>Ngắt lời bằng giọng (VAD)</b></span>

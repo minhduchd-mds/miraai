@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
 import { WebSpeechSTT } from './stt/webspeech-stt';
 import { startMicLevel, stopMicLevel } from './audio-level';
+import { voicePrefs, loadVoicePrefs } from './voice-prefs';
 import { SileroVAD } from './vad/silero-vad';
 import { loadVadEnabled } from './vad/config';
 import {
@@ -99,6 +100,11 @@ export function useMira() {
     load();
     window.speechSynthesis?.addEventListener?.('voiceschanged', load);
     return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', load);
+  }, []);
+
+  // Nạp tốc độ/tính cách giọng (dùng cho speak() và brain).
+  useEffect(() => {
+    loadVoicePrefs();
   }, []);
 
   // Dọn dẹp khi unmount: dừng mọi thứ.
@@ -226,7 +232,7 @@ export function useMira() {
       ttsRef.current!.speak({
         text: cleanForSpeech(text) || text,
         lang: LANG,
-        rate: 1.04, // giọng hệ thống đọc hơi lê thê — nhanh nhẹ lên nghe tự nhiên hơn
+        rate: voicePrefs.rate, // tốc độ theo Cài đặt (mặc định bình thường)
         voiceURI: voiceURIRef.current,
         onEnd: () => {
           if (stateRef.current !== 'speaking') return;

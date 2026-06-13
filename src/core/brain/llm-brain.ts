@@ -1,4 +1,5 @@
 import type { Brain, BrainReply, BrainTurn } from '../types';
+import { voicePrefs, personaTone } from '../voice-prefs';
 
 // Prompt voice-first (đề xuất #5): câu trả lời sẽ được ĐỌC lên → phải ngắn, văn nói tự nhiên.
 const SYSTEM = `Bạn là Mira — trợ lý giọng nói tiếng Việt của sản phẩm Soi (công cụ audit giao diện).
@@ -34,6 +35,12 @@ export class LLMBrain implements Brain {
     return this.provider === 'anthropic'
       ? this.anthropic(input, history)
       : this.openai(input, history);
+  }
+
+  // System prompt + tông giọng theo "tính cách" đang chọn (đọc live).
+  private sys(): string {
+    const tone = personaTone(voicePrefs.persona);
+    return tone ? `${SYSTEM}\n${tone}` : SYSTEM;
   }
 
   // Dựng messages an toàn:
@@ -84,7 +91,7 @@ export class LLMBrain implements Brain {
       body: JSON.stringify({
         model: this.model,
         max_tokens: this.webSearch ? 500 : 300,
-        system: SYSTEM,
+        system: this.sys(),
         messages: this.buildMessages(input, history),
         // Web search tool (server-side): Claude tự quyết khi nào tìm — chỉ search khi cần thông tin mới.
         ...(this.webSearch
@@ -114,7 +121,7 @@ export class LLMBrain implements Brain {
       body: JSON.stringify({
         model: this.model,
         max_tokens: 300,
-        messages: [{ role: 'system', content: SYSTEM }, ...this.buildMessages(input, history)],
+        messages: [{ role: 'system', content: this.sys() }, ...this.buildMessages(input, history)],
       }),
     });
     if (!res.ok) await this.readError(res, 'OpenAI');

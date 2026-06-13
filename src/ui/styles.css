@@ -228,6 +228,17 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 .opt-thumb img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; background: var(--bg); }
 .opt-thumb span { font-size: 10.5px; color: var(--dim); padding: 4px 3px 5px; text-align: center; line-height: 1.2; }
 .opt-thumb[aria-pressed='true'] span { color: var(--text); }
+
+/* Hàng thẻ cuộn ngang (giọng nói) + thẻ tính cách icon + khối Nâng cao */
+.opt-row.scroll-x { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.opt-row.scroll-x .opt { flex: none; min-width: 92px; }
+.opt.opt-ic { text-align: center; min-width: 78px; }
+.opt-ic .ic { display: block; font-size: 20px; line-height: 1; margin-bottom: 3px; font-weight: 400; }
+.adv-toggle { margin-top: 10px; font-family: 'Inter'; font-size: 12px; font-weight: 600; color: var(--dim);
+  background: var(--glass); border: 1px solid var(--stroke); border-radius: 9px; padding: 7px 12px; cursor: pointer; transition: 0.18s; }
+.adv-toggle:hover { color: var(--text); }
+.adv-toggle[aria-pressed='true'] { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.adv-box { margin-top: 10px; padding: 12px; border: 1px dashed var(--stroke); border-radius: 11px; }
 .opt.sw-opt::before { content: ''; display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px;
   vertical-align: -1px; }
 .opt.sw-opt.nova::before { background: conic-gradient(from 180deg, #38e1ff, #b66bff, #38e1ff); }
