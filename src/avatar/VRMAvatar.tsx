@@ -59,6 +59,7 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
   const [vrm, setVrm] = useState<VRM | null>(null);
   const vrmRef = useRef<VRM | null>(null);
   const facingRef = useRef(FACING_Y); // VRM0 (nữ) quay π; VRM1 (nam) quay 0 để cùng hướng camera
+  const vrm1Ref = useRef(false); // model VRM1 (nam) → hologram nhẹ (đặc, không tint mặt)
   const lip = useRef(new LipSync());
   const clock = useRef(0);
   const blink = useRef({ t: 0, next: 2 + Math.random() * 3, prog: -1 });
@@ -100,12 +101,12 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
       }
       relaxPose(v); // hạ tay khỏi T-pose
       if (import.meta.env.DEV) (window as any).__vrm = v; // debug 3D trong dev
-      applyHologram(v.scene, accent);
-      // Model đã chỉnh sẵn texture → KHÔNG ép màu/tô môi/nâng sáng (brightenBody/recolorClothes/
-      // beautifyFace vẫn còn trong hologram.ts nếu cần bật lại cho model khác).
+      // VRM1 (nam) khác VRM0 (nữ): hướng mặt ngược + tên material khác (tránh xanh mặt) → dùng hologram nhẹ.
+      const isV1 = (v.meta as { metaVersion?: string } | undefined)?.metaVersion === '1';
+      vrm1Ref.current = isV1;
+      facingRef.current = isV1 ? 0 : Math.PI;
+      applyHologram(v.scene, accent, { gentle: isV1 });
       if (v.lookAt) v.lookAt.target = lookTargetRef.current; // mắt nhìn theo target
-      // VRM1 (nam) có hướng mặc định ngược VRM0 → không xoay π nữa để cùng quay về camera.
-      facingRef.current = (v.meta as { metaVersion?: string } | undefined)?.metaVersion === '1' ? 0 : Math.PI;
       vrmRef.current = v;
       setVrm(v);
       onLoaded?.();
@@ -137,7 +138,7 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
 
   // Đổi theme → nhuộm lại hologram (da/tóc); body + quần áo (_bright) giữ độ sáng cố định.
   useEffect(() => {
-    if (vrmRef.current) applyHologram(vrmRef.current.scene, accent);
+    if (vrmRef.current) applyHologram(vrmRef.current.scene, accent, { gentle: vrm1Ref.current });
   }, [accent]);
 
   useFrame((_, delta) => {

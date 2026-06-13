@@ -218,7 +218,12 @@ export function beautifyFace(root: Object3D) {
   });
 }
 
-export function applyHologram(root: Object3D, accentHex: string, opacity = 0.9) {
+// gentle=true (model VRM1, ví dụ nam): GIỮ NGUYÊN BẢN — đặc (không trong suốt → hết "rời đầu"),
+// KHÔNG tint màu (hết mặt/da ngả xanh), chỉ thêm glow accent rất nhẹ cho hợp tông hologram.
+// gentle=false (VRM0, nữ): hologram đầy đủ như cũ.
+export function applyHologram(root: Object3D, accentHex: string, opts?: { gentle?: boolean; opacity?: number }) {
+  const gentle = opts?.gentle ?? false;
+  const opacity = opts?.opacity ?? 0.9;
   const accent = new THREE.Color(accentHex);
   root.traverse((obj: any) => {
     if (obj.isMesh) obj.renderOrder = 2;
@@ -243,6 +248,21 @@ export function applyHologram(root: Object3D, accentHex: string, opacity = 0.9) 
         };
       }
       const o = m[FLAG];
+
+      if (gentle) {
+        // Khôi phục độ đặc + màu gốc, chỉ thêm glow nhẹ.
+        m.transparent = o.transparent;
+        m.opacity = o.opacity;
+        m.depthWrite = o.depthWrite;
+        if (m.color && o.color) m.color.copy(o.color);
+        if (m.emissive) {
+          m.emissive.copy(accent).multiplyScalar(0.1);
+          if ('emissiveIntensity' in m) m.emissiveIntensity = 0.3;
+        }
+        m.needsUpdate = true;
+        return;
+      }
+
       m.transparent = true;
       m.opacity = opacity;
       m.depthWrite = false;
