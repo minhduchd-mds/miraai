@@ -275,11 +275,6 @@ export default function DevConsole({
                   </button>
                 ))}
               </div>
-              <div className="modal-note">
-                Đổi trang phục chỉ hiện hình khi đã có file model tương ứng trong
-                <code> public/avatars/ </code> (tên <code>&lt;giới tính&gt;-&lt;bối cảnh&gt;-&lt;trang phục&gt;.vrm</code>);
-                chưa có thì giữ model hiện tại. Mục 18+ chỉ là nhãn phân loại.
-              </div>
             </div>
 
             <div className="modal-sec">
