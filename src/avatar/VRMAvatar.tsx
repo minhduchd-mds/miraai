@@ -7,7 +7,7 @@ import type { MiraState, Mood } from '../core/types';
 import { audioLevel } from '../core/audio-level';
 import { faceData } from '../core/face/face-tracker';
 import { LipSync } from './lipsync';
-import { applyHologram, beautifyFace, brightenBody, recolorClothes } from './hologram';
+import { applyHologram } from './hologram';
 
 // Model quay mặt về -Z, camera ở +Z → xoay 180° để quay mặt về camera.
 const FACING_Y = Math.PI;
@@ -100,9 +100,9 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
         relaxPose(v); // hạ tay khỏi T-pose
         if (import.meta.env.DEV) (window as any).__vrm = v; // debug 3D trong dev
         applyHologram(v.scene, accent);
-        brightenBody(v.scene); // nâng sáng tất/găng bake trong texture da → chân tay sáng
-        recolorClothes(v.scene, '#FFFFFF'); // váy áo trắng sáng (theo ảnh tham chiếu)
-        beautifyFace(v.scene); // môi hồng + khoang miệng hồng
+        // Model idol đã chỉnh sẵn texture (áo lavender/trắng, mặt sạch) → KHÔNG ép màu/tô môi/nâng sáng
+        // như model mẫu nữa, để texture mới hiện đúng. (brightenBody/recolorClothes/beautifyFace vẫn còn
+        // trong hologram.ts nếu cần bật lại cho model khác.)
         if (v.lookAt) v.lookAt.target = lookTargetRef.current; // mắt nhìn theo target
         vrmRef.current = v;
         setVrm(v);
