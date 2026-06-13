@@ -124,7 +124,12 @@ export function has3DModel(s: AvatarSel): boolean {
 export function lookImage(s: AvatarSel): string {
   return LOOKS[key(s)] || FALLBACK_LOOK;
 }
-// Ảnh nền theo bối cảnh (public/scenes/<scene>.jpg). Không có file → giữ nền gradient.
+// Ảnh nền theo bối cảnh (public/scenes/). Thân mật mượn nền phòng ngủ. Thiếu file → giữ gradient.
+const SCENE_BG: Record<Scene, string> = {
+  office: '/scenes/office.png',
+  home: '/scenes/home.png',
+  intimate: '/scenes/home.png',
+};
 export function sceneBg(scene: Scene): string {
-  return `/scenes/${scene}.jpg`;
+  return SCENE_BG[scene];
 }
