@@ -65,9 +65,14 @@ export const FALLBACK_LOOK = '/avatars/mira.webp';
 const LS = 'mira.avatar';
 const DEFAULT: AvatarSel = { gender: 'female', scene: 'home', outfit: 'idol' };
 
-// Model 3D (.vrm) đã có. Mặc định: idol = model hiện tại. Thêm dòng khi thả thêm .vrm.
+// Model 3D (.vrm) đã có, map theo bộ. Tên file của anh khác quy ước nên đăng ký ở đây
+// (sai bộ nào chỉ cần sửa đường dẫn 1 dòng). Bộ không có ở đây → tự lùi về idol.
 const KNOWN_3D: Record<string, string> = {
-  'female-home-idol': FALLBACK_AVATAR,
+  'female-home-idol': '/avatars/mira_female_01_idol_nova.vrm',
+  'female-home-sweater': '/avatars/mira_female_02_lavender_lounge.vrm',
+  'female-intimate-nightgown': '/avatars/mira_female_03_aurora_blue.vrm',
+  'female-intimate-lingerie': '/avatars/mira_female_04_soft_rose.vrm',
+  'female-intimate-maid': '/avatars/mira_female_05_iris_maid.vrm',
 };
 
 // Ảnh "look" 2D cho từng bộ (đặt trong public/looks/). Bộ chưa có ảnh → dùng ảnh mặc định.
