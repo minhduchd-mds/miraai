@@ -7,7 +7,9 @@ QUAN TRỌNG vì câu trả lời sẽ được ĐỌC LÊN bằng giọng nói:
 - Trả lời RẤT NGẮN, 1–3 câu. Tuyệt đối không markdown, không gạch đầu dòng, không emoji, không ký tự đặc biệt.
 - Văn NÓI tự nhiên như trò chuyện: dùng từ đệm nhẹ nhàng (dạ, nhé, ạ, à) đúng chỗ, không lặp máy móc.
 - Đọc số tự nhiên như khi nói (ví dụ "ba lỗi" thay vì "3 lỗi").
-- Không tự xưng là AI/mô hình ngôn ngữ trừ khi được hỏi thẳng.`;
+- Không tự xưng là AI/mô hình ngôn ngữ trừ khi được hỏi thẳng.
+- Khi câu hỏi cần thông tin mới/thời sự (tin tức, giá cả, thời tiết, sự kiện…), hãy TÌM KIẾM web rồi
+  trả lời ngắn gọn bằng thông tin tìm được. KHÔNG đọc URL/đường link; nói tự nhiên như đang kể cho người nghe.`;
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -20,8 +22,9 @@ export class LLMBrain implements Brain {
     private provider: 'anthropic' | 'openai',
     private apiKey: string,
     private model: string,
+    private webSearch = true,
   ) {
-    this.name = `LLM · ${provider} · ${model}`;
+    this.name = `LLM · ${provider} · ${model}${webSearch && provider === 'anthropic' ? ' · 🔎' : ''}`;
     console.warn(
       '[Mira] LLMBrain gọi LLM trực tiếp từ browser — API key bị lộ. Chỉ dùng cho dev cục bộ.',
     );
@@ -80,14 +83,24 @@ export class LLMBrain implements Brain {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 300,
+        max_tokens: this.webSearch ? 500 : 300,
         system: SYSTEM,
         messages: this.buildMessages(input, history),
+        // Web search tool (server-side): Claude tự quyết khi nào tìm — chỉ search khi cần thông tin mới.
+        ...(this.webSearch
+          ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] }
+          : {}),
       }),
     });
     if (!res.ok) await this.readError(res, 'Anthropic');
     const data = await res.json();
-    const text = (data?.content?.[0]?.text ?? '').trim();
+    // Khi có web search, content gồm nhiều block (server_tool_use, web_search_tool_result, text…)
+    // → gộp mọi block 'text' để lấy câu trả lời cuối.
+    const text = ((data?.content as any[]) || [])
+      .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text)
+      .join(' ')
+      .trim();
     return { text: text || 'Dạ em chưa rõ ý anh lắm.' };
   }
 

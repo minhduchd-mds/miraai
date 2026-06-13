@@ -37,6 +37,7 @@ export default function DevConsole({
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [custom, setCustom] = useState(false); // Model: chọn "Khác (tự nhập)"
+  const [webSearch, setWebSearch] = useState(true); // cho Mira tìm kiếm web (như Grok)
   const [saved, setSaved] = useState<string | null>(null);
   const [diag, setDiag] = useState<TTSDiagnostics | null>(null);
   const [brainTest, setBrainTest] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function DevConsole({
     setApiKey(initial.apiKey);
     setModel(initial.model);
     setCustom(!!initial.model && !MODELS[p as 'anthropic' | 'openai'].some((m) => m.id === initial.model));
+    setWebSearch(initial.webSearch);
     setSaved(null);
     setBrainTest(null);
     const t = loadTTSConfig();
@@ -86,14 +88,14 @@ export default function DevConsole({
   if (!open) return null;
 
   const save = () => {
-    onSaveLLM({ provider, apiKey: apiKey.trim(), model: model.trim() });
+    onSaveLLM({ provider, apiKey: apiKey.trim(), model: model.trim(), webSearch });
     setSaved(apiKey.trim() ? 'Đã lưu — bộ não LLM đang chạy.' : 'Đã xoá key — quay về brain demo.');
   };
   const clear = () => {
     setApiKey('');
     setModel('');
     setCustom(false);
-    onSaveLLM({ provider: '', apiKey: '', model: '' });
+    onSaveLLM({ provider: '', apiKey: '', model: '', webSearch });
     setSaved('Đã xoá key — quay về brain demo.');
   };
   const runBrainTest = async () => {
@@ -192,6 +194,13 @@ export default function DevConsole({
             <button className="mbtn" onClick={runBrainTest} disabled={testing}>🧠 Kiểm tra bộ não</button>
             <span className="modal-status">{brainTest ?? saved ?? `Đang chạy: ${brainName}`}</span>
           </div>
+          <label className="modal-check">
+            <input type="checkbox" checked={webSearch} onChange={(e) => setWebSearch(e.target.checked)} />
+            <span>
+              <b>Tìm kiếm web (như Grok).</b> Mira tự tra thông tin mới (tin tức, thời tiết, giá…) khi câu
+              hỏi cần rồi trả lời gọn. Hỗ trợ Claude (Anthropic); bấm <b>Lưu</b> để áp dụng.
+            </span>
+          </label>
           <div className="modal-note">
             ⚠️ Key lưu trong localStorage của trình duyệt và gọi LLM trực tiếp từ trang — chỉ dùng cho
             máy cá nhân/dev. Bản production sẽ gọi qua server proxy.
@@ -260,15 +269,6 @@ export default function DevConsole({
               tai nghe để tránh em tự cắt lời vì nghe thấy chính mình.
             </span>
           </label>
-          <div className="modal-note">
-            Máy không có giọng tiếng Việt? Dễ &amp; tự nhiên nhất: <b>Edge</b> (Microsoft, free, không cần
-            key/GPU) — chạy server nhẹ trong <code>server/</code> (<code>MIRA_TTS_ENGINE=edge</code>, chỉ cần
-            <code> pip install edge-tts</code>). Bảo mật cao (dữ liệu không ra ngoài): <b>VieNeu</b> self-host.
-            Cả hai đều cho miệng Mira khớp âm thanh thật. Nhanh gọn cloud: ElevenLabs (key free tại elevenlabs.io).
-            Không nghe thấy gì khi bấm Đọc thử? Kiểm tra: âm lượng máy &amp; đúng thiết bị output,
-            tab Chrome không bị tắt tiếng (chuột phải tab → Unmute). "ĐANG NÓI" hiện mà vẫn im →
-            máy đang xuất âm ra thiết bị khác.
-          </div>
         </div>
       </div>
     </div>
