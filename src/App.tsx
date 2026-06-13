@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
 import { startFaceTracking, stopFaceTracking } from './core/face/face-tracker';
+import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, type AvatarSel } from './core/avatar-config';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
@@ -16,6 +17,12 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>('nova');
   const [displayMode, setDisplayMode] = useState<'avatar' | 'orb'>('avatar');
   const [faceOn, setFaceOn] = useState(false);
+  const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
+  const avatarUrl = resolveAvatarUrl(avatarSel);
+  const onAvatarChange = (s: AvatarSel) => {
+    setAvatarSel(s);
+    saveAvatarSel(s);
+  };
   const [simulating, setSimulating] = useState(false);
 
   // Webcam lái avatar (chế độ gương). Tắt camera khi rời trang.
@@ -255,6 +262,7 @@ export default function App() {
         moodRef={mira.moodRef}
         theme={theme}
         displayMode={displayMode}
+        avatarUrl={avatarUrl}
       />
 
       <VoiceDock
@@ -277,9 +285,7 @@ export default function App() {
         onToggleLive={handleToggleLive}
       />
 
-      <div className="note">
-        Avatar 2D placeholder — chỗ gắn VRM real-time + lip-sync (§4). Voice loop đang chạy thật qua Web Speech API.
-      </div>
+
 
       <DevConsole
         open={showConsole}
@@ -290,6 +296,10 @@ export default function App() {
         onTestBrain={mira.testBrain}
         onTestVoice={mira.testVoice}
         getDiagnostics={mira.ttsDiagnostics}
+        theme={theme}
+        onTheme={setTheme}
+        avatarSel={avatarSel}
+        onAvatarChange={onAvatarChange}
       />
     </div>
   );

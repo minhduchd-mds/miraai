@@ -12,10 +12,11 @@ interface Props {
   moodRef: MutableRefObject<Mood>;
   theme: Theme;
   displayMode: DisplayMode;
+  avatarUrl: string;
 }
 
 // Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar VRM 3D (hoặc orb giọng nói).
-export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme, displayMode }: Props) {
+export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme, displayMode, avatarUrl }: Props) {
   return (
     <main className="center">
       <div className="scene">
@@ -33,7 +34,7 @@ export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme,
         {displayMode === 'orb' ? (
           <MiraOrb stateRef={stateRef} theme={theme} />
         ) : (
-          <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} />
+          <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} avatarUrl={avatarUrl} />
         )}
 
         <div className="chip">

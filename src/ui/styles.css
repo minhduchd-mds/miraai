@@ -189,10 +189,39 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 /* ---- Developer Console modal ---- */
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
   background: color-mix(in srgb, var(--bg) 62%, transparent); backdrop-filter: blur(6px); }
-.modal { width: min(480px, 92vw); border-radius: 16px; background: var(--bg2);
+.modal { width: min(680px, 94vw); max-height: 88vh; overflow-y: auto; border-radius: 16px; background: var(--bg2);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5), 0 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
-  padding: 18px 20px 16px; }
+  padding: 18px 22px 18px; }
+
+/* tabs */
+.modal-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 6px; }
+.modal-tab { font-family: 'Inter'; font-size: 13px; font-weight: 600; color: var(--dim); cursor: pointer;
+  background: var(--glass); border: 1px solid var(--stroke); border-radius: 10px; padding: 8px 15px; transition: 0.18s; }
+.modal-tab:hover { color: var(--text); }
+.modal-tab[aria-selected='true'] { color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+
+/* sub-label trong section + chip lựa chọn */
+.modal-sub { font-size: 12px; color: var(--dim); margin: 10px 0 7px; }
+.opt-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.opt { font-family: 'Inter'; font-size: 13px; font-weight: 500; color: var(--dim); cursor: pointer; text-align: left;
+  background: var(--glass); border: 1px solid var(--stroke); border-radius: 11px; padding: 9px 14px; transition: 0.18s; }
+.opt:hover { color: var(--text); }
+.opt[aria-pressed='true'] { color: var(--text); background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.opt small { display: block; color: var(--faint); font-size: 10.5px; margin-top: 2px; font-weight: 400; }
+.opt.sw-opt::before { content: ''; display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px;
+  vertical-align: -1px; }
+.opt.sw-opt.nova::before { background: conic-gradient(from 180deg, #38e1ff, #b66bff, #38e1ff); }
+.opt.sw-opt.aura::before { background: conic-gradient(from 180deg, #9a7bff, #5fe7c4, #9a7bff); }
+.opt.sw-opt.ember::before { background: conic-gradient(from 180deg, #2fd9c9, #ffb23e, #2fd9c9); }
+.opt.sw-opt.iris::before { background: conic-gradient(from 180deg, #7c8cff, #c9b6ff, #7c8cff); }
+
+/* hướng dẫn */
+.guide { list-style: none; font-size: 13px; color: var(--dim); line-height: 1.65; }
+.guide li { margin: 6px 0; }
+.guide b { color: var(--text); font-weight: 600; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .modal-head b { font-family: 'Be Vietnam Pro'; font-size: 15px; letter-spacing: 0.3px; }
 .modal-x { background: none; border: none; color: var(--dim); font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 7px; }

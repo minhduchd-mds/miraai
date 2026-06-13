@@ -3,8 +3,6 @@ import { Canvas, useThree } from '@react-three/fiber';
 import type { MiraState, Mood, Theme } from '../core/types';
 import VRMAvatar from './VRMAvatar';
 
-const VRM_URL = '/avatars/mira.vrm';
-
 // Accent theo theme (khớp các biến --accent trong styles.css) để nhuộm hologram.
 const THEME_ACCENT: Record<Theme, string> = {
   nova: '#38E1FF',
@@ -17,6 +15,7 @@ interface Props {
   stateRef: MutableRefObject<MiraState>;
   moodRef: MutableRefObject<Mood>;
   theme: Theme;
+  avatarUrl: string;
 }
 
 // Bắt lỗi WebGL/render → rớt về fallback 2D thay vì vỡ cả app.
@@ -41,7 +40,7 @@ function CameraRig({ target }: { target: [number, number, number] }) {
   return null;
 }
 
-export default function MiraAvatar({ stateRef, moodRef, theme }: Props) {
+export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const accent = THEME_ACCENT[theme];
@@ -67,7 +66,7 @@ export default function MiraAvatar({ stateRef, moodRef, theme }: Props) {
             <directionalLight position={[1.5, 2.5, 2]} intensity={1.5} />
             <directionalLight position={[-2, 1, -1]} intensity={0.5} color={accent} />
             <VRMAvatar
-              url={VRM_URL}
+              url={avatarUrl}
               stateRef={stateRef}
               moodRef={moodRef}
               accent={accent}
