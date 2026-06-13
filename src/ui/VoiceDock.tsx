@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import type { MiraState, Theme, VoiceOption } from '../core/types';
 
 interface Props {
@@ -34,6 +34,7 @@ export default function VoiceDock({
   voices, voiceURI, onSelectVoice, onMic, onGoState, onSimulate, simulating,
   theme, onTheme, live, onToggleLive,
 }: Props) {
+  const [showDebug, setShowDebug] = useState(false);
   return (
     <footer className="dock">
       <div className="caption" aria-live="polite">
@@ -73,26 +74,8 @@ export default function VoiceDock({
         )}
       </div>
 
+      {/* Hàng điều khiển tối giản (kiểu Grok): chỉ giọng + màu + nút "⋯" mở công cụ demo. */}
       <div className="controls">
-        <div className="seg" role="group" aria-label="Trạng thái demo">
-          {STATE_BTNS.map((b) => (
-            <button
-              key={b.go}
-              className={b.warn ? 'warn' : undefined}
-              aria-pressed={state === b.go}
-              onClick={() => onGoState(b.go, b.go === 'speaking')}
-            >
-              {b.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="seg">
-          <button onClick={onSimulate}>
-            {simulating ? '■ Dừng' : '▶ Mô phỏng hội thoại'}
-          </button>
-        </div>
-
         {voices.length > 0 && (
           <select
             className="vsel"
@@ -108,7 +91,6 @@ export default function VoiceDock({
           </select>
         )}
 
-        <div className="sep" />
         <div className="themes">
           <span className="tl">Màu</span>
           {(['nova', 'aura', 'ember', 'iris'] as const).map((t) => (
@@ -121,7 +103,39 @@ export default function VoiceDock({
             />
           ))}
         </div>
+
+        <button
+          className="dbg-toggle"
+          aria-pressed={showDebug}
+          onClick={() => setShowDebug((v) => !v)}
+          title="Công cụ demo (trạng thái + mô phỏng)"
+        >
+          ⋯
+        </button>
       </div>
+
+      {/* Công cụ demo — ẩn mặc định để giao diện gọn như Grok voice. */}
+      {showDebug && (
+        <div className="controls dbg">
+          <div className="seg" role="group" aria-label="Trạng thái demo">
+            {STATE_BTNS.map((b) => (
+              <button
+                key={b.go}
+                className={b.warn ? 'warn' : undefined}
+                aria-pressed={state === b.go}
+                onClick={() => onGoState(b.go, b.go === 'speaking')}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+          <div className="seg">
+            <button onClick={onSimulate}>
+              {simulating ? '■ Dừng' : '▶ Mô phỏng hội thoại'}
+            </button>
+          </div>
+        </div>
+      )}
     </footer>
   );
 }

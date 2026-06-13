@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
-import { loadTTSConfig, VIENEU_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
+import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
+import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 
 interface Props {
   open: boolean;
@@ -28,6 +29,7 @@ export default function DevConsole({
   const [ttsKey, setTtsKey] = useState('');
   const [ttsServer, setTtsServer] = useState('');
   const [ttsSaved, setTtsSaved] = useState<string | null>(null);
+  const [vadOn, setVadOn] = useState(false);
 
   // Nạp config hiện tại mỗi lần mở popup.
   useEffect(() => {
@@ -42,6 +44,7 @@ export default function DevConsole({
     setTtsKey(t.apiKey);
     setTtsServer(t.serverUrl);
     setTtsSaved(null);
+    setVadOn(loadVadEnabled());
   }, [initial]);
 
   // Live cập nhật bảng chẩn đoán TTS trong lúc popup mở.
@@ -83,11 +86,13 @@ export default function DevConsole({
   const saveTts = () => {
     onSaveTTS({ engine: ttsEngine, apiKey: ttsKey.trim(), voiceId: '', serverUrl: ttsServer.trim() });
     setTtsSaved(
-      ttsEngine === 'vieneu'
-        ? 'Đã đổi sang VieNeu (server nhà) — bấm Đọc thử để nghe.'
-        : ttsEngine === 'elevenlabs' && ttsKey.trim()
-          ? 'Đã đổi sang giọng ElevenLabs — bấm Đọc thử để nghe.'
-          : 'Đang dùng giọng hệ thống (miễn phí).',
+      ttsEngine === 'edge'
+        ? 'Đã đổi sang Edge (Microsoft) — chạy server/ rồi bấm Đọc thử để nghe.'
+        : ttsEngine === 'vieneu'
+          ? 'Đã đổi sang VieNeu (server nhà) — bấm Đọc thử để nghe.'
+          : ttsEngine === 'elevenlabs' && ttsKey.trim()
+            ? 'Đã đổi sang giọng ElevenLabs — bấm Đọc thử để nghe.'
+            : 'Đang dùng giọng hệ thống (miễn phí).',
     );
   };
 
@@ -147,6 +152,7 @@ export default function DevConsole({
             <label>Engine</label>
             <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value as TTSConfig['engine'])}>
               <option value="system">Giọng hệ thống (miễn phí)</option>
+              <option value="edge">Edge — Microsoft (tiếng Việt tự nhiên, free)</option>
               <option value="vieneu">VieNeu — server nhà (tự nhiên, bảo mật)</option>
               <option value="elevenlabs">ElevenLabs (cloud, cần key)</option>
             </select>
@@ -164,14 +170,14 @@ export default function DevConsole({
               />
             </div>
           )}
-          {ttsEngine === 'vieneu' && (
+          {(ttsEngine === 'vieneu' || ttsEngine === 'edge') && (
             <div className="modal-row">
               <label>Server URL</label>
               <input
                 type="text"
                 value={ttsServer}
                 onChange={(e) => setTtsServer(e.target.value)}
-                placeholder={VIENEU_DEFAULT_URL}
+                placeholder={ttsEngine === 'edge' ? EDGE_DEFAULT_URL : VIENEU_DEFAULT_URL}
                 spellCheck={false}
               />
             </div>
@@ -187,10 +193,26 @@ export default function DevConsole({
               </span>
             )}
           </div>
+          <label className="modal-check">
+            <input
+              type="checkbox"
+              checked={vadOn}
+              onChange={(e) => {
+                setVadOn(e.target.checked);
+                saveVadEnabled(e.target.checked);
+              }}
+            />
+            <span>
+              <b>Ngắt lời bằng giọng (VAD — thử nghiệm).</b> Bật rồi vào “Trò chuyện trực tiếp”: Mira đang
+              nói mà anh cất tiếng là em dừng ngay (full-duplex như Grok). Lần đầu tải model ~1–2MB. Nên đeo
+              tai nghe để tránh em tự cắt lời vì nghe thấy chính mình.
+            </span>
+          </label>
           <div className="modal-note">
-            Giọng hệ thống (Linh) là giọng máy của macOS. Tự nhiên + bảo mật nhất: <b>VieNeu</b> — chạy
-            server trong thư mục <code>server/</code> của repo (xem server/README.md) rồi chọn ở trên;
-            miệng Mira sẽ khớp âm thanh thật. Nhanh gọn cloud: ElevenLabs (key free tại elevenlabs.io).
+            Máy không có giọng tiếng Việt? Dễ &amp; tự nhiên nhất: <b>Edge</b> (Microsoft, free, không cần
+            key/GPU) — chạy server nhẹ trong <code>server/</code> (<code>MIRA_TTS_ENGINE=edge</code>, chỉ cần
+            <code> pip install edge-tts</code>). Bảo mật cao (dữ liệu không ra ngoài): <b>VieNeu</b> self-host.
+            Cả hai đều cho miệng Mira khớp âm thanh thật. Nhanh gọn cloud: ElevenLabs (key free tại elevenlabs.io).
             Không nghe thấy gì khi bấm Đọc thử? Kiểm tra: âm lượng máy &amp; đúng thiết bị output,
             tab Chrome không bị tắt tiếng (chuột phải tab → Unmute). "ĐANG NÓI" hiện mà vẫn im →
             máy đang xuất âm ra thiết bị khác.

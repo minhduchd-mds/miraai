@@ -1,6 +1,9 @@
 import type { RefObject, MutableRefObject } from 'react';
 import type { MiraState, Mood, Theme } from '../core/types';
 import MiraAvatar from '../avatar/MiraAvatar';
+import MiraOrb from '../avatar/MiraOrb';
+
+export type DisplayMode = 'avatar' | 'orb';
 
 interface Props {
   chip: string;
@@ -8,10 +11,11 @@ interface Props {
   stateRef: MutableRefObject<MiraState>;
   moodRef: MutableRefObject<Mood>;
   theme: Theme;
+  displayMode: DisplayMode;
 }
 
-// Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar VRM 3D (fallback 2D bên trong).
-export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme }: Props) {
+// Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar VRM 3D (hoặc orb giọng nói).
+export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme, displayMode }: Props) {
   return (
     <main className="center">
       <div className="scene">
@@ -26,7 +30,11 @@ export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme 
 
         <div className="footglow" ref={footglowRef} />
 
-        <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} />
+        {displayMode === 'orb' ? (
+          <MiraOrb stateRef={stateRef} theme={theme} />
+        ) : (
+          <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} />
+        )}
 
         <div className="chip">
           <b />

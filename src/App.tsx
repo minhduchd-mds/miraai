@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
+import { audioLevel } from './core/audio-level';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
@@ -12,6 +13,7 @@ export default function App() {
   const { stateRef } = mira;
 
   const [theme, setTheme] = useState<Theme>('nova');
+  const [displayMode, setDisplayMode] = useState<'avatar' | 'orb'>('avatar');
   const [simulating, setSimulating] = useState(false);
   const simTimers = useRef<number[]>([]);
   const [showConsole, setShowConsole] = useState(false);
@@ -48,11 +50,15 @@ export default function App() {
     const loop = () => {
       t += 0.06;
       const state = stateRef.current;
+      // Biên độ ÂM THẬT khi Mira đang nói (Edge/VieNeu/ElevenLabs gắn AnalyserNode) → reactive
+      // kiểu Grok thay vì sóng sin giả. -1 = không có nguồn thật (giọng hệ thống) → dùng envelope.
+      const live = audioLevel.active ? audioLevel.value : -1;
+      const speakGain = live >= 0 ? 0.4 + live * 1.7 : 1;
       for (let i = 0; i < N_BARS; i++) {
         let h = 6;
         const center = Math.abs(i - N_BARS / 2) / (N_BARS / 2);
         if (state === 'listening') h = 8 + Math.abs(Math.sin(t * 2 + i * 0.5)) * 26 * (1 - center * 0.6) * (0.6 + Math.random() * 0.5);
-        else if (state === 'speaking') h = 8 + Math.abs(Math.sin(t * 3 + i * 0.9) + Math.sin(t * 1.7 + i * 0.3)) * 16 * (1 - center * 0.5);
+        else if (state === 'speaking') h = (8 + Math.abs(Math.sin(t * 3 + i * 0.9) + Math.sin(t * 1.7 + i * 0.3)) * 16 * (1 - center * 0.5)) * speakGain;
         else if (state === 'thinking') h = 8 + Math.max(0, Math.sin(t * 4 - i * 0.6)) * 18;
         else if (state === 'interrupted' || state === 'error') h = 6;
         else h = 6 + Math.sin(t * 0.8 + i * 0.4) * 3;
@@ -66,6 +72,8 @@ export default function App() {
       else if (state === 'thinking') amp = 0.3 + Math.abs(Math.sin(t * 1.4)) * 0.2;
       else if (state === 'interrupted' || state === 'error') amp = 0.04;
       else amp = 0.12 + Math.sin(t * 0.8) * 0.05;
+      // Override bằng biên độ thật khi đang nói → orb mic + footglow nảy đúng theo giọng Mira.
+      if (live >= 0 && state === 'speaking') amp = 0.18 + live * 0.9;
 
       const mic = micRef.current;
       const active = state === 'listening' || state === 'speaking' || state === 'thinking';
@@ -74,7 +82,9 @@ export default function App() {
           mic.style.transform = 'scale(' + (1 + amp * 0.14).toFixed(3) + ')';
           mic.style.boxShadow =
             '0 0 0 ' + (8 + amp * 14).toFixed(0) + 'px color-mix(in srgb,var(--accent) 12%,transparent),0 0 ' +
-            (30 + amp * 40).toFixed(0) + 'px color-mix(in srgb,var(--accent) 60%,transparent)';
+            (30 + amp * 40).toFixed(0) + 'px color-mix(in srgb,var(--accent) 60%,transparent),' +
+            'inset 0 3px 12px color-mix(in srgb,white 40%,transparent),' +
+            'inset 0 -10px 22px color-mix(in srgb,var(--accent2) 55%,transparent)';
         } else {
           mic.style.transform = '';
           mic.style.boxShadow = '';
@@ -202,6 +212,13 @@ export default function App() {
               <span className="v">{mira.brainName}</span>
             </div>
           </div>
+          <button
+            className="console"
+            onClick={() => setDisplayMode((m) => (m === 'orb' ? 'avatar' : 'orb'))}
+            title="Đổi giữa Avatar VRM và Orb giọng nói"
+          >
+            {displayMode === 'orb' ? '🧍 Avatar' : '🔮 Orb'}
+          </button>
           <button className="console" onClick={() => setShowConsole(true)}>⌘ Developer Console</button>
         </div>
       </header>
@@ -214,6 +231,7 @@ export default function App() {
         stateRef={mira.stateRef}
         moodRef={mira.moodRef}
         theme={theme}
+        displayMode={displayMode}
       />
 
       <VoiceDock

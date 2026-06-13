@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
 import { WebSpeechSTT } from './stt/webspeech-stt';
+import { startMicLevel, stopMicLevel } from './audio-level';
+import { SileroVAD } from './vad/silero-vad';
+import { loadVadEnabled } from './vad/config';
 import {
   createTTS,
   saveTTSConfig,
@@ -73,6 +76,7 @@ export function useMira() {
   const emptyCountRef = useRef(0);
   const startListeningRef = useRef<() => void>(() => {});
   const pendingListenRef = useRef<number | null>(null);
+  const vadRef = useRef<SileroVAD | null>(null);
 
   const pushHistory = useCallback((turn: BrainTurn) => {
     historyRef.current = [...historyRef.current, turn].slice(-12);
@@ -103,6 +107,8 @@ export function useMira() {
       liveRef.current = false;
       if (pendingListenRef.current != null) clearTimeout(pendingListenRef.current);
       try {
+        stopMicLevel();
+        vadRef.current?.destroy();
         ttsRef.current?.cancel();
         sttRef.current?.abort();
       } catch {
@@ -185,6 +191,7 @@ export function useMira() {
   const goIdle = useCallback(
     (msg?: string) => {
       clearPendingListen(); // về idle = huỷ mọi lượt nghe đang hẹn
+      stopMicLevel();
       setMoodBoth('neutral');
       setState('idle');
       setWho('CHẠM ĐỂ NÓI');
@@ -211,6 +218,7 @@ export function useMira() {
   const speak = useCallback(
     (text: string) => {
       sttRef.current!.abort(); // nhả mic trước khi nói (half-duplex: không nghe trong lúc nói → hết echo)
+      stopMicLevel(); // nhường audioLevel cho AnalyserNode của TTS (orb nảy theo giọng Mira)
       setWho('MIRA');
       setPartial(false);
       setCaption(text);
@@ -238,6 +246,7 @@ export function useMira() {
   const handleUtterance = useCallback(
     async (text: string) => {
       emptyCountRef.current = 0; // người dùng có nói → reset bộ đếm im lặng
+      stopMicLevel(); // hết lượt nghe → trạng thái 'thinking' dùng envelope giả lập
       // QUAN TRỌNG: chốt history TRƯỚC khi push lượt hiện tại — LLMBrain sẽ tự append input.
       // (bug cũ: push trước rồi truyền history chứa luôn input → user nhân đôi → Anthropic 400)
       const prior = historyRef.current;
@@ -302,6 +311,7 @@ export function useMira() {
     setPartial(true);
     setCaption('Đang nghe…');
     setState('listening');
+    void startMicLevel(); // orb/waveform nảy theo giọng người dùng (best-effort)
     stt.start({
       lang: LANG,
       onResult: (r) => {
@@ -349,6 +359,7 @@ export function useMira() {
   const interrupt = useCallback(() => {
     ttsRef.current!.cancel();
     sttRef.current!.abort();
+    stopMicLevel();
     setState('interrupted');
     setWho('MIRA');
     setPartial(false);
@@ -362,11 +373,31 @@ export function useMira() {
     setLive(true);
     emptyCountRef.current = 0;
     ttsRef.current!.unlock();
+    // Ngắt lời bằng GIỌNG (opt-in): VAD nghe nền cả phiên, chỉ cắt khi Mira đang 'speaking'
+    // (lúc nghe/nghĩ thì bỏ qua — Web Speech lo). Lỗi/không bật → barge-in bằng nút/Space.
+    if (loadVadEnabled()) {
+      if (!vadRef.current) {
+        const vad = new SileroVAD();
+        vadRef.current = vad;
+        void vad
+          .init({
+            onSpeechStart: () => {
+              if (stateRef.current === 'speaking') interrupt();
+            },
+          })
+          .then((ok) => {
+            if (ok && liveRef.current) vad.start();
+          });
+      } else {
+        vadRef.current.start();
+      }
+    }
     startListening();
-  }, [setLive, startListening]);
+  }, [setLive, startListening, interrupt]);
 
   const stopLive = useCallback(() => {
     setLive(false);
+    vadRef.current?.pause();
     ttsRef.current!.cancel();
     sttRef.current!.abort();
     goIdle('Đã dừng trò chuyện. Chạm để nói, hoặc bật lại khi cần.');
@@ -396,6 +427,7 @@ export function useMira() {
     (s: MiraState, speakIt = false) => {
       setLive(false);
       clearPendingListen();
+      stopMicLevel();
       ttsRef.current!.unlock();
       ttsRef.current!.cancel();
       sttRef.current!.abort();

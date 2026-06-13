@@ -109,17 +109,32 @@ body {
 
 /* ---- bottom dock ---- */
 .dock { display: flex; flex-direction: column; align-items: center; gap: 11px; padding: 2px 26px 16px; z-index: 5; }
-.mic { width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer; position: relative;
-  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--accent) 90%, white 8%), color-mix(in srgb, var(--accent2) 80%, transparent));
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent), 0 0 30px color-mix(in srgb, var(--accent) 55%, transparent);
-  display: grid; place-items: center; transition: transform 0.15s, box-shadow var(--ring); }
+/* Orb thu mic kiểu Grok: cầu thuỷ tinh phát sáng, bóng specular trên đỉnh, nảy theo âm thật. */
+.mic { width: 74px; height: 74px; border-radius: 50%; border: none; cursor: pointer; position: relative;
+  background: radial-gradient(circle at 50% 30%,
+    color-mix(in srgb, white 28%, var(--accent)) 0%, var(--accent) 42%,
+    color-mix(in srgb, var(--accent2) 88%, var(--accent)) 100%);
+  box-shadow:
+    0 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 30px color-mix(in srgb, var(--accent) 55%, transparent),
+    inset 0 3px 12px color-mix(in srgb, white 40%, transparent),
+    inset 0 -10px 22px color-mix(in srgb, var(--accent2) 55%, transparent);
+  display: grid; place-items: center; isolation: isolate;
+  transition: transform 0.12s ease, box-shadow var(--ring); }
 .mic:hover { transform: scale(1.05); }
-.mic:active { transform: scale(0.96); }
-.mic svg { width: 24px; height: 24px; fill: #06080f; }
-.mic::after { content: ''; position: absolute; inset: -8px; border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); opacity: 0; }
+.mic:active { transform: scale(0.95); }
+.mic svg { width: 26px; height: 26px; z-index: 2; fill: color-mix(in srgb, #06080f 78%, var(--accent2));
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.35)); }
+/* vệt bóng specular (chất thuỷ tinh) */
+.mic::before { content: ''; position: absolute; inset: 12% 24% 52% 24%; border-radius: 50%; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 25%, color-mix(in srgb, white 72%, transparent), transparent 72%); opacity: 0.6; }
+/* vòng sóng lan khi nghe / nói */
+.mic::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); opacity: 0; }
 body[data-state='listening'] .mic::after { animation: ripple 1.6s ease-out infinite; }
-@keyframes ripple { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(1.7); opacity: 0; } }
+body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite;
+  border-color: color-mix(in srgb, var(--accent2) 55%, transparent); }
+@keyframes ripple { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(1.78); opacity: 0; } }
 
 .livebtn { display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
   font-family: 'Inter'; font-size: 13px; font-weight: 600; color: var(--text);
@@ -162,6 +177,12 @@ body[data-state='listening'] .mic::after { animation: ripple 1.6s ease-out infin
   border: 1px solid var(--stroke); border-radius: 9px; padding: 7px 10px; max-width: 190px; cursor: pointer; }
 .vsel:hover { color: var(--text); }
 
+.dbg-toggle { width: 30px; height: 30px; border-radius: 9px; cursor: pointer; font-size: 16px; line-height: 1;
+  color: var(--dim); background: var(--glass); border: 1px solid var(--stroke); transition: 0.18s; }
+.dbg-toggle:hover { color: var(--text); }
+.dbg-toggle[aria-pressed='true'] { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.controls.dbg { margin-top: 2px; }
+
 .note { position: fixed; left: 50%; transform: translateX(-50%); bottom: 3px; font-family: 'JetBrains Mono';
   font-size: 10px; color: var(--faint); letter-spacing: 0.4px; opacity: 0.8; }
 
@@ -193,6 +214,10 @@ body[data-state='listening'] .mic::after { animation: ripple 1.6s ease-out infin
   border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 .modal-status { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--accent); }
 .modal-note { font-size: 11.5px; color: var(--faint); line-height: 1.5; margin-top: 9px; }
+.modal-check { display: flex; align-items: flex-start; gap: 8px; margin-top: 11px; cursor: pointer;
+  font-size: 11.5px; color: var(--dim); line-height: 1.5; }
+.modal-check input { margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex: none; }
+.modal-check b { color: var(--text); font-weight: 600; }
 
 .errbar { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 9;
   font-size: 12.5px; color: #fff; background: color-mix(in srgb, var(--warn) 30%, var(--bg2));
