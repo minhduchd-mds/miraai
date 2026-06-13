@@ -105,7 +105,8 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
       const isV1 = (v.meta as { metaVersion?: string } | undefined)?.metaVersion === '1';
       vrm1Ref.current = isV1;
       facingRef.current = isV1 ? 0 : Math.PI;
-      applyHologram(v.scene, accent, { gentle: isV1 });
+      // VRM1 (nam): KHÔNG đụng material → render nguyên bản, đầy đủ thân thể (hologram làm da trong suốt → mất thân).
+      if (!isV1) applyHologram(v.scene, accent);
       if (v.lookAt) v.lookAt.target = lookTargetRef.current; // mắt nhìn theo target
       vrmRef.current = v;
       setVrm(v);
@@ -138,7 +139,7 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
 
   // Đổi theme → nhuộm lại hologram (da/tóc); body + quần áo (_bright) giữ độ sáng cố định.
   useEffect(() => {
-    if (vrmRef.current) applyHologram(vrmRef.current.scene, accent, { gentle: vrm1Ref.current });
+    if (vrmRef.current && !vrm1Ref.current) applyHologram(vrmRef.current.scene, accent);
   }, [accent]);
 
   useFrame((_, delta) => {
