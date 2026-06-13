@@ -219,9 +219,10 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
   border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .opt small { display: block; color: var(--faint); font-size: 10.5px; margin-top: 2px; font-weight: 400; }
 
-/* Trang phục chọn bằng ảnh (thumbnail có hình) */
-.opt-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; margin-bottom: 4px; }
-.opt-thumb { display: flex; flex-direction: column; padding: 0; cursor: pointer; overflow: hidden;
+/* Trang phục chọn bằng ảnh (thumbnail có hình) — cuộn ngang */
+.opt-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.opt-thumbs.scroll-x { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.opt-thumb { flex: none; width: 86px; display: flex; flex-direction: column; padding: 0; cursor: pointer; overflow: hidden;
   background: var(--glass); border: 2px solid var(--stroke); border-radius: 12px; transition: 0.18s; }
 .opt-thumb:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .opt-thumb[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent); }

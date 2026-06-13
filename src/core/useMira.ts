@@ -92,10 +92,7 @@ export function useMira() {
       const vi = tts.listVoices('vi');
       const list = vi.length ? vi : tts.listVoices();
       setVoices(list);
-      if (!voiceURIRef.current && vi[0]) {
-        voiceURIRef.current = vi[0].voiceURI;
-        setVoiceURI(vi[0].voiceURI);
-      }
+      // KHÔNG tự chọn giọng mặc định — để người dùng tự bấm (chọn xong phát thử luôn).
     };
     load();
     window.speechSynthesis?.addEventListener?.('voiceschanged', load);
@@ -155,9 +152,8 @@ export function useMira() {
       const vi = ttsRef.current!.listVoices('vi');
       const list = vi.length ? vi : ttsRef.current!.listVoices();
       setVoices(list);
-      const pick = (cfg.voiceId && list.find((v) => v.voiceURI === cfg.voiceId)) || list[0];
-      voiceURIRef.current = pick?.voiceURI;
-      setVoiceURI(pick?.voiceURI);
+      voiceURIRef.current = undefined; // đổi engine → bỏ chọn, dùng giọng mặc định của engine
+      setVoiceURI(undefined);
     };
     refresh();
     window.setTimeout(refresh, 1500); // VieNeu nạp preset voices async từ server → quét lại

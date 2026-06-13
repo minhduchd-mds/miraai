@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
 import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
-import { SCENES, GENDERS, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
+import { SCENES, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
 import { voicePrefs, saveVoicePrefs, SPEEDS, PERSONAS } from '../core/voice-prefs';
 import type { Theme, VoiceOption, MiraState } from '../core/types';
 
@@ -236,23 +236,39 @@ export default function DevConsole({
     );
   };
 
-  // ── Nhân vật (bối cảnh → giới tính → trang phục) ──
-  const outfits = OUTFITS[avatarSel.gender][avatarSel.scene];
-  const setScene = (scene: AvatarSel['scene']) =>
-    onAvatarChange({ ...avatarSel, scene, outfit: OUTFITS[avatarSel.gender][scene][0].id });
-  const setGender = (gender: AvatarSel['gender']) =>
-    onAvatarChange({ ...avatarSel, gender, outfit: OUTFITS[gender][avatarSel.scene][0].id });
-  const setOutfit = (outfit: string) => onAvatarChange({ ...avatarSel, outfit });
+  // ── Nhân vật: bối cảnh → trang phục (gộp cả nam + nữ trong một danh sách) ──
+  const sceneOutfits = [
+    ...OUTFITS.female[avatarSel.scene].map((o) => ({ ...o, gender: 'female' as const })),
+    ...OUTFITS.male[avatarSel.scene].map((o) => ({ ...o, gender: 'male' as const })),
+  ];
+  const setScene = (scene: Scene) => {
+    const first = OUTFITS.female[scene][0];
+    onAvatarChange({ scene, gender: 'female', outfit: first.id });
+  };
+  const pickOutfit = (gender: AvatarSel['gender'], outfit: string) =>
+    onAvatarChange({ ...avatarSel, gender, outfit });
   const sceneOrder: Scene[] = ['office', 'home', 'intimate'];
   const nextScene = () => setScene(sceneOrder[(sceneOrder.indexOf(avatarSel.scene) + 1) % sceneOrder.length]);
   const nextOutfit = () => {
-    const i = outfits.findIndex((o) => o.id === avatarSel.outfit);
-    setOutfit(outfits[(i + 1) % outfits.length].id);
+    const i = sceneOutfits.findIndex((o) => o.gender === avatarSel.gender && o.id === avatarSel.outfit);
+    const n = sceneOutfits[(i + 1) % sceneOutfits.length];
+    pickOutfit(n.gender, n.id);
   };
-  const lookOf = (outfit: string) => lookImage({ ...avatarSel, outfit }) + (previewKey ? `?k=${previewKey}` : '');
+  const lookOf = (gender: AvatarSel['gender'], outfit: string) =>
+    lookImage({ ...avatarSel, gender, outfit }) + (previewKey ? `?k=${previewKey}` : '');
   const onLookErr = (e: { currentTarget: HTMLImageElement }) => {
     const t = e.currentTarget;
     if (!t.src.includes('mira.webp')) t.src = '/avatars/mira.webp';
+  };
+
+  // Danh sách giọng: "Eva" (giọng mặc định của engine) + giọng thiết bị. Chọn giọng = phát thử luôn.
+  const voiceList = [
+    { uri: '', name: 'Eva', sub: 'Nhẹ nhàng' },
+    ...voices.filter((v) => v.voiceURI).map((v) => ({ uri: v.voiceURI, name: shortVoice(v.name), sub: voiceSub(v) })),
+  ];
+  const pickVoice = (uri: string) => {
+    onSelectVoice(uri);
+    onTestVoice();
   };
 
   const setNotifyKey = (k: keyof NotifyCfg, v: boolean) => {
@@ -303,19 +319,17 @@ export default function DevConsole({
                   </button>
                 ))}
               </div>
-              <div className="modal-sub">Giới tính</div>
-              <div className="opt-row">
-                {GENDERS.map((g) => (
-                  <button key={g.id} className="opt" aria-pressed={avatarSel.gender === g.id} onClick={() => setGender(g.id)}>
-                    {g.label}
-                  </button>
-                ))}
-              </div>
-              <div className="modal-sub">Trang phục (chọn trên hình)</div>
-              <div className="opt-thumbs">
-                {outfits.map((o) => (
-                  <button key={o.id} className="opt-thumb" aria-pressed={avatarSel.outfit === o.id} onClick={() => setOutfit(o.id)} title={o.label}>
-                    <img src={lookOf(o.id)} alt={o.label} onError={onLookErr} />
+              <div className="modal-sub">Trang phục (nam &amp; nữ — chọn trên hình)</div>
+              <div className="opt-thumbs scroll-x">
+                {sceneOutfits.map((o) => (
+                  <button
+                    key={`${o.gender}-${o.id}`}
+                    className="opt-thumb"
+                    aria-pressed={avatarSel.gender === o.gender && avatarSel.outfit === o.id}
+                    onClick={() => pickOutfit(o.gender, o.id)}
+                    title={o.label}
+                  >
+                    <img src={lookOf(o.gender, o.id)} alt={o.label} onError={onLookErr} />
                     <span>{o.label}</span>
                   </button>
                 ))}
@@ -338,26 +352,14 @@ export default function DevConsole({
             <div className="modal-sec">
               <div className="modal-tl">Giọng nói</div>
 
-              <div className="modal-sub">Chọn giọng (tự nhận thiết bị)</div>
-              {voices.length > 0 ? (
-                <div className="opt-row scroll-x">
-                  {voices.map((v) => (
-                    <button key={v.voiceURI} className="opt" aria-pressed={voiceURI === v.voiceURI} onClick={() => onSelectVoice(v.voiceURI)}>
-                      {shortVoice(v.name)}
-                      <small>{voiceSub(v)}</small>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="modal-note" style={{ marginTop: 0 }}>Đang dò giọng của thiết bị…</div>
-              )}
-              <div className="modal-actions">
-                <button className="mbtn" onClick={onTestVoice}>🔊 Đọc thử</button>
-                {diag && (
-                  <span className="modal-status">
-                    {`${diag.voices} giọng (${diag.viVoices} vi) · ${diag.speaking ? 'ĐANG NÓI' : diag.pending ? 'chờ' : 'im'}${diag.lastError ? ` · lỗi: ${diag.lastError}` : ''}`}
-                  </span>
-                )}
+              <div className="modal-sub">Chọn giọng (tự nhận thiết bị · chọn là nghe thử luôn)</div>
+              <div className="opt-row scroll-x">
+                {voiceList.map((v) => (
+                  <button key={v.uri || 'eva'} className="opt" aria-pressed={voiceURI === v.uri} onClick={() => pickVoice(v.uri)}>
+                    {v.name}
+                    <small>{v.sub}</small>
+                  </button>
+                ))}
               </div>
 
               <div className="modal-sub">Tốc độ</div>
@@ -425,7 +427,7 @@ export default function DevConsole({
                 <button className="mbtn" onClick={() => setPreviewKey((k) => k + 1)} title="Tải lại ảnh">↻ Làm mới</button>
               </div>
               <div className="preview-card">
-                <img className="preview-img" src={lookOf(avatarSel.outfit)} alt="Xem trước trang phục" onError={onLookErr} />
+                <img className="preview-img" src={lookOf(avatarSel.gender, avatarSel.outfit)} alt="Xem trước trang phục" onError={onLookErr} />
                 <div className="preview-actions">
                   <button onClick={nextOutfit} title="Đổi trang phục">👗<small>Thay đổi</small></button>
                   <button title="Đổi tư thế (sắp có)">🧍<small>Tư thế</small></button>
