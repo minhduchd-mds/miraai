@@ -68,11 +68,19 @@ const DEFAULT: AvatarSel = { gender: 'female', scene: 'home', outfit: 'idol' };
 // Model 3D (.vrm) đã có, map theo bộ. Tên file của anh khác quy ước nên đăng ký ở đây
 // (sai bộ nào chỉ cần sửa đường dẫn 1 dòng). Bộ không có ở đây → tự lùi về idol.
 const KNOWN_3D: Record<string, string> = {
-  'female-home-idol': '/avatars/mira_female_01_idol_nova.vrm',
-  'female-home-sweater': '/avatars/mira_female_02_lavender_lounge.vrm',
-  'female-intimate-nightgown': '/avatars/mira_female_03_aurora_blue.vrm',
-  'female-intimate-lingerie': '/avatars/mira_female_04_soft_rose.vrm',
-  'female-intimate-maid': '/avatars/mira_female_05_iris_maid.vrm',
+  // Nữ (VRM0) — public/avatars/female/
+  'female-home-idol': '/avatars/female/mira_female_01_idol_nova.vrm',
+  'female-home-sweater': '/avatars/female/mira_female_02_lavender_lounge.vrm',
+  'female-intimate-nightgown': '/avatars/female/mira_female_03_aurora_blue.vrm',
+  'female-intimate-lingerie': '/avatars/female/mira_female_04_soft_rose.vrm',
+  'female-intimate-maid': '/avatars/female/mira_female_05_iris_maid.vrm',
+  // Nam (VRM1) — public/avatars/male/
+  'male-office-shirt': '/avatars/male/mira_male_02_silver_white.vrm',
+  'male-office-suit': '/avatars/male/mira_male_02_silver_white.vrm',
+  'male-home-casual': '/avatars/male/mira_male_01_black_casual.vrm',
+  'male-home-hoodie': '/avatars/male/mira_male_01_black_casual.vrm',
+  'male-intimate-shirtless': '/avatars/male/mira_male_03_body_black_open.vrm',
+  'male-intimate-casual': '/avatars/male/mira_male_01_black_casual.vrm',
 };
 
 // Ảnh "look" 2D cho từng bộ (đặt trong public/looks/). Bộ chưa có ảnh → dùng ảnh mặc định.
@@ -85,6 +93,9 @@ const LOOKS: Record<string, string> = {
   'female-intimate-lingerie': '/looks/female-lingerie.png',
   'male-office-shirt': '/looks/male-shirt.png',
   'male-office-suit': '/looks/male-shirt.png',
+  'male-home-casual': '/looks/male-shirt.png',
+  'male-home-hoodie': '/looks/male-shirt.png',
+  'male-intimate-casual': '/looks/male-shirt.png',
   'male-intimate-shirtless': '/looks/male-shirtless.png',
 };
 

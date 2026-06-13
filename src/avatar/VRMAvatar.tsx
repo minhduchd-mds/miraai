@@ -58,6 +58,7 @@ function applyMood(vrm: VRM, mood: Mood, delta: number) {
 export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, onError }: Props) {
   const [vrm, setVrm] = useState<VRM | null>(null);
   const vrmRef = useRef<VRM | null>(null);
+  const facingRef = useRef(FACING_Y); // VRM0 (nữ) quay π; VRM1 (nam) quay 0 để cùng hướng camera
   const lip = useRef(new LipSync());
   const clock = useRef(0);
   const blink = useRef({ t: 0, next: 2 + Math.random() * 3, prog: -1 });
@@ -103,6 +104,8 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
       // Model đã chỉnh sẵn texture → KHÔNG ép màu/tô môi/nâng sáng (brightenBody/recolorClothes/
       // beautifyFace vẫn còn trong hologram.ts nếu cần bật lại cho model khác).
       if (v.lookAt) v.lookAt.target = lookTargetRef.current; // mắt nhìn theo target
+      // VRM1 (nam) có hướng mặc định ngược VRM0 → không xoay π nữa để cùng quay về camera.
+      facingRef.current = (v.meta as { metaVersion?: string } | undefined)?.metaVersion === '1' ? 0 : Math.PI;
       vrmRef.current = v;
       setVrm(v);
       onLoaded?.();
@@ -189,7 +192,7 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
     }
     const breathe = Math.sin(clock.current * 1.1) * 0.006;
     v.scene.position.y = breathe;
-    v.scene.rotation.y = FACING_Y + (st === 'thinking' ? Math.sin(clock.current * 1.6) * 0.05 : 0);
+    v.scene.rotation.y = facingRef.current + (st === 'thinking' ? Math.sin(clock.current * 1.6) * 0.05 : 0);
 
     // Đầu/mắt: chế độ GƯƠNG theo webcam nếu đang bật, không thì nhìn theo chuột.
     const lt = lookTargetRef.current!;

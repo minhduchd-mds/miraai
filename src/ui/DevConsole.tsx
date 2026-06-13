@@ -334,18 +334,28 @@ export default function DevConsole({
                   </button>
                 ))}
               </div>
-              <div className="modal-sub">Màu chủ đạo</div>
-              <div className="opt-row">
-                {THEMES.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`opt sw-opt ${t.id}`}
-                    aria-pressed={theme === t.id}
-                    onClick={() => onTheme(t.id)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
+              <div className="sub-pair">
+                <div>
+                  <div className="modal-sub">Màu chủ đạo</div>
+                  <div className="opt-row">
+                    {THEMES.map((t) => (
+                      <button key={t.id} className={`opt sw-opt ${t.id}`} aria-pressed={theme === t.id} onClick={() => onTheme(t.id)}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="modal-sub">Tốc độ</div>
+                  <div className="opt-row">
+                    {SPEEDS.map((s) => (
+                      <button key={s.id} className="opt" aria-pressed={Math.abs(rate - s.rate) < 0.01}
+                        onClick={() => { setRate(s.rate); saveVoicePrefs({ rate: s.rate }); }}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -358,16 +368,6 @@ export default function DevConsole({
                   <button key={v.uri || 'eva'} className="opt" aria-pressed={voiceURI === v.uri} onClick={() => pickVoice(v.uri)}>
                     {v.name}
                     <small>{v.sub}</small>
-                  </button>
-                ))}
-              </div>
-
-              <div className="modal-sub">Tốc độ</div>
-              <div className="opt-row">
-                {SPEEDS.map((s) => (
-                  <button key={s.id} className="opt" aria-pressed={Math.abs(rate - s.rate) < 0.01}
-                    onClick={() => { setRate(s.rate); saveVoicePrefs({ rate: s.rate }); }}>
-                    {s.label}
                   </button>
                 ))}
               </div>

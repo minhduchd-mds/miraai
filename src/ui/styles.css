@@ -220,6 +220,8 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 
 /* sub-label trong section + chip lựa chọn */
 .modal-sub { font-size: 12px; color: var(--dim); margin: 10px 0 7px; }
+/* Màu + Tốc độ xếp cạnh nhau (hàng đôi) cho gọn cột */
+.sub-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .opt-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
 .opt { font-family: 'Inter'; font-size: 13px; font-weight: 500; color: var(--dim); cursor: pointer; text-align: left;
   background: var(--glass); border: 1px solid var(--stroke); border-radius: 11px; padding: 9px 14px; transition: 0.18s; }
