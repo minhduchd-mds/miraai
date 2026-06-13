@@ -1,15 +1,22 @@
-"""Mira TTS server — vinorm (chuẩn hoá) + VieNeu-TTS (giọng Việt tự nhiên, CPU realtime).
+"""Mira TTS server — giọng tiếng Việt tự nhiên cho Mira, một endpoint /tts duy nhất.
 
-Chạy thật:   uvicorn main:app --port 8017
-Chạy mock:   VIENEU_MOCK=1 uvicorn main:app --port 8017   (không cần model — WAV beep giả lập,
-             dùng để dev UI/lipsync hoặc CI; miệng avatar vẫn nhép theo envelope của beep)
+Ba engine (chọn bằng env MIRA_TTS_ENGINE):
+  edge   → Microsoft Edge neural (vi-VN-HoaiMyNeural/NamMinhNeural). NHẸ NHẤT: chỉ
+           `pip install edge-tts`, không model, không GPU, free. Văn bản đi qua Microsoft.
+  vieneu → VieNeu-TTS self-host (vinorm + model). Dữ liệu KHÔNG ra ngoài → vùng bảo mật cao.
+  mock   → WAV beep giả lập (dev UI/lipsync, CI) — không cần model/mạng.
+
+Chạy edge:    MIRA_TTS_ENGINE=edge uvicorn main:app --port 8017   (Windows: $env:MIRA_TTS_ENGINE='edge')
+Chạy vieneu:  uvicorn main:app --port 8017                        (mặc định)
+Chạy mock:    MIRA_TTS_ENGINE=mock uvicorn main:app --port 8017   (hoặc VIENEU_MOCK=1)
 
 API:
-  GET  /health          → {ok, mock, engine}
-  GET  /voices          → {voices: [tên giọng preset...]}
-  POST /tts {text, voice?} → audio/wav
+  GET  /health           → {ok, engine}
+  GET  /voices           → {voices: [{id,label}...]}
+  POST /tts {text, voice?} → audio/wav (vieneu/mock) | audio/mpeg (edge)
 """
 
+import asyncio
 import io
 import math
 import os
@@ -23,11 +30,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-MOCK = os.environ.get("VIENEU_MOCK") == "1"
-# Giọng mặc định cho Mira (nữ). Đổi bằng env VIENEU_VOICE hoặc voice trong request.
-DEFAULT_VOICE = os.environ.get("VIENEU_VOICE", "Ngọc Lan")
+# VIENEU_MOCK=1 (cũ) vẫn được tôn trọng như alias cho engine=mock.
+_MOCK_LEGACY = os.environ.get("VIENEU_MOCK") == "1"
+ENGINE = os.environ.get("MIRA_TTS_ENGINE", "mock" if _MOCK_LEGACY else "vieneu").lower()
+if _MOCK_LEGACY:
+    ENGINE = "mock"
 
-app = FastAPI(title="Mira TTS server (VieNeu)")
+# Giọng mặc định theo engine (đổi bằng env hoặc field "voice" trong request).
+DEFAULT_VIENEU_VOICE = os.environ.get("VIENEU_VOICE", "Ngọc Lan")
+DEFAULT_EDGE_VOICE = os.environ.get("MIRA_EDGE_VOICE", "vi-VN-HoaiMyNeural")
+
+# Giọng tiếng Việt neural của Microsoft Edge (free, không cần model).
+EDGE_VOICES = [
+    {"id": "vi-VN-HoaiMyNeural", "label": "Hoài My (nữ)"},
+    {"id": "vi-VN-NamMinhNeural", "label": "Nam Minh (nam)"},
+]
+
+app = FastAPI(title=f"Mira TTS server ({ENGINE})")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # dev cục bộ; production thì giới hạn origin của app
@@ -44,7 +63,7 @@ def get_tts():
     global _tts
     with _tts_lock:
         if _tts is None:
-            from vieneu import Vieneu  # import muộn để mock mode không cần cài
+            from vieneu import Vieneu  # import muộn để engine khác không cần cài
 
             _tts = Vieneu()
         return _tts
@@ -82,6 +101,38 @@ def mock_wav(text: str) -> bytes:
     return buf.getvalue()
 
 
+async def edge_synth(text: str, voice: str | None) -> bytes:
+    """Edge neural → MP3 (stream từ Microsoft, gom thành 1 file)."""
+    import edge_tts  # import muộn để engine khác không cần cài
+
+    communicate = edge_tts.Communicate(text, voice or DEFAULT_EDGE_VOICE)
+    out = bytearray()
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            out += chunk["data"]
+    if not out:
+        raise RuntimeError("edge-tts trả audio rỗng (giọng sai? mất mạng?)")
+    return bytes(out)
+
+
+def vieneu_synth(text: str, voice: str | None) -> bytes:
+    """VieNeu → WAV (chạy đồng bộ, blocking — gọi trong threadpool)."""
+    engine = get_tts()
+    audio = engine.infer(text, voice=voice or DEFAULT_VIENEU_VOICE)
+    # API save() ghi file → dùng file tạm rồi đọc bytes (an toàn với mọi định dạng audio).
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        path = f.name
+    try:
+        engine.save(audio, path)
+        with open(path, "rb") as f:
+            return f.read()
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 class TTSIn(BaseModel):
     text: str
     voice: str | None = None
@@ -89,15 +140,17 @@ class TTSIn(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "mock": MOCK, "engine": "mock" if MOCK else "vieneu"}
+    return {"ok": True, "engine": ENGINE}
 
 
 @app.get("/voices")
 def voices():
-    if MOCK:
+    if ENGINE == "mock":
         return {"voices": [{"id": "Mock", "label": "Mock"}]}
+    if ENGINE == "edge":
+        return {"voices": EDGE_VOICES}
     try:
-        # list_preset_voices() trả tuple (label, name) — chuẩn hoá thành {id, label}
+        # VieNeu list_preset_voices() trả tuple (label, name) — chuẩn hoá thành {id, label}
         out = []
         for v in get_tts().list_preset_voices():
             if isinstance(v, (list, tuple)) and len(v) >= 2:
@@ -110,29 +163,24 @@ def voices():
 
 
 @app.post("/tts")
-def tts(inp: TTSIn):
+async def tts(inp: TTSIn):
     text = (inp.text or "").strip()
     if not text:
         raise HTTPException(400, "text rỗng")
-    if MOCK:
+
+    if ENGINE == "mock":
         return Response(mock_wav(text), media_type="audio/wav")
 
-    try:
-        engine = get_tts()
-        norm = normalize(text)
-        audio = engine.infer(norm, voice=inp.voice or DEFAULT_VOICE)
-        # API save() ghi file → dùng file tạm rồi đọc bytes (an toàn với mọi định dạng audio trả về)
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            path = f.name
+    if ENGINE == "edge":
         try:
-            engine.save(audio, path)
-            with open(path, "rb") as f:
-                data = f.read()
-        finally:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+            data = await edge_synth(normalize(text), inp.voice)
+            return Response(data, media_type="audio/mpeg")
+        except Exception as e:
+            raise HTTPException(500, f"Edge lỗi: {str(e)[:300]}")
+
+    # vieneu (mặc định) — blocking nên chạy trong threadpool để không nghẽn event loop.
+    try:
+        data = await asyncio.to_thread(vieneu_synth, normalize(text), inp.voice)
         return Response(data, media_type="audio/wav")
     except HTTPException:
         raise
