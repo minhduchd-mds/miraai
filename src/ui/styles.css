@@ -249,3 +249,27 @@ body[data-state='speaking'] .figure { filter: drop-shadow(0 0 38px color-mix(in 
   * { animation: none !important; transition: none !important; }
 }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+
+/* ---- Safe-area (notch / home-indicator iPhone) ---- */
+.top { padding-top: max(14px, env(safe-area-inset-top)); padding-left: max(26px, env(safe-area-inset-left)); padding-right: max(26px, env(safe-area-inset-right)); }
+.dock { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+
+/* ---- Mobile / iPhone (≤520px) ---- */
+@media (max-width: 520px) {
+  .top { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .top > div { gap: 8px !important; }
+  .brand { gap: 9px; }
+  .pill { display: none; }
+  .console { padding: 8px 11px; font-size: 12px; gap: 6px; }
+  .console .lbl { display: none; } /* "⌘ Developer Console" → còn "⌘" cho gọn */
+  .scene { width: 92vw; }
+  .caption { width: 92vw; }
+  .caption .txt { font-size: 15.5px; min-height: 40px; }
+  .dock { padding-left: 12px; padding-right: 12px; gap: 9px; }
+  .controls { gap: 6px; }
+  .vsel { max-width: 150px; font-size: 11.5px; }
+  .note { display: none; } /* khỏi đè lên dock ở màn hẹp */
+}
+@media (max-width: 380px) {
+  .seg button { padding: 7px 10px; font-size: 11.5px; }
+}

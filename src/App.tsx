@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
+import { startFaceTracking, stopFaceTracking } from './core/face/face-tracker';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
@@ -14,7 +15,21 @@ export default function App() {
 
   const [theme, setTheme] = useState<Theme>('nova');
   const [displayMode, setDisplayMode] = useState<'avatar' | 'orb'>('avatar');
+  const [faceOn, setFaceOn] = useState(false);
   const [simulating, setSimulating] = useState(false);
+
+  // Webcam lái avatar (chế độ gương). Tắt camera khi rời trang.
+  useEffect(() => () => stopFaceTracking(), []);
+  const toggleFace = async () => {
+    if (faceOn) {
+      stopFaceTracking();
+      setFaceOn(false);
+    } else {
+      setDisplayMode('avatar'); // orb không dùng face → chuyển về avatar cho thấy hiệu ứng
+      const ok = await startFaceTracking();
+      setFaceOn(ok); // thất bại (từ chối camera/không HTTPS) → giữ tắt; lý do đã log ở tracker
+    }
+  };
   const simTimers = useRef<number[]>([]);
   const [showConsole, setShowConsole] = useState(false);
   const consoleOpenRef = useRef(false);
@@ -214,12 +229,20 @@ export default function App() {
           </div>
           <button
             className="console"
+            onClick={toggleFace}
+            aria-pressed={faceOn}
+            title="Avatar nhìn & biểu cảm theo bạn qua webcam (không deepfake)"
+          >
+            {faceOn ? '📷 Tắt camera' : '📷 Camera'}
+          </button>
+          <button
+            className="console"
             onClick={() => setDisplayMode((m) => (m === 'orb' ? 'avatar' : 'orb'))}
             title="Đổi giữa Avatar VRM và Orb giọng nói"
           >
             {displayMode === 'orb' ? '🧍 Avatar' : '🔮 Orb'}
           </button>
-          <button className="console" onClick={() => setShowConsole(true)}>⌘ Developer Console</button>
+          <button className="console" onClick={() => setShowConsole(true)}>⌘ <span className="lbl">Developer Console</span></button>
         </div>
       </header>
 

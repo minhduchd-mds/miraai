@@ -5,11 +5,16 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRM, VRMUtils, VRMLoaderPlugin } from '@pixiv/three-vrm';
 import type { MiraState, Mood } from '../core/types';
 import { audioLevel } from '../core/audio-level';
+import { faceData } from '../core/face/face-tracker';
 import { LipSync } from './lipsync';
 import { applyHologram, beautifyFace, brightenBody, recolorClothes } from './hologram';
 
 // Model quay mặt về -Z, camera ở +Z → xoay 180° để quay mặt về camera.
 const FACING_Y = Math.PI;
+
+// Lái avatar theo gương mặt webcam (chế độ "gương"). Dấu có thể cần đảo tuỳ camera/thiết bị —
+// nếu Mira quay ngược hướng bạn thì đổi dấu yaw/pitch ở đây là xong.
+const FACE = { yaw: -1.0, pitch: 1.0, roll: -0.6, headK: 8 };
 
 interface Props {
   url: string;
@@ -129,6 +134,7 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
     const d = Math.min(delta, 0.05); // chặn delta nhảy vọt khi tab vừa active lại
     clock.current += d;
     const st = stateRef.current;
+    const faceOn = faceData.active && faceData.present; // webcam đang lái avatar (chế độ gương)
 
     // Lip-sync: có audio thật (VieNeu/ElevenLabs) → khớp biên độ thật;
     // không có (Web Speech) → envelope âm tiết tổng hợp như cũ.
@@ -140,6 +146,8 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
         talk.current.target = 0.35 + Math.random() * 0.65;
         talk.current.timer = 0.08 + Math.random() * 0.12;
       }
+    } else if (faceOn) {
+      talk.current.target = Math.min(1, faceData.jaw * 1.3); // không nói → miệng nhép theo bạn
     } else {
       talk.current.target = 0;
     }
@@ -148,7 +156,9 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
     // Chớp mắt định kỳ.
     const b = blink.current;
     let blinkVal = 0;
-    if (b.prog >= 0) {
+    if (faceOn) {
+      blinkVal = (faceData.blinkL + faceData.blinkR) / 2; // chớp mắt theo bạn
+    } else if (b.prog >= 0) {
       b.prog += d / 0.16;
       blinkVal = b.prog < 0.5 ? b.prog * 2 : Math.max(0, (1 - b.prog) * 2);
       if (b.prog >= 1) {
@@ -164,23 +174,39 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
 
     // Cảm xúc theo mood + thở nhẹ (bob dọc) + lắc nhẹ khi nghĩ.
     applyMood(v, moodRef.current, d);
+    if (faceOn) {
+      v.expressionManager?.setValue('happy', faceData.smile); // cười theo bạn
+      v.expressionManager?.setValue('surprised', faceData.browUp); // nhướng mày theo bạn
+    }
     const breathe = Math.sin(clock.current * 1.1) * 0.006;
     v.scene.position.y = breathe;
     v.scene.rotation.y = FACING_Y + (st === 'thinking' ? Math.sin(clock.current * 1.6) * 0.05 : 0);
 
-    // Nhìn theo chuột: mắt bám target, đầu xoay nhẹ theo (lerp mượt).
-    const p = pointerRef.current;
+    // Đầu/mắt: chế độ GƯƠNG theo webcam nếu đang bật, không thì nhìn theo chuột.
     const lt = lookTargetRef.current!;
     const k = Math.min(1, d * 6);
-    lt.position.x += (p.x * 1.6 - lt.position.x) * k;
-    lt.position.y += (1.35 + p.y * 0.7 - lt.position.y) * k;
     const head = v.humanoid?.getNormalizedBoneNode('head' as any);
-    if (head) {
-      const hr = headRotRef.current;
-      const kh = Math.min(1, d * 5);
-      hr.y += (p.x * 0.3 - hr.y) * kh;
-      hr.x += (p.y * 0.18 - hr.x) * kh;
-      head.rotation.set(hr.x, hr.y, 0);
+    if (faceOn) {
+      lt.position.x += (0 - lt.position.x) * k; // mắt nhìn thẳng người xem
+      lt.position.y += (1.35 - lt.position.y) * k;
+      if (head) {
+        const hr = headRotRef.current;
+        const kh = Math.min(1, d * FACE.headK);
+        hr.y += (faceData.yaw * FACE.yaw - hr.y) * kh;
+        hr.x += (faceData.pitch * FACE.pitch - hr.x) * kh;
+        head.rotation.set(hr.x, hr.y, faceData.roll * FACE.roll);
+      }
+    } else {
+      const p = pointerRef.current;
+      lt.position.x += (p.x * 1.6 - lt.position.x) * k;
+      lt.position.y += (1.35 + p.y * 0.7 - lt.position.y) * k;
+      if (head) {
+        const hr = headRotRef.current;
+        const kh = Math.min(1, d * 5);
+        hr.y += (p.x * 0.3 - hr.y) * kh;
+        hr.x += (p.y * 0.18 - hr.x) * kh;
+        head.rotation.set(hr.x, hr.y, 0);
+      }
     }
 
     v.update(d); // springbone + lookAt + flush expressions
