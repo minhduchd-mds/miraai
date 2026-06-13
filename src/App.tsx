@@ -121,10 +121,10 @@ export default function App() {
         if (active) {
           mic.style.transform = 'scale(' + (1 + amp * 0.14).toFixed(3) + ')';
           mic.style.boxShadow =
-            '0 0 0 ' + (8 + amp * 14).toFixed(0) + 'px color-mix(in srgb,var(--accent) 12%,transparent),0 0 ' +
-            (30 + amp * 40).toFixed(0) + 'px color-mix(in srgb,var(--accent) 60%,transparent),' +
-            'inset 0 3px 12px color-mix(in srgb,white 40%,transparent),' +
-            'inset 0 -10px 22px color-mix(in srgb,var(--accent2) 55%,transparent)';
+            '0 0 0 ' + (6 + amp * 11).toFixed(0) + 'px color-mix(in srgb,var(--accent) 12%,transparent),0 0 ' +
+            (24 + amp * 34).toFixed(0) + 'px color-mix(in srgb,var(--accent) 60%,transparent),' +
+            'inset 0 2px 8px color-mix(in srgb,white 40%,transparent),' +
+            'inset 0 -7px 16px color-mix(in srgb,var(--accent2) 55%,transparent)';
         } else {
           mic.style.transform = '';
           mic.style.boxShadow = '';
@@ -291,7 +291,6 @@ export default function App() {
         partial={mira.partial}
         waveRef={waveRef}
         micRef={micRef}
-        onMic={handleMic}
         live={mira.live}
         onToggleLive={handleToggleLive}
       />

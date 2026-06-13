@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
 import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
@@ -61,6 +61,54 @@ function saveNotify(n: NotifyCfg): void {
   } catch {
     /* noop */
   }
+}
+
+// Dropdown tự vẽ (select native không style được popup trên Windows → option khó nhìn).
+function Dropdown({
+  value, options, onChange,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', h);
+    return () => document.removeEventListener('pointerdown', h);
+  }, [open]);
+  const cur = options.find((o) => o.value === value);
+  return (
+    <div className="dd" ref={ref}>
+      <button type="button" className="dd-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span>{cur?.label ?? '—'}</span>
+        <i className="dd-arrow" />
+      </button>
+      {open && (
+        <div className="dd-menu" role="listbox">
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              role="option"
+              aria-selected={o.value === value}
+              className={`dd-item${o.value === value ? ' sel' : ''}`}
+              onClick={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface Props {
@@ -281,12 +329,16 @@ export default function DevConsole({
               <div className="modal-tl">Giọng nói</div>
               <div className="modal-row">
                 <label>Engine</label>
-                <select value={ttsEngine} onChange={(e) => setTtsEngine(e.target.value as TTSConfig['engine'])}>
-                  <option value="system">Giọng hệ thống (miễn phí)</option>
-                  <option value="edge">Edge — Microsoft (tiếng Việt tự nhiên, free)</option>
-                  <option value="vieneu">VieNeu — server nhà (tự nhiên, bảo mật)</option>
-                  <option value="elevenlabs">ElevenLabs (cloud, cần key)</option>
-                </select>
+                <Dropdown
+                  value={ttsEngine}
+                  onChange={(v) => setTtsEngine(v as TTSConfig['engine'])}
+                  options={[
+                    { value: 'system', label: 'Giọng hệ thống (miễn phí)' },
+                    { value: 'edge', label: 'Edge — Microsoft (tiếng Việt, free)' },
+                    { value: 'vieneu', label: 'VieNeu — server nhà (bảo mật)' },
+                    { value: 'elevenlabs', label: 'ElevenLabs (cloud, cần key)' },
+                  ]}
+                />
               </div>
               {ttsEngine === 'elevenlabs' && (
                 <div className="modal-row">
@@ -305,13 +357,11 @@ export default function DevConsole({
               {voices.length > 0 && (
                 <div className="modal-row">
                   <label>Chọn giọng</label>
-                  <select value={voiceURI} onChange={(e) => onSelectVoice(e.target.value)}>
-                    {voices.map((v) => (
-                      <option key={v.voiceURI} value={v.voiceURI}>
-                        {v.name} ({v.lang})
-                      </option>
-                    ))}
-                  </select>
+                  <Dropdown
+                    value={voiceURI ?? ''}
+                    onChange={onSelectVoice}
+                    options={voices.map((v) => ({ value: v.voiceURI, label: `${v.name} (${v.lang})` }))}
+                  />
                 </div>
               )}
               <div className="modal-actions">
@@ -361,10 +411,14 @@ export default function DevConsole({
             <div className="modal-tl">Bộ não (LLM)</div>
             <div className="modal-row">
               <label>Nhà cung cấp</label>
-              <select value={provider} onChange={(e) => { setProvider(e.target.value as LLMConfig['provider']); setModel(''); setCustom(false); }}>
-                <option value="anthropic">Claude (Anthropic)</option>
-                <option value="openai">OpenAI</option>
-              </select>
+              <Dropdown
+                value={provider}
+                onChange={(v) => { setProvider(v as LLMConfig['provider']); setModel(''); setCustom(false); }}
+                options={[
+                  { value: 'anthropic', label: 'Claude (Anthropic)' },
+                  { value: 'openai', label: 'OpenAI' },
+                ]}
+              />
             </div>
             <div className="modal-row">
               <label>API key</label>
@@ -373,20 +427,18 @@ export default function DevConsole({
             </div>
             <div className="modal-row">
               <label>Model</label>
-              <select
+              <Dropdown
                 value={custom ? CUSTOM : model}
-                onChange={(e) => {
-                  const v = e.target.value;
+                onChange={(v) => {
                   if (v === CUSTOM) { setCustom(true); setModel(''); }
                   else { setCustom(false); setModel(v); }
                 }}
-              >
-                <option value="">Mặc định ({defaultModelFor(provider)})</option>
-                {MODELS[provider as 'anthropic' | 'openai'].map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-                <option value={CUSTOM}>Khác (tự nhập)…</option>
-              </select>
+                options={[
+                  { value: '', label: `Mặc định (${defaultModelFor(provider)})` },
+                  ...MODELS[provider as 'anthropic' | 'openai'].map((m) => ({ value: m.id, label: m.label })),
+                  { value: CUSTOM, label: 'Khác (tự nhập)…' },
+                ]}
+              />
             </div>
             {custom && (
               <div className="modal-row">

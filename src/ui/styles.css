@@ -116,20 +116,21 @@ body {
 /* ---- bottom dock ---- */
 .dock { display: flex; flex-direction: column; align-items: center; gap: 11px; padding: 2px 26px 16px; z-index: 5; }
 /* Orb thu mic kiểu Grok: cầu thuỷ tinh phát sáng, bóng specular trên đỉnh, nảy theo âm thật. */
-.mic { width: 74px; height: 74px; border-radius: 50%; border: none; cursor: pointer; position: relative;
+.mic { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; position: relative;
   background: radial-gradient(circle at 50% 30%,
     color-mix(in srgb, white 28%, var(--accent)) 0%, var(--accent) 42%,
     color-mix(in srgb, var(--accent2) 88%, var(--accent)) 100%);
   box-shadow:
-    0 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent),
-    0 0 30px color-mix(in srgb, var(--accent) 55%, transparent),
-    inset 0 3px 12px color-mix(in srgb, white 40%, transparent),
-    inset 0 -10px 22px color-mix(in srgb, var(--accent2) 55%, transparent);
+    0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent) 55%, transparent),
+    inset 0 2px 8px color-mix(in srgb, white 40%, transparent),
+    inset 0 -7px 16px color-mix(in srgb, var(--accent2) 55%, transparent);
   display: grid; place-items: center; isolation: isolate;
   transition: transform 0.12s ease, box-shadow var(--ring); }
 .mic:hover { transform: scale(1.05); }
 .mic:active { transform: scale(0.95); }
-.mic svg { width: 26px; height: 26px; z-index: 2; fill: color-mix(in srgb, #06080f 78%, var(--accent2));
+.mic.live { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 4px; }
+.mic svg { width: 22px; height: 22px; z-index: 2; fill: color-mix(in srgb, #06080f 78%, var(--accent2));
   filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.35)); }
 /* vệt bóng specular (chất thuỷ tinh) */
 .mic::before { content: ''; position: absolute; inset: 12% 24% 52% 24%; border-radius: 50%; z-index: 1; pointer-events: none;
@@ -294,6 +295,25 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 [data-theme='aura'] .modal-row select option { background-color: #120c28; }
 [data-theme='ember'] .modal-row select option { background-color: #0a1a18; }
 [data-theme='iris'] .modal-row select option { background-color: #0e1230; }
+
+/* Dropdown tự vẽ — popup ăn khớp hệ màu (thay select native) */
+.dd { position: relative; width: 100%; }
+.dd-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-family: 'Inter'; font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
+  background: color-mix(in srgb, var(--bg2) 93%, #fff 7%); border: 1px solid var(--stroke); border-radius: 9px; padding: 8px 11px; }
+.dd-btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.dd-btn[aria-expanded='true'] { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.dd-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-arrow { flex: none; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--dim); transition: transform 0.18s; }
+.dd-btn[aria-expanded='true'] .dd-arrow { transform: rotate(180deg); }
+.dd-menu { position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 30;
+  background: var(--bg2); border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); border-radius: 11px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55); padding: 5px; max-height: 240px; overflow-y: auto; }
+.dd-item { width: 100%; text-align: left; font-family: 'Inter'; font-size: 13px; color: var(--dim); cursor: pointer;
+  background: none; border: none; border-radius: 7px; padding: 8px 10px; transition: 0.12s; }
+.dd-item:hover { background: var(--glass); color: var(--text); }
+.dd-item.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 .modal-actions { display: flex; align-items: center; gap: 9px; margin-top: 4px; flex-wrap: wrap; }
 .mbtn { font-family: 'Inter'; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
   background: var(--glass); border: 1px solid var(--stroke); border-radius: 9px; padding: 8px 16px; transition: 0.18s; }
