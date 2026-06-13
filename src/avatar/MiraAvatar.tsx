@@ -15,7 +15,8 @@ interface Props {
   stateRef: MutableRefObject<MiraState>;
   moodRef: MutableRefObject<Mood>;
   theme: Theme;
-  avatarUrl: string;
+  avatarUrl: string | null; // null = bộ chưa có model 3D → hiện ảnh PNG (lookSrc)
+  lookSrc: string; // ảnh "look" của bộ (hiện khi không có 3D / đang tải / lỗi WebGL)
   avatarOpacity: number; // "độ hiển thị" (0..1)
 }
 
@@ -41,16 +42,21 @@ function CameraRig({ target }: { target: [number, number, number] }) {
   return null;
 }
 
-export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, avatarOpacity }: Props) {
+export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, lookSrc, avatarOpacity }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const accent = THEME_ACCENT[theme];
 
+  // Bộ chưa có model 3D → hiện thẳng ảnh PNG "look" của bộ (poster 2D), không dựng Canvas.
+  if (!avatarUrl) {
+    return <img className="look2d breathe" id="avatar" alt="Mira" src={lookSrc} style={{ opacity: avatarOpacity }} />;
+  }
+
   return (
     <>
-      {/* Fallback 2D (chỉ khi đang tải VRM / WebGL lỗi) — ảnh look bộ nằm trong Cài đặt, sân khấu luôn 3D. */}
+      {/* Ảnh PNG của bộ làm nền chờ khi đang tải VRM / WebGL lỗi. */}
       {(!loaded || failed) && (
-        <img className="figure breathe" id="avatar" alt="Mira hologram" src="/avatars/mira.webp" style={{ opacity: avatarOpacity }} />
+        <img className="look2d breathe" id="avatar" alt="Mira" src={lookSrc} style={{ opacity: avatarOpacity }} />
       )}
 
       {!failed && (

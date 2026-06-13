@@ -85,12 +85,13 @@ const KNOWN_3D: Record<string, string> = {
 
 // Ảnh "look" 2D cho từng bộ (đặt trong public/looks/). Bộ chưa có ảnh → dùng ảnh mặc định.
 const LOOKS: Record<string, string> = {
-  'female-home-idol': '/looks/female-idol.png',
-  'female-home-sweater': '/looks/female-sweater.png',
-  'female-home-croptop': '/looks/female-idol.png',
-  'female-intimate-nightgown': '/looks/female-nightgown.png',
-  'female-intimate-maid': '/looks/female-maid.png',
-  'female-intimate-lingerie': '/looks/female-lingerie.png',
+  // Nữ: ảnh NỀN TRONG SUỐT (cutout) khớp từng model, đã nén WebP ~0.1MB — public/avatars/female/.
+  'female-home-idol': '/avatars/female/mira_female_01_idol_nova.webp',
+  'female-home-sweater': '/avatars/female/mira_female_02_lavender_lounge.webp',
+  'female-home-croptop': '/avatars/female/mira_female_01_idol_nova.webp',
+  'female-intimate-nightgown': '/avatars/female/mira_female_03_aurora_blue.webp',
+  'female-intimate-maid': '/avatars/female/mira_female_05_iris_maid.webp',
+  'female-intimate-lingerie': '/avatars/female/mira_female_04_soft_rose.webp',
   'male-office-shirt': '/looks/male-shirt.png',
   'male-office-suit': '/looks/male-shirt.png',
   'male-home-casual': '/looks/male-shirt.png',
@@ -129,12 +130,17 @@ export function saveAvatarSel(s: AvatarSel): void {
   }
 }
 
-// Mỗi bộ một model 3D: public/avatars/<gender>-<scene>-<outfit>.vrm.
-// Chưa có file → VRMAvatar tự lùi về model idol mặc định (sân khấu luôn là 3D).
+// Bộ này đã có model 3D riêng (đăng ký trong KNOWN_3D) chưa?
+// Có → sân khấu hiện VRM (xoay đầu/lip-sync). Chưa → hiện thẳng ảnh PNG "look" của bộ.
+export function has3D(s: AvatarSel): boolean {
+  return key(s) in KNOWN_3D;
+}
+// Đường dẫn model 3D của bộ (chỉ nên gọi khi has3D = true).
 export function resolveAvatarUrl(s: AvatarSel): string {
   return KNOWN_3D[key(s)] || `/avatars/${key(s)}.vrm`;
 }
-// Ảnh "look" 2D của bộ — CHỈ dùng để xem trước trong Cài đặt (sân khấu ngoài luôn 3D).
+// Ảnh "look" 2D của bộ: vừa để xem trước trong Cài đặt, vừa là HÌNH HIỂN THỊ ngoài sân khấu
+// khi bộ chưa có model 3D. Thiếu ảnh riêng → ảnh mặc định.
 export function lookImage(s: AvatarSel): string {
   return LOOKS[key(s)] || FALLBACK_LOOK;
 }

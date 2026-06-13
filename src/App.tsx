@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
 import { startFaceTracking, stopFaceTracking } from './core/face/face-tracker';
-import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, sceneBg, type AvatarSel } from './core/avatar-config';
+import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, has3D, lookImage, sceneBg, type AvatarSel } from './core/avatar-config';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
@@ -19,7 +19,18 @@ export default function App() {
   const [faceOn, setFaceOn] = useState(false);
   const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
   const [avatarOpacity, setAvatarOpacity] = useState(1);
-  const avatarUrl = resolveAvatarUrl(avatarSel);
+  // Ưu tiên ảnh 2D (PNG trong suốt) thay vì model 3D — bật/tắt bằng nút trên header, nhớ qua localStorage.
+  const [avatar2d, setAvatar2d] = useState(() => {
+    try { return localStorage.getItem('mira.avatar2d') === '1'; } catch { return false; }
+  });
+  const toggle2d = () => setAvatar2d((v) => {
+    const n = !v;
+    try { localStorage.setItem('mira.avatar2d', n ? '1' : '0'); } catch { /* noop */ }
+    return n;
+  });
+  // Hiện 3D khi: không ưu tiên 2D & bộ có model 3D. Còn lại → avatarUrl=null để sân khấu hiện ảnh PNG (lookSrc).
+  const avatarUrl = !avatar2d && has3D(avatarSel) ? resolveAvatarUrl(avatarSel) : null;
+  const lookSrc = lookImage(avatarSel);
   const onAvatarChange = (s: AvatarSel) => {
     setAvatarSel(s);
     saveAvatarSel(s);
@@ -261,6 +272,16 @@ export default function App() {
           >
             {faceOn ? '📷 Tắt camera' : '📷 Camera'}
           </button>
+          {displayMode === 'avatar' && (
+            <button
+              className="console"
+              onClick={toggle2d}
+              aria-pressed={avatar2d}
+              title="Đổi giữa ảnh 2D (PNG) và model 3D"
+            >
+              {avatar2d ? '🧊 Model 3D' : '🖼 Ảnh 2D'}
+            </button>
+          )}
           <button
             className="console"
             onClick={() => setDisplayMode((m) => (m === 'orb' ? 'avatar' : 'orb'))}
@@ -281,6 +302,7 @@ export default function App() {
         theme={theme}
         displayMode={displayMode}
         avatarUrl={avatarUrl}
+        lookSrc={lookSrc}
         avatarOpacity={avatarOpacity}
       />
 

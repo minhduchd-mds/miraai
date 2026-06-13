@@ -90,6 +90,15 @@ body {
   transition: filter var(--ring); pointer-events: none; user-select: none; }
 .avatar3d { position: absolute !important; inset: 0; z-index: 3; pointer-events: none;
   transition: opacity 600ms ease; }
+/* Ảnh PNG nền trong suốt (cutout) của bộ khi chưa có / thay cho model 3D: toàn thân + hào quang accent. */
+.look2d { position: absolute; bottom: 9%; left: 50%; transform: translateX(-50%);
+  height: 92%; width: auto; max-width: 96%; object-fit: contain; z-index: 3;
+  filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 30px color-mix(in srgb, var(--accent) 40%, transparent));
+  pointer-events: none; user-select: none; transition: filter var(--ring); }
+body[data-state='listening'] .look2d { filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 36px color-mix(in srgb, var(--accent) 55%, transparent)); }
+body[data-state='speaking'] .look2d { filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 44px color-mix(in srgb, var(--accent) 65%, transparent)); }
+body[data-state='interrupted'] .look2d,
+body[data-state='error'] .look2d { filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 30px color-mix(in srgb, var(--warn) 55%, transparent)); }
 .footglow { position: absolute; bottom: 16%; left: 50%; width: 46%; height: 13%; transform: translateX(-50%); z-index: 2;
   border-radius: 50%; pointer-events: none; will-change: opacity, transform;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 75%, transparent), transparent 66%);
