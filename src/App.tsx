@@ -275,7 +275,6 @@ export default function App() {
       {mira.error && <div className="errbar">{mira.error}</div>}
 
       <MiraStage
-        chip={mira.state.toUpperCase()}
         footglowRef={footglowRef}
         stateRef={mira.stateRef}
         moodRef={mira.moodRef}

@@ -58,11 +58,11 @@ export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, avatar
           <Canvas
             className="avatar3d"
             gl={{ alpha: true, antialias: true }}
-            camera={{ position: [0, 0.86, 3.15], fov: 28, near: 0.1, far: 20 }}
+            camera={{ position: [0, 0.85, 4.3], fov: 28, near: 0.1, far: 20 }}
             onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
             style={{ opacity: (loaded ? 1 : 0) * avatarOpacity }}
           >
-            <CameraRig target={[0, 0.92, 0]} />
+            <CameraRig target={[0, 0.82, 0]} />
             <ambientLight intensity={1.8} />
             <directionalLight position={[1.5, 2.5, 2]} intensity={1.5} />
             <directionalLight position={[-2, 1, -1]} intensity={0.5} color={accent} />

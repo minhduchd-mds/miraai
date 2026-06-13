@@ -6,7 +6,6 @@ import MiraOrb from '../avatar/MiraOrb';
 export type DisplayMode = 'avatar' | 'orb';
 
 interface Props {
-  chip: string;
   footglowRef: RefObject<HTMLDivElement>;
   stateRef: MutableRefObject<MiraState>;
   moodRef: MutableRefObject<Mood>;
@@ -17,7 +16,7 @@ interface Props {
 }
 
 // Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar VRM 3D (hoặc orb giọng nói).
-export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme, displayMode, avatarUrl, avatarOpacity }: Props) {
+export default function MiraStage({ footglowRef, stateRef, moodRef, theme, displayMode, avatarUrl, avatarOpacity }: Props) {
   return (
     <main className="center">
       <div className="scene">
@@ -37,11 +36,6 @@ export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme,
         ) : (
           <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} avatarUrl={avatarUrl} avatarOpacity={avatarOpacity} />
         )}
-
-        <div className="chip">
-          <b />
-          <span>{chip}</span>
-        </div>
       </div>
     </main>
   );
