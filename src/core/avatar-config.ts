@@ -1,6 +1,7 @@
 // Lựa chọn nhân vật: bối cảnh → giới tính → trang phục (gợi ý theo bối cảnh).
-// Khung chọn + lưu localStorage + suy ra URL .vrm. Trang phục chỉ đổi HÌNH khi có file tương ứng
-// trong public/avatars/ theo tên "<gender>-<scene>-<outfit>.vrm"; chưa có → dùng model mặc định.
+// Khung chọn + lưu localStorage + suy ra: model 3D (.vrm), ảnh "look" 2D, và ảnh nền cảnh.
+// Bộ nào CÓ file .vrm → hiện 3D (xoay đầu/lip-sync); chưa có → hiện ảnh 2D của bộ đó; thiếu cả ảnh
+// → ảnh mặc định. Nền cảnh đổi theo bối cảnh nếu có file. Thả đúng tên file vào public/ là chạy.
 
 export type Scene = 'office' | 'home' | 'intimate';
 export type Gender = 'female' | 'male';
@@ -22,55 +23,69 @@ export const GENDERS: { id: Gender; label: string }[] = [
   { id: 'male', label: 'Nam' },
 ];
 
-// Gợi ý trang phục theo (giới tính, bối cảnh). Nhãn tiếng Việt, lịch sự.
+// Trang phục gợi ý theo (giới tính, bối cảnh). Nhãn tiếng Việt.
 export const OUTFITS: Record<Gender, Record<Scene, { id: string; label: string }[]>> = {
   female: {
     office: [
       { id: 'blazer', label: 'Blazer thanh lịch' },
       { id: 'shirt', label: 'Sơ mi + chân váy' },
       { id: 'suit', label: 'Vest công sở' },
-      { id: 'dress', label: 'Váy liền công sở' },
     ],
     home: [
       { id: 'idol', label: 'Idol (mặc định)' },
-      { id: 'casual', label: 'Áo thun + quần đùi' },
-      { id: 'hoodie', label: 'Hoodie rộng' },
+      { id: 'sweater', label: 'Váy len + tất cao' },
+      { id: 'croptop', label: 'Croptop năng động' },
       { id: 'pajama', label: 'Pyjama dễ thương' },
-      { id: 'croptop', label: 'Croptop gợi cảm' },
     ],
     intimate: [
-      { id: 'slipdress', label: 'Váy ngủ lụa' },
+      { id: 'nightgown', label: 'Váy ngủ voan' },
+      { id: 'maid', label: 'Hầu gái' },
+      { id: 'lingerie', label: 'Nội y ren (18+)' },
       { id: 'robe', label: 'Áo choàng mỏng' },
-      { id: 'sporty', label: 'Đồ tập gợi cảm' },
-      { id: 'lingerie', label: 'Nội y (18+)' },
     ],
   },
   male: {
     office: [
-      { id: 'suit', label: 'Vest công sở' },
-      { id: 'shirt', label: 'Sơ mi' },
-      { id: 'smart', label: 'Smart casual' },
+      { id: 'shirt', label: 'Sơ mi trắng' },
+      { id: 'suit', label: 'Vest' },
     ],
     home: [
-      { id: 'casual', label: 'Áo thun + quần đùi' },
+      { id: 'casual', label: 'Áo thun + quần' },
       { id: 'hoodie', label: 'Hoodie' },
-      { id: 'tank', label: 'Áo ba lỗ' },
     ],
     intimate: [
-      { id: 'casual', label: 'Thoải mái' },
       { id: 'shirtless', label: 'Cởi trần (18+)' },
+      { id: 'casual', label: 'Thoải mái' },
     ],
   },
 };
 
 export const FALLBACK_AVATAR = '/avatars/mira.vrm';
+export const FALLBACK_LOOK = '/avatars/mira.webp';
 const LS = 'mira.avatar';
 const DEFAULT: AvatarSel = { gender: 'female', scene: 'home', outfit: 'idol' };
 
-// File model hiện có (đăng ký khi đã thả .vrm vào public/avatars/). Mặc định: idol = model hiện tại.
-const KNOWN: Record<string, string> = {
+// Model 3D (.vrm) đã có. Mặc định: idol = model hiện tại. Thêm dòng khi thả thêm .vrm.
+const KNOWN_3D: Record<string, string> = {
   'female-home-idol': FALLBACK_AVATAR,
 };
+
+// Ảnh "look" 2D cho từng bộ (đặt trong public/looks/). Bộ chưa có ảnh → dùng ảnh mặc định.
+const LOOKS: Record<string, string> = {
+  'female-home-idol': '/looks/female-idol.png',
+  'female-home-sweater': '/looks/female-sweater.png',
+  'female-home-croptop': '/looks/female-idol.png',
+  'female-intimate-nightgown': '/looks/female-nightgown.png',
+  'female-intimate-maid': '/looks/female-maid.png',
+  'female-intimate-lingerie': '/looks/female-lingerie.png',
+  'male-office-shirt': '/looks/male-shirt.png',
+  'male-office-suit': '/looks/male-shirt.png',
+  'male-intimate-shirtless': '/looks/male-shirtless.png',
+};
+
+function key(s: AvatarSel): string {
+  return `${s.gender}-${s.scene}-${s.outfit}`;
+}
 
 function valid(s: any): AvatarSel {
   const gender: Gender = s?.gender === 'male' ? 'male' : 'female';
@@ -98,8 +113,18 @@ export function saveAvatarSel(s: AvatarSel): void {
   }
 }
 
-// Suy ra URL model. Có file đăng ký → dùng; chưa có → model mặc định (idol hiện tại).
+// Model 3D cho lựa chọn (rỗng nếu chưa có → dùng look 2D).
 export function resolveAvatarUrl(s: AvatarSel): string {
-  const key = `${s.gender}-${s.scene}-${s.outfit}`;
-  return KNOWN[key] || FALLBACK_AVATAR;
+  return KNOWN_3D[key(s)] || FALLBACK_AVATAR;
+}
+export function has3DModel(s: AvatarSel): boolean {
+  return !!KNOWN_3D[key(s)];
+}
+// Ảnh 2D của bộ (fallback ảnh mặc định nếu chưa có).
+export function lookImage(s: AvatarSel): string {
+  return LOOKS[key(s)] || FALLBACK_LOOK;
+}
+// Ảnh nền theo bối cảnh (public/scenes/<scene>.jpg). Không có file → giữ nền gradient.
+export function sceneBg(scene: Scene): string {
+  return `/scenes/${scene}.jpg`;
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
 import { startFaceTracking, stopFaceTracking } from './core/face/face-tracker';
-import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, type AvatarSel } from './core/avatar-config';
+import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, lookImage, has3DModel, sceneBg, type AvatarSel } from './core/avatar-config';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
@@ -23,6 +23,23 @@ export default function App() {
     setAvatarSel(s);
     saveAvatarSel(s);
   };
+  // Nền cảnh đổi theo bối cảnh nếu có file public/scenes/<scene>.jpg (không có → giữ gradient).
+  const sceneBgRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sceneBgRef.current;
+    if (!el) return;
+    const url = sceneBg(avatarSel.scene);
+    const img = new Image();
+    img.onload = () => {
+      el.style.backgroundImage = `url("${url}")`;
+      el.style.opacity = '1';
+    };
+    img.onerror = () => {
+      el.style.backgroundImage = '';
+      el.style.opacity = '0';
+    };
+    img.src = url;
+  }, [avatarSel.scene]);
   const [simulating, setSimulating] = useState(false);
 
   // Webcam lái avatar (chế độ gương). Tắt camera khi rời trang.
@@ -207,6 +224,7 @@ export default function App() {
 
   return (
     <div className="stage">
+      <div className="scene-bg" ref={sceneBgRef} aria-hidden="true" />
       <header className="top">
         <div className="brand">
           <div className="logo" aria-hidden="true" />
@@ -263,6 +281,8 @@ export default function App() {
         theme={theme}
         displayMode={displayMode}
         avatarUrl={avatarUrl}
+        lookImage={lookImage(avatarSel)}
+        has3D={has3DModel(avatarSel)}
       />
 
       <VoiceDock

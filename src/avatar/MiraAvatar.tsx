@@ -16,6 +16,14 @@ interface Props {
   moodRef: MutableRefObject<Mood>;
   theme: Theme;
   avatarUrl: string;
+  lookImage: string; // ảnh 2D của bộ đang chọn (fallback khi tải/ lỗi, hoặc khi bộ chưa có model 3D)
+  has3D: boolean; // bộ này có file .vrm riêng → hiện 3D; không thì hiện ảnh 2D
+}
+
+// Ảnh look 2D, tự lùi về ảnh mặc định nếu file chưa có.
+function lookOnError(e: { currentTarget: HTMLImageElement }) {
+  const t = e.currentTarget;
+  if (!t.src.includes('mira.webp')) t.src = '/avatars/mira.webp';
 }
 
 // Bắt lỗi WebGL/render → rớt về fallback 2D thay vì vỡ cả app.
@@ -40,16 +48,21 @@ function CameraRig({ target }: { target: [number, number, number] }) {
   return null;
 }
 
-export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl }: Props) {
+export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, lookImage, has3D }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const accent = THEME_ACCENT[theme];
+
+  // Bộ chưa có model 3D → chỉ hiện ảnh "look" 2D trong sân khấu hologram (không 3D/xoay đầu).
+  if (!has3D) {
+    return <img className="figure breathe" id="avatar" alt="Mira" src={lookImage} onError={lookOnError} />;
+  }
 
   return (
     <>
       {/* Fallback 2D: hiện trong lúc tải VRM, hoặc khi 3D lỗi (progressive enhancement). */}
       {(!loaded || failed) && (
-        <img className="figure breathe" id="avatar" alt="Mira hologram" src="/avatars/mira.webp" />
+        <img className="figure breathe" id="avatar" alt="Mira hologram" src={lookImage} onError={lookOnError} />
       )}
 
       {!failed && (
