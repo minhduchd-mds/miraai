@@ -289,23 +289,12 @@ export default function App() {
         who={mira.who}
         caption={mira.caption}
         partial={mira.partial}
-        state={mira.state}
         waveRef={waveRef}
         micRef={micRef}
-        voices={mira.voices}
-        voiceURI={mira.voiceURI}
-        onSelectVoice={mira.selectVoice}
         onMic={handleMic}
-        onGoState={handleGoState}
-        onSimulate={toggleSim}
-        simulating={simulating}
-        theme={theme}
-        onTheme={setTheme}
         live={mira.live}
         onToggleLive={handleToggleLive}
       />
-
-
 
       <DevConsole
         open={showConsole}
@@ -322,6 +311,13 @@ export default function App() {
         onAvatarChange={onAvatarChange}
         avatarOpacity={avatarOpacity}
         onAvatarOpacity={setAvatarOpacity}
+        voices={mira.voices}
+        voiceURI={mira.voiceURI}
+        onSelectVoice={mira.selectVoice}
+        state={mira.state}
+        onGoState={handleGoState}
+        onSimulate={toggleSim}
+        simulating={simulating}
       />
     </div>
   );

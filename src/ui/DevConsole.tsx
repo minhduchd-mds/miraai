@@ -1,9 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
 import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 import { SCENES, GENDERS, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
-import type { Theme } from '../core/types';
+import type { Theme, VoiceOption, MiraState } from '../core/types';
+
+const STATE_BTNS: { go: MiraState; label: string; warn?: boolean }[] = [
+  { go: 'idle', label: 'Idle' },
+  { go: 'listening', label: 'Listening' },
+  { go: 'thinking', label: 'Thinking' },
+  { go: 'speaking', label: 'Speaking' },
+  { go: 'interrupted', label: 'Ngắt lời', warn: true },
+];
 
 // Model gợi ý theo nhà cung cấp (vẫn cho "tự nhập" để dùng model bất kỳ).
 const MODELS: Record<'anthropic' | 'openai', { id: string; label: string }[]> = {
@@ -70,16 +78,23 @@ interface Props {
   onAvatarChange: (s: AvatarSel) => void;
   avatarOpacity: number;
   onAvatarOpacity: (v: number) => void;
+  voices: VoiceOption[];
+  voiceURI?: string;
+  onSelectVoice: (uri: string) => void;
+  state: MiraState;
+  onGoState: (s: MiraState, speakIt?: boolean) => void;
+  onSimulate: () => void;
+  simulating: boolean;
 }
 
 export default function DevConsole({
   open, onClose, brainName, onSaveLLM, onSaveTTS, onTestBrain, onTestVoice, getDiagnostics,
   theme, onTheme, avatarSel, onAvatarChange, avatarOpacity, onAvatarOpacity,
+  voices, voiceURI, onSelectVoice, state, onGoState, onSimulate, simulating,
 }: Props) {
   const initial = useMemo(() => (open ? loadLLMConfig() : null), [open]);
   const [tab, setTab] = useState<Tab>('interface');
   const [previewKey, setPreviewKey] = useState(0); // bust cache ảnh khi "Làm mới"
-  const thumbRow = useRef<HTMLDivElement>(null);
   const [provider, setProvider] = useState<LLMConfig['provider']>('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
@@ -181,7 +196,6 @@ export default function DevConsole({
     const t = e.currentTarget;
     if (!t.src.includes('mira.webp')) t.src = '/avatars/mira.webp';
   };
-  const scrollThumbs = (d: number) => thumbRow.current?.scrollBy({ left: d, behavior: 'smooth' });
 
   const setNotifyKey = (k: keyof NotifyCfg, v: boolean) => {
     const n = { ...notify, [k]: v };
@@ -239,11 +253,12 @@ export default function DevConsole({
                   </button>
                 ))}
               </div>
-              <div className="modal-sub">Trang phục (gợi ý theo bối cảnh)</div>
-              <div className="opt-row">
+              <div className="modal-sub">Trang phục (chọn trên hình)</div>
+              <div className="opt-thumbs">
                 {outfits.map((o) => (
-                  <button key={o.id} className="opt" aria-pressed={avatarSel.outfit === o.id} onClick={() => setOutfit(o.id)}>
-                    {o.label}
+                  <button key={o.id} className="opt-thumb" aria-pressed={avatarSel.outfit === o.id} onClick={() => setOutfit(o.id)} title={o.label}>
+                    <img src={lookOf(o.id)} alt={o.label} onError={onLookErr} />
+                    <span>{o.label}</span>
                   </button>
                 ))}
               </div>
@@ -292,6 +307,18 @@ export default function DevConsole({
                     placeholder={ttsEngine === 'edge' ? EDGE_DEFAULT_URL : VIENEU_DEFAULT_URL} spellCheck={false} />
                 </div>
               )}
+              {voices.length > 0 && (
+                <div className="modal-row">
+                  <label>Chọn giọng</label>
+                  <select value={voiceURI} onChange={(e) => onSelectVoice(e.target.value)}>
+                    {voices.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {v.name} ({v.lang})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="modal-actions">
                 <button className="mbtn primary" onClick={saveTts}>Lưu giọng</button>
                 <button className="mbtn" onClick={onTestVoice}>🔊 Đọc thử</button>
@@ -325,18 +352,6 @@ export default function DevConsole({
                   <button title="Đổi tư thế (sắp có)">🧍<small>Tư thế</small></button>
                   <button onClick={nextScene} title="Đổi bối cảnh / nền">🖼️<small>Nền</small></button>
                 </div>
-              </div>
-              <div className="modal-sub">Chọn model</div>
-              <div className="thumbs">
-                <button className="thumb-arrow" onClick={() => scrollThumbs(-180)} aria-label="Trước">‹</button>
-                <div className="thumb-row" ref={thumbRow}>
-                  {outfits.map((o) => (
-                    <button key={o.id} className="thumb" aria-pressed={avatarSel.outfit === o.id} onClick={() => setOutfit(o.id)} title={o.label}>
-                      <img src={lookOf(o.id)} alt={o.label} onError={onLookErr} />
-                    </button>
-                  ))}
-                </div>
-                <button className="thumb-arrow" onClick={() => scrollThumbs(180)} aria-label="Sau">›</button>
               </div>
               <div className="slider-row">
                 <span>Độ hiển thị</span>
@@ -446,6 +461,25 @@ export default function DevConsole({
             </ul>
             <div className="modal-note">
               Không nghe thấy gì? Kiểm tra âm lượng máy, đúng thiết bị output, tab trình duyệt không bị tắt tiếng.
+            </div>
+
+            <div className="modal-tl" style={{ marginTop: 16 }}>Thử nhanh (demo — không cần mic)</div>
+            <div className="controls dbg">
+              <div className="seg" role="group" aria-label="Trạng thái demo">
+                {STATE_BTNS.map((b) => (
+                  <button
+                    key={b.go}
+                    className={b.warn ? 'warn' : undefined}
+                    aria-pressed={state === b.go}
+                    onClick={() => onGoState(b.go, b.go === 'speaking')}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+              <div className="seg">
+                <button onClick={onSimulate}>{simulating ? '■ Dừng' : '▶ Mô phỏng hội thoại'}</button>
+              </div>
             </div>
           </div>
         )}

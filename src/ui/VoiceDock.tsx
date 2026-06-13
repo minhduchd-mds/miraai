@@ -1,40 +1,19 @@
-import { useState, type RefObject } from 'react';
-import type { MiraState, Theme, VoiceOption } from '../core/types';
+import type { RefObject } from 'react';
 
+// Dock tối giản (kiểu Grok): chỉ caption + sóng + orb mic + nút trò chuyện.
+// Chọn giọng / màu / công cụ demo đã chuyển vào ⌘ Cài đặt.
 interface Props {
   who: string;
   caption: string;
   partial: boolean;
-  state: MiraState;
   waveRef: RefObject<HTMLDivElement>;
   micRef: RefObject<HTMLButtonElement>;
-  voices: VoiceOption[];
-  voiceURI?: string;
-  onSelectVoice: (uri: string) => void;
   onMic: () => void;
-  onGoState: (s: MiraState, speakIt?: boolean) => void;
-  onSimulate: () => void;
-  simulating: boolean;
-  theme: Theme;
-  onTheme: (t: Theme) => void;
   live: boolean;
   onToggleLive: () => void;
 }
 
-const STATE_BTNS: { go: MiraState; label: string; warn?: boolean }[] = [
-  { go: 'idle', label: 'Idle' },
-  { go: 'listening', label: 'Listening' },
-  { go: 'thinking', label: 'Thinking' },
-  { go: 'speaking', label: 'Speaking' },
-  { go: 'interrupted', label: 'Ngắt lời', warn: true },
-];
-
-export default function VoiceDock({
-  who, caption, partial, state, waveRef, micRef,
-  voices, voiceURI, onSelectVoice, onMic, onGoState, onSimulate, simulating,
-  theme, onTheme, live, onToggleLive,
-}: Props) {
-  const [showDebug, setShowDebug] = useState(false);
+export default function VoiceDock({ who, caption, partial, waveRef, micRef, onMic, live, onToggleLive }: Props) {
   return (
     <footer className="dock">
       <div className="caption" aria-live="polite">
@@ -53,11 +32,7 @@ export default function VoiceDock({
         </svg>
       </button>
 
-      <button
-        className={`livebtn${live ? ' on' : ''}`}
-        onClick={onToggleLive}
-        aria-pressed={live}
-      >
+      <button className={`livebtn${live ? ' on' : ''}`} onClick={onToggleLive} aria-pressed={live}>
         <span className="ldot" />
         {live ? 'Dừng trò chuyện' : 'Trò chuyện trực tiếp'}
       </button>
@@ -73,69 +48,6 @@ export default function VoiceDock({
           </>
         )}
       </div>
-
-      {/* Hàng điều khiển tối giản (kiểu Grok): chỉ giọng + màu + nút "⋯" mở công cụ demo. */}
-      <div className="controls">
-        {voices.length > 0 && (
-          <select
-            className="vsel"
-            value={voiceURI}
-            onChange={(e) => onSelectVoice(e.target.value)}
-            title="Chọn giọng đọc"
-          >
-            {voices.map((v) => (
-              <option key={v.voiceURI} value={v.voiceURI}>
-                {v.name} ({v.lang})
-              </option>
-            ))}
-          </select>
-        )}
-
-        <div className="themes">
-          <span className="tl">Màu</span>
-          {(['nova', 'aura', 'ember', 'iris'] as const).map((t) => (
-            <button
-              key={t}
-              className={`sw ${t}`}
-              aria-pressed={theme === t}
-              onClick={() => onTheme(t)}
-              title={t[0].toUpperCase() + t.slice(1)}
-            />
-          ))}
-        </div>
-
-        <button
-          className="dbg-toggle"
-          aria-pressed={showDebug}
-          onClick={() => setShowDebug((v) => !v)}
-          title="Công cụ demo (trạng thái + mô phỏng)"
-        >
-          ⋯
-        </button>
-      </div>
-
-      {/* Công cụ demo — ẩn mặc định để giao diện gọn như Grok voice. */}
-      {showDebug && (
-        <div className="controls dbg">
-          <div className="seg" role="group" aria-label="Trạng thái demo">
-            {STATE_BTNS.map((b) => (
-              <button
-                key={b.go}
-                className={b.warn ? 'warn' : undefined}
-                aria-pressed={state === b.go}
-                onClick={() => onGoState(b.go, b.go === 'speaking')}
-              >
-                {b.label}
-              </button>
-            ))}
-          </div>
-          <div className="seg">
-            <button onClick={onSimulate}>
-              {simulating ? '■ Dừng' : '▶ Mô phỏng hội thoại'}
-            </button>
-          </div>
-        </div>
-      )}
     </footer>
   );
 }
