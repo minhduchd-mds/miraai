@@ -8,7 +8,7 @@ import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
 import DevConsole from './ui/DevConsole';
-import { IconCamera, IconCameraOff, IconImage, IconCube, IconOrb, IconPerson, IconSettings, IconHand } from './ui/icons';
+import { IconCamera, IconCameraOff, IconSettings, IconHand } from './ui/icons';
 
 const N_BARS = 52;
 
@@ -17,7 +17,6 @@ export default function App() {
   const { stateRef } = mira;
 
   const [theme, setTheme] = useState<Theme>('nova');
-  const [displayMode, setDisplayMode] = useState<'avatar' | 'orb'>('avatar');
   const [faceOn, setFaceOn] = useState(false);
   const [handOn, setHandOn] = useState(false); // điều khiển bằng bàn tay (gesture)
   const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
@@ -66,7 +65,6 @@ export default function App() {
       return;
     }
     if (handOn) { stopGestureTracking(); setHandOn(false); } // nhường camera cho chế độ gương
-    setDisplayMode('avatar'); // orb không dùng face → chuyển về avatar cho thấy hiệu ứng
     const ok = await startFaceTracking();
     setFaceOn(ok); // thất bại (từ chối camera/không HTTPS) → giữ tắt; lý do đã log ở tracker
   };
@@ -77,7 +75,6 @@ export default function App() {
       return;
     }
     if (faceOn) { stopFaceTracking(); setFaceOn(false); } // nhường camera cho chế độ tay
-    setDisplayMode('avatar');
     const ok = await startGestureTracking();
     setHandOn(ok);
   };
@@ -351,24 +348,15 @@ export default function App() {
             <IconHand />
             <span className="lbl">{handOn ? 'Tắt tay' : 'Tay'}</span>
           </button>
-          {displayMode === 'avatar' && (
-            <button
-              className="console"
-              onClick={toggle2d}
-              aria-pressed={avatar2d}
-              title="Đổi giữa ảnh 2D (PNG) và model 3D"
-            >
-              {avatar2d ? <IconCube /> : <IconImage />}
-              <span className="lbl">{avatar2d ? 'Model 3D' : 'Ảnh 2D'}</span>
-            </button>
-          )}
           <button
-            className="console"
-            onClick={() => setDisplayMode((m) => (m === 'orb' ? 'avatar' : 'orb'))}
-            title="Đổi giữa Avatar VRM và Orb giọng nói"
+            className="seg2"
+            onClick={toggle2d}
+            role="switch"
+            aria-checked={avatar2d}
+            title="Gạt giữa ảnh 2D và model 3D"
           >
-            {displayMode === 'orb' ? <IconPerson /> : <IconOrb />}
-            <span className="lbl">{displayMode === 'orb' ? 'Avatar' : 'Orb'}</span>
+            <span className={avatar2d ? 'on' : ''}>2D</span>
+            <span className={!avatar2d ? 'on' : ''}>3D</span>
           </button>
           <button className="console" onClick={() => setShowConsole(true)}>
             <IconSettings />
@@ -386,7 +374,6 @@ export default function App() {
         stateRef={mira.stateRef}
         moodRef={mira.moodRef}
         theme={theme}
-        displayMode={displayMode}
         avatarUrl={avatarUrl}
         lookSrc={lookSrc}
         avatarOpacity={avatarOpacity}

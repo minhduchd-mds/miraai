@@ -1,23 +1,19 @@
 import type { RefObject, MutableRefObject } from 'react';
 import type { MiraState, Mood, Theme } from '../core/types';
 import MiraAvatar from '../avatar/MiraAvatar';
-import MiraOrb from '../avatar/MiraOrb';
-
-export type DisplayMode = 'avatar' | 'orb';
 
 interface Props {
   footglowRef: RefObject<HTMLDivElement>;
   stateRef: MutableRefObject<MiraState>;
   moodRef: MutableRefObject<Mood>;
   theme: Theme;
-  displayMode: DisplayMode;
   avatarUrl: string | null; // null = bộ chưa có model 3D → hiện ảnh PNG (lookSrc)
   lookSrc: string;
   avatarOpacity: number;
 }
 
-// Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar VRM 3D (hoặc ảnh PNG / orb giọng nói).
-export default function MiraStage({ footglowRef, stateRef, moodRef, theme, displayMode, avatarUrl, lookSrc, avatarOpacity }: Props) {
+// Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar (VRM 3D hoặc ảnh PNG 2D).
+export default function MiraStage({ footglowRef, stateRef, moodRef, theme, avatarUrl, lookSrc, avatarOpacity }: Props) {
   return (
     <main className="center">
       <div className="scene">
@@ -32,11 +28,7 @@ export default function MiraStage({ footglowRef, stateRef, moodRef, theme, displ
 
         <div className="footglow" ref={footglowRef} />
 
-        {displayMode === 'orb' ? (
-          <MiraOrb stateRef={stateRef} theme={theme} />
-        ) : (
-          <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} avatarUrl={avatarUrl} lookSrc={lookSrc} avatarOpacity={avatarOpacity} />
-        )}
+        <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} avatarUrl={avatarUrl} lookSrc={lookSrc} avatarOpacity={avatarOpacity} />
       </div>
     </main>
   );
