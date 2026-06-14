@@ -1,7 +1,8 @@
 import type { RefObject } from 'react';
+import { IconMic } from './icons';
 
 // Dock tối giản: caption + sóng + orb mic (chạm = bắt đầu/dừng trò chuyện trực tiếp).
-// Chọn giọng / màu / demo nằm trong ⌘ Cài đặt.
+// Chọn giọng / màu / demo nằm trong Cài đặt.
 interface Props {
   who: string;
   caption: string;
@@ -32,9 +33,7 @@ export default function VoiceDock({ who, caption, partial, waveRef, micRef, live
         aria-pressed={live}
         aria-label={live ? 'Dừng trò chuyện' : 'Chạm để trò chuyện'}
       >
-        <svg viewBox="0 0 24 24">
-          <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z" />
-        </svg>
+        <IconMic />
       </button>
     </footer>
   );

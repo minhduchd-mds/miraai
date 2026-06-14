@@ -63,6 +63,10 @@ body {
   transition: 0.2s; }
 .console:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 
+/* ---- Icon outline dùng chung (nét currentColor, đồng bộ toàn app) ---- */
+.ico { width: 1.2em; height: 1.2em; flex: none; fill: none; vertical-align: -0.16em; }
+.console .ico { width: 17px; height: 17px; }
+
 /* ---- center stage ---- */
 .center { position: relative; display: grid; place-items: center; }
 .scene { position: relative; width: min(560px, 86vw); aspect-ratio: 1 / 1.15; display: grid; place-items: center; }
@@ -91,14 +95,16 @@ body {
 .avatar3d { position: absolute !important; inset: 0; z-index: 3; pointer-events: none;
   transition: opacity 600ms ease; }
 /* Ảnh PNG nền trong suốt (cutout) của bộ khi chưa có / thay cho model 3D: toàn thân + hào quang accent. */
-.look2d { position: absolute; bottom: 9%; left: 50%; transform: translateX(-50%);
-  height: 92%; width: auto; max-width: 96%; object-fit: contain; z-index: 3;
-  filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 30px color-mix(in srgb, var(--accent) 40%, transparent));
+/* Ảnh cutout 2D: bóng tiếp đất (grounding) cho ăn nền + viền sáng accent NHẸ (bớt cảm giác sticker). */
+.look2d { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%);
+  height: 93%; width: auto; max-width: 96%; object-fit: contain; z-index: 3;
+  filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 0 26px color-mix(in srgb, var(--accent) 22%, transparent));
   pointer-events: none; user-select: none; transition: filter var(--ring); }
-body[data-state='listening'] .look2d { filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 36px color-mix(in srgb, var(--accent) 55%, transparent)); }
-body[data-state='speaking'] .look2d { filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 44px color-mix(in srgb, var(--accent) 65%, transparent)); }
+body[data-state='listening'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 32px color-mix(in srgb, var(--accent) 34%, transparent)); }
+body[data-state='speaking'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 40px color-mix(in srgb, var(--accent) 44%, transparent)); }
 body[data-state='interrupted'] .look2d,
-body[data-state='error'] .look2d { filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 30px color-mix(in srgb, var(--warn) 55%, transparent)); }
+body[data-state='error'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 28px color-mix(in srgb, var(--warn) 42%, transparent)); }
 .footglow { position: absolute; bottom: 16%; left: 50%; width: 46%; height: 13%; transform: translateX(-50%); z-index: 2;
   border-radius: 50%; pointer-events: none; will-change: opacity, transform;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 75%, transparent), transparent 66%);
@@ -139,7 +145,8 @@ body[data-state='error'] .look2d { filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 
 .mic:hover { transform: scale(1.05); }
 .mic:active { transform: scale(0.95); }
 .mic.live { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 4px; }
-.mic svg { width: 22px; height: 22px; z-index: 2; fill: color-mix(in srgb, #06080f 78%, var(--accent2));
+.mic svg { width: 24px; height: 24px; z-index: 2; fill: none;
+  stroke: color-mix(in srgb, #06080f 80%, var(--accent2)); stroke-width: 1.85;
   filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.35)); }
 /* vệt bóng specular (chất thuỷ tinh) */
 .mic::before { content: ''; position: absolute; inset: 12% 24% 52% 24%; border-radius: 50%; z-index: 1; pointer-events: none;
@@ -255,9 +262,11 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 .opt-row.scroll-x { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
 .opt-row.scroll-x .opt { flex: none; min-width: 92px; }
 .opt.opt-ic { text-align: center; min-width: 78px; }
-.opt-ic .ic { display: block; font-size: 20px; line-height: 1; margin-bottom: 3px; font-weight: 400; }
-.adv-toggle { margin-top: 10px; font-family: 'Inter'; font-size: 12px; font-weight: 600; color: var(--dim);
+.opt-ic .ic { display: flex; justify-content: center; line-height: 1; margin-bottom: 5px; }
+.opt-ic .ico { width: 22px; height: 22px; }
+.adv-toggle { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-family: 'Inter'; font-size: 12px; font-weight: 600; color: var(--dim);
   background: var(--glass); border: 1px solid var(--stroke); border-radius: 9px; padding: 7px 12px; cursor: pointer; transition: 0.18s; }
+.adv-toggle .ico { width: 15px; height: 15px; }
 .adv-toggle:hover { color: var(--text); }
 .adv-toggle[aria-pressed='true'] { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .adv-box { margin-top: 10px; padding: 12px; border: 1px dashed var(--stroke); border-radius: 11px; }
@@ -270,7 +279,8 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 
 /* hướng dẫn */
 .guide { list-style: none; font-size: 13px; color: var(--dim); line-height: 1.65; }
-.guide li { margin: 6px 0; }
+.guide li { margin: 7px 0; }
+.guide li .ico { width: 16px; height: 16px; vertical-align: -0.2em; margin-right: 5px; color: var(--accent); }
 .guide b { color: var(--text); font-weight: 600; }
 
 /* Giao diện 2 cột: trái điều khiển, phải xem trước */
@@ -288,10 +298,11 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 .preview-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .preview-actions { position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; gap: 8px; }
-.preview-actions button { display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer;
-  width: 52px; padding: 8px 4px; border-radius: 12px; font-size: 16px; color: var(--text);
+.preview-actions button { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer;
+  width: 52px; padding: 9px 4px; border-radius: 12px; color: var(--text);
   background: color-mix(in srgb, var(--bg2) 72%, transparent); border: 1px solid var(--stroke);
   backdrop-filter: blur(6px); transition: 0.18s; }
+.preview-actions .ico { width: 20px; height: 20px; }
 .preview-actions button:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .preview-actions small { font-size: 9.5px; color: var(--dim); font-weight: 600; }
 
@@ -311,7 +322,10 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 .slider-val { font-family: 'JetBrains Mono'; color: var(--text); min-width: 38px; text-align: right; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .modal-head b { font-family: 'Be Vietnam Pro'; font-size: 15px; letter-spacing: 0.3px; }
-.modal-x { background: none; border: none; color: var(--dim); font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 7px; }
+.modal-title { display: inline-flex; align-items: center; gap: 8px; }
+.modal-title .ico { width: 17px; height: 17px; color: var(--accent); }
+.modal-x { display: inline-flex; background: none; border: none; color: var(--dim); cursor: pointer; padding: 5px; border-radius: 7px; }
+.modal-x .ico { width: 17px; height: 17px; }
 .modal-x:hover { color: var(--text); background: var(--glass); }
 .modal-sec { border-top: 1px solid var(--stroke); padding: 12px 0 10px; }
 .modal-tl { font-family: 'JetBrains Mono'; font-size: 10.5px; letter-spacing: 1.5px; color: var(--faint);
@@ -352,8 +366,9 @@ body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite
 .dd-item:hover { background: var(--glass); color: var(--text); }
 .dd-item.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 .modal-actions { display: flex; align-items: center; gap: 9px; margin-top: 4px; flex-wrap: wrap; }
-.mbtn { font-family: 'Inter'; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
+.mbtn { display: inline-flex; align-items: center; gap: 6px; font-family: 'Inter'; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
   background: var(--glass); border: 1px solid var(--stroke); border-radius: 9px; padding: 8px 16px; transition: 0.18s; }
+.mbtn .ico { width: 15px; height: 15px; }
 .mbtn:hover { color: var(--text); }
 .mbtn.primary { color: var(--text); background: color-mix(in srgb, var(--accent) 24%, transparent);
   border-color: color-mix(in srgb, var(--accent) 50%, transparent); }

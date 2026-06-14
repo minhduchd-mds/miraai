@@ -7,6 +7,7 @@ import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
 import DevConsole from './ui/DevConsole';
+import { IconCamera, IconCameraOff, IconImage, IconCube, IconOrb, IconPerson, IconSettings } from './ui/icons';
 
 const N_BARS = 52;
 
@@ -270,7 +271,8 @@ export default function App() {
             aria-pressed={faceOn}
             title="Avatar nhìn & biểu cảm theo bạn qua webcam (không deepfake)"
           >
-            {faceOn ? '📷 Tắt camera' : '📷 Camera'}
+            {faceOn ? <IconCameraOff /> : <IconCamera />}
+            <span className="lbl">{faceOn ? 'Tắt camera' : 'Camera'}</span>
           </button>
           {displayMode === 'avatar' && (
             <button
@@ -279,7 +281,8 @@ export default function App() {
               aria-pressed={avatar2d}
               title="Đổi giữa ảnh 2D (PNG) và model 3D"
             >
-              {avatar2d ? '🧊 Model 3D' : '🖼 Ảnh 2D'}
+              {avatar2d ? <IconCube /> : <IconImage />}
+              <span className="lbl">{avatar2d ? 'Model 3D' : 'Ảnh 2D'}</span>
             </button>
           )}
           <button
@@ -287,9 +290,13 @@ export default function App() {
             onClick={() => setDisplayMode((m) => (m === 'orb' ? 'avatar' : 'orb'))}
             title="Đổi giữa Avatar VRM và Orb giọng nói"
           >
-            {displayMode === 'orb' ? '🧍 Avatar' : '🔮 Orb'}
+            {displayMode === 'orb' ? <IconPerson /> : <IconOrb />}
+            <span className="lbl">{displayMode === 'orb' ? 'Avatar' : 'Orb'}</span>
           </button>
-          <button className="console" onClick={() => setShowConsole(true)}>⌘ <span className="lbl">Cài đặt</span></button>
+          <button className="console" onClick={() => setShowConsole(true)}>
+            <IconSettings />
+            <span className="lbl">Cài đặt</span>
+          </button>
         </div>
       </header>
 

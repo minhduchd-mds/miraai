@@ -5,6 +5,10 @@ import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 import { SCENES, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
 import { voicePrefs, saveVoicePrefs, SPEEDS, PERSONAS } from '../core/voice-prefs';
 import type { Theme, VoiceOption, MiraState } from '../core/types';
+import {
+  IconClose, IconSettings, IconChevronUp, IconChevronDown, IconRefresh, IconShirt, IconScene,
+  IconPerson, IconMic, IconRepeat, IconStop, IconCamera, IconOrb, IconSpeech, IconBrain, PERSONA_ICON,
+} from './icons';
 
 // Rút gọn tên giọng cho thẻ + sub mô tả ngắn.
 const shortVoice = (n: string) => n.replace(/Microsoft\s+/i, '').replace(/\s*[-–].*$/, '').trim() || n;
@@ -318,8 +322,8 @@ export default function DevConsole({
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Cài đặt" ref={modalRef} tabIndex={-1}>
         <div className="modal-head">
-          <b>⌘ Cài đặt</b>
-          <button className="modal-x" onClick={onClose} aria-label="Đóng">✕</button>
+          <b className="modal-title"><IconSettings /> Cài đặt</b>
+          <button className="modal-x" onClick={onClose} aria-label="Đóng"><IconClose /></button>
         </div>
 
         <div className="modal-tabs" role="tablist">
@@ -400,17 +404,20 @@ export default function DevConsole({
 
               <div className="modal-sub">Tính cách</div>
               <div className="opt-row">
-                {PERSONAS.map((p) => (
-                  <button key={p.id} className="opt opt-ic" aria-pressed={persona === p.id}
-                    onClick={() => { setPersona(p.id); saveVoicePrefs({ persona: p.id }); }}>
-                    <b className="ic">{p.icon}</b>
-                    {p.label}
-                  </button>
-                ))}
+                {PERSONAS.map((p) => {
+                  const PIcon = PERSONA_ICON[p.id];
+                  return (
+                    <button key={p.id} className="opt opt-ic" aria-pressed={persona === p.id}
+                      onClick={() => { setPersona(p.id); saveVoicePrefs({ persona: p.id }); }}>
+                      <b className="ic">{PIcon ? <PIcon /> : p.icon}</b>
+                      {p.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <button className="adv-toggle" aria-pressed={showAdv} onClick={() => setShowAdv((v) => !v)}>
-                ⚙ Nâng cao {showAdv ? '▲' : '▾'}
+                <IconSettings /> Nâng cao {showAdv ? <IconChevronUp /> : <IconChevronDown />}
               </button>
               {showAdv && (
                 <div className="adv-box">
@@ -450,14 +457,14 @@ export default function DevConsole({
             <div className="iface-right">
               <div className="preview-head">
                 <div className="modal-tl">Hình mẫu áo</div>
-                <button className="mbtn" onClick={() => setPreviewKey((k) => k + 1)} title="Tải lại ảnh">↻ Làm mới</button>
+                <button className="mbtn" onClick={() => setPreviewKey((k) => k + 1)} title="Tải lại ảnh"><IconRefresh /> Làm mới</button>
               </div>
               <div className="preview-card">
                 <img className="preview-img" src={lookOf(avatarSel.gender, avatarSel.outfit)} alt="Xem trước trang phục" onError={onLookErr} />
                 <div className="preview-actions">
-                  <button onClick={nextOutfit} title="Đổi trang phục">👗<small>Thay đổi</small></button>
-                  <button title="Đổi tư thế (sắp có)">🧍<small>Tư thế</small></button>
-                  <button onClick={nextScene} title="Đổi bối cảnh / nền">🖼️<small>Nền</small></button>
+                  <button onClick={nextOutfit} title="Đổi trang phục"><IconShirt /><small>Thay đổi</small></button>
+                  <button title="Đổi tư thế (sắp có)"><IconPerson /><small>Tư thế</small></button>
+                  <button onClick={nextScene} title="Đổi bối cảnh / nền"><IconScene /><small>Nền</small></button>
                 </div>
               </div>
               <div className="slider-row">
@@ -559,14 +566,14 @@ export default function DevConsole({
           <div className="modal-sec">
             <div className="modal-tl">Hướng dẫn sử dụng</div>
             <ul className="guide">
-              <li>🎙️ <b>Nói một lượt:</b> bấm nút mic (hoặc phím <b>Space</b>) rồi nói.</li>
-              <li>🔁 <b>Trò chuyện trực tiếp:</b> bấm để nói qua lại liên tục; bấm lại để dừng.</li>
-              <li>✋ <b>Ngắt lời:</b> Mira đang nói, bấm mic/Space là dừng. Bật <b>VAD</b> (tab Giao diện) để ngắt bằng giọng.</li>
-              <li>📷 <b>Camera:</b> nút 📷 trên đầu — avatar nhìn &amp; biểu cảm theo anh qua webcam (cần HTTPS).</li>
-              <li>🔮 <b>Orb / Avatar:</b> nút 🔮 đổi giữa nhân vật 3D và quả cầu giọng nói.</li>
-              <li>🗣️ <b>Giọng Việt tự nhiên:</b> tab Giao diện → Giọng nói → <b>Edge</b> (free) hoặc <b>VieNeu</b> (bảo mật).</li>
-              <li>🧠 <b>Thông minh hơn:</b> tab Model → dán API key Claude → bật <b>Tìm kiếm web</b> để hỏi tin mới.</li>
-              <li>👗 <b>Nhân vật:</b> tab Giao diện → chọn bối cảnh, giới tính, trang phục.</li>
+              <li><IconMic /> <b>Nói một lượt:</b> bấm nút mic (hoặc phím <b>Space</b>) rồi nói.</li>
+              <li><IconRepeat /> <b>Trò chuyện trực tiếp:</b> bấm để nói qua lại liên tục; bấm lại để dừng.</li>
+              <li><IconStop /> <b>Ngắt lời:</b> Mira đang nói, bấm mic/Space là dừng. Bật <b>VAD</b> (tab Giao diện) để ngắt bằng giọng.</li>
+              <li><IconCamera /> <b>Camera:</b> nút Camera trên đầu — avatar nhìn &amp; biểu cảm theo anh qua webcam (cần HTTPS).</li>
+              <li><IconOrb /> <b>Orb / Avatar:</b> nút Orb đổi giữa nhân vật 3D và quả cầu giọng nói.</li>
+              <li><IconSpeech /> <b>Giọng Việt tự nhiên:</b> tab Giao diện → Giọng nói → <b>Edge</b> (free) hoặc <b>VieNeu</b> (bảo mật).</li>
+              <li><IconBrain /> <b>Thông minh hơn:</b> tab Model → dán API key Claude → bật <b>Tìm kiếm web</b> để hỏi tin mới.</li>
+              <li><IconShirt /> <b>Nhân vật:</b> tab Giao diện → chọn bối cảnh, giới tính, trang phục.</li>
             </ul>
             <div className="modal-note">
               Không nghe thấy gì? Kiểm tra âm lượng máy, đúng thiết bị output, tab trình duyệt không bị tắt tiếng.
