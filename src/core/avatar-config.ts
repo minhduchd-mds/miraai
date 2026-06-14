@@ -92,12 +92,13 @@ const LOOKS: Record<string, string> = {
   'female-intimate-nightgown': '/avatars/female/mira_female_03_aurora_blue.webp',
   'female-intimate-maid': '/avatars/female/mira_female_05_iris_maid.webp',
   'female-intimate-lingerie': '/avatars/female/mira_female_04_soft_rose.webp',
+  // Nam: ảnh nền trong suốt (WebP) cho bộ casual + cởi trần. Office (silver_white) chưa có ảnh riêng → tạm dùng ảnh shirt cũ.
   'male-office-shirt': '/looks/male-shirt.png',
   'male-office-suit': '/looks/male-shirt.png',
-  'male-home-casual': '/looks/male-shirt.png',
-  'male-home-hoodie': '/looks/male-shirt.png',
-  'male-intimate-casual': '/looks/male-shirt.png',
-  'male-intimate-shirtless': '/looks/male-shirtless.png',
+  'male-home-casual': '/avatars/male/mira_male_01_black_casual.webp',
+  'male-home-hoodie': '/avatars/male/mira_male_01_black_casual.webp',
+  'male-intimate-casual': '/avatars/male/mira_male_01_black_casual.webp',
+  'male-intimate-shirtless': '/avatars/male/mira_male_03_body_black_open.webp',
 };
 
 function key(s: AvatarSel): string {
