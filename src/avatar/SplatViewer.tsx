@@ -16,7 +16,7 @@ export default function SplatViewer({ url }: { url: string }) {
         viewer = new GS.Viewer({
           rootElement: ref.current,
           cameraUp: [0, -1, 0], // 3DGS thường Y-down → lật; nếu ngược đầu thì đổi thành [0,1,0]
-          initialCameraPosition: [0, 0, 4],
+          initialCameraPosition: [0, 0, 2], // gần hơn → splat to bằng avatar cũ (chỉnh 1.5–2.5 nếu cần)
           initialCameraLookAt: [0, 0, 0],
           sharedMemoryForWorkers: false,
           gpuAcceleratedSort: false,
