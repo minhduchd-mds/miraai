@@ -20,6 +20,9 @@ export interface FaceData {
   blinkR: number; // 0..1
   smile: number; // 0..1
   browUp: number; // 0..1 nhướng mày
+  frown: number; // 0..1 méo miệng (buồn)
+  browDown: number; // 0..1 cau mày
+  emotion: 'happy' | 'sad' | 'surprised' | 'angry' | 'neutral'; // suy từ blendshapes
 }
 
 export const faceData: FaceData = {
@@ -33,6 +36,9 @@ export const faceData: FaceData = {
   blinkR: 0,
   smile: 0,
   browUp: 0,
+  frown: 0,
+  browDown: 0,
+  emotion: 'neutral',
 };
 
 let landmarker: { detectForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
@@ -73,6 +79,15 @@ function readFrame(): void {
     faceData.smile +=
       (((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2 - faceData.smile) * SMOOTH;
     faceData.browUp += ((bs.browInnerUp || 0) - faceData.browUp) * SMOOTH;
+    faceData.frown += (((bs.mouthFrownLeft || 0) + (bs.mouthFrownRight || 0)) / 2 - faceData.frown) * SMOOTH;
+    faceData.browDown += (((bs.browDownLeft || 0) + (bs.browDownRight || 0)) / 2 - faceData.browDown) * SMOOTH;
+    // Suy cảm xúc từ blendshapes (ngưỡng heuristic — có thể chỉnh).
+    faceData.emotion =
+      faceData.smile > 0.4 ? 'happy'
+        : faceData.frown > 0.28 || (faceData.browUp > 0.55 && faceData.smile < 0.12) ? 'sad'
+          : faceData.jaw > 0.45 && faceData.browUp > 0.4 ? 'surprised'
+            : faceData.browDown > 0.4 && faceData.smile < 0.12 ? 'angry'
+              : 'neutral';
 
     const mtx = res?.facialTransformationMatrixes?.[0]?.data;
     if (mtx && mtx.length === 16) {
@@ -84,6 +99,7 @@ function readFrame(): void {
     }
   } else {
     faceData.present = false;
+    faceData.emotion = 'neutral';
   }
   raf = requestAnimationFrame(readFrame);
 }

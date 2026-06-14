@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
-import { startFaceTracking, stopFaceTracking } from './core/face/face-tracker';
+import { startFaceTracking, stopFaceTracking, faceData } from './core/face/face-tracker';
 import { startGestureTracking, stopGestureTracking, handData } from './core/face/gesture-tracker';
 import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, has3D, lookImage, sceneBg, type AvatarSel } from './core/avatar-config';
 import type { MiraState, Theme } from './core/types';
@@ -143,6 +143,33 @@ export default function App() {
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handOn]);
+
+  // Camera đọc cảm xúc: thấy anh buồn/vui kéo dài → Mira CHỦ ĐỘNG hỏi thăm/tâm sự (chỉ khi đang rảnh, có giãn cách).
+  useEffect(() => {
+    if (!faceOn) return;
+    const LINES: Record<string, string> = {
+      sad: 'Em thấy anh trông hơi buồn. Có chuyện gì không, kể em nghe nhé?',
+      happy: 'Anh đang vui ghê! Có chuyện gì hay à, kể em với đi?',
+      surprised: 'Ơ, anh trông bất ngờ ghê. Có gì thú vị hả anh?',
+      angry: 'Anh trông căng thẳng quá. Mình hít thở sâu một chút nhé, có em đây mà.',
+    };
+    let cur = 'neutral';
+    let since = 0;
+    let lastProactive = 0;
+    const id = window.setInterval(() => {
+      const e = faceData.emotion;
+      const now = performance.now();
+      if (e !== cur) { cur = e; since = now; return; }
+      if (e === 'neutral') return;
+      if (now - since < 3500) return; // giữ cảm xúc đủ lâu mới nói (tránh thoáng qua)
+      if (mira.stateRef.current !== 'idle') return; // không cắt ngang khi đang nói/nghe/nghĩ
+      if (now - lastProactive < 30000) return; // không hỏi dồn dập
+      const line = LINES[e];
+      if (line) { lastProactive = now; since = now; mira.say(line); }
+    }, 600);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faceOn]);
 
   // body[data-state] + body[data-theme] điều khiển toàn bộ CSS theo trạng thái/màu (như mockup).
   useEffect(() => {
