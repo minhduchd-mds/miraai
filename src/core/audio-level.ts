@@ -5,10 +5,23 @@ export const audioLevel = { value: 0, active: false };
 
 let ctx: AudioContext | null = null;
 
+// Mồi AudioContext TRONG user-gesture (mở khoá autoplay) → attachAnalyser sau này route được + lipsync chạy.
+export function primeAudio(): void {
+  try {
+    ctx = ctx || new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (ctx.state === 'suspended') void ctx.resume();
+  } catch {
+    /* noop */
+  }
+}
+
 export function attachAnalyser(el: HTMLAudioElement): () => void {
   try {
     ctx = ctx || new (window.AudioContext || (window as any).webkitAudioContext)();
-    void ctx.resume(); // cần user-activation — các nút bấm trong app đã cấp
+    if (ctx.state === 'suspended') void ctx.resume();
+    // CHỐT CHỐNG CÂM: nếu context CHƯA chạy (autoplay chưa mở khoá) → route qua nó sẽ MẤT TIẾNG.
+    // Bỏ analyser, để <audio> phát THẲNG (chắc chắn nghe được); lipsync rơi về envelope giả lập.
+    if (ctx.state !== 'running') return () => {};
     const src = ctx.createMediaElementSource(el); // mỗi element chỉ attach được 1 lần (mỗi câu 1 element mới)
     const an = ctx.createAnalyser();
     an.fftSize = 512;

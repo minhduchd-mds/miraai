@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
 import { loadHistory, saveTurn, recallMemory, distillFacts } from './history-store';
 import { WebSpeechSTT } from './stt/webspeech-stt';
-import { startMicLevel, stopMicLevel } from './audio-level';
+import { startMicLevel, stopMicLevel, primeAudio } from './audio-level';
 import { voicePrefs, loadVoicePrefs } from './voice-prefs';
 import { SileroVAD } from './vad/silero-vad';
 import { loadVadEnabled } from './vad/config';
@@ -168,6 +168,7 @@ export function useMira() {
   }, []);
 
   const unlockAudio = useCallback(() => {
+    primeAudio(); // mở khoá AudioContext trong gesture → ElevenLabs/VieNeu không bị câm
     ttsRef.current!.unlock();
   }, []);
 
