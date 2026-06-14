@@ -1,5 +1,12 @@
-import type { Brain, BrainReply, BrainTurn } from '../types';
+import type { Brain, BrainReply, BrainTurn, Mood } from '../types';
 import { voicePrefs, personaTone } from '../voice-prefs';
+
+// Tách thẻ cảm xúc [mood:..] ở đầu câu trả lời → lái biểu cảm avatar; phần còn lại mới là lời đọc.
+function parseMood(raw: string): { text: string; mood?: Mood } {
+  const m = raw.match(/^\s*\[mood:\s*(happy|curious|surprised|thinking|neutral)\s*\]\s*/i);
+  if (!m) return { text: raw.trim() };
+  return { text: raw.slice(m[0].length).trim(), mood: m[1].toLowerCase() as Mood };
+}
 
 // Prompt voice-first (đề xuất #5): câu trả lời sẽ được ĐỌC lên → phải ngắn, văn nói tự nhiên.
 const SYSTEM = `Bạn là Mira — trợ lý giọng nói tiếng Việt của sản phẩm Soi (công cụ audit giao diện).
@@ -10,7 +17,11 @@ QUAN TRỌNG vì câu trả lời sẽ được ĐỌC LÊN bằng giọng nói:
 - Đọc số tự nhiên như khi nói (ví dụ "ba lỗi" thay vì "3 lỗi").
 - Không tự xưng là AI/mô hình ngôn ngữ trừ khi được hỏi thẳng.
 - Khi câu hỏi cần thông tin mới/thời sự (tin tức, giá cả, thời tiết, sự kiện…), hãy TÌM KIẾM web rồi
-  trả lời ngắn gọn bằng thông tin tìm được. KHÔNG đọc URL/đường link; nói tự nhiên như đang kể cho người nghe.`;
+  trả lời ngắn gọn bằng thông tin tìm được. KHÔNG đọc URL/đường link; nói tự nhiên như đang kể cho người nghe.
+- ĐỒNG CẢM: cảm nhận tâm trạng người dùng qua lời họ nói — buồn/mệt thì an ủi nhẹ nhàng, vui thì hào hứng theo,
+  lo lắng thì trấn an. Luôn ấm áp, gần gũi như một người bạn.
+- BẮT ĐẦU mỗi câu trả lời bằng ĐÚNG MỘT thẻ [mood:happy|curious|surprised|neutral] thể hiện cảm xúc của em
+  lúc đó, rồi mới tới lời nói. Thẻ này hệ thống tự ẩn, KHÔNG đọc lên.`;
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -116,7 +127,8 @@ export class LLMBrain implements Brain {
       .map((b) => b.text)
       .join(' ')
       .trim();
-    return { text: text || 'Dạ em chưa rõ ý anh lắm.' };
+    const parsed = parseMood(text);
+    return { text: parsed.text || 'Dạ em chưa rõ ý anh lắm.', mood: parsed.mood };
   }
 
   private async openai(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply> {
@@ -136,6 +148,7 @@ export class LLMBrain implements Brain {
     if (!res.ok) await this.readError(res, 'OpenAI');
     const data = await res.json();
     const text = (data?.choices?.[0]?.message?.content ?? '').trim();
-    return { text: text || 'Dạ em chưa rõ ý anh lắm.' };
+    const parsed = parseMood(text);
+    return { text: parsed.text || 'Dạ em chưa rõ ý anh lắm.', mood: parsed.mood };
   }
 }

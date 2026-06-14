@@ -31,7 +31,14 @@ export default async function handler(req, res) {
       where device_id = ${device} and embedding is not null
       order by embedding <=> ${vec}::vector
       limit 6`;
-    return res.status(200).json({ memories: rows });
+    // Facts về người dùng: top gần nghĩa câu hỏi (hồ sơ bền vững).
+    const facts = await sql`
+      select fact, 1 - (embedding <=> ${vec}::vector) as score
+      from user_facts
+      where device_id = ${device} and embedding is not null
+      order by embedding <=> ${vec}::vector
+      limit 5`;
+    return res.status(200).json({ memories: rows, facts });
   } catch (e) {
     return res.status(500).json({ error: String(e && e.message ? e.message : e).slice(0, 200) });
   }

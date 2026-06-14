@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
-import { loadHistory, saveTurn, recallMemory } from './history-store';
+import { loadHistory, saveTurn, recallMemory, distillFacts } from './history-store';
 import { WebSpeechSTT } from './stt/webspeech-stt';
 import { startMicLevel, stopMicLevel } from './audio-level';
 import { voicePrefs, loadVoicePrefs } from './voice-prefs';
@@ -317,6 +317,7 @@ export function useMira() {
         setMoodBoth(reply.mood || 'neutral');
         pushHistory({ role: 'mira', text: reply.text });
         speak(reply.text);
+        distillFacts(`Người dùng: ${text}\nMira: ${reply.text}`); // chắt lọc hồ sơ người dùng (Gemini free, nền)
       } catch (e) {
         setLatencyMs(Math.round(performance.now() - t0));
         const msg = e instanceof Error ? e.message : String(e);

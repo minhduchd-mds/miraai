@@ -41,14 +41,37 @@ export async function recallMemory(query: string): Promise<string> {
     const r = await fetch(`/api/memory?device=${encodeURIComponent(deviceId())}&q=${encodeURIComponent(q)}`);
     if (!r.ok) return '';
     const j = await r.json();
-    const mems = Array.isArray(j?.memories) ? j.memories : [];
-    const useful = mems
+    const facts = (Array.isArray(j?.facts) ? j.facts : [])
+      .filter((f: any) => typeof f?.fact === 'string' && (f.score == null || f.score > 0.4))
+      .slice(0, 5);
+    const mems = (Array.isArray(j?.memories) ? j.memories : [])
       .filter((m: any) => typeof m?.text === 'string' && (m.score == null || m.score > 0.55))
       .slice(0, 5);
-    if (!useful.length) return '';
-    return useful.map((m: any) => `- ${m.role === 'mira' ? 'Mira đã nói' : 'Người dùng đã nói'}: ${m.text}`).join('\n');
+    const parts: string[] = [];
+    if (facts.length) parts.push('Hồ sơ người dùng:\n' + facts.map((f: any) => `- ${f.fact}`).join('\n'));
+    if (mems.length)
+      parts.push(
+        'Đoạn trò chuyện cũ liên quan:\n' +
+          mems.map((m: any) => `- ${m.role === 'mira' ? 'Mira đã nói' : 'Người dùng đã nói'}: ${m.text}`).join('\n'),
+      );
+    return parts.join('\n\n');
   } catch {
     return '';
+  }
+}
+
+// Chắt lọc & lưu "facts" về người dùng từ 1 lượt trao đổi (fire-and-forget, Gemini free phía server).
+export function distillFacts(conversation: string): void {
+  const c = (conversation || '').trim();
+  if (!c) return;
+  try {
+    void fetch('/api/facts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device: deviceId(), conversation: c }),
+    }).catch(() => {});
+  } catch {
+    /* noop */
   }
 }
 
