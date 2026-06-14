@@ -13,6 +13,7 @@ export interface ServerTTSOptions {
   label: string; // tên engine hiện trong log/lỗi: 'VieNeu' | 'Edge'
   fallbackVoice: VoiceOption; // hiện trước khi /voices nạp xong (hoặc khi server lỗi)
   sampleText?: string; // câu cho test()/Đọc thử
+  fallback?: TTSAdapter & { unlock?: () => void }; // server không tới được → dùng giọng này (vd Web Speech)
 }
 
 const DEFAULT_SAMPLE = 'Xin chào anh, em là Mira. Đây là giọng nói tiếng Việt của em đó ạ.';
@@ -29,12 +30,14 @@ export class ServerTTS implements TTSAdapter {
   private lastError: string | null = null;
   private cancelled = false;
   private voices: VoiceOption[];
+  private fallbackTTS: (TTSAdapter & { unlock?: () => void }) | null;
 
   constructor(opts: ServerTTSOptions) {
     this.serverUrl = (opts.serverUrl || '').replace(/\/$/, '');
     this.label = opts.label;
     this.sampleText = opts.sampleText || DEFAULT_SAMPLE;
     this.voices = [opts.fallbackVoice];
+    this.fallbackTTS = opts.fallback ?? null;
     // Nạp danh sách giọng preset từ server (async — listVoices trả cache, useMira refresh sau).
     fetch(`${this.serverUrl}/voices`)
       .then((r) => (r.ok ? r.json() : null))
@@ -64,6 +67,7 @@ export class ServerTTS implements TTSAdapter {
 
   unlock(): void {
     /* HTMLAudio dùng user-activation của trang */
+    this.fallbackTTS?.unlock?.(); // mồi sẵn Web Speech để fallback không bị câm
   }
 
   speak(opts: TTSSpeakOptions): void {
@@ -118,6 +122,12 @@ export class ServerTTS implements TTSAdapter {
       .catch((e: any) => {
         this.fetching = false;
         if (this.cancelled || e?.name === 'AbortError') return;
+        // Server không tới được / lỗi → nếu có fallback (Web Speech) thì nói bằng nó, không để câm.
+        if (this.fallbackTTS) {
+          console.warn(`[Mira TTS·${this.label}] server lỗi → dùng giọng hệ thống.`, e?.message || e);
+          this.fallbackTTS.speak(opts);
+          return;
+        }
         const msg =
           e instanceof TypeError
             ? `Không nối được server TTS (${this.serverUrl}) — chạy server/ trước nhé`
@@ -146,6 +156,7 @@ export class ServerTTS implements TTSAdapter {
         /* noop */
       }
     }
+    this.fallbackTTS?.cancel(); // dừng cả giọng fallback nếu đang nói
     this.cleanupAudio();
   }
 

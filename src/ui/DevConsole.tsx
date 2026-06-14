@@ -416,35 +416,7 @@ export default function DevConsole({
                 })}
               </div>
 
-              <button className="adv-toggle" aria-pressed={showAdv} onClick={() => setShowAdv((v) => !v)}>
-                <IconSettings /> Nâng cao {showAdv ? <IconChevronUp /> : <IconChevronDown />}
-              </button>
-              {showAdv && (
-                <div className="adv-box">
-                  <div className="modal-row">
-                    <label>Engine</label>
-                    <Dropdown value={ttsEngine} onChange={(v) => setTtsEngine(v as TTSConfig['engine'])}
-                      options={[
-                        { value: 'system', label: 'Giọng hệ thống (miễn phí)' },
-                        { value: 'edge', label: 'Edge — Microsoft (tiếng Việt, free)' },
-                        { value: 'vieneu', label: 'VieNeu — server nhà (bảo mật)' },
-                        { value: 'elevenlabs', label: 'ElevenLabs (cloud, cần key)' },
-                      ]} />
-                  </div>
-                  {ttsEngine === 'elevenlabs' && (
-                    <div className="modal-row"><label>ElevenLabs key</label>
-                      <input type="password" value={ttsKey} onChange={(e) => setTtsKey(e.target.value)} placeholder="xi-…" autoComplete="off" spellCheck={false} /></div>
-                  )}
-                  {(ttsEngine === 'vieneu' || ttsEngine === 'edge') && (
-                    <div className="modal-row"><label>Server URL</label>
-                      <input type="text" value={ttsServer} onChange={(e) => setTtsServer(e.target.value)} placeholder={ttsEngine === 'edge' ? EDGE_DEFAULT_URL : VIENEU_DEFAULT_URL} spellCheck={false} /></div>
-                  )}
-                  <div className="modal-actions">
-                    <button className="mbtn primary" onClick={saveTts}>Lưu giọng</button>
-                    {ttsSaved && <span className="modal-status">{ttsSaved}</span>}
-                  </div>
-                </div>
-              )}
+              {/* Giọng mặc định = ElevenLabs qua server (key trên Vercel) → bỏ phần chọn engine/key thủ công. */}
 
               <label className="modal-check">
                 <input type="checkbox" checked={vadOn} onChange={(e) => { setVadOn(e.target.checked); saveVadEnabled(e.target.checked); }} />
