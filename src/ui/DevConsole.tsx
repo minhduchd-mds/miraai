@@ -416,12 +416,6 @@ export default function DevConsole({
                 })}
               </div>
 
-              {/* Giọng mặc định = ElevenLabs qua server (key trên Vercel) → bỏ phần chọn engine/key thủ công. */}
-
-              <label className="modal-check">
-                <input type="checkbox" checked={vadOn} onChange={(e) => { setVadOn(e.target.checked); saveVadEnabled(e.target.checked); }} />
-                <span><b>Ngắt lời bằng giọng (VAD)</b></span>
-              </label>
             </div>
             </div>{/* /iface-left */}
 

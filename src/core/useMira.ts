@@ -90,8 +90,8 @@ export function useMira() {
   const [history, setHistory] = useState<BrainTurn[]>([]);
   const historyRef = useRef<BrainTurn[]>([]);
   const [voices, setVoices] = useState<VoiceOption[]>([]);
-  const [voiceURI, setVoiceURI] = useState<string | undefined>(undefined);
-  const voiceURIRef = useRef<string | undefined>(undefined);
+  const [voiceURI, setVoiceURI] = useState<string | undefined>(''); // mặc định = giọng đầu tiên "Eva" (uri '')
+  const voiceURIRef = useRef<string | undefined>('');
   const [brainName, setBrainName] = useState(() => brainRef.current!.name);
   const pendingTranscriptRef = useRef('');
   const emptyCountRef = useRef(0);
@@ -133,7 +133,7 @@ export function useMira() {
       const vi = tts.listVoices('vi');
       const list = vi.length ? vi : tts.listVoices();
       setVoices(list);
-      // KHÔNG tự chọn giọng mặc định — để người dùng tự bấm (chọn xong phát thử luôn).
+      // Mặc định là giọng đầu tiên "Eva" (voiceURI = '' → engine tự dùng giọng mặc định). Người dùng đổi tuỳ ý.
     };
     load();
     window.speechSynthesis?.addEventListener?.('voiceschanged', load);
