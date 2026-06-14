@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
 import { loadHistory, saveTurn, recallMemory, distillFacts } from './history-store';
+import { detectContent, fetchWeather, pollinationsImage, type Content } from './content';
 import { WebSpeechSTT } from './stt/webspeech-stt';
 import { startMicLevel, stopMicLevel, primeAudio } from './audio-level';
 import { voicePrefs, loadVoicePrefs } from './voice-prefs';
@@ -89,6 +90,7 @@ export function useMira() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<BrainTurn[]>([]);
   const historyRef = useRef<BrainTurn[]>([]);
+  const [content, setContent] = useState<Content | null>(null); // panel trực quan (thời tiết/ảnh) cạnh avatar
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [voiceURI, setVoiceURI] = useState<string | undefined>(''); // mặc định = giọng đầu tiên "Eva" (uri '')
   const voiceURIRef = useRef<string | undefined>('');
@@ -304,6 +306,13 @@ export function useMira() {
       // (bug cũ: push trước rồi truyền history chứa luôn input → user nhân đôi → Anthropic 400)
       const prior = historyRef.current;
       pushHistory({ role: 'user', text });
+      // Trực quan hoá: phát hiện hỏi thời tiết/ảnh → fetch song song (không chặn câu trả lời) → hiện panel.
+      const intent = detectContent(text);
+      if (intent?.kind === 'weather') {
+        fetchWeather(intent.city).then((w) => w && setContent({ kind: 'weather', data: w }));
+      } else if (intent?.kind === 'image') {
+        setContent({ kind: 'image', data: { prompt: intent.prompt, url: pollinationsImage(intent.prompt) } });
+      }
       setWho('MIRA');
       setPartial(false);
       setCaption('Đang suy nghĩ…');
@@ -528,6 +537,8 @@ export function useMira() {
     interrupt,
     demoGo,
     say: speak, // đọc 1 câu canned (dùng cho phản ứng cử chỉ: chào, cảm ơn…)
+    content, // panel trực quan (thời tiết/ảnh) cạnh avatar; null = không có
+    clearContent: () => setContent(null),
   };
 }
 

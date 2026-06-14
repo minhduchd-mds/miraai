@@ -8,6 +8,7 @@ import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
 import DevConsole from './ui/DevConsole';
+import ContentPanel from './ui/ContentPanel';
 import { IconCamera, IconCameraOff, IconSettings, IconHand } from './ui/icons';
 
 const N_BARS = 52;
@@ -301,7 +302,7 @@ export default function App() {
   const voiceLabel = mira.voices.find((v) => v.voiceURI === mira.voiceURI)?.name || 'Web Speech · VN';
 
   return (
-    <div className="stage">
+    <div className={`stage${mira.content ? ' has-content' : ''}`}>
       <div className="scene-bg" ref={sceneBgRef} aria-hidden="true" />
       <header className="top">
         <div className="brand">
@@ -378,6 +379,8 @@ export default function App() {
         lookSrc={lookSrc}
         avatarOpacity={avatarOpacity}
       />
+
+      {mira.content && <ContentPanel content={mira.content} onClose={mira.clearContent} />}
 
       <VoiceDock
         who={mira.who}

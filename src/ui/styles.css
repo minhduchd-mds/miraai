@@ -121,6 +121,40 @@ body[data-state='error'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0,
   transition: opacity 0.2s ease, transform 0.09s linear; }
 .hand-cursor.act { transform: scale(1.7); box-shadow: 0 0 24px 7px color-mix(in srgb, var(--accent) 88%, transparent); }
 
+/* ── Panel thông tin trực quan cạnh avatar (thời tiết / ảnh) — avatar thu nhỏ về góc ── */
+.content-panel { position: fixed; right: 3.5vw; top: 50%; transform: translateY(-50%); z-index: 25;
+  width: min(360px, 42vw); max-height: 80vh; overflow-y: auto; padding: 20px 20px 18px;
+  border-radius: 20px; background: color-mix(in srgb, var(--bg2) 88%, transparent);
+  border: 1px solid var(--stroke); backdrop-filter: blur(14px); scrollbar-width: thin;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45); animation: cp-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes cp-in { from { opacity: 0; transform: translate(24px, -50%); } to { opacity: 1; transform: translate(0, -50%); } }
+.cp-close { position: absolute; top: 9px; right: 9px; display: inline-flex; background: none; border: none;
+  color: var(--dim); cursor: pointer; padding: 5px; border-radius: 7px; }
+.cp-close .ico { width: 16px; height: 16px; }
+.cp-close:hover { color: var(--text); background: var(--glass); }
+.center { transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.stage.has-content .center { transform: translate(-26%, 20%) scale(0.55); }
+
+.cp-weather { text-align: center; padding: 4px 0 2px; }
+.cp-emoji { font-size: 54px; line-height: 1; }
+.cp-temp { font-size: 40px; font-weight: 700; color: var(--text); margin-top: 6px; }
+.cp-city { font-size: 15px; color: var(--text); font-weight: 600; margin-top: 2px; }
+.cp-desc { font-size: 13px; color: var(--dim); margin-top: 2px; }
+.cp-meta { display: flex; justify-content: center; gap: 16px; margin-top: 12px; font-size: 12.5px; color: var(--dim); }
+
+.cp-image { display: flex; flex-direction: column; gap: 10px; }
+.cp-imgwrap { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.cp-imgwrap img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s ease; }
+.cp-imgwrap.loaded img { opacity: 1; }
+.cp-loading { position: absolute; font-size: 13px; color: var(--dim); animation: blink 1.2s steps(2) infinite; }
+.cp-cap { font-size: 12.5px; color: var(--dim); line-height: 1.4; }
+.cp-image .mbtn { justify-content: center; }
+@media (max-width: 760px) {
+  .content-panel { right: 4vw; left: 4vw; width: auto; top: auto; bottom: 116px; transform: none; max-height: 44vh; animation: none; }
+  .stage.has-content .center { transform: scale(0.5); transform-origin: 50% 6%; }
+}
+
 .footglow { position: absolute; bottom: 16%; left: 50%; width: 46%; height: 13%; transform: translateX(-50%); z-index: 2;
   border-radius: 50%; pointer-events: none; will-change: opacity, transform;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 75%, transparent), transparent 66%);

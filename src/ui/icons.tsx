@@ -101,6 +101,14 @@ export const IconChevronUp = (p: SVGProps<SVGSVGElement>) => (
   </Svg>
 );
 
+export const IconDownload = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}>
+    <path d="M12 3v12" />
+    <path d="m7 11 5 5 5-5" />
+    <path d="M5 20h14" />
+  </Svg>
+);
+
 export const IconRefresh = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}>
     <path d="M21 12a9 9 0 1 1-2.6-6.4" />
