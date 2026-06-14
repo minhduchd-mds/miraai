@@ -166,6 +166,7 @@ export default function DevConsole({
   const [rate, setRate] = useState(voicePrefs.rate);
   const [persona, setPersona] = useState(voicePrefs.persona);
   const [showAdv, setShowAdv] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!initial) return;
@@ -195,13 +196,38 @@ export default function DevConsole({
     return () => clearInterval(id);
   }, [open, getDiagnostics]);
 
+  // Esc đóng + bẫy focus trong modal + trả focus về nút mở khi đóng (a11y bàn phím/screen reader).
   useEffect(() => {
     if (!open) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    modalRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const root = modalRef.current;
+      if (!root) return;
+      const items = Array.from(
+        root.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+      ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      prevFocus?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -290,7 +316,7 @@ export default function DevConsole({
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-label="Cài đặt">
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Cài đặt" ref={modalRef} tabIndex={-1}>
         <div className="modal-head">
           <b>⌘ Cài đặt</b>
           <button className="modal-x" onClick={onClose} aria-label="Đóng">✕</button>

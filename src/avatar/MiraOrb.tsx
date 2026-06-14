@@ -122,7 +122,7 @@ function OrbMesh({
   return (
     <group ref={grp}>
       <mesh>
-        <icosahedronGeometry args={[1, 48]} />
+        <icosahedronGeometry args={[1, 24]} />
         <shaderMaterial
           ref={mat}
           uniforms={uniforms}
@@ -148,6 +148,7 @@ export default function MiraOrb({ stateRef, theme }: Props) {
   return (
     <Canvas
       className="avatar3d orb3d"
+      dpr={[1, 2]} // chặn render >2x pixel trên màn retina
       gl={{ alpha: true, antialias: true }}
       camera={{ position: [0, 0, 3.2], fov: 40, near: 0.1, far: 20 }}
       onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}

@@ -293,7 +293,7 @@ export default function App() {
         </div>
       </header>
 
-      {mira.error && <div className="errbar">{mira.error}</div>}
+      {mira.error && <div className="errbar" role="alert">{mira.error}</div>}
 
       <MiraStage
         footglowRef={footglowRef}

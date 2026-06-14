@@ -98,6 +98,7 @@ export class LLMBrain implements Brain {
           ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] }
           : {}),
       }),
+      signal: AbortSignal.timeout(25_000), // mạng treo → reject sau 25s thay vì kẹt 'thinking' mãi
     });
     if (!res.ok) await this.readError(res, 'Anthropic');
     const data = await res.json();
@@ -123,6 +124,7 @@ export class LLMBrain implements Brain {
         max_tokens: 300,
         messages: [{ role: 'system', content: this.sys() }, ...this.buildMessages(input, history)],
       }),
+      signal: AbortSignal.timeout(25_000), // mạng treo → reject sau 25s thay vì kẹt 'thinking' mãi
     });
     if (!res.ok) await this.readError(res, 'OpenAI');
     const data = await res.json();

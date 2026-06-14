@@ -98,6 +98,8 @@ export class ServerTTS implements TTSAdapter {
         this.objectUrl = url;
         const a = new Audio(url);
         this.audio = a;
+        a.playbackRate = opts.rate ?? 1; // khớp "Chậm/Nhanh" — trước đây chỉ Web Speech ăn, server/cloud bỏ qua
+        a.preservesPitch = true; // đổi tốc độ KHÔNG đổi cao độ (khỏi méo giọng)
         this.detach = attachAnalyser(a); // ← lipsync theo âm thật
         a.onplaying = () => opts.onStart?.();
         a.onended = () => {

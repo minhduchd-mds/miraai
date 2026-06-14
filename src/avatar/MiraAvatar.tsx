@@ -63,6 +63,7 @@ export default function MiraAvatar({ stateRef, moodRef, theme, avatarUrl, lookSr
         <AvatarBoundary onError={() => setFailed(true)}>
           <Canvas
             className="avatar3d"
+            dpr={[1, 2]} // chặn render >2x pixel trên màn retina (đỡ nóng/hao pin mobile)
             gl={{ alpha: true, antialias: true }}
             camera={{ position: [0, 0.85, 4.3], fov: 28, near: 0.1, far: 20 }}
             onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}

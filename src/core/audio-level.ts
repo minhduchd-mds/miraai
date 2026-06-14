@@ -7,7 +7,7 @@ let ctx: AudioContext | null = null;
 
 export function attachAnalyser(el: HTMLAudioElement): () => void {
   try {
-    ctx = ctx || new AudioContext();
+    ctx = ctx || new (window.AudioContext || (window as any).webkitAudioContext)();
     void ctx.resume(); // cần user-activation — các nút bấm trong app đã cấp
     const src = ctx.createMediaElementSource(el); // mỗi element chỉ attach được 1 lần (mỗi câu 1 element mới)
     const an = ctx.createAnalyser();
@@ -68,7 +68,7 @@ export async function startMicLevel(): Promise<void> {
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     micStream = stream;
-    ctx = ctx || new AudioContext();
+    ctx = ctx || new (window.AudioContext || (window as any).webkitAudioContext)();
     void ctx.resume();
     const src = ctx.createMediaStreamSource(stream);
     const an = ctx.createAnalyser();
