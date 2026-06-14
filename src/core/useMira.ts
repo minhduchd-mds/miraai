@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
+import { loadHistory, saveTurn } from './history-store';
 import { WebSpeechSTT } from './stt/webspeech-stt';
 import { startMicLevel, stopMicLevel } from './audio-level';
 import { voicePrefs, loadVoicePrefs } from './voice-prefs';
@@ -108,6 +109,20 @@ export function useMira() {
   const pushHistory = useCallback((turn: BrainTurn) => {
     historyRef.current = [...historyRef.current, turn].slice(-12);
     setHistory(historyRef.current);
+    saveTurn(turn); // lưu lên Neon (fire-and-forget; thiếu DB thì im lặng bỏ qua)
+  }, []);
+
+  // Nạp lịch sử hội thoại từ Neon khi mở app → Mira nhớ chuyện phiên trước. Lỗi/thiếu DB → bỏ qua.
+  useEffect(() => {
+    let alive = true;
+    loadHistory().then((turns) => {
+      if (!alive || !turns.length || historyRef.current.length) return; // đừng đè lượt của phiên hiện tại
+      historyRef.current = turns.slice(-12);
+      setHistory(historyRef.current);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Nạp danh sách giọng vi-VN (getVoices() thường rỗng cho tới khi 'voiceschanged' bắn).
