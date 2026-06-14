@@ -359,7 +359,7 @@ export default function App() {
             <span className={avatar2d ? 'on' : ''}>2D</span>
             <span className={!avatar2d ? 'on' : ''}>3D</span>
           </button>
-          <button className="console" onClick={() => setShowConsole(true)}>
+          <button className="console" onClick={() => setShowConsole(true)} title="Cài đặt" aria-label="Cài đặt">
             <IconSettings />
             <span className="lbl">Cài đặt</span>
           </button>
