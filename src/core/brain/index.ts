@@ -1,5 +1,5 @@
 import type { Brain } from '../types';
-import { CannedBrain } from './canned-brain';
+import { GeminiBrain } from './gemini-brain';
 import { LLMBrain } from './llm-brain';
 
 const DEFAULT_MODEL: Record<string, string> = {
@@ -63,8 +63,9 @@ export function createBrain(): Brain {
     try {
       return new LLMBrain(cfg.provider, cfg.apiKey, cfg.model || DEFAULT_MODEL[cfg.provider], cfg.webSearch);
     } catch {
-      // Lỗi khởi tạo → fallback brain demo để app vẫn chạy.
+      // Lỗi khởi tạo → rơi xuống Gemini free.
     }
   }
-  return new CannedBrain();
+  // Mặc định: bộ não Gemini free qua /api/chat (key server). Không tới được /api → tự rớt về demo brain.
+  return new GeminiBrain();
 }
