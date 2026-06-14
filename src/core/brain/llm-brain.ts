@@ -31,16 +31,23 @@ export class LLMBrain implements Brain {
     );
   }
 
-  async reply(input: string, history: BrainTurn[]): Promise<BrainReply> {
+  async reply(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply> {
     return this.provider === 'anthropic'
-      ? this.anthropic(input, history)
-      : this.openai(input, history);
+      ? this.anthropic(input, history, memory)
+      : this.openai(input, history, memory);
   }
 
-  // System prompt + tông giọng theo "tính cách" đang chọn (đọc live).
-  private sys(): string {
+  // System prompt + tông giọng theo "tính cách" đang chọn + ký ức ngữ nghĩa (RAG) nếu có.
+  private sys(memory?: string): string {
     const tone = personaTone(voicePrefs.persona);
-    return tone ? `${SYSTEM}\n${tone}` : SYSTEM;
+    let s = tone ? `${SYSTEM}\n${tone}` : SYSTEM;
+    if (memory && memory.trim()) {
+      s +=
+        '\n\nKý ức liên quan từ các lần trò chuyện trước (dùng để hiểu & trả lời thân mật, tự nhiên; ' +
+        'KHÔNG đọc lại nguyên văn, KHÔNG nói "theo ghi chép/ký ức"):\n' +
+        memory.trim();
+    }
+    return s;
   }
 
   // Dựng messages an toàn:
@@ -79,7 +86,7 @@ export class LLMBrain implements Brain {
     throw err;
   }
 
-  private async anthropic(input: string, history: BrainTurn[]): Promise<BrainReply> {
+  private async anthropic(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply> {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -91,7 +98,7 @@ export class LLMBrain implements Brain {
       body: JSON.stringify({
         model: this.model,
         max_tokens: this.webSearch ? 500 : 300,
-        system: this.sys(),
+        system: this.sys(memory),
         messages: this.buildMessages(input, history),
         // Web search tool (server-side): Claude tự quyết khi nào tìm — chỉ search khi cần thông tin mới.
         ...(this.webSearch
@@ -112,7 +119,7 @@ export class LLMBrain implements Brain {
     return { text: text || 'Dạ em chưa rõ ý anh lắm.' };
   }
 
-  private async openai(input: string, history: BrainTurn[]): Promise<BrainReply> {
+  private async openai(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply> {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -122,7 +129,7 @@ export class LLMBrain implements Brain {
       body: JSON.stringify({
         model: this.model,
         max_tokens: 300,
-        messages: [{ role: 'system', content: this.sys() }, ...this.buildMessages(input, history)],
+        messages: [{ role: 'system', content: this.sys(memory) }, ...this.buildMessages(input, history)],
       }),
       signal: AbortSignal.timeout(25_000), // mạng treo → reject sau 25s thay vì kẹt 'thinking' mãi
     });

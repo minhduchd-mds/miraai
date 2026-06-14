@@ -32,6 +32,26 @@ export async function loadHistory(): Promise<BrainTurn[]> {
   }
 }
 
+// Truy hồi ký ức NGỮ NGHĨA liên quan câu hỏi (top-k lượt cũ gần nghĩa) → chuỗi để "mồi" cho não.
+// Lỗi/thiếu DB hoặc key embedding → trả '' (Mira vẫn chạy bằng 12 lượt gần nhất). Lọc theo điểm cosine.
+export async function recallMemory(query: string): Promise<string> {
+  const q = (query || '').trim();
+  if (!q) return '';
+  try {
+    const r = await fetch(`/api/memory?device=${encodeURIComponent(deviceId())}&q=${encodeURIComponent(q)}`);
+    if (!r.ok) return '';
+    const j = await r.json();
+    const mems = Array.isArray(j?.memories) ? j.memories : [];
+    const useful = mems
+      .filter((m: any) => typeof m?.text === 'string' && (m.score == null || m.score > 0.55))
+      .slice(0, 5);
+    if (!useful.length) return '';
+    return useful.map((m: any) => `- ${m.role === 'mira' ? 'Mira đã nói' : 'Người dùng đã nói'}: ${m.text}`).join('\n');
+  } catch {
+    return '';
+  }
+}
+
 // Ghi 1 lượt (fire-and-forget — không chặn luồng nói/nghe; lỗi thì bỏ qua).
 export function saveTurn(turn: BrainTurn): void {
   try {

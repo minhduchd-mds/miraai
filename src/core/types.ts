@@ -68,8 +68,9 @@ export interface BrainTurn {
   text: string;
 }
 
-/** "Bộ não" — đổi từ canned demo sang Claude/GPT chỉ cần thay lớp này. */
+/** "Bộ não" — đổi từ canned demo sang Claude/GPT chỉ cần thay lớp này.
+ *  memory: ký ức ngữ nghĩa truy hồi được (RAG) để chèn vào ngữ cảnh — tuỳ chọn, brain có thể bỏ qua. */
 export interface Brain {
   readonly name: string;
-  reply(input: string, history: BrainTurn[]): Promise<BrainReply>;
+  reply(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply>;
 }

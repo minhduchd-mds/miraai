@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
-import { loadHistory, saveTurn } from './history-store';
+import { loadHistory, saveTurn, recallMemory } from './history-store';
 import { WebSpeechSTT } from './stt/webspeech-stt';
 import { startMicLevel, stopMicLevel } from './audio-level';
 import { voicePrefs, loadVoicePrefs } from './voice-prefs';
@@ -310,7 +310,8 @@ export function useMira() {
       setState('thinking');
       const t0 = performance.now();
       try {
-        const reply = await brainRef.current!.reply(text, prior);
+        const memory = await recallMemory(text); // truy hồi ký ức liên quan (RAG); '' nếu thiếu DB/key
+        const reply = await brainRef.current!.reply(text, prior, memory);
         setLatencyMs(Math.round(performance.now() - t0));
         if (stateRef.current !== 'thinking') return; // bị ngắt lúc đang nghĩ → bỏ
         setMoodBoth(reply.mood || 'neutral');
