@@ -9,7 +9,8 @@ import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
 import DevConsole from './ui/DevConsole';
 import ContentPanel from './ui/ContentPanel';
-import { IconCamera, IconCameraOff, IconSettings, IconHand } from './ui/icons';
+import SplatViewer from './avatar/SplatViewer';
+import { IconCamera, IconCameraOff, IconSettings, IconHand, IconCube } from './ui/icons';
 
 const N_BARS = 52;
 
@@ -20,6 +21,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>('nova');
   const [faceOn, setFaceOn] = useState(false);
   const [handOn, setHandOn] = useState(false); // điều khiển bằng bàn tay (gesture)
+  const [splatOn, setSplatOn] = useState(false); // xem Gaussian Splat 3D (tĩnh)
   const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
   const [avatarOpacity, setAvatarOpacity] = useState(1);
   // Ưu tiên ảnh 2D (PNG trong suốt) thay vì model 3D — bật/tắt bằng nút trên header, nhớ qua localStorage.
@@ -386,6 +388,16 @@ export default function App() {
             <span className={avatar2d ? 'on' : ''}>2D</span>
             <span className={!avatar2d ? 'on' : ''}>3D</span>
           </button>
+          <button
+            className="console"
+            onClick={() => setSplatOn((v) => !v)}
+            aria-pressed={splatOn}
+            title="Xem mô hình Gaussian Splat 3D (tĩnh, xoay bằng chuột)"
+            aria-label="Splat 3D"
+          >
+            <IconCube />
+            <span className="lbl">Splat</span>
+          </button>
           <button className="console" onClick={() => setShowConsole(true)} title="Cài đặt" aria-label="Cài đặt">
             <IconSettings />
             <span className="lbl">Cài đặt</span>
@@ -397,15 +409,21 @@ export default function App() {
 
       {handOn && <div className="hand-cursor" ref={handCursorRef} aria-hidden="true" />}
 
-      <MiraStage
-        footglowRef={footglowRef}
-        stateRef={mira.stateRef}
-        moodRef={mira.moodRef}
-        theme={theme}
-        avatarUrl={avatarUrl}
-        lookSrc={lookSrc}
-        avatarOpacity={avatarOpacity}
-      />
+      {splatOn ? (
+        <main className="center">
+          <SplatViewer url="/avatars/splat.ply" />
+        </main>
+      ) : (
+        <MiraStage
+          footglowRef={footglowRef}
+          stateRef={mira.stateRef}
+          moodRef={mira.moodRef}
+          theme={theme}
+          avatarUrl={avatarUrl}
+          lookSrc={lookSrc}
+          avatarOpacity={avatarOpacity}
+        />
+      )}
 
       {mira.content && <ContentPanel content={mira.content} onClose={mira.clearContent} />}
 

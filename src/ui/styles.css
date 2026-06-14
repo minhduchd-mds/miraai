@@ -139,6 +139,12 @@ body[data-state='error'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0,
 .center { transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .stage.has-content .center { transform: translate(-26%, 20%) scale(0.55); }
 
+/* Trình xem Gaussian Splat (lib tự chèn canvas vào đây) */
+.splat-viewer { position: absolute; inset: 0; width: 100%; height: 100%; }
+.splat-viewer canvas { display: block; width: 100% !important; height: 100% !important; }
+.splat-err { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+  text-align: center; color: var(--warn); font-size: 13px; }
+
 .cp-weather { text-align: center; padding: 4px 0 2px; }
 .cp-emoji { font-size: 54px; line-height: 1; }
 .cp-temp { font-size: 40px; font-weight: 700; color: var(--text); margin-top: 6px; }
