@@ -187,7 +187,7 @@ export function beautifyFace(root: Object3D) {
         const g1 = ctx.createRadialGradient(0, 0, rx * 0.15, 0, 0, rx);
         g1.addColorStop(0, 'rgb(255,128,150)');
         g1.addColorStop(0.7, 'rgb(255,195,202)');
-        g1.addColorStop(1, 'rgb(255,255,255)');
+        g1.addColorStop(1, 'rgb(255 255 255 / 0.5)');
         ctx.globalCompositeOperation = 'multiply';
         ctx.fillStyle = g1;
         ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
