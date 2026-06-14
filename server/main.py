@@ -23,9 +23,10 @@ import os
 import struct
 import tempfile
 import threading
+import time
 import wave
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -46,13 +47,42 @@ EDGE_VOICES = [
     {"id": "vi-VN-NamMinhNeural", "label": "Nam Minh (nam)"},
 ]
 
+# Production: đặt MIRA_ALLOWED_ORIGINS="https://miraai-ten.vercel.app" (nhiều origin cách nhau bằng dấu phẩy).
+# Không đặt → "*" cho dev cục bộ.
+_ORIGINS_ENV = os.environ.get("MIRA_ALLOWED_ORIGINS", "*").strip()
+ALLOWED_ORIGINS = ["*"] if _ORIGINS_ENV == "*" else [o.strip() for o in _ORIGINS_ENV.split(",") if o.strip()]
+
+# Giới hạn chống lạm dụng (đổi bằng env).
+MAX_TEXT = int(os.environ.get("MIRA_MAX_TEXT", "2000"))  # ký tự/req
+TTS_TIMEOUT = float(os.environ.get("MIRA_TTS_TIMEOUT", "45"))  # giây
+RATE_MAX = int(os.environ.get("MIRA_RATE_MAX", "40"))  # số req
+RATE_WINDOW = float(os.environ.get("MIRA_RATE_WINDOW", "60"))  # mỗi ... giây / IP
+
 app = FastAPI(title=f"Mira TTS server ({ENGINE})")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # dev cục bộ; production thì giới hạn origin của app
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["content-type"],
 )
+
+# Rate-limit cửa sổ trượt trong-bộ-nhớ (đủ cho server đơn lẻ cá nhân).
+_rate_hits: dict[str, list[float]] = {}
+_rate_lock = threading.Lock()
+
+
+def _rate_ok(ip: str) -> bool:
+    now = time.monotonic()
+    with _rate_lock:
+        q = _rate_hits.setdefault(ip, [])
+        cutoff = now - RATE_WINDOW
+        while q and q[0] < cutoff:
+            q.pop(0)
+        if len(q) >= RATE_MAX:
+            return False
+        q.append(now)
+        return True
+
 
 _tts = None
 _tts_lock = threading.Lock()
@@ -163,26 +193,33 @@ def voices():
 
 
 @app.post("/tts")
-async def tts(inp: TTSIn):
+async def tts(inp: TTSIn, request: Request):
+    ip = request.client.host if request.client else "?"
+    if not _rate_ok(ip):
+        raise HTTPException(429, "Quá nhiều yêu cầu, thử lại sau chút nhé")
+
     text = (inp.text or "").strip()
     if not text:
         raise HTTPException(400, "text rỗng")
+    if len(text) > MAX_TEXT:
+        raise HTTPException(413, f"text quá dài (>{MAX_TEXT} ký tự)")
 
     if ENGINE == "mock":
         return Response(mock_wav(text), media_type="audio/wav")
 
-    if ENGINE == "edge":
-        try:
-            data = await edge_synth(normalize(text), inp.voice)
-            return Response(data, media_type="audio/mpeg")
-        except Exception as e:
-            raise HTTPException(500, f"Edge lỗi: {str(e)[:300]}")
-
-    # vieneu (mặc định) — blocking nên chạy trong threadpool để không nghẽn event loop.
+    # edge/vieneu: bọc timeout để 1 request treo không giữ kết nối mãi.
     try:
-        data = await asyncio.to_thread(vieneu_synth, normalize(text), inp.voice)
+        if ENGINE == "edge":
+            data = await asyncio.wait_for(edge_synth(normalize(text), inp.voice), TTS_TIMEOUT)
+            return Response(data, media_type="audio/mpeg")
+        # vieneu (mặc định) — blocking nên chạy trong threadpool để không nghẽn event loop.
+        data = await asyncio.wait_for(
+            asyncio.to_thread(vieneu_synth, normalize(text), inp.voice), TTS_TIMEOUT
+        )
         return Response(data, media_type="audio/wav")
+    except asyncio.TimeoutError:
+        raise HTTPException(504, f"TTS quá {TTS_TIMEOUT:.0f}s, đã huỷ")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, f"VieNeu lỗi: {str(e)[:300]}")
+        raise HTTPException(500, f"{ENGINE} lỗi: {str(e)[:300]}")
