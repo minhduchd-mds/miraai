@@ -105,6 +105,14 @@ body[data-state='listening'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0
 body[data-state='speaking'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 40px color-mix(in srgb, var(--accent) 44%, transparent)); }
 body[data-state='interrupted'] .look2d,
 body[data-state='error'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 28px color-mix(in srgb, var(--warn) 42%, transparent)); }
+/* Con trỏ bàn tay (điều khiển bằng cử chỉ webcam): đốm sáng accent bám theo tay, soi gương. */
+.hand-cursor { position: fixed; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
+  z-index: 40; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, white 70%, var(--accent)), var(--accent) 70%);
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: opacity 0.2s ease, transform 0.09s linear; }
+.hand-cursor.act { transform: scale(1.7); box-shadow: 0 0 24px 7px color-mix(in srgb, var(--accent) 88%, transparent); }
+
 .footglow { position: absolute; bottom: 16%; left: 50%; width: 46%; height: 13%; transform: translateX(-50%); z-index: 2;
   border-radius: 50%; pointer-events: none; will-change: opacity, transform;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 75%, transparent), transparent 66%);

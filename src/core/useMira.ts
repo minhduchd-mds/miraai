@@ -527,6 +527,7 @@ export function useMira() {
     startListening,
     interrupt,
     demoGo,
+    say: speak, // đọc 1 câu canned (dùng cho phản ứng cử chỉ: chào, cảm ơn…)
   };
 }
 

@@ -152,6 +152,14 @@ export const IconBrain = (p: SVGProps<SVGSVGElement>) => (
   </Svg>
 );
 
+export const IconHand = (p: SVGProps<SVGSVGElement>) => (
+  <Svg {...p}>
+    <path d="M7 11V6a1.5 1.5 0 0 1 3 0v4.5" />
+    <path d="M10 10.5V4.5a1.5 1.5 0 0 1 3 0v6" />
+    <path d="M13 10.5V6a1.5 1.5 0 0 1 3 0v6.5a6 6 0 0 1-6 6 6 6 0 0 1-5.2-3l-1.8-3.1a1.5 1.5 0 0 1 2.6-1.5L7 13.5" />
+  </Svg>
+);
+
 // ── Tính cách (persona) ──
 export const IconSmile = (p: SVGProps<SVGSVGElement>) => (
   <Svg {...p}>

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
 import { startFaceTracking, stopFaceTracking } from './core/face/face-tracker';
+import { startGestureTracking, stopGestureTracking, handData } from './core/face/gesture-tracker';
 import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, has3D, lookImage, sceneBg, type AvatarSel } from './core/avatar-config';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
 import DevConsole from './ui/DevConsole';
-import { IconCamera, IconCameraOff, IconImage, IconCube, IconOrb, IconPerson, IconSettings } from './ui/icons';
+import { IconCamera, IconCameraOff, IconImage, IconCube, IconOrb, IconPerson, IconSettings, IconHand } from './ui/icons';
 
 const N_BARS = 52;
 
@@ -18,6 +19,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>('nova');
   const [displayMode, setDisplayMode] = useState<'avatar' | 'orb'>('avatar');
   const [faceOn, setFaceOn] = useState(false);
+  const [handOn, setHandOn] = useState(false); // điều khiển bằng bàn tay (gesture)
   const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
   const [avatarOpacity, setAvatarOpacity] = useState(1);
   // Ưu tiên ảnh 2D (PNG trong suốt) thay vì model 3D — bật/tắt bằng nút trên header, nhớ qua localStorage.
@@ -55,17 +57,29 @@ export default function App() {
   }, [avatarSel.scene]);
   const [simulating, setSimulating] = useState(false);
 
-  // Webcam lái avatar (chế độ gương). Tắt camera khi rời trang.
-  useEffect(() => () => stopFaceTracking(), []);
+  // Webcam: 2 chế độ LOẠI TRỪ nhau — gương mặt (face) HOẶC điều khiển tay (gesture). Tắt hết khi rời trang.
+  useEffect(() => () => { stopFaceTracking(); stopGestureTracking(); }, []);
   const toggleFace = async () => {
     if (faceOn) {
       stopFaceTracking();
       setFaceOn(false);
-    } else {
-      setDisplayMode('avatar'); // orb không dùng face → chuyển về avatar cho thấy hiệu ứng
-      const ok = await startFaceTracking();
-      setFaceOn(ok); // thất bại (từ chối camera/không HTTPS) → giữ tắt; lý do đã log ở tracker
+      return;
     }
+    if (handOn) { stopGestureTracking(); setHandOn(false); } // nhường camera cho chế độ gương
+    setDisplayMode('avatar'); // orb không dùng face → chuyển về avatar cho thấy hiệu ứng
+    const ok = await startFaceTracking();
+    setFaceOn(ok); // thất bại (từ chối camera/không HTTPS) → giữ tắt; lý do đã log ở tracker
+  };
+  const toggleHand = async () => {
+    if (handOn) {
+      stopGestureTracking();
+      setHandOn(false);
+      return;
+    }
+    if (faceOn) { stopFaceTracking(); setFaceOn(false); } // nhường camera cho chế độ tay
+    setDisplayMode('avatar');
+    const ok = await startGestureTracking();
+    setHandOn(ok);
   };
   const simTimers = useRef<number[]>([]);
   const [showConsole, setShowConsole] = useState(false);
@@ -77,6 +91,60 @@ export default function App() {
   const waveRef = useRef<HTMLDivElement>(null);
   const footglowRef = useRef<HTMLDivElement>(null);
   const micRef = useRef<HTMLButtonElement>(null);
+  const handCursorRef = useRef<HTMLDivElement>(null);
+
+  // Điều khiển bằng tay: vòng lặp đọc handData → con trỏ tay + cử chỉ (✋ giữ = mic, 👋 chào, 👍 cảm ơn).
+  useEffect(() => {
+    if (!handOn) return;
+    let raf = 0;
+    let prev = performance.now();
+    const hold = { t: 0, fired: false };
+    let lastWave = 0;
+    let lastThumb = 0;
+    let lastG = 'None';
+    const loop = () => {
+      const now = performance.now();
+      const dt = Math.min(0.05, (now - prev) / 1000);
+      prev = now;
+      const h = handData;
+      const cur = handCursorRef.current;
+      if (cur) {
+        cur.style.opacity = h.present ? '1' : '0';
+        if (h.present) {
+          cur.style.left = (100 * (1 - h.x)).toFixed(1) + '%'; // soi gương (camera selfie)
+          cur.style.top = (100 * h.y).toFixed(1) + '%';
+        }
+      }
+      // ✋ Xoè tay đứng yên ~0.8s → bật/tắt mic (rảnh tay)
+      if (h.present && h.gesture === 'Open_Palm' && !h.wave) {
+        hold.t += dt;
+        if (hold.t >= 0.8 && !hold.fired) {
+          hold.fired = true;
+          mira.toggleMic();
+          cur?.classList.add('act');
+        }
+      } else {
+        hold.t = 0;
+        hold.fired = false;
+        cur?.classList.remove('act');
+      }
+      // 👋 Vẫy tay → Mira chào lại
+      if (h.wave && now - lastWave > 4500) {
+        lastWave = now;
+        mira.say('Dạ em chào anh!');
+      }
+      // 👍 Thumb up (vừa giơ) → Mira cảm ơn
+      if (h.gesture === 'Thumb_Up' && lastG !== 'Thumb_Up' && now - lastThumb > 3500) {
+        lastThumb = now;
+        mira.say('Dạ, cảm ơn anh nhiều ạ!');
+      }
+      lastG = h.gesture;
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handOn]);
 
   // body[data-state] + body[data-theme] điều khiển toàn bộ CSS theo trạng thái/màu (như mockup).
   useEffect(() => {
@@ -274,6 +342,15 @@ export default function App() {
             {faceOn ? <IconCameraOff /> : <IconCamera />}
             <span className="lbl">{faceOn ? 'Tắt camera' : 'Camera'}</span>
           </button>
+          <button
+            className="console"
+            onClick={toggleHand}
+            aria-pressed={handOn}
+            title="Điều khiển bằng bàn tay qua webcam: ✋ giữ = mic, 👋 vẫy = chào, 👍 = thích"
+          >
+            <IconHand />
+            <span className="lbl">{handOn ? 'Tắt tay' : 'Tay'}</span>
+          </button>
           {displayMode === 'avatar' && (
             <button
               className="console"
@@ -301,6 +378,8 @@ export default function App() {
       </header>
 
       {mira.error && <div className="errbar" role="alert">{mira.error}</div>}
+
+      {handOn && <div className="hand-cursor" ref={handCursorRef} aria-hidden="true" />}
 
       <MiraStage
         footglowRef={footglowRef}
