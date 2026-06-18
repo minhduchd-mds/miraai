@@ -3,15 +3,17 @@ import type { MiraState, Mood, Theme } from '../core/types';
 import MiraAvatar from '../avatar/MiraAvatar';
 
 interface Props {
-  chip: string;
   footglowRef: RefObject<HTMLDivElement>;
   stateRef: MutableRefObject<MiraState>;
   moodRef: MutableRefObject<Mood>;
   theme: Theme;
+  avatarUrl: string | null; // null = bộ chưa có model 3D → hiện ảnh PNG (lookSrc)
+  lookSrc: string;
+  avatarOpacity: number;
 }
 
-// Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar VRM 3D (fallback 2D bên trong).
-export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme }: Props) {
+// Sân khấu trung tâm: halo + vòng sàn + hào quang chân + avatar (VRM 3D hoặc ảnh PNG 2D).
+export default function MiraStage({ footglowRef, stateRef, moodRef, theme, avatarUrl, lookSrc, avatarOpacity }: Props) {
   return (
     <main className="center">
       <div className="scene">
@@ -26,12 +28,7 @@ export default function MiraStage({ chip, footglowRef, stateRef, moodRef, theme 
 
         <div className="footglow" ref={footglowRef} />
 
-        <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} />
-
-        <div className="chip">
-          <b />
-          <span>{chip}</span>
-        </div>
+        <MiraAvatar stateRef={stateRef} moodRef={moodRef} theme={theme} avatarUrl={avatarUrl} lookSrc={lookSrc} avatarOpacity={avatarOpacity} />
       </div>
     </main>
   );

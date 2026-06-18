@@ -30,6 +30,12 @@ body {
 }
 .stage { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; }
 
+/* Nền theo bối cảnh (Văn phòng/Phòng ngủ…) — đặt file vào public/scenes/<scene>.jpg. */
+.scene-bg { position: fixed; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  background-size: cover; background-position: center; transition: opacity 0.6s ease; }
+.scene-bg::after { content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 52%, transparent), color-mix(in srgb, var(--bg) 80%, transparent)); }
+
 /* ---- top bar ---- */
 .top { display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; z-index: 5; }
 .brand { display: flex; align-items: center; gap: 14px; }
@@ -56,6 +62,22 @@ body {
   background: var(--glass); border: 1px solid var(--stroke); color: var(--dim); font-size: 12.5px; font-weight: 500;
   transition: 0.2s; }
 .console:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+
+/* ---- Icon outline dùng chung (nét currentColor, đồng bộ toàn app) ---- */
+.ico { width: 1.2em; height: 1.2em; flex: none; fill: none; vertical-align: -0.16em; }
+.console .ico { width: 18px; height: 18px; }
+/* Header GỌN: nút chỉ ICON, ẩn chữ (vẫn giữ cho screen reader). */
+.console { padding: 9px 11px; }
+.console .lbl { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Nút GẠT 2D ↔ 3D (segmented switch) */
+.seg2 { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 11px; cursor: pointer;
+  background: var(--glass); border: 1px solid var(--stroke); }
+.seg2 span { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  color: var(--faint); padding: 5px 11px; border-radius: 8px; transition: 0.18s; }
+.seg2 span.on { color: var(--text); background: color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* ---- center stage ---- */
 .center { position: relative; display: grid; place-items: center; }
@@ -84,6 +106,65 @@ body {
   transition: filter var(--ring); pointer-events: none; user-select: none; }
 .avatar3d { position: absolute !important; inset: 0; z-index: 3; pointer-events: none;
   transition: opacity 600ms ease; }
+/* Ảnh PNG nền trong suốt (cutout) của bộ khi chưa có / thay cho model 3D: toàn thân + hào quang accent. */
+/* Ảnh cutout 2D: bóng tiếp đất (grounding) cho ăn nền + viền sáng accent NHẸ (bớt cảm giác sticker). */
+.look2d { position: absolute; bottom: 8%; left: 50%; transform: translateX(-50%);
+  height: 93%; width: auto; max-width: 96%; object-fit: contain; z-index: 3;
+  filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 0 26px color-mix(in srgb, var(--accent) 22%, transparent));
+  pointer-events: none; user-select: none; transition: filter var(--ring); }
+body[data-state='listening'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 32px color-mix(in srgb, var(--accent) 34%, transparent)); }
+body[data-state='speaking'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 40px color-mix(in srgb, var(--accent) 44%, transparent)); }
+body[data-state='interrupted'] .look2d,
+body[data-state='error'] .look2d { filter: drop-shadow(0 16px 13px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 28px color-mix(in srgb, var(--warn) 42%, transparent)); }
+/* Con trỏ bàn tay (điều khiển bằng cử chỉ webcam): đốm sáng accent bám theo tay, soi gương. */
+.hand-cursor { position: fixed; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
+  z-index: 40; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, white 70%, var(--accent)), var(--accent) 70%);
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: opacity 0.2s ease, transform 0.09s linear; }
+.hand-cursor.act { transform: scale(1.7); box-shadow: 0 0 24px 7px color-mix(in srgb, var(--accent) 88%, transparent); }
+
+/* ── Panel thông tin trực quan cạnh avatar (thời tiết / ảnh) — avatar thu nhỏ về góc ── */
+.content-panel { position: fixed; right: 3.5vw; top: 50%; transform: translateY(-50%); z-index: 25;
+  width: min(360px, 42vw); max-height: 80vh; overflow-y: auto; padding: 20px 20px 18px;
+  border-radius: 20px; background: color-mix(in srgb, var(--bg2) 88%, transparent);
+  border: 1px solid var(--stroke); backdrop-filter: blur(14px); scrollbar-width: thin;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45); animation: cp-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes cp-in { from { opacity: 0; transform: translate(24px, -50%); } to { opacity: 1; transform: translate(0, -50%); } }
+.cp-close { position: absolute; top: 9px; right: 9px; display: inline-flex; background: none; border: none;
+  color: var(--dim); cursor: pointer; padding: 5px; border-radius: 7px; }
+.cp-close .ico { width: 16px; height: 16px; }
+.cp-close:hover { color: var(--text); background: var(--glass); }
+.center { transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.stage.has-content .center { transform: translate(-26%, 20%) scale(0.55); }
+
+/* Trình xem Gaussian Splat (lib tự chèn canvas vào đây) */
+.splat-viewer { position: absolute; inset: 0; width: 100%; height: 100%; }
+.splat-viewer canvas { display: block; width: 100% !important; height: 100% !important; }
+.splat-err { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
+  text-align: center; color: var(--warn); font-size: 13px; }
+
+.cp-weather { text-align: center; padding: 4px 0 2px; }
+.cp-emoji { font-size: 54px; line-height: 1; }
+.cp-temp { font-size: 40px; font-weight: 700; color: var(--text); margin-top: 6px; }
+.cp-city { font-size: 15px; color: var(--text); font-weight: 600; margin-top: 2px; }
+.cp-desc { font-size: 13px; color: var(--dim); margin-top: 2px; }
+.cp-meta { display: flex; justify-content: center; gap: 16px; margin-top: 12px; font-size: 12.5px; color: var(--dim); }
+
+.cp-image { display: flex; flex-direction: column; gap: 10px; }
+.cp-imgwrap { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.cp-imgwrap img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s ease; }
+.cp-imgwrap.loaded img { opacity: 1; }
+.cp-loading { position: absolute; font-size: 13px; color: var(--dim); animation: blink 1.2s steps(2) infinite; }
+.cp-cap { font-size: 12.5px; color: var(--dim); line-height: 1.4; }
+.cp-image .mbtn { justify-content: center; }
+@media (max-width: 760px) {
+  .content-panel { right: 4vw; left: 4vw; width: auto; top: auto; bottom: 116px; transform: none; max-height: 44vh; animation: none; }
+  .stage.has-content .center { transform: scale(0.5); transform-origin: 50% 6%; }
+}
+
 .footglow { position: absolute; bottom: 16%; left: 50%; width: 46%; height: 13%; transform: translateX(-50%); z-index: 2;
   border-radius: 50%; pointer-events: none; will-change: opacity, transform;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 75%, transparent), transparent 66%);
@@ -109,17 +190,34 @@ body {
 
 /* ---- bottom dock ---- */
 .dock { display: flex; flex-direction: column; align-items: center; gap: 11px; padding: 2px 26px 16px; z-index: 5; }
-.mic { width: 58px; height: 58px; border-radius: 50%; border: none; cursor: pointer; position: relative;
-  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--accent) 90%, white 8%), color-mix(in srgb, var(--accent2) 80%, transparent));
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent), 0 0 30px color-mix(in srgb, var(--accent) 55%, transparent);
-  display: grid; place-items: center; transition: transform 0.15s, box-shadow var(--ring); }
+/* Orb thu mic kiểu Grok: cầu thuỷ tinh phát sáng, bóng specular trên đỉnh, nảy theo âm thật. */
+.mic { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; position: relative;
+  background: radial-gradient(circle at 50% 30%,
+    color-mix(in srgb, white 28%, var(--accent)) 0%, var(--accent) 42%,
+    color-mix(in srgb, var(--accent2) 88%, var(--accent)) 100%);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 24px color-mix(in srgb, var(--accent) 55%, transparent),
+    inset 0 2px 8px color-mix(in srgb, white 40%, transparent),
+    inset 0 -7px 16px color-mix(in srgb, var(--accent2) 55%, transparent);
+  display: grid; place-items: center; isolation: isolate;
+  transition: transform 0.12s ease, box-shadow var(--ring); }
 .mic:hover { transform: scale(1.05); }
-.mic:active { transform: scale(0.96); }
-.mic svg { width: 24px; height: 24px; fill: #06080f; }
-.mic::after { content: ''; position: absolute; inset: -8px; border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); opacity: 0; }
+.mic:active { transform: scale(0.95); }
+.mic.live { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 4px; }
+.mic svg { width: 24px; height: 24px; z-index: 2; fill: none;
+  stroke: color-mix(in srgb, #06080f 80%, var(--accent2)); stroke-width: 1.85;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.35)); }
+/* vệt bóng specular (chất thuỷ tinh) */
+.mic::before { content: ''; position: absolute; inset: 12% 24% 52% 24%; border-radius: 50%; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 25%, color-mix(in srgb, white 72%, transparent), transparent 72%); opacity: 0.6; }
+/* vòng sóng lan khi nghe / nói */
+.mic::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); opacity: 0; }
 body[data-state='listening'] .mic::after { animation: ripple 1.6s ease-out infinite; }
-@keyframes ripple { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(1.7); opacity: 0; } }
+body[data-state='speaking'] .mic::after { animation: ripple 2s ease-out infinite;
+  border-color: color-mix(in srgb, var(--accent2) 55%, transparent); }
+@keyframes ripple { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(1.78); opacity: 0; } }
 
 .livebtn { display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
   font-family: 'Inter'; font-size: 13px; font-weight: 600; color: var(--text);
@@ -162,19 +260,132 @@ body[data-state='listening'] .mic::after { animation: ripple 1.6s ease-out infin
   border: 1px solid var(--stroke); border-radius: 9px; padding: 7px 10px; max-width: 190px; cursor: pointer; }
 .vsel:hover { color: var(--text); }
 
+.dbg-toggle { width: 30px; height: 30px; border-radius: 9px; cursor: pointer; font-size: 16px; line-height: 1;
+  color: var(--dim); background: var(--glass); border: 1px solid var(--stroke); transition: 0.18s; }
+.dbg-toggle:hover { color: var(--text); }
+.dbg-toggle[aria-pressed='true'] { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.controls.dbg { margin-top: 2px; }
+
 .note { position: fixed; left: 50%; transform: translateX(-50%); bottom: 3px; font-family: 'JetBrains Mono';
   font-size: 10px; color: var(--faint); letter-spacing: 0.4px; opacity: 0.8; }
 
 /* ---- Developer Console modal ---- */
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
   background: color-mix(in srgb, var(--bg) 62%, transparent); backdrop-filter: blur(6px); }
-.modal { width: min(480px, 92vw); border-radius: 16px; background: var(--bg2);
+.modal { width: min(1040px, 96vw); max-height: 90vh; overflow-y: auto; border-radius: 16px; background: var(--bg2);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5), 0 0 40px color-mix(in srgb, var(--accent) 18%, transparent);
-  padding: 18px 20px 16px; }
+  padding: 18px 22px 18px;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 40%, transparent) transparent; }
+
+/* Thanh cuộn mảnh, không nền (modal + hàng cuộn ngang + menu dropdown) */
+.modal::-webkit-scrollbar, .scroll-x::-webkit-scrollbar, .dd-menu::-webkit-scrollbar { width: 6px; height: 6px; }
+.modal::-webkit-scrollbar-track, .scroll-x::-webkit-scrollbar-track, .dd-menu::-webkit-scrollbar-track { background: transparent; }
+.modal::-webkit-scrollbar-thumb, .scroll-x::-webkit-scrollbar-thumb, .dd-menu::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 32%, transparent); border-radius: 999px; }
+.modal::-webkit-scrollbar-thumb:hover, .scroll-x::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.scroll-x { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 32%, transparent) transparent; }
+
+/* tabs */
+.modal-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 6px; }
+.modal-tab { font-family: 'Inter'; font-size: 13px; font-weight: 600; color: var(--dim); cursor: pointer;
+  background: var(--glass); border: 1px solid var(--stroke); border-radius: 10px; padding: 8px 15px; transition: 0.18s; }
+.modal-tab:hover { color: var(--text); }
+.modal-tab[aria-selected='true'] { color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+
+/* sub-label trong section + chip lựa chọn */
+.modal-sub { font-size: 12px; color: var(--dim); margin: 10px 0 7px; }
+/* Màu + Tốc độ xếp cạnh nhau (hàng đôi) cho gọn cột */
+.sub-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.opt-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.opt { font-family: 'Inter'; font-size: 13px; font-weight: 500; color: var(--dim); cursor: pointer; text-align: left;
+  background: var(--glass); border: 1px solid var(--stroke); border-radius: 11px; padding: 9px 14px; transition: 0.18s; }
+.opt:hover { color: var(--text); }
+.opt[aria-pressed='true'] { color: var(--text); background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.opt small { display: block; color: var(--faint); font-size: 10.5px; margin-top: 2px; font-weight: 400; }
+
+/* Trang phục chọn bằng ảnh (thumbnail có hình) — cuộn ngang */
+.opt-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.opt-thumbs.scroll-x { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.opt-thumb { flex: none; width: 116px; display: flex; flex-direction: column; padding: 0; cursor: pointer; overflow: hidden;
+  background: var(--glass); border: 2px solid var(--stroke); border-radius: 12px; transition: 0.18s; }
+.opt-thumb:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.opt-thumb[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent); }
+.opt-thumb img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; background: var(--bg); }
+.opt-thumb span { font-size: 11px; color: var(--dim); padding: 5px 6px 6px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opt-thumb[aria-pressed='true'] span { color: var(--text); }
+
+/* Hàng thẻ cuộn ngang (giọng nói) + thẻ tính cách icon + khối Nâng cao */
+.opt-row.scroll-x { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.opt-row.scroll-x .opt { flex: none; min-width: 92px; }
+.opt.opt-ic { text-align: center; min-width: 78px; }
+.opt-ic .ic { display: flex; justify-content: center; line-height: 1; margin-bottom: 5px; }
+.opt-ic .ico { width: 22px; height: 22px; }
+.adv-toggle { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-family: 'Inter'; font-size: 12px; font-weight: 600; color: var(--dim);
+  background: var(--glass); border: 1px solid var(--stroke); border-radius: 9px; padding: 7px 12px; cursor: pointer; transition: 0.18s; }
+.adv-toggle .ico { width: 15px; height: 15px; }
+.adv-toggle:hover { color: var(--text); }
+.adv-toggle[aria-pressed='true'] { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.adv-box { margin-top: 10px; padding: 12px; border: 1px dashed var(--stroke); border-radius: 11px; }
+.opt.sw-opt::before { content: ''; display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px;
+  vertical-align: -1px; }
+.opt.sw-opt.nova::before { background: conic-gradient(from 180deg, #38e1ff, #b66bff, #38e1ff); }
+.opt.sw-opt.aura::before { background: conic-gradient(from 180deg, #9a7bff, #5fe7c4, #9a7bff); }
+.opt.sw-opt.ember::before { background: conic-gradient(from 180deg, #2fd9c9, #ffb23e, #2fd9c9); }
+.opt.sw-opt.iris::before { background: conic-gradient(from 180deg, #7c8cff, #c9b6ff, #7c8cff); }
+
+/* hướng dẫn */
+.guide { list-style: none; font-size: 13px; color: var(--dim); line-height: 1.65; }
+.guide li { margin: 7px 0; }
+.guide li .ico { width: 16px; height: 16px; vertical-align: -0.2em; margin-right: 5px; color: var(--accent); }
+.guide b { color: var(--text); font-weight: 600; }
+
+/* Giao diện 2 cột: trái điều khiển, phải xem trước */
+.iface-grid { display: grid; grid-template-columns: 500px minmax(0, 1fr); gap: 24px; align-items: start; }
+.iface-right { position: sticky; top: 0; align-self: start; } /* ảnh mẫu đứng yên khi cuộn cột trái */
+@media (max-width: 900px) {
+  .iface-grid { grid-template-columns: 1fr; }
+  .iface-right { position: static; }
+}
+.iface-left .modal-sec:first-child { border-top: none; padding-top: 0; }
+
+.preview-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 8px; }
+.preview-card { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 3 / 4;
+  border: 1px solid var(--stroke); background: var(--glass); }
+.preview-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.preview-actions { position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 8px; }
+.preview-actions button { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer;
+  width: 52px; padding: 9px 4px; border-radius: 12px; color: var(--text);
+  background: color-mix(in srgb, var(--bg2) 72%, transparent); border: 1px solid var(--stroke);
+  backdrop-filter: blur(6px); transition: 0.18s; }
+.preview-actions .ico { width: 20px; height: 20px; }
+.preview-actions button:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.preview-actions small { font-size: 9.5px; color: var(--dim); font-weight: 600; }
+
+.thumbs { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.thumb-row { display: flex; gap: 8px; overflow-x: auto; scroll-behavior: smooth; padding: 2px; flex: 1; scrollbar-width: thin; }
+.thumb { flex: none; width: 62px; height: 82px; border-radius: 11px; overflow: hidden; cursor: pointer; padding: 0;
+  background: var(--glass); border: 2px solid var(--stroke); transition: 0.18s; }
+.thumb:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.thumb[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 45%, transparent); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-arrow { flex: none; width: 26px; height: 40px; border-radius: 9px; cursor: pointer; font-size: 16px;
+  color: var(--dim); background: var(--glass); border: 1px solid var(--stroke); }
+.thumb-arrow:hover { color: var(--text); }
+
+.slider-row { display: flex; align-items: center; gap: 11px; margin-top: 12px; font-size: 12.5px; color: var(--dim); }
+.slider-row input[type='range'] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+.slider-val { font-family: 'JetBrains Mono'; color: var(--text); min-width: 38px; text-align: right; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .modal-head b { font-family: 'Be Vietnam Pro'; font-size: 15px; letter-spacing: 0.3px; }
-.modal-x { background: none; border: none; color: var(--dim); font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 7px; }
+.modal-title { display: inline-flex; align-items: center; gap: 8px; }
+.modal-title .ico { width: 17px; height: 17px; color: var(--accent); }
+.modal-x { display: inline-flex; background: none; border: none; color: var(--dim); cursor: pointer; padding: 5px; border-radius: 7px; }
+.modal-x .ico { width: 17px; height: 17px; }
 .modal-x:hover { color: var(--text); background: var(--glass); }
 .modal-sec { border-top: 1px solid var(--stroke); padding: 12px 0 10px; }
 .modal-tl { font-family: 'JetBrains Mono'; font-size: 10.5px; letter-spacing: 1.5px; color: var(--faint);
@@ -185,14 +396,48 @@ body[data-state='listening'] .mic::after { animation: ripple 1.6s ease-out infin
   background: var(--glass); border: 1px solid var(--stroke); border-radius: 9px; padding: 8px 11px; width: 100%; }
 .modal-row input:focus, .modal-row select:focus { outline: none;
   border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+/* Dropdown: nền ĐẶC tối + chữ sáng để popup option dễ đọc (var(--glass) trong suốt làm option khó nhìn). */
+.modal-row select { background: color-mix(in srgb, var(--bg2) 93%, #fff 7%); color: var(--text);
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%), linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+  background-position: right 14px center, right 9px center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  padding-right: 28px; }
+.modal-row select option { background-color: #0c1126; color: var(--text); }
+[data-theme='aura'] .modal-row select option { background-color: #120c28; }
+[data-theme='ember'] .modal-row select option { background-color: #0a1a18; }
+[data-theme='iris'] .modal-row select option { background-color: #0e1230; }
+
+/* Dropdown tự vẽ — popup ăn khớp hệ màu (thay select native) */
+.dd { position: relative; width: 100%; }
+.dd-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-family: 'Inter'; font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
+  background: color-mix(in srgb, var(--bg2) 93%, #fff 7%); border: 1px solid var(--stroke); border-radius: 9px; padding: 8px 11px; }
+.dd-btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.dd-btn[aria-expanded='true'] { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.dd-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-arrow { flex: none; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-top: 5px solid var(--dim); transition: transform 0.18s; }
+.dd-btn[aria-expanded='true'] .dd-arrow { transform: rotate(180deg); }
+.dd-menu { position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 30;
+  background: var(--bg2); border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); border-radius: 11px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55); padding: 5px; max-height: 240px; overflow-y: auto; }
+.dd-item { width: 100%; text-align: left; font-family: 'Inter'; font-size: 13px; color: var(--dim); cursor: pointer;
+  background: none; border: none; border-radius: 7px; padding: 8px 10px; transition: 0.12s; }
+.dd-item:hover { background: var(--glass); color: var(--text); }
+.dd-item.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
 .modal-actions { display: flex; align-items: center; gap: 9px; margin-top: 4px; flex-wrap: wrap; }
-.mbtn { font-family: 'Inter'; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
+.mbtn { display: inline-flex; align-items: center; gap: 6px; font-family: 'Inter'; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
   background: var(--glass); border: 1px solid var(--stroke); border-radius: 9px; padding: 8px 16px; transition: 0.18s; }
+.mbtn .ico { width: 15px; height: 15px; }
 .mbtn:hover { color: var(--text); }
 .mbtn.primary { color: var(--text); background: color-mix(in srgb, var(--accent) 24%, transparent);
   border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 .modal-status { font-family: 'JetBrains Mono'; font-size: 11px; color: var(--accent); }
 .modal-note { font-size: 11.5px; color: var(--faint); line-height: 1.5; margin-top: 9px; }
+.modal-check { display: flex; align-items: flex-start; gap: 8px; margin-top: 11px; cursor: pointer;
+  font-size: 11.5px; color: var(--dim); line-height: 1.5; }
+.modal-check input { margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex: none; }
+.modal-check b { color: var(--text); font-weight: 600; }
 
 .errbar { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 9;
   font-size: 12.5px; color: #fff; background: color-mix(in srgb, var(--warn) 30%, var(--bg2));
@@ -224,3 +469,27 @@ body[data-state='speaking'] .figure { filter: drop-shadow(0 0 38px color-mix(in 
   * { animation: none !important; transition: none !important; }
 }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+
+/* ---- Safe-area (notch / home-indicator iPhone) ---- */
+.top { padding-top: max(14px, env(safe-area-inset-top)); padding-left: max(26px, env(safe-area-inset-left)); padding-right: max(26px, env(safe-area-inset-right)); }
+.dock { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+
+/* ---- Mobile / iPhone (≤520px) ---- */
+@media (max-width: 520px) {
+  .top { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .top > div { gap: 8px !important; }
+  .brand { gap: 9px; }
+  .pill { display: none; }
+  .console { padding: 8px 11px; font-size: 12px; gap: 6px; }
+  .console .lbl { display: none; } /* "⌘ Developer Console" → còn "⌘" cho gọn */
+  .scene { width: 92vw; }
+  .caption { width: 92vw; }
+  .caption .txt { font-size: 15.5px; min-height: 40px; }
+  .dock { padding-left: 12px; padding-right: 12px; gap: 9px; }
+  .controls { gap: 6px; }
+  .vsel { max-width: 150px; font-size: 11.5px; }
+  .note { display: none; } /* khỏi đè lên dock ở màn hẹp */
+}
+@media (max-width: 380px) {
+  .seg button { padding: 7px 10px; font-size: 11.5px; }
+}

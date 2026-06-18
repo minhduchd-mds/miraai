@@ -1,5 +1,5 @@
 import type { Brain } from '../types';
-import { CannedBrain } from './canned-brain';
+import { GeminiBrain } from './gemini-brain';
 import { LLMBrain } from './llm-brain';
 
 const DEFAULT_MODEL: Record<string, string> = {
@@ -11,6 +11,7 @@ export interface LLMConfig {
   provider: '' | 'anthropic' | 'openai';
   apiKey: string;
   model: string;
+  webSearch: boolean; // cho Mira tìm kiếm web khi cần (như Grok) — hiện hỗ trợ Claude
 }
 
 const LS_KEY = 'mira.llm.config';
@@ -27,6 +28,7 @@ export function loadLLMConfig(): LLMConfig {
           provider: c.provider === 'anthropic' || c.provider === 'openai' ? c.provider : '',
           apiKey: typeof c.apiKey === 'string' ? c.apiKey : '',
           model: typeof c.model === 'string' ? c.model : '',
+          webSearch: typeof c.webSearch === 'boolean' ? c.webSearch : true, // mặc định BẬT
         };
       }
     }
@@ -38,6 +40,7 @@ export function loadLLMConfig(): LLMConfig {
     provider: provider === 'anthropic' || provider === 'openai' ? provider : '',
     apiKey: (import.meta.env.VITE_LLM_API_KEY as string) || '',
     model: (import.meta.env.VITE_LLM_MODEL as string) || '',
+    webSearch: (import.meta.env.VITE_LLM_WEB_SEARCH as string) !== '0', // mặc định BẬT
   };
 }
 
@@ -58,10 +61,11 @@ export function createBrain(): Brain {
   const cfg = loadLLMConfig();
   if (cfg.provider && cfg.apiKey) {
     try {
-      return new LLMBrain(cfg.provider, cfg.apiKey, cfg.model || DEFAULT_MODEL[cfg.provider]);
+      return new LLMBrain(cfg.provider, cfg.apiKey, cfg.model || DEFAULT_MODEL[cfg.provider], cfg.webSearch);
     } catch {
-      // Lỗi khởi tạo → fallback brain demo để app vẫn chạy.
+      // Lỗi khởi tạo → rơi xuống Gemini free.
     }
   }
-  return new CannedBrain();
+  // Mặc định: bộ não Gemini free qua /api/chat (key server). Không tới được /api → tự rớt về demo brain.
+  return new GeminiBrain();
 }

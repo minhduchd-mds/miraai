@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
+import { loadHistory, saveTurn, recallMemory, distillFacts } from './history-store';
+import { detectContent, fetchWeather, pollinationsImage, type Content } from './content';
 import { WebSpeechSTT } from './stt/webspeech-stt';
+import { startMicLevel, stopMicLevel, primeAudio } from './audio-level';
+import { voicePrefs, loadVoicePrefs } from './voice-prefs';
+import { SileroVAD } from './vad/silero-vad';
+import { loadVadEnabled } from './vad/config';
 import {
   createTTS,
   saveTTSConfig,
@@ -27,6 +33,25 @@ const DEMO_COPY: Record<MiraState, { who: string; txt: string }> = {
   interrupted: { who: 'MIRA', txt: '— Được, em dừng lại.' },
   error: { who: 'LỖI', txt: 'Có lỗi xảy ra.' },
 };
+
+// Tách câu trả lời thành cụm ~câu để phát NỐI TIẾP (streaming TTS): cụm đầu ngắn → phát sớm,
+// giảm trễ "time-to-first-audio" (engine server/cloud synth theo độ dài). Gộp cụm <40 ký tự để
+// khỏi bắn quá nhiều request tí hon. 1 câu/không dấu câu → trả nguyên (hành vi như cũ).
+function chunkSpeech(text: string): string[] {
+  const sents = text.match(/[^.!?…\n]+[.!?…]*/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+  if (sents.length <= 1) return [text.trim()].filter(Boolean);
+  const out: string[] = [];
+  let cur = '';
+  for (const s of sents) {
+    cur = cur ? `${cur} ${s}` : s;
+    if (out.length === 0 || cur.length >= 40) {
+      out.push(cur); // cụm ĐẦU = câu đầu (kêu ngay); các cụm sau gộp tới ~40 ký tự
+      cur = '';
+    }
+  }
+  if (cur) out.push(cur);
+  return out.length ? out : [text.trim()];
+}
 
 export function useMira() {
   const sttRef = useRef<WebSpeechSTT | null>(null);
@@ -65,18 +90,41 @@ export function useMira() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<BrainTurn[]>([]);
   const historyRef = useRef<BrainTurn[]>([]);
+  const [content, setContent] = useState<Content | null>(null); // panel trực quan (thời tiết/ảnh) cạnh avatar
   const [voices, setVoices] = useState<VoiceOption[]>([]);
-  const [voiceURI, setVoiceURI] = useState<string | undefined>(undefined);
-  const voiceURIRef = useRef<string | undefined>(undefined);
+  const [voiceURI, setVoiceURI] = useState<string | undefined>(''); // mặc định = giọng đầu tiên "Eva" (uri '')
+  const voiceURIRef = useRef<string | undefined>('');
   const [brainName, setBrainName] = useState(() => brainRef.current!.name);
   const pendingTranscriptRef = useRef('');
   const emptyCountRef = useRef(0);
   const startListeningRef = useRef<() => void>(() => {});
   const pendingListenRef = useRef<number | null>(null);
+  const vadRef = useRef<SileroVAD | null>(null);
+  const speakSeqRef = useRef(0); // token phiên nói: ++ mỗi speak mới / khi huỷ → dừng hàng đợi streaming cũ
+
+  // Huỷ nói: tăng token (vô hiệu hàng đợi streaming đang phát) + dừng TTS. Dùng cho mọi barge-in/stop.
+  const cancelSpeech = useCallback(() => {
+    speakSeqRef.current++;
+    ttsRef.current?.cancel();
+  }, []);
 
   const pushHistory = useCallback((turn: BrainTurn) => {
     historyRef.current = [...historyRef.current, turn].slice(-12);
     setHistory(historyRef.current);
+    saveTurn(turn); // lưu lên Neon (fire-and-forget; thiếu DB thì im lặng bỏ qua)
+  }, []);
+
+  // Nạp lịch sử hội thoại từ Neon khi mở app → Mira nhớ chuyện phiên trước. Lỗi/thiếu DB → bỏ qua.
+  useEffect(() => {
+    let alive = true;
+    loadHistory().then((turns) => {
+      if (!alive || !turns.length || historyRef.current.length) return; // đừng đè lượt của phiên hiện tại
+      historyRef.current = turns.slice(-12);
+      setHistory(historyRef.current);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Nạp danh sách giọng vi-VN (getVoices() thường rỗng cho tới khi 'voiceschanged' bắn).
@@ -87,14 +135,16 @@ export function useMira() {
       const vi = tts.listVoices('vi');
       const list = vi.length ? vi : tts.listVoices();
       setVoices(list);
-      if (!voiceURIRef.current && vi[0]) {
-        voiceURIRef.current = vi[0].voiceURI;
-        setVoiceURI(vi[0].voiceURI);
-      }
+      // Mặc định là giọng đầu tiên "Eva" (voiceURI = '' → engine tự dùng giọng mặc định). Người dùng đổi tuỳ ý.
     };
     load();
     window.speechSynthesis?.addEventListener?.('voiceschanged', load);
     return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', load);
+  }, []);
+
+  // Nạp tốc độ/tính cách giọng (dùng cho speak() và brain).
+  useEffect(() => {
+    loadVoicePrefs();
   }, []);
 
   // Dọn dẹp khi unmount: dừng mọi thứ.
@@ -103,6 +153,8 @@ export function useMira() {
       liveRef.current = false;
       if (pendingListenRef.current != null) clearTimeout(pendingListenRef.current);
       try {
+        stopMicLevel();
+        vadRef.current?.destroy();
         ttsRef.current?.cancel();
         sttRef.current?.abort();
       } catch {
@@ -118,6 +170,7 @@ export function useMira() {
   }, []);
 
   const unlockAudio = useCallback(() => {
+    primeAudio(); // mở khoá AudioContext trong gesture → ElevenLabs/VieNeu không bị câm
     ttsRef.current!.unlock();
   }, []);
 
@@ -137,19 +190,18 @@ export function useMira() {
   // Developer Console: đổi engine giọng (hệ thống / ElevenLabs / VieNeu) — hot-swap như brain.
   const applyTTSConfig = useCallback((cfg: TTSConfig) => {
     saveTTSConfig(cfg);
-    ttsRef.current?.cancel();
+    cancelSpeech();
     ttsRef.current = createTTS();
     const refresh = () => {
       const vi = ttsRef.current!.listVoices('vi');
       const list = vi.length ? vi : ttsRef.current!.listVoices();
       setVoices(list);
-      const pick = (cfg.voiceId && list.find((v) => v.voiceURI === cfg.voiceId)) || list[0];
-      voiceURIRef.current = pick?.voiceURI;
-      setVoiceURI(pick?.voiceURI);
+      voiceURIRef.current = undefined; // đổi engine → bỏ chọn, dùng giọng mặc định của engine
+      setVoiceURI(undefined);
     };
     refresh();
     window.setTimeout(refresh, 1500); // VieNeu nạp preset voices async từ server → quét lại
-  }, []);
+  }, [cancelSpeech]);
 
   // Developer Console: gọi thử bộ não 1 câu, trả kết quả/lỗi THẬT để chẩn đoán tại chỗ.
   const testBrain = useCallback(async (): Promise<string> => {
@@ -185,6 +237,7 @@ export function useMira() {
   const goIdle = useCallback(
     (msg?: string) => {
       clearPendingListen(); // về idle = huỷ mọi lượt nghe đang hẹn
+      stopMicLevel();
       setMoodBoth('neutral');
       setState('idle');
       setWho('CHẠM ĐỂ NÓI');
@@ -211,26 +264,36 @@ export function useMira() {
   const speak = useCallback(
     (text: string) => {
       sttRef.current!.abort(); // nhả mic trước khi nói (half-duplex: không nghe trong lúc nói → hết echo)
+      stopMicLevel(); // nhường audioLevel cho AnalyserNode của TTS (orb nảy theo giọng Mira)
       setWho('MIRA');
       setPartial(false);
-      setCaption(text);
+      setCaption(text); // hiện FULL câu trả lời (dù phát theo từng cụm)
       setState('speaking');
-      ttsRef.current!.speak({
-        text: cleanForSpeech(text) || text,
-        lang: LANG,
-        rate: 1.04, // giọng hệ thống đọc hơi lê thê — nhanh nhẹ lên nghe tự nhiên hơn
-        voiceURI: voiceURIRef.current,
-        onEnd: () => {
-          if (stateRef.current !== 'speaking') return;
-          if (liveRef.current) restartListenSoon(); // live: nói xong tự nghe tiếp
-          else goIdle(IDLE_CAPTION);
-        },
-        onError: () => {
-          if (stateRef.current !== 'speaking') return;
-          if (liveRef.current) restartListenSoon();
-          else goIdle(IDLE_CAPTION);
-        },
-      });
+
+      // Streaming: phát từng cụm nối tiếp — cụm đầu kêu sớm trong khi cụm sau đang synth.
+      const chunks = chunkSpeech(cleanForSpeech(text) || text);
+      const token = ++speakSeqRef.current; // phiên nói này; barge-in/đè sẽ tăng token → dừng hàng đợi
+      const finishTurn = () => {
+        if (stateRef.current !== 'speaking' || speakSeqRef.current !== token) return;
+        if (liveRef.current) restartListenSoon(); // live: nói xong tự nghe tiếp
+        else goIdle(IDLE_CAPTION);
+      };
+      const playFrom = (i: number) => {
+        if (stateRef.current !== 'speaking' || speakSeqRef.current !== token) return; // bị ngắt/đè
+        if (i >= chunks.length) {
+          finishTurn();
+          return;
+        }
+        ttsRef.current!.speak({
+          text: chunks[i],
+          lang: LANG,
+          rate: voicePrefs.rate, // tốc độ theo Cài đặt (mặc định bình thường)
+          voiceURI: voiceURIRef.current,
+          onEnd: () => playFrom(i + 1), // cụm xong → cụm tiếp; cụm cuối → finishTurn()
+          onError: finishTurn, // lỗi giữa chừng → kết thúc lượt như cũ (nghe lại / idle)
+        });
+      };
+      playFrom(0);
     },
     [goIdle, restartListenSoon, setState],
   );
@@ -238,10 +301,18 @@ export function useMira() {
   const handleUtterance = useCallback(
     async (text: string) => {
       emptyCountRef.current = 0; // người dùng có nói → reset bộ đếm im lặng
+      stopMicLevel(); // hết lượt nghe → trạng thái 'thinking' dùng envelope giả lập
       // QUAN TRỌNG: chốt history TRƯỚC khi push lượt hiện tại — LLMBrain sẽ tự append input.
       // (bug cũ: push trước rồi truyền history chứa luôn input → user nhân đôi → Anthropic 400)
       const prior = historyRef.current;
       pushHistory({ role: 'user', text });
+      // Trực quan hoá: phát hiện hỏi thời tiết/ảnh → fetch song song (không chặn câu trả lời) → hiện panel.
+      const intent = detectContent(text);
+      if (intent?.kind === 'weather') {
+        fetchWeather(intent.city).then((w) => w && setContent({ kind: 'weather', data: w }));
+      } else if (intent?.kind === 'image') {
+        setContent({ kind: 'image', data: { prompt: intent.prompt, url: pollinationsImage(intent.prompt) } });
+      }
       setWho('MIRA');
       setPartial(false);
       setCaption('Đang suy nghĩ…');
@@ -249,12 +320,14 @@ export function useMira() {
       setState('thinking');
       const t0 = performance.now();
       try {
-        const reply = await brainRef.current!.reply(text, prior);
+        const memory = await recallMemory(text); // truy hồi ký ức liên quan (RAG); '' nếu thiếu DB/key
+        const reply = await brainRef.current!.reply(text, prior, memory);
         setLatencyMs(Math.round(performance.now() - t0));
         if (stateRef.current !== 'thinking') return; // bị ngắt lúc đang nghĩ → bỏ
         setMoodBoth(reply.mood || 'neutral');
         pushHistory({ role: 'mira', text: reply.text });
         speak(reply.text);
+        distillFacts(`Người dùng: ${text}\nMira: ${reply.text}`); // chắt lọc hồ sơ người dùng (Gemini free, nền)
       } catch (e) {
         setLatencyMs(Math.round(performance.now() - t0));
         const msg = e instanceof Error ? e.message : String(e);
@@ -276,20 +349,20 @@ export function useMira() {
     emptyCountRef.current += 1;
     if (emptyCountRef.current >= MAX_EMPTY) {
       setLive(false);
-      ttsRef.current!.cancel();
+      cancelSpeech();
       goIdle('Em tạm dừng nhé — bật lại trò chuyện khi anh cần.');
     } else {
       setWho('MIRA');
       setCaption('Em vẫn đang nghe…');
       restartListenSoon();
     }
-  }, [goIdle, restartListenSoon, setLive]);
+  }, [goIdle, restartListenSoon, setLive, cancelSpeech]);
 
   const startListening = useCallback(() => {
     const stt = sttRef.current!;
     clearPendingListen(); // đang mở mic ngay → huỷ mọi lượt nghe còn hẹn
     ttsRef.current!.unlock();
-    ttsRef.current!.cancel(); // chắc chắn TTS đã tắt trước khi mở mic
+    cancelSpeech(); // chắc chắn TTS đã tắt trước khi mở mic
     setError(null);
     pendingTranscriptRef.current = '';
     if (!stt.available) {
@@ -302,6 +375,7 @@ export function useMira() {
     setPartial(true);
     setCaption('Đang nghe…');
     setState('listening');
+    void startMicLevel(); // orb/waveform nảy theo giọng người dùng (best-effort)
     stt.start({
       lang: LANG,
       onResult: (r) => {
@@ -334,7 +408,7 @@ export function useMira() {
         else handleEmptyListen();
       },
     });
-  }, [clearPendingListen, goIdle, handleEmptyListen, handleUtterance, setLive, setState]);
+  }, [clearPendingListen, goIdle, handleEmptyListen, handleUtterance, setLive, setState, cancelSpeech]);
 
   useEffect(() => {
     startListeningRef.current = startListening;
@@ -347,30 +421,51 @@ export function useMira() {
 
   // Barge-in: dừng TTS tức thì, sang 'interrupted', rồi nghe lại (giữ nguyên live nếu đang live).
   const interrupt = useCallback(() => {
-    ttsRef.current!.cancel();
+    cancelSpeech();
     sttRef.current!.abort();
+    stopMicLevel();
     setState('interrupted');
     setWho('MIRA');
     setPartial(false);
     setCaption('— Được, em nghe đây.');
     // Chỉ nghe lại nếu vẫn còn ở 'interrupted' lúc timer bắn (đã dừng/đổi trạng thái → bỏ).
     schedulePendingListen(350, () => stateRef.current === 'interrupted');
-  }, [schedulePendingListen, setState]);
+  }, [schedulePendingListen, setState, cancelSpeech]);
 
   // ── Chế độ trò chuyện trực tiếp (live) ──
   const startLive = useCallback(() => {
     setLive(true);
     emptyCountRef.current = 0;
     ttsRef.current!.unlock();
+    // Ngắt lời bằng GIỌNG (opt-in): VAD nghe nền cả phiên, chỉ cắt khi Mira đang 'speaking'
+    // (lúc nghe/nghĩ thì bỏ qua — Web Speech lo). Lỗi/không bật → barge-in bằng nút/Space.
+    if (loadVadEnabled()) {
+      if (!vadRef.current) {
+        const vad = new SileroVAD();
+        vadRef.current = vad;
+        void vad
+          .init({
+            onSpeechStart: () => {
+              if (stateRef.current === 'speaking') interrupt();
+            },
+          })
+          .then((ok) => {
+            if (ok && liveRef.current) vad.start();
+          });
+      } else {
+        vadRef.current.start();
+      }
+    }
     startListening();
-  }, [setLive, startListening]);
+  }, [setLive, startListening, interrupt]);
 
   const stopLive = useCallback(() => {
     setLive(false);
-    ttsRef.current!.cancel();
+    vadRef.current?.pause();
+    cancelSpeech();
     sttRef.current!.abort();
     goIdle('Đã dừng trò chuyện. Chạm để nói, hoặc bật lại khi cần.');
-  }, [goIdle, setLive]);
+  }, [goIdle, setLive, cancelSpeech]);
 
   const toggleLive = useCallback(() => {
     if (liveRef.current) stopLive();
@@ -396,8 +491,9 @@ export function useMira() {
     (s: MiraState, speakIt = false) => {
       setLive(false);
       clearPendingListen();
+      stopMicLevel();
       ttsRef.current!.unlock();
-      ttsRef.current!.cancel();
+      cancelSpeech();
       sttRef.current!.abort();
       const c = DEMO_COPY[s];
       setWho(c.who);
@@ -408,7 +504,7 @@ export function useMira() {
         ttsRef.current!.speak({ text: c.txt, lang: LANG, voiceURI: voiceURIRef.current });
       }
     },
-    [clearPendingListen, setLive, setState],
+    [clearPendingListen, setLive, setState, cancelSpeech],
   );
 
   return {
@@ -440,6 +536,9 @@ export function useMira() {
     startListening,
     interrupt,
     demoGo,
+    say: speak, // đọc 1 câu canned (dùng cho phản ứng cử chỉ: chào, cảm ơn…)
+    content, // panel trực quan (thời tiết/ảnh) cạnh avatar; null = không có
+    clearContent: () => setContent(null),
   };
 }
 

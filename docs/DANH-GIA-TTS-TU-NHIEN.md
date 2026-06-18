@@ -36,7 +36,7 @@ BROWSER
 Vì sao khớp codebase hiện tại:
 - `TTSAdapter` đã là interface cắm được → chỉ thêm `src/core/tts/vieneu-tts.ts` (giống `elevenlabs-tts.ts`, đổi endpoint về server nhà).
 - `lipsync.ts` thiết kế sẵn "chỉ ăn biên độ 0..1, không biết nguồn" → có audio element thật là AnalyserNode cắm vào ngay, không sửa avatar.
-- Engine giọng chọn trong ⌘ Developer Console như ElevenLabs hiện tại (thêm option "VieNeu (server nhà)").
+- Engine giọng chọn trong ⌘ Cài đặt như ElevenLabs hiện tại (thêm option "VieNeu (server nhà)").
 - Khớp triết lý 3 vùng triển khai của Soi: dữ liệu giọng không ra ngoài (§12 kiến trúc).
 
 ## 3. So sánh nhanh các phương án giọng tự nhiên

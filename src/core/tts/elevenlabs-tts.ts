@@ -73,6 +73,8 @@ export class ElevenLabsTTS implements TTSAdapter {
         this.objectUrl = url;
         const a = new Audio(url);
         this.audio = a;
+        a.playbackRate = opts.rate ?? 1; // khớp "Chậm/Nhanh"
+        a.preservesPitch = true; // đổi tốc độ KHÔNG đổi cao độ
         this.detach = attachAnalyser(a); // lipsync theo âm thanh thật
         a.onplaying = () => opts.onStart?.();
         a.onended = () => {

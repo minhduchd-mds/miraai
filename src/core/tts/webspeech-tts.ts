@@ -156,7 +156,8 @@ export class WebSpeechTTS implements TTSAdapter {
 
   listVoices(langPrefix?: string): VoiceOption[] {
     if (!this.synth) return [];
-    const all = this.synth.getVoices();
+    // Bỏ hết giọng Google (không dùng) khỏi danh sách chọn.
+    const all = this.synth.getVoices().filter((v) => !/google/i.test(v.name));
     const list = langPrefix
       ? all.filter((v) => v.lang?.toLowerCase().startsWith(langPrefix.toLowerCase()))
       : all;

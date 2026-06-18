@@ -14,7 +14,7 @@
 | ✋ **Ngắt lời (barge-in)** | Mira đang nói, bấm mic/Space là dừng ngay và nghe tiếp |
 | 👄 **Lip-sync + biểu cảm** | Miệng nhép theo lời, chớp mắt, thở, mood (vui/tò mò/suy nghĩ) đổi theo câu trả lời |
 | 👀 **Nhìn theo chuột** | Mắt liếc + đầu xoay mượt theo con trỏ (hệ lookAt của VRM) |
-| 🧠 **Bộ não cắm được** | Mặc định brain demo (miễn phí); mở **⌘ Developer Console** dán API key Claude/OpenAI là chạy LLM thật ngay, không cần reload |
+| 🧠 **Bộ não cắm được** | Mặc định brain demo (miễn phí); mở **⌘ Cài đặt** dán API key Claude/OpenAI là chạy LLM thật ngay, không cần reload |
 | 🎨 **4 theme** | Nova / Aura / Ember / Iris — hologram avatar nhuộm màu theo theme |
 | 🩹 **Fallback 2D** | Máy không có WebGL hoặc VRM đang tải → tự hiện ảnh 2D, không vỡ app |
 
@@ -34,7 +34,7 @@ Phải là `localhost` (secure context) — mở qua IP không có HTTPS sẽ b�
 
 ## Cắm bộ não LLM (tuỳ chọn)
 
-Bấm **⌘ Developer Console** (góc phải trên) → chọn Claude/OpenAI → dán API key → **Lưu**.
+Bấm **⌘ Cài đặt** (góc phải trên) → chọn Claude/OpenAI → dán API key → **Lưu**.
 Bộ não đổi ngay lập tức (hiện trên telemetry header). Key lưu trong `localStorage` của trình duyệt.
 
 > ⚠️ Cách này gọi LLM **trực tiếp từ browser** → chỉ dùng máy cá nhân/dev.
@@ -44,7 +44,7 @@ Cũng có thể cấu hình qua `.env` (xem `.env.example`) — localStorage đ�
 
 ## Không nghe thấy tiếng?
 
-Mở **⌘ Developer Console** → bấm **🔊 Đọc thử** và nhìn dòng chẩn đoán:
+Mở **⌘ Cài đặt** → bấm **🔊 Đọc thử** và nhìn dòng chẩn đoán:
 hiện **"ĐANG NÓI"** mà vẫn im → kiểm tra âm lượng máy, đúng thiết bị output, tab Chrome không bị mute.
 
 ## Kiến trúc

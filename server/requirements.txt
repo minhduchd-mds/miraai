@@ -1,8 +1,11 @@
-# Tối thiểu (mock mode — dev UI/lipsync, CI): fastapi + uvicorn là đủ
+# Lõi (đủ cho engine mock + edge): fastapi + uvicorn
 fastapi>=0.110
 uvicorn>=0.29
 pydantic>=2
 
-# Giọng thật (bỏ comment 2 dòng dưới, hoặc: pip install vieneu vinorm)
+# Edge (Microsoft) — giọng tiếng Việt neural, free, không model/GPU. Engine nhẹ nhất.
+edge-tts>=6.1
+
+# VieNeu (giọng self-host, bảo mật cao) — bỏ comment 2 dòng dưới, hoặc: pip install vieneu vinorm
 # vieneu
 # vinorm
