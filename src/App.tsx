@@ -43,19 +43,9 @@ export default function App() {
   // Nền cảnh đổi theo bối cảnh nếu có file public/scenes/<scene>.jpg (không có → giữ gradient).
   const sceneBgRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Bối cảnh bỏ → nền mặc định (gradient), không nạp ảnh scene.
     const el = sceneBgRef.current;
-    if (!el) return;
-    const url = sceneBg(avatarSel.scene);
-    const img = new Image();
-    img.onload = () => {
-      el.style.backgroundImage = `url("${url}")`;
-      el.style.opacity = '1';
-    };
-    img.onerror = () => {
-      el.style.backgroundImage = '';
-      el.style.opacity = '0';
-    };
-    img.src = url;
+    if (el) { el.style.backgroundImage = ''; el.style.opacity = '0'; }
   }, [avatarSel.scene]);
   const [simulating, setSimulating] = useState(false);
 
