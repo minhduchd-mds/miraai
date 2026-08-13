@@ -7,6 +7,8 @@ import { startMicLevel, stopMicLevel, primeAudio } from './audio-level';
 import { voicePrefs, loadVoicePrefs } from './voice-prefs';
 import { SileroVAD } from './vad/silero-vad';
 import { loadVadEnabled } from './vad/config';
+import { loadSmartTurn } from './stt/turn-config';
+import { computeEndpointDelay, ENDPOINT } from './stt/endpointer';
 import {
   createTTS,
   saveTTSConfig,
@@ -15,6 +17,7 @@ import {
   type TTSDiagnostics,
 } from './tts';
 import { createBrain, saveLLMConfig, type LLMConfig } from './brain';
+import { normalizeVietnameseSpeech } from './tts/vi-normalize';
 
 const LANG = 'vi-VN';
 const IDLE_CAPTION = 'Chạm để nói, hoặc bật trò chuyện trực tiếp.';
@@ -99,6 +102,7 @@ export function useMira() {
   const emptyCountRef = useRef(0);
   const startListeningRef = useRef<() => void>(() => {});
   const pendingListenRef = useRef<number | null>(null);
+  const endpointTimerRef = useRef<number | null>(null); // timer "kết lượt" thích ứng (smart turn-taking)
   const vadRef = useRef<SileroVAD | null>(null);
   const speakSeqRef = useRef(0); // token phiên nói: ++ mỗi speak mới / khi huỷ → dừng hàng đợi streaming cũ
 
@@ -152,6 +156,7 @@ export function useMira() {
     () => () => {
       liveRef.current = false;
       if (pendingListenRef.current != null) clearTimeout(pendingListenRef.current);
+      if (endpointTimerRef.current != null) clearTimeout(endpointTimerRef.current);
       try {
         stopMicLevel();
         vadRef.current?.destroy();
@@ -223,6 +228,14 @@ export function useMira() {
     }
   }, []);
 
+  // Huỷ timer "kết lượt" thích ứng (smart turn-taking). Gọi ở mọi điểm rời trạng thái listening.
+  const clearEndpointTimer = useCallback(() => {
+    if (endpointTimerRef.current != null) {
+      clearTimeout(endpointTimerRef.current);
+      endpointTimerRef.current = null;
+    }
+  }, []);
+
   const schedulePendingListen = useCallback(
     (delayMs: number, guard: () => boolean) => {
       clearPendingListen();
@@ -237,6 +250,7 @@ export function useMira() {
   const goIdle = useCallback(
     (msg?: string) => {
       clearPendingListen(); // về idle = huỷ mọi lượt nghe đang hẹn
+      clearEndpointTimer(); // …và huỷ timer kết lượt còn treo
       stopMicLevel();
       setMoodBoth('neutral');
       setState('idle');
@@ -244,7 +258,7 @@ export function useMira() {
       setPartial(false);
       if (msg) setCaption(msg);
     },
-    [clearPendingListen, setMoodBoth, setState],
+    [clearPendingListen, clearEndpointTimer, setMoodBoth, setState],
   );
 
   // Trong chế độ live: nghe lại sau một nhịp ngắn (guard liveRef lúc bắn).
@@ -271,7 +285,9 @@ export function useMira() {
       setState('speaking');
 
       // Streaming: phát từng cụm nối tiếp — cụm đầu kêu sớm trong khi cụm sau đang synth.
-      const chunks = chunkSpeech(cleanForSpeech(text) || text);
+      // Chuẩn hoá tiếng Việt (số/%/độ/giờ/tiền → chữ) TRƯỚC khi cắt cụm → giọng đọc tự nhiên hơn.
+      // (caption vẫn hiển thị `text` gốc ở trên; chỉ phần ĐỌC được chuẩn hoá.)
+      const chunks = chunkSpeech(normalizeVietnameseSpeech(cleanForSpeech(text) || text));
       const token = ++speakSeqRef.current; // phiên nói này; barge-in/đè sẽ tăng token → dừng hàng đợi
       const finishTurn = () => {
         if (stateRef.current !== 'speaking' || speakSeqRef.current !== token) return;
@@ -361,6 +377,8 @@ export function useMira() {
   const startListening = useCallback(() => {
     const stt = sttRef.current!;
     clearPendingListen(); // đang mở mic ngay → huỷ mọi lượt nghe còn hẹn
+    clearEndpointTimer(); // …và timer kết lượt của phiên nghe trước
+    const smart = loadSmartTurn() && stt.available; // turn-taking thông minh (endpointer thích ứng)
     ttsRef.current!.unlock();
     cancelSpeech(); // chắc chắn TTS đã tắt trước khi mở mic
     setError(null);
@@ -378,11 +396,27 @@ export function useMira() {
     void startMicLevel(); // orb/waveform nảy theo giọng người dùng (best-effort)
     stt.start({
       lang: LANG,
+      continuous: smart, // giữ session qua quãng ngắt → endpointer tự quyết điểm kết lượt
       onResult: (r) => {
         pendingTranscriptRef.current = r.transcript;
         setCaption(r.transcript || 'Đang nghe…');
         setPartial(!r.isFinal);
-        if (r.isFinal && r.transcript) handleUtterance(r.transcript);
+        if (smart) {
+          // Reset timer "kết lượt" theo TỪNG kết quả; chỉ khi im lặng đủ lâu — độ dài thích ứng
+          // theo độ TRỌN của câu — mới chốt. Người dùng ngập ngừng → chờ & GỘP mảnh thành 1 lượt.
+          clearEndpointTimer();
+          const delay = r.isFinal ? computeEndpointDelay(r.transcript) : ENDPOINT.trailing;
+          endpointTimerRef.current = window.setTimeout(() => {
+            endpointTimerRef.current = null;
+            if (stateRef.current !== 'listening') return;
+            const text = pendingTranscriptRef.current.trim();
+            stt.abort(); // dừng session trước khi sang 'thinking' (nulls handler → không chốt lại qua onEnd)
+            if (text) handleUtterance(text);
+            else handleEmptyListen();
+          }, delay);
+        } else if (r.isFinal && r.transcript) {
+          handleUtterance(r.transcript);
+        }
       },
       onError: (err) => {
         if (err === 'aborted' || err === 'no-speech') return; // để onEnd quyết định (tránh xử lý 2 lần)
@@ -403,12 +437,13 @@ export function useMira() {
       },
       onEnd: () => {
         if (stateRef.current !== 'listening') return; // đã chuyển trạng thái (final/error) → bỏ qua
+        clearEndpointTimer(); // session tự kết (network/no-speech) trước timer → dọn timer, chốt luôn
         const pending = pendingTranscriptRef.current.trim();
         if (pending) handleUtterance(pending);
         else handleEmptyListen();
       },
     });
-  }, [clearPendingListen, goIdle, handleEmptyListen, handleUtterance, setLive, setState, cancelSpeech]);
+  }, [clearPendingListen, clearEndpointTimer, goIdle, handleEmptyListen, handleUtterance, setLive, setState, cancelSpeech]);
 
   useEffect(() => {
     startListeningRef.current = startListening;
@@ -423,6 +458,7 @@ export function useMira() {
   const interrupt = useCallback(() => {
     cancelSpeech();
     sttRef.current!.abort();
+    clearEndpointTimer();
     stopMicLevel();
     setState('interrupted');
     setWho('MIRA');
@@ -430,7 +466,7 @@ export function useMira() {
     setCaption('— Được, em nghe đây.');
     // Chỉ nghe lại nếu vẫn còn ở 'interrupted' lúc timer bắn (đã dừng/đổi trạng thái → bỏ).
     schedulePendingListen(350, () => stateRef.current === 'interrupted');
-  }, [schedulePendingListen, setState, cancelSpeech]);
+  }, [schedulePendingListen, setState, cancelSpeech, clearEndpointTimer]);
 
   // ── Chế độ trò chuyện trực tiếp (live) ──
   const startLive = useCallback(() => {
@@ -491,6 +527,7 @@ export function useMira() {
     (s: MiraState, speakIt = false) => {
       setLive(false);
       clearPendingListen();
+      clearEndpointTimer();
       stopMicLevel();
       ttsRef.current!.unlock();
       cancelSpeech();
@@ -504,7 +541,7 @@ export function useMira() {
         ttsRef.current!.speak({ text: c.txt, lang: LANG, voiceURI: voiceURIRef.current });
       }
     },
-    [clearPendingListen, setLive, setState, cancelSpeech],
+    [clearPendingListen, clearEndpointTimer, setLive, setState, cancelSpeech],
   );
 
   return {

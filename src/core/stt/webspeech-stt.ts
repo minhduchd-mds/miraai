@@ -27,21 +27,35 @@ export class WebSpeechSTT implements STTAdapter {
     }
     this.abort();
 
+    const continuous = !!opts.continuous;
     const rec = new this.Ctor();
     rec.lang = opts.lang;
-    rec.continuous = false; // 1 lượt nói / lần (v1). Always-on + Silero VAD = nâng cấp sau (§5).
+    // continuous=true (smart turn-taking): giữ session qua các quãng ngắt, TÍCH LUỸ mảnh final,
+    // để useMira/endpointer tự quyết điểm kết lượt. false: 1 lượt/lần, Web Speech tự kết (cũ).
+    rec.continuous = continuous;
     rec.interimResults = true; // partial transcript → caption trực tiếp
     rec.maxAlternatives = 1;
 
+    // Tổng các đoạn final đã chốt trong session này (chỉ dùng ở chế độ continuous để gộp lượt).
+    let finalAcc = '';
     rec.onresult = (e: any) => {
       let interim = '';
-      let final = '';
+      let finalNew = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const seg = e.results[i];
-        if (seg.isFinal) final += seg[0].transcript;
+        if (seg.isFinal) finalNew += seg[0].transcript;
         else interim += seg[0].transcript;
       }
-      if (final.trim()) opts.onResult({ transcript: final.trim(), isFinal: true });
+      if (continuous) {
+        finalAcc = (finalAcc + finalNew).replace(/\s{2,}/g, ' ');
+        const full = `${finalAcc} ${interim}`.trim();
+        // isFinal ở đây = "text hiện đã ổn định (không còn interim)", KHÔNG phải kết lượt.
+        // useMira dùng cờ này để chọn độ trễ endpoint; điểm kết lượt do timer thích ứng quyết.
+        if (full) opts.onResult({ transcript: full, isFinal: interim.trim() === '' && finalAcc.trim() !== '' });
+        return;
+      }
+      // Hành vi cũ (không continuous): đoạn final đầu tiên là đủ để chốt lượt.
+      if (finalNew.trim()) opts.onResult({ transcript: finalNew.trim(), isFinal: true });
       else if (interim.trim()) opts.onResult({ transcript: interim.trim(), isFinal: false });
     };
 
