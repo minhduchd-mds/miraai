@@ -17,6 +17,9 @@ export interface STTResult {
 
 export interface STTStartOptions {
   lang: string;
+  /** Giữ session nghe LIÊN TỤC qua các quãng ngắt để endpointer tự quyết điểm kết lượt
+   *  (smart turn-taking). false = 1 lượt/lần, Web Speech tự kết theo im lặng (hành vi cũ). */
+  continuous?: boolean;
   onResult: (r: STTResult) => void;
   onError: (error: string) => void;
   onEnd: () => void;

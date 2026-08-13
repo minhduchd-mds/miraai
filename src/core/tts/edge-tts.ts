@@ -1,5 +1,6 @@
 import type { VoiceOption } from '../types';
 import { ServerTTS } from './server-tts';
+import { WebSpeechTTS } from './webspeech-tts';
 
 // TTS Edge — giọng neural tiếng Việt của Microsoft (vi-VN-HoaiMyNeural / NamMinhNeural):
 // tự nhiên, MIỄN PHÍ, không cần key, không GPU, không tải model.
@@ -21,6 +22,7 @@ export class EdgeTTS extends ServerTTS {
       label: 'Edge',
       fallbackVoice: EDGE_FALLBACK,
       sampleText: 'Xin chào anh, em là Mira. Giọng tiếng Việt mới của em nghe tự nhiên hơn chứ ạ?',
+      fallback: new WebSpeechTTS(), // server Edge (cổng 8017) tắt → nói bằng giọng hệ thống, không câm
     });
   }
 }
