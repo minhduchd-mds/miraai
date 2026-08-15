@@ -12,8 +12,12 @@ const mustExist = [
   'src/presence/holographic-mira-constellation.css',
   'public/assets/mira-holographic.webp',
   'src/core/audio-level.ts',
+  'src/core/tts/vi-normalize.ts',
+  'src/core/tts/vi-speech-director.ts',
+  'src/core/tts/server-tts.ts',
   'src/settings/SettingsPanel.tsx',
   'src/runtime/conversation-machine.ts',
+  'src/runtime/speech-utils.ts',
   'src/runtime/speech-queue.ts',
   'src/runtime/turn-manager.ts',
   'src/intelligence/identity/owner-profile.ts',
@@ -92,6 +96,24 @@ for (const token of ['hm-memory-constellation', 'hm-memory-thread-flow', 'state-
   if (!constellationCss.includes(token)) failures.push(`Mira constellation CSS missing: ${token}`);
 }
 
+const speechQueue = readFileSync('src/runtime/speech-queue.ts', 'utf8');
+for (const token of ['directVietnameseSpeech', 'semanticPauseMs', 'normalizeVietnameseSpeech', 'directed.instructions', 'rateMultiplier']) {
+  if (!speechQueue.includes(token)) failures.push(`Vietnamese speech queue direction missing: ${token}`);
+}
+
+const speechDirector = readFileSync('src/core/tts/vi-speech-director.ts', 'utf8');
+for (const token of ['SpeechPerformance', 'directVietnameseSpeech', 'semanticPauseMs', 'hội thoại tự nhiên', "'focused'", "'serious'", "'excited'", "'quiet'"]) {
+  if (!speechDirector.includes(token)) failures.push(`Vietnamese speech director missing: ${token}`);
+}
+
+const viNormalize = readFileSync('src/core/tts/vi-normalize.ts', 'utf8');
+for (const token of ['readIntVi', 'normalizeVietnameseSpeech', 'phần trăm', 'triệu', 'ngày']) {
+  if (!viNormalize.includes(token)) failures.push(`Vietnamese pronunciation normalizer missing: ${token}`);
+}
+
+const serverTts = readFileSync('src/core/tts/server-tts.ts', 'utf8');
+if (!serverTts.includes('instructions: opts.instructions')) failures.push('ServerTTS must forward dynamic speech instructions');
+
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
 for (const token of ['TurnManager', 'SpeechQueue', 'createDefaultSkillRegistry']) {
   if (!runtime.includes(token)) failures.push(`useMira runtime boundary missing: ${token}`);
@@ -103,7 +125,7 @@ const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8')
 if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
 
 const tts = readFileSync('api/tts.js', 'utf8');
-for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs']) {
+for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs', 'body.instructions', 'payload.instructions', 'mergeInstructions']) {
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 
