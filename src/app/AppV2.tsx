@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMira } from '../core/useMira';
 import {
   has3D,
   loadAvatarSel,
   lookImage,
   resolveAvatarUrl,
+  saveAvatarSel,
+  type AvatarSel,
 } from '../core/avatar-config';
 import type { MiraState, Theme } from '../core/types';
-import MiraStage from '../ui/MiraStage';
 import ContentPanel from '../ui/ContentPanel';
 import { IconMic, IconSettings } from '../ui/icons';
+import Composer from '../conversation/Composer';
+import PresenceStage from '../presence/PresenceStage';
+import SettingsPanel from '../settings/SettingsPanel';
 
 const STATE_COPY: Record<MiraState, string> = {
   idle: 'Sẵn sàng',
@@ -27,27 +31,26 @@ function loadTheme(): Theme {
     const raw = localStorage.getItem('mira.theme');
     if (raw === 'nova' || raw === 'aura' || raw === 'ember' || raw === 'iris') return raw;
   } catch {
-    // localStorage có thể bị chặn; giữ Nova.
+    // localStorage can be unavailable in privacy contexts.
   }
   return 'nova';
 }
 
-function useAvatarMode() {
-  return useMemo(() => {
-    try {
-      return localStorage.getItem('mira.avatar2d') === '1';
-    } catch {
-      return false;
-    }
-  }, []);
+function loadAvatar2D(): boolean {
+  try {
+    return localStorage.getItem('mira.avatar2d') === '1';
+  } catch {
+    return false;
+  }
 }
 
 export default function AppV2() {
   const mira = useMira();
   const footglowRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<Theme>(loadTheme);
-  const [avatarSel] = useState(loadAvatarSel);
-  const avatar2d = useAvatarMode();
+  const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
+  const [avatar2d, setAvatar2d] = useState(loadAvatar2D);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const avatarUrl = !avatar2d && has3D(avatarSel) ? resolveAvatarUrl(avatarSel) : null;
   const lookSrc = lookImage(avatarSel);
@@ -61,11 +64,10 @@ export default function AppV2() {
     try {
       localStorage.setItem('mira.theme', theme);
     } catch {
-      // Không chặn trải nghiệm nếu trình duyệt từ chối lưu.
+      // Keep current theme even when persistence is blocked.
     }
   }, [theme]);
 
-  // Mồi AudioContext ở tương tác đầu tiên để TTS cloud/self-host không bị câm do autoplay policy.
   useEffect(() => {
     const unlock = () => mira.unlockAudio();
     window.addEventListener('pointerdown', unlock, { once: true });
@@ -76,22 +78,35 @@ export default function AppV2() {
     };
   }, [mira]);
 
-  // Voice-first nhưng không chiếm Space khi người dùng đang nhập/chọn điều khiển.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || e.repeat) return;
-      const el = e.target as HTMLElement | null;
-      if (el && /^(BUTTON|SELECT|INPUT|TEXTAREA)$/.test(el.tagName)) return;
-      e.preventDefault();
+    const onKey = (event: KeyboardEvent) => {
+      if (settingsOpen || event.code !== 'Space' || event.repeat) return;
+      const element = event.target as HTMLElement | null;
+      if (element && /^(BUTTON|SELECT|INPUT|TEXTAREA)$/.test(element.tagName)) return;
+      event.preventDefault();
       mira.toggleMic();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [mira]);
+  }, [mira, settingsOpen]);
 
   const cycleTheme = () => {
-    const i = THEMES.indexOf(theme);
-    setTheme(THEMES[(i + 1) % THEMES.length]);
+    const index = THEMES.indexOf(theme);
+    setTheme(THEMES[(index + 1) % THEMES.length]);
+  };
+
+  const changeAvatar = (next: AvatarSel) => {
+    setAvatarSel(next);
+    saveAvatarSel(next);
+  };
+
+  const changeAvatar2d = (next: boolean) => {
+    setAvatar2d(next);
+    try {
+      localStorage.setItem('mira.avatar2d', next ? '1' : '0');
+    } catch {
+      // Keep in-memory preference.
+    }
   };
 
   const openLabs = () => {
@@ -122,18 +137,18 @@ export default function AppV2() {
             <span className="v2-theme-dot" aria-hidden="true" />
             <span className="sr-only">Đổi chủ đề màu</span>
           </button>
-          <button type="button" onClick={openLabs} title="Cài đặt nâng cao và Labs">
+          <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt Mira">
             <IconSettings />
-            <span className="sr-only">Mở Cài đặt nâng cao và Labs</span>
+            <span className="sr-only">Mở Cài đặt Mira</span>
           </button>
         </nav>
       </header>
 
       {mira.error && <div className="v2-error" role="alert">{mira.error}</div>}
 
-      <main className="v2-workspace">
+      <main className="v2-workspace" id="main-content">
         <section className="v2-presence" aria-label="Mira presence">
-          <MiraStage
+          <PresenceStage
             footglowRef={footglowRef}
             stateRef={mira.stateRef}
             moodRef={mira.moodRef}
@@ -152,7 +167,7 @@ export default function AppV2() {
       </main>
 
       <section className="v2-conversation" aria-label="Cuộc trò chuyện">
-        <div className="v2-caption" aria-live="polite">
+        <div className="v2-caption" aria-live="polite" aria-atomic="true">
           <span>{mira.who}</span>
           <p>
             {mira.caption}
@@ -160,12 +175,14 @@ export default function AppV2() {
           </p>
         </div>
 
+        <Composer onSubmit={mira.sendText} busy={mira.state === 'thinking'} />
+
         <div className="v2-controls">
           <button
             type="button"
             className={`v2-mic state-${mira.state}`}
             onClick={mira.toggleMic}
-            aria-label={mira.state === 'listening' ? 'Dừng nghe' : mira.state === 'speaking' ? 'Ngắt lời Mira' : 'Nói với Mira'}
+            aria-label={mira.state === 'listening' ? 'Dừng nghe' : mira.state === 'speaking' || mira.state === 'thinking' ? 'Ngắt Mira' : 'Nói với Mira'}
           >
             <span className="v2-mic-glow" aria-hidden="true" />
             <IconMic />
@@ -183,10 +200,25 @@ export default function AppV2() {
         </div>
 
         <div className="v2-hint">
-          <span><kbd>Space</kbd> để nói hoặc ngắt lời</span>
+          <span><kbd>Space</kbd> để nói hoặc ngắt lời · <kbd>Enter</kbd> để gửi</span>
           <span>{mira.brainName}</span>
         </div>
       </section>
+
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        onTheme={setTheme}
+        avatarSel={avatarSel}
+        onAvatarChange={changeAvatar}
+        avatar2d={avatar2d}
+        onAvatar2d={changeAvatar2d}
+        voices={mira.voices}
+        voiceURI={mira.voiceURI}
+        onSelectVoice={mira.selectVoice}
+        onOpenLabs={openLabs}
+      />
     </div>
   );
 }

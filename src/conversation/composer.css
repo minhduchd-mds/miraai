@@ -1,0 +1,59 @@
+.mira-composer {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 5px 5px 5px 15px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--stroke) 92%, transparent);
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--glass) 86%, transparent);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.mira-composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--glass) 96%, transparent);
+}
+.mira-composer textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 112px;
+  padding: 8px 0 7px;
+  resize: vertical;
+  overflow-y: auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: 500 14px/1.4 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.mira-composer textarea::placeholder { color: var(--faint); }
+.mira-composer button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, transparent);
+  border-radius: 13px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 80%, #fff 4%), var(--accent2));
+  color: #fff;
+  cursor: pointer;
+  font-size: 21px;
+  line-height: 1;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: transform .18s ease, opacity .18s ease;
+}
+.mira-composer button:hover:not(:disabled) { transform: translateY(-1px); }
+.mira-composer button:disabled { opacity: .28; cursor: default; box-shadow: none; }
+.mira-composer button:focus-visible, .mira-composer textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .mira-composer { min-height: 46px; margin-top: 6px; border-radius: 15px; }
+  .mira-composer textarea { font-size: 16px; }
+}
