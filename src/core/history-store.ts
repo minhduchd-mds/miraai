@@ -1,10 +1,9 @@
 import type { BrainTurn } from './types';
 
-// Lưu/đọc lịch sử hội thoại qua /api/history (Neon). Hỏng/thiếu DB → im lặng dùng bộ nhớ tạm (không vỡ app).
-// Khoá theo "device id" sinh 1 lần/máy (localStorage) → mỗi trình duyệt 1 luồng nhớ riêng, không cần đăng nhập.
+// Legacy id is retained as the first server memory-scope seed so existing Neon history is not lost.
 const DEVICE_KEY = 'mira.device';
 
-function deviceId(): string {
+export function legacyDeviceId(): string {
   try {
     let id = localStorage.getItem(DEVICE_KEY);
     if (!id) {
@@ -17,73 +16,77 @@ function deviceId(): string {
   }
 }
 
-// Lấy các lượt gần nhất để "mồi" ngữ cảnh cho não → Mira nhớ chuyện đã nói ở phiên trước.
+const seed = () => encodeURIComponent(legacyDeviceId());
+
 export async function loadHistory(): Promise<BrainTurn[]> {
   try {
-    const r = await fetch(`/api/history?device=${encodeURIComponent(deviceId())}`);
-    if (!r.ok) return [];
-    const j = await r.json();
-    const turns = Array.isArray(j?.turns) ? j.turns : [];
+    const response = await fetch(`/api/history?device=${seed()}`, { credentials: 'same-origin' });
+    if (!response.ok) return [];
+    const json = await response.json();
+    const turns = Array.isArray(json?.turns) ? json.turns : [];
     return turns
-      .filter((t: any) => (t?.role === 'user' || t?.role === 'mira') && typeof t?.text === 'string')
-      .map((t: any) => ({ role: t.role, text: t.text }) as BrainTurn);
+      .filter((turn: any) => (turn?.role === 'user' || turn?.role === 'mira') && typeof turn?.text === 'string')
+      .map((turn: any) => ({ role: turn.role, text: turn.text }) as BrainTurn);
   } catch {
     return [];
   }
 }
 
-// Truy hồi ký ức NGỮ NGHĨA liên quan câu hỏi (top-k lượt cũ gần nghĩa) → chuỗi để "mồi" cho não.
-// Lỗi/thiếu DB hoặc key embedding → trả '' (Mira vẫn chạy bằng 12 lượt gần nhất). Lọc theo điểm cosine.
 export async function recallMemory(query: string): Promise<string> {
   const q = (query || '').trim();
   if (!q) return '';
   try {
-    const r = await fetch(`/api/memory?device=${encodeURIComponent(deviceId())}&q=${encodeURIComponent(q)}`);
-    if (!r.ok) return '';
-    const j = await r.json();
-    const facts = (Array.isArray(j?.facts) ? j.facts : [])
-      .filter((f: any) => typeof f?.fact === 'string' && (f.score == null || f.score > 0.4))
+    const response = await fetch(`/api/memory?device=${seed()}&q=${encodeURIComponent(q)}`, {
+      credentials: 'same-origin',
+    });
+    if (!response.ok) return '';
+    const json = await response.json();
+    const facts = (Array.isArray(json?.facts) ? json.facts : [])
+      .filter((fact: any) => typeof fact?.fact === 'string' && (fact.score == null || fact.score > 0.4))
       .slice(0, 5);
-    const mems = (Array.isArray(j?.memories) ? j.memories : [])
-      .filter((m: any) => typeof m?.text === 'string' && (m.score == null || m.score > 0.55))
+    const memories = (Array.isArray(json?.memories) ? json.memories : [])
+      .filter((memory: any) => typeof memory?.text === 'string' && (memory.score == null || memory.score > 0.55))
       .slice(0, 5);
     const parts: string[] = [];
-    if (facts.length) parts.push('Hồ sơ người dùng:\n' + facts.map((f: any) => `- ${f.fact}`).join('\n'));
-    if (mems.length)
+    if (facts.length) parts.push('Hồ sơ người dùng:\n' + facts.map((fact: any) => `- ${fact.fact}`).join('\n'));
+    if (memories.length) {
       parts.push(
         'Đoạn trò chuyện cũ liên quan:\n' +
-          mems.map((m: any) => `- ${m.role === 'mira' ? 'Mira đã nói' : 'Người dùng đã nói'}: ${m.text}`).join('\n'),
+          memories
+            .map((memory: any) => `- ${memory.role === 'mira' ? 'Mira đã nói' : 'Người dùng đã nói'}: ${memory.text}`)
+            .join('\n'),
       );
+    }
     return parts.join('\n\n');
   } catch {
     return '';
   }
 }
 
-// Chắt lọc & lưu "facts" về người dùng từ 1 lượt trao đổi (fire-and-forget, Gemini free phía server).
 export function distillFacts(conversation: string): void {
-  const c = (conversation || '').trim();
-  if (!c) return;
+  const text = (conversation || '').trim();
+  if (!text) return;
   try {
     void fetch('/api/facts', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ device: deviceId(), conversation: c }),
+      credentials: 'same-origin',
+      body: JSON.stringify({ device: legacyDeviceId(), conversation: text }),
     }).catch(() => {});
   } catch {
-    /* noop */
+    // best-effort persistence
   }
 }
 
-// Ghi 1 lượt (fire-and-forget — không chặn luồng nói/nghe; lỗi thì bỏ qua).
 export function saveTurn(turn: BrainTurn): void {
   try {
     void fetch('/api/history', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ device: deviceId(), role: turn.role, text: turn.text }),
+      credentials: 'same-origin',
+      body: JSON.stringify({ device: legacyDeviceId(), role: turn.role, text: turn.text }),
     }).catch(() => {});
   } catch {
-    /* noop */
+    // best-effort persistence
   }
 }

@@ -1,8 +1,6 @@
-// Vercel serverless: lưu/đọc lịch sử chat của Mira trên Neon (Postgres).
-// Khoá theo "device" (id sinh ở client) → mỗi máy 1 luồng riêng, KHÔNG cần đăng nhập.
-// POST còn tính EMBEDDING (Gemini) để dùng cho trí nhớ ngữ nghĩa (/api/memory). Thiếu key/DB → vẫn chạy thô.
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
+import { resolveMemoryScope } from '../lib/memory-scope.js';
 
 export default async function handler(req, res) {
   const sql = getSql();
@@ -12,8 +10,7 @@ export default async function handler(req, res) {
     await ensureSchema(sql);
 
     if (req.method === 'GET') {
-      const device = (req.query?.device || '').toString();
-      if (!device) return res.status(400).json({ error: 'thiếu device' });
+      const device = resolveMemoryScope(req, res, req.query?.device);
       const rows = await sql`
         select role, text from chat_messages
         where device_id = ${device} order by id desc limit 20`;
@@ -23,19 +20,18 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       let body = req.body;
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-      const device = (body?.device || '').toString();
+      const device = resolveMemoryScope(req, res, body?.device);
       const role = (body?.role || '').toString();
       const text = (body?.text || '').toString().slice(0, 4000);
-      if (!device || !text) return res.status(400).json({ error: 'thiếu device/text' });
+      if (!text) return res.status(400).json({ error: 'thiếu text' });
       if (role !== 'user' && role !== 'mira') return res.status(400).json({ error: 'role không hợp lệ' });
 
-      // Embedding (best-effort): lỗi/thiếu key → vẫn lưu lượt (embedding NULL).
       let emb = null;
       let embErr = null;
       try {
         emb = await embed(text, 'RETRIEVAL_DOCUMENT');
-      } catch (e) {
-        embErr = String(e && e.message ? e.message : e).slice(0, 160);
+      } catch (error) {
+        embErr = String(error?.message || error).slice(0, 160);
       }
 
       if (emb) {
@@ -49,7 +45,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(405).json({ error: 'method not allowed' });
-  } catch (e) {
-    return res.status(500).json({ error: String(e && e.message ? e.message : e).slice(0, 200) });
+  } catch (error) {
+    return res.status(500).json({ error: String(error?.message || error).slice(0, 200) });
   }
 }
