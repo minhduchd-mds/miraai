@@ -1,96 +1,145 @@
-# Mira — Trợ lý giọng nói 3D 🎙️✨
+# Mira — Voice-first AI Companion
 
-> Avatar VRM anime kiểu **hologram**, nói chuyện **tiếng Việt** real-time ngay trên trình duyệt.
-> Vertical slice chạy thật bằng **Web Speech API** — không cần API key vẫn dùng được đủ vòng hội thoại.
-> Thiết kế để tích hợp vào **Soi** (công cụ audit giao diện) — xem [docs/MIRA-KIEN-TRUC.md](docs/MIRA-KIEN-TRUC.md).
+Mira là một **AI companion ưu tiên hội thoại bằng giọng nói**, có text fallback, trí nhớ, skill/tool, host context và lớp hiện diện 2D/3D. Avatar là **Presence Layer**, không phải bản chất của sản phẩm.
 
-## Tính năng
+## Trải nghiệm chính
 
-| | |
-|---|---|
-| 🧍‍♀️ **Avatar VRM 3D** | three.js + React Three Fiber + `@pixiv/three-vrm`, style hologram phát sáng theo theme, váy trắng + da sáng, môi hồng |
-| 🗣️ **Vòng voice đầy đủ** | Mic → STT tiếng Việt → Bộ não → TTS giọng nữ vi-VN, caption partial hiện trực tiếp khi đang nói |
-| 🔁 **Trò chuyện trực tiếp** | Bật một lần, nói qua lại liên tục (half-duplex chống echo, tự dừng khi im lặng lâu) — bấm Dừng mới thôi |
-| ✋ **Ngắt lời (barge-in)** | Mira đang nói, bấm mic/Space là dừng ngay và nghe tiếp |
-| 👄 **Lip-sync + biểu cảm** | Miệng nhép theo lời, chớp mắt, thở, mood (vui/tò mò/suy nghĩ) đổi theo câu trả lời |
-| 👀 **Nhìn theo chuột** | Mắt liếc + đầu xoay mượt theo con trỏ (hệ lookAt của VRM) |
-| 🧠 **Bộ não cắm được** | Mặc định brain demo (miễn phí); mở **⌘ Cài đặt** dán API key Claude/OpenAI là chạy LLM thật ngay, không cần reload |
-| 🎨 **4 theme** | Nova / Aura / Ember / Iris — hologram avatar nhuộm màu theo theme |
-| 🩹 **Fallback 2D** | Máy không có WebGL hoặc VRM đang tải → tự hiện ảnh 2D, không vỡ app |
-
-## Chạy
-
-```bash
-npm install
-npm run dev
-```
-
-Mở **http://localhost:5173** bằng **Google Chrome** (hoặc Edge).
-Phải là `localhost` (secure context) — mở qua IP không có HTTPS sẽ bị chặn Web Speech STT.
-
-- Nhấn **mic** (hoặc **Space**) → nói: *"Mira, tóm tắt phiên audit sáng nay"*, *"so sánh với Figma"*…
-- Hoặc bấm **Trò chuyện trực tiếp** để nói qua lại liên tục.
-- Không có mic? Bấm **▶ Mô phỏng hội thoại** xem 5 trạng thái chạy.
-
-## Cắm bộ não LLM (tuỳ chọn)
-
-Bấm **⌘ Cài đặt** (góc phải trên) → chọn Claude/OpenAI → dán API key → **Lưu**.
-Bộ não đổi ngay lập tức (hiện trên telemetry header). Key lưu trong `localStorage` của trình duyệt.
-
-> ⚠️ Cách này gọi LLM **trực tiếp từ browser** → chỉ dùng máy cá nhân/dev.
-> Production: gọi qua server/edge proxy (xem [docs/MIRA-KIEN-TRUC.md](docs/MIRA-KIEN-TRUC.md) §12).
-
-Cũng có thể cấu hình qua `.env` (xem `.env.example`) — localStorage được ưu tiên hơn.
-
-## Không nghe thấy tiếng?
-
-Mở **⌘ Cài đặt** → bấm **🔊 Đọc thử** và nhìn dòng chẩn đoán:
-hiện **"ĐANG NÓI"** mà vẫn im → kiểm tra âm lượng máy, đúng thiết bị output, tab Chrome không bị mute.
+- Voice-first: Web Speech STT, smart turn-taking, live conversation, VAD/barge-in.
+- Text-first fallback: composer dùng cùng Conversation Runtime với voice.
+- TTS adapters: Web Speech, Edge/self-host, VieNeu, ElevenLabs proxy.
+- Mira Brain Gateway: Gemini / OpenAI / Anthropic chạy server-side, có fallback chain.
+- Memory: recent history + semantic recall + durable facts, có bật/tắt, sửa, quên và export.
+- Skills: registry có metadata risk/network/voice; Result Surface generic `weather | image | card | list`.
+- Host integration: Soi hoặc app khác có thể inject context/action mà không fork Mira core.
+- Presence: 2D tải ngay; Three/VRM chỉ lazy-load khi cần.
+- Labs: camera, gesture, Gaussian Splat, simulator, BYOK/dev diagnostics được tách khỏi UI production.
 
 ## Kiến trúc
 
+```text
+Voice / Text
+    ↓
+Conversation Runtime
+    ├─ Conversation Machine
+    ├─ Speech Queue
+    └─ Turn Manager
+          ├─ Memory Service
+          ├─ Host Context / Host Actions
+          ├─ Skill Registry
+          └─ Mira Brain Gateway
+                ├─ Gemini
+                ├─ OpenAI
+                └─ Anthropic
+    ↓
+Assistant Turn
+    ├─ TTS → Presence / lip-sync
+    └─ Result View → Result Surface
 ```
-src/
-├─ core/                    # ENGINE — không phụ thuộc UI, nhúng được vào Soi
-│  ├─ types.ts              # interface adapter STT / TTS / Brain
-│  ├─ state-machine.ts      # idle → listening → thinking → speaking (+interrupted, error)
-│  ├─ useMira.ts            # orchestration: STT → Brain → TTS, live-loop, barge-in, đo latency
-│  ├─ stt/webspeech-stt.ts  # adapter STT  → đổi sang Viettel/FPT/Whisper chỉ thay file này
-│  ├─ tts/webspeech-tts.ts  # adapter TTS  → đổi sang Vbee/Viettel/ElevenLabs tương tự
-│  │                        #   (đã vá các bug câm tiếng Chrome: GC utterance, cancel-race, voices-race)
-│  └─ brain/                # canned demo | LLM (Claude/OpenAI), config từ localStorage/.env
-├─ avatar/
-│  ├─ MiraAvatar.tsx        # Canvas R3F + đèn + error boundary + fallback 2D
-│  ├─ VRMAvatar.tsx         # load VRM, lip-sync, chớp mắt, thở, mood, nhìn theo chuột
-│  ├─ lipsync.ts            # amp 0..1 → viseme aa/ih/ou/oh (nguồn amp thay được khi đổi TTS)
-│  └─ hologram.ts           # hologram theo --accent, váy trắng, da sáng, môi hồng
-└─ ui/                      # MiraStage, VoiceDock, DevConsole + styles
-public/avatars/mira.vrm     # avatar VRoid (sample, free) — thay bằng model riêng là xong
-docs/MIRA-KIEN-TRUC.md      # tài liệu kiến trúc & lộ trình đầy đủ
+
+Chi tiết: [`docs/MIRA-V2-ARCHITECTURE.md`](docs/MIRA-V2-ARCHITECTURE.md).
+
+## Chạy local
+
+Yêu cầu Node.js 22+.
+
+```bash
+npm ci
+npm run dev
 ```
 
-Nguyên tắc: **engine `core/` tách khỏi UI** — bản standalone chỉ là vỏ mỏng, sẵn sàng đóng gói
-`<MiraAssistant/>` nhúng vào Soi (hợp đồng tích hợp ở §16 tài liệu kiến trúc).
+Kiểm tra đầy đủ:
 
-## Đổi avatar
+```bash
+npm run check
+```
 
-Tạo nhân vật trong [VRoid Studio](https://vroid.com/en/studio) (miễn phí) → xuất `.vrm` → thả đè
-`public/avatars/mira.vrm`. Lưu ý: toạ độ tô môi hồng (`LIP` trong `hologram.ts`) đo theo texture
-của model hiện tại — đổi model thì chỉnh lại hoặc tắt `beautifyFace`.
+Quality gate hiện gồm architecture guard, skill contract guard, TypeScript, runtime unit tests, Vite production build và initial bundle budget. GitHub CI chạy trên Node 22 và 24.
 
-## Lộ trình tiếp theo
+## Brain server-side
 
-- [ ] Ô nhập text (chat không cần mic + fallback khi STT lỗi)
-- [ ] **TTS tiếng Việt tự nhiên self-host (VieNeu-TTS + vinorm) + lipsync Rhubarb** — xem đánh giá chi tiết ở [docs/DANH-GIA-TTS-TU-NHIEN.md](docs/DANH-GIA-TTS-TU-NHIEN.md)
-- [ ] TTS Vbee/Viettel (giọng nữ Việt tự nhiên, streaming theo câu) + lip-sync theo âm thanh thật (AnalyserNode)
-- [ ] STT Viettel/Whisper self-host cho vùng bảo mật cao
-- [ ] Silero VAD: always-on + barge-in bằng giọng nói
-- [ ] Supabase: auth chung Soi + lưu hội thoại + memory pgvector
-- [ ] LLM qua server proxy + ghi `turn_metrics` đo latency từng chặng
-- [ ] Đóng gói `<MiraAssistant/>` nhúng vào Soi
+Copy `.env.example` và cấu hình provider mong muốn:
 
-## Tech stack & credits
+```env
+MIRA_BRAIN_PROVIDER=auto
+GEMINI_API_KEY=
 
-React 18 · TypeScript · Vite · three.js · @react-three/fiber · @pixiv/three-vrm · Web Speech API.
-Avatar placeholder: VRoid sample model (allowed-user *Everyone*, miễn phí). Voice loop chạy hoàn toàn
-trên trình duyệt — Chrome STT gửi audio lên Google để nhận dạng (xem ghi chú riêng tư trong tài liệu kiến trúc).
+# Hoặc
+OPENAI_API_KEY=
+OPENAI_MODEL=
+
+# Hoặc
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=
+```
+
+Có thể đặt `MIRA_BRAIN_FALLBACKS=openai,gemini` (ví dụ). Xem [`docs/BRAIN-GATEWAY.md`](docs/BRAIN-GATEWAY.md).
+
+**Production browser không đọc API key OpenAI/Anthropic.** BYOK trực tiếp chỉ còn là tiện ích Developer Labs trong Vite DEV.
+
+## Memory
+
+Khi có `DATABASE_URL`, Mira lưu history/facts vào Neon/Postgres. Browser cũ được migrate mềm: `device_id` hiện tại chỉ làm seed lần đầu, sau đó server ghim scope bằng cookie HttpOnly.
+
+Settings → **Ký ức & riêng tư** cho phép:
+- bật/tắt memory;
+- xem/sửa/quên từng fact;
+- export dữ liệu;
+- xoá toàn bộ history + facts.
+
+Đây hiện là **anonymous browser scope**, chưa phải hệ thống tài khoản nhiều người dùng. Nếu triển khai account/team thực, cần map scope sang authenticated user/org.
+
+## Voice Runtime tự host
+
+Backend Python hiện tại vẫn giữ vai trò Voice Runtime riêng; không merge ép vào Node/Vercel Gateway.
+
+```bash
+cd server
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Các TTS engine/fallback hiện có tiếp tục hoạt động theo config của repo.
+
+## Production UI và Labs
+
+- `/` → Mira V2 conversation-first.
+- `/?legacy=1` → Legacy / Developer Labs.
+
+Legacy được dynamic-import nên camera/gesture/Splat/debug không nằm trên critical execution path.
+
+## Performance
+
+CI đo **initial dependency graph**, không tính dynamic Labs/3D chunks. Budget:
+- Initial JS: ≤ 420 KiB raw.
+- Initial CSS: ≤ 120 KiB raw.
+
+Lượt CI sau khi tách Presence ghi nhận khoảng **206.6 KiB JS + 48.5 KiB CSS**, trong khi Three/VRM/Splat/Vision nằm ở dynamic chunks.
+
+## Tạo skill mới
+
+Không thêm intent/tool logic vào `useMira.ts`. Tạo skill trong `src/intelligence/skills/`, đăng ký ở Registry và tuân thủ risk policy. Xem [`docs/MIRA-SKILLS.md`](docs/MIRA-SKILLS.md).
+
+## Nhúng vào Soi / app khác
+
+Host cung cấp context/action qua `HostBridge` hoặc same-window globals. Read actions có thể chạy qua tool call; write/sensitive không được voice tự thực thi mà phải qua confirmation của host.
+
+Xem [`docs/HOST-INTEGRATION.md`](docs/HOST-INTEGRATION.md).
+
+## Tài liệu
+
+- [`DESIGN.md`](DESIGN.md) — product/visual direction.
+- [`docs/MIRA-V2-ARCHITECTURE.md`](docs/MIRA-V2-ARCHITECTURE.md) — kiến trúc hiện tại.
+- [`docs/MIRA-SKILLS.md`](docs/MIRA-SKILLS.md) — skill contract + eval pattern.
+- [`docs/BRAIN-GATEWAY.md`](docs/BRAIN-GATEWAY.md) — provider gateway.
+- [`docs/HOST-INTEGRATION.md`](docs/HOST-INTEGRATION.md) — embed/host bridge.
+- [`SECURITY.md`](SECURITY.md) — trust boundaries và known issues.
+
+## Nguyên tắc sản phẩm
+
+1. Conversation là sản phẩm; avatar là presence.
+2. Voice-first, không voice-only.
+3. Local/self-host fallback luôn có giá trị.
+4. Secrets không nằm trong production browser.
+5. Memory phải có consent + forget/export.
+6. Write/sensitive action không được bypass confirmation/RBAC của host.
+7. Labs không được làm nặng hoặc làm rối main experience.

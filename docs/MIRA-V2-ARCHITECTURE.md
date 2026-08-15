@@ -1,281 +1,217 @@
-# Mira V2 — Architecture & Migration Plan
+# Mira V2 Architecture — Implemented State
 
-## Product direction
+> Product definition: **Mira — Voice-first AI Companion**.
 
-Mira V2 is a **voice-first AI companion**, not a 3D avatar demo.
+Tài liệu này mô tả kiến trúc **đang chạy trên `main`**, không phải target giả định.
 
-The product hierarchy is:
+## 1. Product boundary
 
-1. Conversation
-2. Intelligence + memory
-3. Skills/actions
-4. Presence (VRM/2D)
-5. Sensors and experiments
-
-Avatar, camera, gesture and Gaussian Splat are optional capabilities. They must not define the production shell.
-
-## Current production boundary
-
-`src/main.tsx` now renders `src/app/AppV2.tsx` by default.
-
-The former UI remains available through `?legacy=1` as a compatibility/Labs surface while functionality is migrated. This keeps experimental capabilities usable without allowing them to dominate the main product UX.
-
-## Target architecture
+Mira không còn được định nghĩa là “demo trợ lý giọng nói 3D”. Lõi sản phẩm là conversation runtime + brain + memory + skills. 2D/3D/camera/gesture là các lớp presence/sensor tùy chọn.
 
 ```text
-User
- ├─ Voice
- ├─ Text
- └─ Sensor events (opt-in)
-        │
-        ▼
-Conversation Runtime
- ├─ ConversationMachine
- ├─ TurnManager
- ├─ InputController
- └─ SpeechQueue
-        │
-        ▼
-Context Assembler
- ├─ Recent history
- ├─ Semantic memory
- ├─ User profile
- ├─ Host context
- └─ Available skills
-        │
-        ▼
-Mira Brain
- ├─ Response
- ├─ Mood
- ├─ Intent
- └─ Tool calls
-        │
-   ┌────┴────┐
-   ▼         ▼
- Speech    Skill Router
-   │         │
-   TTS       SkillResult
-   │         ├─ speech
-   │         ├─ view
-   │         └─ data
-   ▼         ▼
-Presence   Result Surface
+INPUT
+├─ Voice
+└─ Text
+   ↓
+CONVERSATION RUNTIME
+├─ Conversation Machine
+├─ Speech Queue
+└─ Turn Manager
+   ├─ Memory Service
+   ├─ Host Context
+   ├─ Skill Registry
+   └─ Brain Gateway
+      ↓
+ASSISTANT TURN
+├─ Speech → TTS → Presence
+└─ ResultView → Result Surface
 ```
 
-## Folder ownership
+## 2. UI boundary
 
-```text
-src/
-├─ app/                    # Product shell and top-level composition
-├─ runtime/                # Conversation state, turn lifecycle, speech queue
-├─ core/                   # Compatibility layer during migration
-├─ intelligence/           # Target: brain, context, memory, skills
-├─ adapters/               # Target: STT/TTS/LLM/sensors provider adapters
-├─ presence/               # Target: VRM/2D, expressions, lip-sync
-├─ settings/               # Target: user settings and privacy
-├─ ui/                     # Presentational components/styles
-└─ labs/                   # Target: Splat, gestures, sensor experiments, simulator
-```
+### Production
 
-The migration is incremental. Existing files do not move until their dependency boundary is clear.
+`src/app/AppV2.tsx`
 
-## Runtime state machine
-
-The canonical machine now lives in `src/runtime/conversation-machine.ts`.
-
-States:
-
-- `idle`
-- `listening`
-- `thinking`
-- `speaking`
-- `interrupted`
-- `error`
-
-Events:
-
-- `MIC_START`
-- `MIC_STOP`
-- `STT_FINAL`
-- `BRAIN_DONE`
-- `TTS_DONE`
-- `INTERRUPT`
-- `FAIL`
-- `RESET`
-
-`src/core/state-machine.ts` is a compatibility re-export. The next runtime migration step is replacing direct `setState(...)` calls in `useMira.ts` with event transitions while preserving current behavior.
-
-## Production vs Labs
-
-### Production shell
-
-- Presence (VRM / 2D fallback)
-- Voice conversation
-- Transcript/caption
-- Smart turn-taking
-- Barge-in
-- Brain + semantic memory
-- Visual result surface
-- Settings entry
+- clean conversation-first shell;
+- text composer;
+- mic + live mode;
+- caption/status;
+- generic Result Surface;
+- history drawer;
+- Settings V2;
+- production-safe avatar packs;
+- focus-visible, skip link, dialog focus trap, reduced-motion support.
 
 ### Labs / compatibility
 
-- Face emotion tracking
-- Hand gesture control
-- Gaussian Splat viewer
-- Manual state simulator
-- Provider diagnostics
-- Direct browser BYOK
+`src/App.tsx` is preserved behind `?legacy=1` and lazy-loaded from `main.tsx`.
 
-Labs remain available through the legacy shell during migration.
+Labs contains camera, hand gesture, Splat, simulator, raw telemetry and Developer Console. These capabilities do not belong on the default production surface.
 
-## Cloud Gateway and Voice Runtime
+## 3. Conversation Runtime
 
-Mira intentionally has two server responsibilities.
+`src/core/useMira.ts` remains the React binding/compatibility API, but orchestration responsibilities have been moved behind explicit services:
 
-### Cloud Gateway — `api/*`, `lib/*`
+- `src/runtime/conversation-machine.ts` — deterministic state graph.
+- `src/runtime/speech-queue.ts` — serialized chunked TTS with cancellation token.
+- `src/runtime/turn-manager.ts` — memory/context/skill/brain coordination.
+- `src/intelligence/memory/memory-service.ts` — persistence/RAG boundary.
+- `src/intelligence/skills/registry.ts` — capability registry + risk policy.
 
-Responsibilities:
+Voice and text both enter the same `handleUtterance` flow.
 
-- LLM proxy
-- cloud TTS proxy
-- history
-- semantic memory
-- durable facts
-- Neon access
-
-Target rule: production provider secrets remain server-side.
-
-### Voice Runtime — `server/*`
-
-Responsibilities:
-
-- self-host/local TTS
-- VieNeu
-- Edge TTS
-- local/on-prem voice services
-
-Do **not** merge the Python runtime into the Vercel gateway just for architectural symmetry. Their deployment and latency requirements are different.
-
-## Memory V2 target
-
-Current `device_id` identity is acceptable for a personal MVP but not multi-user production.
-
-Target model:
+### State graph
 
 ```text
-User / Session
-   │
-   ▼
-Memory Policy
-   ├─ Recent turns
-   ├─ Episodic memories
-   └─ Durable profile facts
+idle
+ ├─ MIC_START → listening
+ └─ TEXT_SUBMIT → thinking
+
+listening
+ ├─ STT_FINAL → thinking
+ └─ INTERRUPT → interrupted
+
+thinking
+ ├─ SPEAK/BRAIN_DONE → speaking
+ └─ INTERRUPT → interrupted
+
+speaking
+ ├─ TTS_DONE → idle
+ └─ INTERRUPT → interrupted
+
+interrupted
+ └─ MIC_START → listening
 ```
 
-Required product controls:
+Runtime tests lock the main lifecycle and barge-in behavior.
 
-- memory on/off
-- inspect remembered facts
-- edit/forget one fact
-- clear all
-- export data
-- retention policy
-- authenticated ownership before multi-user release
+## 4. Skills and Result Surface
 
-## Skills target
+Canonical skill contract lives in `src/intelligence/skills/types.ts`.
 
-Weather and image rendering currently live in `core/content.ts`. They should migrate to a generic skill contract rather than accumulating more regex-based capabilities in `useMira.ts`.
+Every skill declares:
+- `id`, `description`;
+- `risk` (`local-read | external-read | write | sensitive`);
+- `requiresNetwork`;
+- `supportsVoice`;
+- pure `match()`;
+- side-effecting `execute()`.
 
-Target:
+`write` and `sensitive` skills are blocked unless the interaction layer explicitly approves them.
 
-```ts
-interface MiraSkill {
-  id: string;
-  description: string;
-  canHandle(input: string): boolean;
-  execute(input: string, context: SkillContext): Promise<SkillResult>;
-}
+Canonical view contract is `ResultView`:
+- weather;
+- image;
+- card;
+- list.
 
-interface SkillResult {
-  speech?: string;
-  view?: unknown;
-  data?: unknown;
-}
+`core/content.ts` is now compatibility/utility code, not the product-level view architecture.
+
+## 5. Host integration
+
+Mira is standalone by default. Host apps can provide:
+
+```text
+HostBridge
+├─ getContext()
+├─ listActions()
+└─ executeAction()
 ```
 
-Planned skills:
+Soi can therefore tell Mira which project/screen is active and expose host actions without hardcoding Soi into the persona or core runtime.
 
-- Weather
-- Image
-- Search
-- Soi bridge
-- Calendar/reminders
-- Documents/files
+Host action safety:
+- `read` may execute after tool routing;
+- `write` and `sensitive` are not auto-executed by Mira;
+- confirmation, RBAC, license and audit trail remain responsibilities of the host.
 
-## Migration phases
+See `docs/HOST-INTEGRATION.md`.
 
-### P0 — Foundation (this branch)
+## 6. Brain Gateway
 
-- Make App V2 the production default.
-- Preserve old UI as `?legacy=1` Labs/compatibility.
-- Remove unreferenced Mira Orb component.
-- Remove committed IDE workspace state.
-- Add architecture CI guard.
-- Move canonical conversation machine to `src/runtime/`.
-- Update design contract.
+Production browser → `/api/chat` → `lib/brain-gateway.js`.
 
-### P1 — Conversation runtime
+Supported server providers:
+- Gemini;
+- OpenAI;
+- Anthropic.
 
-- Split `useMira.ts` into runtime services.
-- Wire the event state machine into the actual voice loop.
-- Extract speech queue/chunking.
-- Extract history/memory service.
-- Keep `useMira()` as a compatibility facade.
+Provider/model selection is env-driven. Failures are isolated and configured fallbacks are tried in order. Direct browser BYOK is restricted to Vite DEV.
 
-### P2 — Conversation UI
+The default provider adapters currently return conversational text; the `BrainReply.toolCalls` contract is optional and ready for custom/host-aware adapters that produce structured calls.
 
-- Add text composer (voice-first, not voice-only).
-- Add compact conversation history.
-- Introduce result surface contract.
-- Separate user Settings from Developer/Labs.
+## 7. Memory & privacy
 
-### P3 — Skills
+Memory consists of:
+- recent turns;
+- semantic recall via embeddings/pgvector;
+- durable facts distilled from conversation.
 
-- Move weather/image out of core orchestration.
-- Add SkillRegistry.
-- Add host bridge and Soi actions.
+Client preference can disable load/save/recall/distill.
 
-### P4 — Brain gateway
+Server scope migration:
+1. legacy `device_id` seeds the first scope to preserve existing history;
+2. server sets `mira_scope` HttpOnly + SameSite=Lax cookie;
+3. subsequent APIs prefer server cookie over arbitrary browser-provided id.
 
-- Remove production direct-browser provider calls.
-- Add provider routing on server/runtime.
-- Expand brain response to intent/tool calls.
+`/api/profile` supports list/edit/forget/export/delete-all.
 
-### P5 — Memory & identity
+Limitation: this is anonymous browser identity, not authenticated multi-user account ownership yet.
 
-- Authenticated identity.
-- Memory scopes and consent.
-- View/edit/delete/export memory.
+## 8. Presence
 
-### P6 — Presence & asset optimization
+`PresenceStage` renders the lightweight 2D poster immediately. If a selected production avatar has VRM and 2D-only mode is off, the heavy Three/VRM stage is dynamically imported after the shell settles.
 
-- Avatar manifest.
-- Lazy-load avatar packs.
-- Split Labs assets from production delivery.
-- Keep 2D fallback.
+Production Settings exposes a small safe avatar manifest. Experimental looks remain in Labs.
 
-## Guardrails
+## 9. Backend boundaries
 
-Do not add new production capability directly into `App.tsx` or the monolithic part of `useMira.ts`.
+Two runtimes stay separate intentionally:
 
-New capability must belong to one of:
+```text
+Cloud Gateway (Vercel / JS)
+├─ Brain providers
+├─ Memory APIs
+└─ cloud TTS proxy
 
-- runtime
-- intelligence/skill
-- adapter
-- presence
-- settings
-- labs
+Voice Runtime (FastAPI / Python)
+├─ Edge TTS
+├─ VieNeu
+└─ self-host/local voice services
+```
 
-This rule prevents Mira from returning to a single demo component that owns the whole product.
+There is no reason to rewrite the Python Voice Runtime into Node solely for uniformity.
+
+## 10. Quality gates
+
+CI (Node 22 + 24):
+- architecture guard;
+- skill contract guard;
+- TypeScript;
+- runtime unit tests;
+- Vite production build;
+- initial bundle budget;
+- runtime dependency audit at critical threshold.
+
+The bundle guard traverses only the Vite initial import graph. Dynamic 3D/Labs/Vision chunks are intentionally excluded from the initial budget.
+
+## 11. Known limits / next product work
+
+These are not unfinished architecture migrations; they are future product capabilities:
+
+1. authenticated user/org identity if Mira becomes multi-user;
+2. richer structured tool-call adapters/evals for provider models;
+3. account-level retention policy and encrypted export if required by deployment;
+4. provider-specific voice quality benchmarks;
+5. broader skill catalog (Soi, calendar, documents, search) as host/product requirements appear;
+6. browser/device E2E voice testing, because CI cannot emulate every Web Speech implementation.
+
+## 12. Files that stay intentionally
+
+- `src/App.tsx`: Legacy/Labs compatibility.
+- camera/gesture/Splat modules: Labs only.
+- FastAPI voice runtime: self-host/local voice boundary.
+- old adapter interfaces: compatibility and fallback value.
+
+Cleanup is allowed only when callers are proven absent and CI remains green.
