@@ -89,7 +89,6 @@ const CONTRAST_RE = /^(nhưng|còn|ngược lại|tuy vậy|riêng|trong khi|m�
 
 function detectPerformance(text: string): SpeechPerformance {
   const lower = text.toLocaleLowerCase('vi-VN');
-
   if (QUIET_RE.test(lower)) return 'quiet';
   if (WARNING_RE.test(lower)) return 'serious';
   if (SUCCESS_RE.test(lower)) return 'excited';
@@ -154,21 +153,16 @@ function classifyRole(text: string, index: number, total: number): SpeechTurnRol
 }
 
 function performanceForSegment(text: string, role: SpeechTurnRole, turnPerformance: SpeechPerformance): SpeechPerformance {
+  const localPerformance = detectPerformance(text);
   if (role === 'warning') return 'serious';
-  if (role === 'contrast' || role === 'emphasis') return WARNING_RE.test(text) ? 'serious' : 'focused';
-  if (role === 'question') return QUIET_RE.test(text) ? 'quiet' : 'warm';
-  if (role === 'explanation') {
-    if (QUIET_RE.test(text)) return 'quiet';
-    if (WARNING_RE.test(text)) return 'serious';
-    if (FOCUSED_RE.test(text)) return 'focused';
-    return 'warm';
-  }
+  if (role === 'contrast' || role === 'emphasis') return localPerformance === 'serious' ? 'serious' : 'focused';
+  if (role === 'question') return localPerformance === 'quiet' ? 'quiet' : localPerformance === 'serious' ? 'serious' : 'warm';
+  if (role === 'explanation') return localPerformance;
   if (role === 'conclusion') {
-    if (WARNING_RE.test(text)) return 'serious';
-    if (SUCCESS_RE.test(text)) return 'excited';
+    if (localPerformance !== 'warm') return localPerformance;
     return turnPerformance === 'quiet' ? 'quiet' : turnPerformance === 'serious' ? 'focused' : turnPerformance;
   }
-  return turnPerformance;
+  return localPerformance;
 }
 
 function buildSegmentInstructions(role: SpeechTurnRole, performance: SpeechPerformance, text: string): string {
@@ -180,11 +174,6 @@ function segmentRate(performance: SpeechPerformance, role: SpeechTurnRole): numb
   return Math.max(0.88, Math.min(1.06, PERFORMANCE_RATE[performance] * ROLE_RATE[role]));
 }
 
-/**
- * Builds a spoken-only Vietnamese version of display text.
- * It deliberately keeps transformations conservative: factual wording is preserved,
- * while written/list-like phrasing, pronunciation hints and performance direction are adjusted.
- */
 export function directVietnameseSpeech(text: string): DirectedVietnameseSpeech {
   const speechText = makeConversational(text);
   const performance = detectPerformance(speechText);
@@ -212,7 +201,6 @@ export function planVietnameseTurn(text: string): DirectedVietnameseTurn {
       rateMultiplier: segmentRate(performance, role),
     } satisfies DirectedSpeechSegment;
   });
-
   return { ...directed, segments };
 }
 
