@@ -1,0 +1,331 @@
+/* Luxury Cinematic God Mode — additive layer over holographic-mira.css */
+
+.hm-god-stars,
+.hm-luxury-glints,
+.hm-light-dust,
+.hm-light-rays,
+.hm-crown-halo,
+.hm-speaking-pulse,
+.hm-activation-flash {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* 96 additional micro-stars: dense, multi-depth, deliberately uneven. */
+.hm-god-stars {
+  inset: -4%;
+  z-index: 2;
+  overflow: hidden;
+  transform: translate3d(calc(var(--hm-pointer-x) * -.42), calc(var(--hm-pointer-y) * -.36), 0);
+  transition: transform 160ms ease-out;
+}
+.hm-god-stars i {
+  position: absolute;
+  display: block;
+  width: 1px;
+  height: 1px;
+  border-radius: 50%;
+  background: rgba(235,241,255,.96);
+  box-shadow: 0 0 5px rgba(205,218,255,.82), 0 0 12px rgba(118,148,255,.32);
+  opacity: .34;
+  animation: hm-god-twinkle 5.8s ease-in-out infinite;
+}
+.hm-god-stars i:nth-child(16n+1)  { left: 4%;  top: 9%;  animation-delay: -1.1s; }
+.hm-god-stars i:nth-child(16n+2)  { left: 10%; top: 38%; animation-delay: -3.7s; }
+.hm-god-stars i:nth-child(16n+3)  { left: 17%; top: 72%; animation-delay: -2.2s; }
+.hm-god-stars i:nth-child(16n+4)  { left: 24%; top: 18%; animation-delay: -4.6s; }
+.hm-god-stars i:nth-child(16n+5)  { left: 31%; top: 57%; animation-delay: -.5s; }
+.hm-god-stars i:nth-child(16n+6)  { left: 38%; top: 84%; animation-delay: -3.1s; }
+.hm-god-stars i:nth-child(16n+7)  { left: 44%; top: 27%; animation-delay: -5.1s; }
+.hm-god-stars i:nth-child(16n+8)  { left: 51%; top: 8%;  animation-delay: -2.7s; }
+.hm-god-stars i:nth-child(16n+9)  { left: 57%; top: 66%; animation-delay: -4.1s; }
+.hm-god-stars i:nth-child(16n+10) { left: 64%; top: 35%; animation-delay: -.9s; }
+.hm-god-stars i:nth-child(16n+11) { left: 71%; top: 80%; animation-delay: -3.4s; }
+.hm-god-stars i:nth-child(16n+12) { left: 78%; top: 15%; animation-delay: -5.4s; }
+.hm-god-stars i:nth-child(16n+13) { left: 84%; top: 49%; animation-delay: -1.8s; }
+.hm-god-stars i:nth-child(16n+14) { left: 90%; top: 72%; animation-delay: -4.8s; }
+.hm-god-stars i:nth-child(16n+15) { left: 95%; top: 28%; animation-delay: -2.5s; }
+.hm-god-stars i:nth-child(16n+16) { left: 67%; top: 4%;  animation-delay: -3.9s; }
+.hm-god-stars i:nth-child(n+17):nth-child(-n+32) { transform: translate(27px, 19px); opacity: .28; }
+.hm-god-stars i:nth-child(n+33):nth-child(-n+48) { transform: translate(-38px, 41px); opacity: .24; }
+.hm-god-stars i:nth-child(n+49):nth-child(-n+64) { transform: translate(56px, -29px); opacity: .21; }
+.hm-god-stars i:nth-child(n+65):nth-child(-n+80) { transform: translate(-71px, -17px); opacity: .17; }
+.hm-god-stars i:nth-child(n+81) { transform: translate(83px, 53px); opacity: .14; }
+.hm-god-stars i:nth-child(7n) { width: 2px; height: 2px; box-shadow: 0 0 7px rgba(244,248,255,.9), 0 0 19px rgba(132,157,255,.45); }
+.hm-god-stars i:nth-child(11n) { width: 3px; height: 3px; opacity: .45; animation-duration: 7.4s; }
+
+/* Luxury 4-ray glints: slower and brighter than regular star bursts. */
+.hm-luxury-glints {
+  inset: 0;
+  z-index: 4;
+}
+.hm-luxury-glints i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  box-shadow: 0 0 10px rgba(255,255,255,.95), 0 0 28px rgba(154,183,255,.72), 0 0 62px rgba(112,87,255,.30);
+  animation: hm-luxury-glint 9s ease-in-out infinite;
+}
+.hm-luxury-glints i::before,
+.hm-luxury-glints i::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(247,250,255,.98), transparent);
+  filter: drop-shadow(0 0 6px rgba(185,204,255,.8));
+}
+.hm-luxury-glints i::before { width: 42px; height: 1px; }
+.hm-luxury-glints i::after { width: 1px; height: 42px; background: linear-gradient(180deg, transparent, rgba(247,250,255,.98), transparent); }
+.hm-luxury-glints i:nth-child(1)  { left: 8%;  top: 19%; animation-delay: -1.2s; }
+.hm-luxury-glints i:nth-child(2)  { left: 15%; top: 54%; animation-delay: -6.7s; }
+.hm-luxury-glints i:nth-child(3)  { left: 23%; top: 12%; animation-delay: -3.4s; }
+.hm-luxury-glints i:nth-child(4)  { left: 31%; top: 75%; animation-delay: -8.1s; }
+.hm-luxury-glints i:nth-child(5)  { left: 39%; top: 22%; animation-delay: -5.2s; }
+.hm-luxury-glints i:nth-child(6)  { left: 48%; top: 7%;  animation-delay: -7.3s; }
+.hm-luxury-glints i:nth-child(7)  { left: 59%; top: 78%; animation-delay: -2.6s; }
+.hm-luxury-glints i:nth-child(8)  { left: 67%; top: 17%; animation-delay: -4.7s; }
+.hm-luxury-glints i:nth-child(9)  { left: 74%; top: 59%; animation-delay: -8.5s; }
+.hm-luxury-glints i:nth-child(10) { left: 82%; top: 28%; animation-delay: -.8s; }
+.hm-luxury-glints i:nth-child(11) { left: 89%; top: 70%; animation-delay: -5.9s; }
+.hm-luxury-glints i:nth-child(12) { left: 93%; top: 14%; animation-delay: -3.1s; }
+.hm-luxury-glints i:nth-child(13) { left: 18%; top: 88%; animation-delay: -7.8s; }
+.hm-luxury-glints i:nth-child(14) { left: 78%; top: 88%; animation-delay: -4.2s; }
+
+/* Foreground bokeh/dust makes the scene feel filmed rather than composited. */
+.hm-light-dust {
+  inset: -10%;
+  z-index: 9;
+  opacity: .22;
+  mix-blend-mode: screen;
+  filter: blur(1.5px);
+}
+.dust-front-a {
+  background:
+    radial-gradient(circle at 8% 18%, rgba(255,255,255,.42) 0 2px, transparent 7px),
+    radial-gradient(circle at 16% 70%, rgba(190,210,255,.30) 0 3px, transparent 10px),
+    radial-gradient(circle at 28% 33%, rgba(255,255,255,.32) 0 2px, transparent 8px),
+    radial-gradient(circle at 43% 84%, rgba(167,190,255,.26) 0 3px, transparent 11px),
+    radial-gradient(circle at 61% 16%, rgba(255,255,255,.34) 0 2px, transparent 8px),
+    radial-gradient(circle at 74% 68%, rgba(194,211,255,.28) 0 3px, transparent 10px),
+    radial-gradient(circle at 91% 30%, rgba(255,255,255,.35) 0 2px, transparent 9px);
+  animation: hm-dust-front-a 18s ease-in-out infinite alternate;
+}
+.dust-front-b {
+  opacity: .16;
+  background:
+    radial-gradient(circle at 12% 46%, rgba(177,199,255,.28) 0 4px, transparent 13px),
+    radial-gradient(circle at 35% 12%, rgba(255,255,255,.28) 0 3px, transparent 11px),
+    radial-gradient(circle at 52% 76%, rgba(180,202,255,.25) 0 4px, transparent 13px),
+    radial-gradient(circle at 69% 39%, rgba(255,255,255,.26) 0 3px, transparent 11px),
+    radial-gradient(circle at 86% 83%, rgba(168,190,255,.24) 0 4px, transparent 14px);
+  filter: blur(2.6px);
+  animation: hm-dust-front-b 24s ease-in-out infinite alternate-reverse;
+}
+
+/* Volumetric diagonal light rays. */
+.hm-light-rays {
+  z-index: 3;
+  width: 68vw;
+  height: 16vh;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  filter: blur(16px);
+  opacity: calc(.08 + var(--hm-level) * .12);
+  background: linear-gradient(90deg, transparent 0%, rgba(157,181,255,.04) 28%, rgba(229,236,255,.12) 50%, rgba(130,102,255,.04) 72%, transparent 100%);
+}
+.rays-a { left: -12%; top: 18%; transform: rotate(-22deg); animation: hm-ray-a 12s ease-in-out infinite alternate; }
+.rays-b { right: -14%; top: 30%; transform: rotate(20deg); animation: hm-ray-b 15s ease-in-out infinite alternate-reverse; }
+.rays-c { left: 15%; bottom: 17%; width: 72vw; opacity: calc(.05 + var(--hm-beat) * .16); transform: rotate(-8deg); animation: hm-ray-c 9s ease-in-out infinite; }
+
+/* Halo/crown around Mira's head — presence rather than a literal UI ring. */
+.hm-crown-halo {
+  z-index: 6;
+  left: 50%;
+  top: 29%;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+.crown-a {
+  width: min(430px, 34vw);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotateX(66deg) rotateZ(4deg) scale(calc(1 + var(--hm-level) * .018));
+  border: 1px solid rgba(189,207,255,.12);
+  box-shadow: 0 0 34px rgba(126,151,255,.08), inset 0 0 32px rgba(133,159,255,.06);
+  opacity: calc(.28 + var(--hm-level) * .22);
+  animation: hm-crown-a 17s linear infinite;
+}
+.crown-b {
+  width: min(350px, 28vw);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotateX(72deg) rotateZ(93deg) scale(calc(1 + var(--hm-beat) * .026));
+  border: 1px dashed rgba(175,151,255,.12);
+  box-shadow: 0 0 42px rgba(137,102,255,.08);
+  opacity: calc(.18 + var(--hm-beat) * .28);
+  animation: hm-crown-b 12s linear infinite reverse;
+}
+
+/* Double-layer speaking pulses: one close, one cinematic wide. */
+.hm-speaking-pulse {
+  z-index: 7;
+  left: 50%;
+  top: 48%;
+  border-radius: 50%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation-play-state: paused;
+}
+.pulse-near {
+  width: min(590px, 49vw);
+  aspect-ratio: 1;
+  border: 1px solid rgba(204,219,255,.22);
+  box-shadow: 0 0 32px rgba(135,163,255,.10), inset 0 0 28px rgba(135,163,255,.05);
+  animation: hm-speaking-pulse-near 1.15s cubic-bezier(.08,.58,.16,1) infinite;
+}
+.pulse-far {
+  width: min(760px, 63vw);
+  aspect-ratio: 1;
+  border: 1px solid rgba(142,157,255,.12);
+  box-shadow: 0 0 54px rgba(111,129,255,.08);
+  animation: hm-speaking-pulse-far 1.75s cubic-bezier(.08,.58,.16,1) infinite .35s;
+}
+.holo-mira.state-speaking .hm-speaking-pulse,
+.holo-mira.state-listening .hm-speaking-pulse {
+  animation-play-state: running;
+}
+.holo-mira.state-listening .pulse-near { animation-duration: 1.7s; }
+.holo-mira.state-listening .pulse-far { animation-duration: 2.25s; }
+
+/* Full-scene bloom when mic engages / when Mira transitions into speech. */
+.hm-activation-flash {
+  inset: 0;
+  z-index: 18;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(246,249,255,.36) 0 5%, rgba(164,187,255,.16) 15%, rgba(104,126,255,.07) 27%, transparent 54%),
+    radial-gradient(circle at 50% 48%, rgba(125,92,255,.10), transparent 44%);
+}
+.holo-mira.state-listening .hm-activation-flash { animation: hm-activation-flash 1.05s ease-out 1; }
+.holo-mira.state-speaking .hm-activation-flash { animation: hm-speaking-flash 2.2s ease-in-out infinite; }
+
+/* Push existing layers into the heavy cinematic range. */
+.holo-mira.state-speaking .hm-presence-glow {
+  opacity: calc(.58 + var(--hm-level) * .36);
+  box-shadow:
+    0 0 calc(62px + var(--hm-level) * 92px) rgba(105,139,255,.15),
+    0 0 calc(145px + var(--hm-level) * 115px) rgba(126,81,255,.07);
+}
+.holo-mira.state-speaking .hm-eye-glow {
+  opacity: calc(.28 + var(--hm-level) * .58);
+  filter: blur(1.7px) brightness(calc(1.15 + var(--hm-level) * .48));
+}
+.holo-mira.state-speaking .hm-voice-wave {
+  opacity: calc(.12 + var(--hm-level) * .78);
+  filter:
+    drop-shadow(0 0 8px rgba(203,218,255,.78))
+    drop-shadow(0 0 24px rgba(119,151,255,.42));
+}
+.holo-mira.state-speaking .hm-god-stars i:nth-child(7n),
+.holo-mira.state-listening .hm-god-stars i:nth-child(11n) {
+  animation-duration: 2.9s;
+  box-shadow: 0 0 8px rgba(255,255,255,.94), 0 0 24px rgba(137,165,255,.56);
+}
+.holo-mira.state-thinking .hm-crown-halo { opacity: .55; }
+.holo-mira.state-thinking .crown-a { animation-duration: 6.5s; }
+.holo-mira.state-thinking .crown-b { animation-duration: 4.2s; }
+
+@keyframes hm-god-twinkle {
+  0%,100% { opacity: .08; filter: brightness(.7); }
+  38% { opacity: .54; filter: brightness(1.4); }
+  44% { opacity: .20; }
+  72% { opacity: .42; filter: brightness(1.15); }
+}
+@keyframes hm-luxury-glint {
+  0%,72%,100% { opacity: 0; transform: scale(.45) rotate(0deg); }
+  78% { opacity: .98; transform: scale(1.0) rotate(18deg); }
+  83% { opacity: .42; transform: scale(1.55) rotate(36deg); }
+  89% { opacity: .06; transform: scale(2.1) rotate(52deg); }
+}
+@keyframes hm-dust-front-a {
+  from { transform: translate3d(-1.5%, 1%, 0) scale(.98); }
+  to { transform: translate3d(3.5%, -3%, 0) scale(1.05); }
+}
+@keyframes hm-dust-front-b {
+  from { transform: translate3d(2%, -1%, 0) scale(1.02); }
+  to { transform: translate3d(-4%, 4%, 0) scale(1.08); }
+}
+@keyframes hm-ray-a {
+  from { transform: translate3d(-5%, -4%, 0) rotate(-22deg) scaleX(.84); opacity: .05; }
+  to { transform: translate3d(14%, 9%, 0) rotate(-16deg) scaleX(1.18); opacity: .19; }
+}
+@keyframes hm-ray-b {
+  from { transform: translate3d(5%, 2%, 0) rotate(20deg) scaleX(.90); opacity: .04; }
+  to { transform: translate3d(-16%, -8%, 0) rotate(14deg) scaleX(1.22); opacity: .17; }
+}
+@keyframes hm-ray-c {
+  0%,100% { transform: translate3d(-6%, 0, 0) rotate(-8deg) scaleX(.86); }
+  50% { transform: translate3d(10%, -6%, 0) rotate(-2deg) scaleX(1.14); }
+}
+@keyframes hm-crown-a {
+  to { transform: translate(-50%, -50%) rotateX(66deg) rotateZ(364deg) scale(calc(1 + var(--hm-level) * .018)); }
+}
+@keyframes hm-crown-b {
+  to { transform: translate(-50%, -50%) rotateX(72deg) rotateZ(453deg) scale(calc(1 + var(--hm-beat) * .026)); }
+}
+@keyframes hm-speaking-pulse-near {
+  0% { transform: translate(-50%, -50%) scale(.68); opacity: calc(.14 + var(--hm-level) * .34); }
+  58% { opacity: calc(.04 + var(--hm-level) * .08); }
+  100% { transform: translate(-50%, -50%) scale(calc(1.28 + var(--hm-level) * .18)); opacity: 0; }
+}
+@keyframes hm-speaking-pulse-far {
+  0% { transform: translate(-50%, -50%) scale(.62); opacity: calc(.08 + var(--hm-level) * .20); }
+  65% { opacity: .025; }
+  100% { transform: translate(-50%, -50%) scale(calc(1.33 + var(--hm-level) * .17)); opacity: 0; }
+}
+@keyframes hm-activation-flash {
+  0% { opacity: 0; filter: blur(18px) brightness(1); }
+  18% { opacity: .92; filter: blur(4px) brightness(1.38); }
+  42% { opacity: .30; filter: blur(10px) brightness(1.12); }
+  100% { opacity: 0; filter: blur(24px) brightness(1); }
+}
+@keyframes hm-speaking-flash {
+  0%,100% { opacity: .02; transform: scale(.94); }
+  35% { opacity: calc(.10 + var(--hm-beat) * .22); transform: scale(calc(1 + var(--hm-beat) * .045)); }
+  58% { opacity: calc(.04 + var(--hm-level) * .10); transform: scale(1.035); }
+}
+
+@media (max-width: 760px) {
+  .hm-god-stars { opacity: .84; }
+  .hm-luxury-glints i::before { width: 30px; }
+  .hm-luxury-glints i::after { height: 30px; }
+  .hm-light-rays { width: 90vw; }
+  .crown-a { width: 54vw; }
+  .crown-b { width: 43vw; }
+  .pulse-near { width: 70vw; }
+  .pulse-far { width: 92vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-god-stars,
+  .hm-luxury-glints,
+  .hm-light-dust,
+  .hm-light-rays,
+  .hm-crown-halo,
+  .hm-speaking-pulse,
+  .hm-activation-flash {
+    animation: none !important;
+  }
+  .hm-luxury-glints,
+  .hm-light-dust,
+  .hm-light-rays,
+  .hm-speaking-pulse,
+  .hm-activation-flash {
+    display: none;
+  }
+}
