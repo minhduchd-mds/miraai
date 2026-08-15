@@ -2,8 +2,12 @@
 export function cleanForSpeech(input: string): string {
   return input
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm, '')
+    .replace(/\n+/g, '. ')
     .replace(/[*_`#>~|]/g, '')
     .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/\.{2,}/g, '.')
+    .replace(/\s+([,.!?…])/g, '$1')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
