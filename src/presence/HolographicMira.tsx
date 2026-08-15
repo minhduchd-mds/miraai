@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import type { MiraState } from '../core/types';
 import { audioLevel } from '../core/audio-level';
 import './holographic-mira.css';
 import './holographic-mira-godmode.css';
+import './holographic-mira-life.css';
 
 interface Props {
   state: MiraState;
@@ -16,6 +18,33 @@ const COMET_COUNT = 6;
 const BURST_COUNT = 8;
 const GOD_STAR_COUNT = 96;
 const GLINT_COUNT = 14;
+const GRAVITY_COUNT = 48;
+
+const GRAVITY_PARTICLES = Array.from({ length: GRAVITY_COUNT }, (_, index) => {
+  const angle = (index / GRAVITY_COUNT) * Math.PI * 2 + (index % 4) * 0.11;
+  const radiusX = 24 + (index % 9) * 4.2;
+  const radiusY = 20 + (index % 7) * 4.1;
+  const x = Math.max(3, Math.min(97, 50 + Math.cos(angle) * radiusX));
+  const y = Math.max(5, Math.min(95, 48 + Math.sin(angle) * radiusY));
+  const dx = (50 - x) * 0.91;
+  const dy = (48 - y) * 0.91;
+  const duration = 1.05 + (index % 8) * 0.09;
+
+  return {
+    id: index,
+    style: {
+      '--gx': `${x.toFixed(2)}%`,
+      '--gy': `${y.toFixed(2)}%`,
+      '--gdx': `${dx.toFixed(2)}vw`,
+      '--gdy': `${dy.toFixed(2)}vh`,
+      '--gdelay': `${(-(index % 12) * 0.13).toFixed(2)}s`,
+      '--gdur': `${duration.toFixed(2)}s`,
+      '--gthinkdur': `${(duration * 2.2).toFixed(2)}s`,
+      '--gsize': `${1 + (index % 4) * 0.7}px`,
+      '--gscale': (0.68 + (index % 5) * 0.14).toFixed(2),
+    } as CSSProperties,
+  };
+});
 
 export default function HolographicMira({ state, onActivate }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
@@ -66,6 +95,52 @@ export default function HolographicMira({ state, onActivate }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [state]);
 
+  useEffect(() => {
+    let disposed = false;
+    const timers = new Set<number>();
+
+    const later = (callback: () => void, delay: number) => {
+      const id = window.setTimeout(() => {
+        timers.delete(id);
+        if (!disposed) callback();
+      }, delay);
+      timers.add(id);
+    };
+
+    const scheduleBlink = () => {
+      later(() => {
+        const node = rootRef.current;
+        if (!node) return;
+        const doubleBlink = Math.random() < 0.22;
+        node.classList.add('is-blinking');
+
+        later(() => {
+          node.classList.remove('is-blinking');
+          if (!doubleBlink) {
+            scheduleBlink();
+            return;
+          }
+
+          later(() => {
+            node.classList.add('is-blinking');
+            later(() => {
+              node.classList.remove('is-blinking');
+              scheduleBlink();
+            }, 105);
+          }, 145);
+        }, 115);
+      }, 2800 + Math.random() * 4200);
+    };
+
+    scheduleBlink();
+    return () => {
+      disposed = true;
+      timers.forEach((id) => window.clearTimeout(id));
+      timers.clear();
+      rootRef.current?.classList.remove('is-blinking');
+    };
+  }, []);
+
   const handlePointerMove = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
     const node = rootRef.current;
     if (!node) return;
@@ -74,6 +149,8 @@ export default function HolographicMira({ state, onActivate }: Props) {
     const y = (event.clientY - rect.top) / rect.height - 0.5;
     node.style.setProperty('--hm-pointer-x', `${(x * 7).toFixed(2)}px`);
     node.style.setProperty('--hm-pointer-y', `${(y * 5).toFixed(2)}px`);
+    node.style.setProperty('--hm-look-x', `${(x * 2.8).toFixed(2)}px`);
+    node.style.setProperty('--hm-look-y', `${(y * 1.8).toFixed(2)}px`);
   }, []);
 
   const resetPointer = useCallback(() => {
@@ -81,6 +158,8 @@ export default function HolographicMira({ state, onActivate }: Props) {
     if (!node) return;
     node.style.setProperty('--hm-pointer-x', '0px');
     node.style.setProperty('--hm-pointer-y', '0px');
+    node.style.setProperty('--hm-look-x', '0px');
+    node.style.setProperty('--hm-look-y', '0px');
   }, []);
 
   const label =
@@ -132,6 +211,10 @@ export default function HolographicMira({ state, onActivate }: Props) {
       <span className="hm-light-rays rays-b" aria-hidden="true" />
       <span className="hm-light-rays rays-c" aria-hidden="true" />
 
+      <span className="hm-voice-gravity" aria-hidden="true">
+        {GRAVITY_PARTICLES.map((particle) => <i key={particle.id} style={particle.style} />)}
+      </span>
+
       <span className="hm-orbit orbit-outer" aria-hidden="true" />
       <span className="hm-orbit orbit-mid" aria-hidden="true" />
       <span className="hm-orbit orbit-inner" aria-hidden="true" />
@@ -154,6 +237,15 @@ export default function HolographicMira({ state, onActivate }: Props) {
       <span className="hm-eye-glow eye-left" aria-hidden="true" />
       <span className="hm-eye-glow eye-right" aria-hidden="true" />
       <span className="hm-mouth-motion" aria-hidden="true" />
+
+      <span className="hm-micro-expression" aria-hidden="true">
+        <i className="hm-eyelid eye-left" />
+        <i className="hm-eyelid eye-right" />
+        <i className="hm-eye-spark eye-left" />
+        <i className="hm-eye-spark eye-right" />
+        <i className="hm-brow-energy eye-left" />
+        <i className="hm-brow-energy eye-right" />
+      </span>
 
       <span className="hm-voice-wave" aria-hidden="true">
         {Array.from({ length: 29 }, (_, index) => <i key={index} />)}
