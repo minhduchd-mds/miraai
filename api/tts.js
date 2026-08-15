@@ -5,6 +5,8 @@
 const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini-tts';
 const OPENAI_DEFAULT_VOICE = 'marin';
 const ELEVEN_DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL';
+const DEFAULT_VI_INSTRUCTIONS =
+  'Nói tiếng Việt tự nhiên như một cuộc trò chuyện riêng tư. Giọng ấm, gần gũi, tự tin, nhịp vừa phải, phát âm rõ theo phong cách miền Bắc nhưng không cường điệu. Có ngắt nghỉ nhẹ theo ý nghĩa câu, thay đổi ngữ điệu tinh tế, tránh chất giọng phát thanh viên và tuyệt đối không đọc máy móc.';
 
 function parseBody(req) {
   let body = req.body;
@@ -35,7 +37,13 @@ function chooseProvider(requested, openaiKey, elevenKey) {
   return '';
 }
 
-async function openAISpeech({ key, text, voice }) {
+function mergeInstructions(dynamicInstructions) {
+  const base = String(process.env.OPENAI_TTS_INSTRUCTIONS || DEFAULT_VI_INSTRUCTIONS).trim();
+  const dynamic = String(dynamicInstructions || '').trim().slice(0, 1400);
+  return dynamic ? `${base}\n${dynamic}` : base;
+}
+
+async function openAISpeech({ key, text, voice, instructions }) {
   const model = process.env.OPENAI_TTS_MODEL || OPENAI_DEFAULT_MODEL;
   const selectedVoice = voice || process.env.OPENAI_TTS_VOICE || OPENAI_DEFAULT_VOICE;
   const payload = {
@@ -44,10 +52,7 @@ async function openAISpeech({ key, text, voice }) {
     input: text,
     response_format: 'mp3',
   };
-  if (/gpt-4o-mini-tts/i.test(model)) {
-    payload.instructions = process.env.OPENAI_TTS_INSTRUCTIONS ||
-      'Nói tiếng Việt tự nhiên như một cuộc trò chuyện riêng tư. Giọng ấm, gần gũi, tự tin, nhịp vừa phải, phát âm rõ theo phong cách miền Bắc nhưng không cường điệu. Có ngắt nghỉ nhẹ theo ý nghĩa câu, thay đổi ngữ điệu tinh tế, tránh chất giọng phát thanh viên và tuyệt đối không đọc máy móc.';
-  }
+  if (/gpt-4o-mini-tts/i.test(model)) payload.instructions = mergeInstructions(instructions);
 
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
@@ -95,6 +100,7 @@ export default async function handler(req, res) {
 
   const body = parseBody(req);
   const text = String(body.text || '').trim();
+  const instructions = String(body.instructions || '').trim().slice(0, 1400);
   if (!text) return res.status(400).json({ error: 'text rỗng' });
   if (text.length > 3500) return res.status(413).json({ error: 'text quá dài' });
 
@@ -111,6 +117,7 @@ export default async function handler(req, res) {
         key: openaiKey,
         text,
         voice: requested.provider === 'openai' ? requested.voice : '',
+        instructions,
       });
     } else {
       result = await elevenSpeech({
@@ -140,7 +147,7 @@ export default async function handler(req, res) {
         return res.status(200).send(buf);
       }
       if (provider === 'elevenlabs' && openaiKey) {
-        const result = await openAISpeech({ key: openaiKey, text, voice: '' });
+        const result = await openAISpeech({ key: openaiKey, text, voice: '', instructions });
         const buf = Buffer.from(await result.response.arrayBuffer());
         res.setHeader('content-type', result.response.headers.get('content-type') || 'audio/mpeg');
         res.setHeader('cache-control', 'no-store');
