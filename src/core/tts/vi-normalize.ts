@@ -130,6 +130,10 @@ export function normalizeVietnameseSpeech(text: string): string {
     const mm = parseInt(m, 10);
     return mm === 0 ? `${readIntVi(h)} giờ` : `${readIntVi(h)} giờ ${readIntVi(String(mm))} phút`;
   });
+  // shorthand kỹ thuật/tài chính phổ biến — "16.5M" = 16,5 triệu; "32K" = 32 nghìn.
+  // Chỉ bắt K/M viết HOA để tránh nuốt đơn vị mét hay ký tự chữ thường trong từ.
+  s = s.replace(/\b(-?\d+(?:[.,]\d+)?)\s*M\b/g, (_, n: string) => `${numToWords(n)} triệu`);
+  s = s.replace(/\b(-?\d+(?:[.,]\d+)?)\s*K\b/g, (_, n: string) => `${numToWords(n)} nghìn`);
   // phần trăm
   s = s.replace(/(-?\d[\d.,]*)\s*%/g, (_, n: string) => `${numToWords(n)} phần trăm`);
   // độ (C) — "30°C" / "30 °"
