@@ -35,9 +35,10 @@ test('text input enters the same thinking/speaking pipeline', () => {
   assert.equal(machine.transition('thinking', 'SPEAK'), 'speaking');
 });
 
-test('barge-in is deterministic and resumes listening', () => {
-  assert.equal(machine.transition('speaking', 'INTERRUPT'), 'interrupted');
-  assert.equal(machine.transition('thinking', 'INTERRUPT'), 'interrupted');
+test('barge-in is deterministic from listening/thinking/speaking and resumes listening', () => {
+  for (const state of ['listening', 'thinking', 'speaking']) {
+    assert.equal(machine.transition(state, 'INTERRUPT'), 'interrupted');
+  }
   assert.equal(machine.transition('interrupted', 'MIC_START'), 'listening');
 });
 
@@ -50,6 +51,7 @@ test('canTransition reflects the declared state graph', () => {
   assert.equal(machine.canTransition('idle', 'listening'), true);
   assert.equal(machine.canTransition('idle', 'speaking'), true);
   assert.equal(machine.canTransition('idle', 'interrupted'), false);
+  assert.equal(machine.canTransition('thinking', 'interrupted'), true);
 });
 
 test('speech cleanup removes markdown links, formatting and emoji', () => {
