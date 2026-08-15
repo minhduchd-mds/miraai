@@ -14,6 +14,7 @@ async function importTypeScript(path) {
 
 const machine = await importTypeScript('src/runtime/conversation-machine.ts');
 const speech = await importTypeScript('src/runtime/speech-utils.ts');
+const timing = await importTypeScript('src/runtime/conversation-timing.ts');
 const voice = await importTypeScript('src/core/voice-prefs.ts');
 const viSpeech = await importTypeScript('src/core/tts/vi-normalize.ts');
 const director = await importTypeScript('src/core/tts/vi-speech-director.ts');
@@ -135,6 +136,64 @@ test('turn-level pauses are strongest around warning and emphasis transitions', 
   const explanationPause = director.turnSegmentPauseMs(plan.segments[explanationIndex], explanationIndex, plan.segments.length);
   assert.ok(emphasisPause > explanationPause);
   assert.ok(warningPause > emphasisPause);
+});
+
+test('conversation timing stays silent for short acknowledgements and text-mode turns', () => {
+  const ack = timing.planConversationTiming({ input: 'Vâng', source: 'voice', turnIndex: 1 });
+  const textTurn = timing.planConversationTiming({ input: 'Phân tích kiến trúc này giúp anh', source: 'text', turnIndex: 2 });
+  assert.equal(ack.audibleCue, null);
+  assert.equal(ack.audibleCueDelayMs, null);
+  assert.equal(textTurn.audibleCue, null);
+});
+
+test('conversation timing adapts audible backchannel delay from observed latency', () => {
+  const fast = timing.planConversationTiming({
+    input: 'Phân tích kiến trúc API và backend này giúp anh',
+    source: 'voice',
+    turnIndex: 3,
+    previousLatencyMs: 520,
+  });
+  const slow = timing.planConversationTiming({
+    input: 'Phân tích kiến trúc API và backend này giúp anh',
+    source: 'voice',
+    turnIndex: 4,
+    previousLatencyMs: 3400,
+  });
+  assert.ok(fast.audibleCueDelayMs != null && slow.audibleCueDelayMs != null);
+  assert.ok(slow.audibleCueDelayMs < fast.audibleCueDelayMs);
+});
+
+test('conversation timing gives more floor time after interruption', () => {
+  const normal = timing.planConversationTiming({
+    input: 'Đánh giá phương án này giúp anh', source: 'voice', turnIndex: 5, previousLatencyMs: 1500,
+  });
+  const interrupted = timing.planConversationTiming({
+    input: 'Đánh giá phương án này giúp anh', source: 'voice', turnIndex: 5, previousLatencyMs: 1500, interrupted: true,
+  });
+  assert.ok(normal.audibleCueDelayMs != null && interrupted.audibleCueDelayMs != null);
+  assert.ok(interrupted.audibleCueDelayMs > normal.audibleCueDelayMs);
+});
+
+test('thinking cue selection avoids immediate repetition deterministically', () => {
+  const input = 'Kiểm tra repo và build giúp anh';
+  const first = timing.chooseThinkingCue(input, 10, '');
+  const second = timing.chooseThinkingCue(input, 10, first);
+  assert.notEqual(first, second);
+});
+
+test('turn-taking reopens mic faster after a question and immediately after barge-in', () => {
+  const question = timing.resumeListeningDelayMs('Anh muốn em làm tiếp phần nào?');
+  const statement = timing.resumeListeningDelayMs('Em đã kiểm tra xong toàn bộ phần này và hiện chưa có cảnh báo nghiêm trọng nào.');
+  assert.ok(question < statement);
+  assert.ok(timing.interruptionRecoveryDelayMs() < question);
+});
+
+test('hands-free silence retry cadence grows gently and remains bounded', () => {
+  const first = timing.silenceRetryDelayMs(1);
+  const third = timing.silenceRetryDelayMs(3);
+  const many = timing.silenceRetryDelayMs(20);
+  assert.ok(third > first);
+  assert.ok(many <= 620);
 });
 
 test('adaptive response presets expand token and timeout budgets monotonically', () => {
