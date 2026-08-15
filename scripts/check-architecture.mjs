@@ -6,6 +6,7 @@ const mustExist = [
   'src/presence/HolographicMira.tsx',
   'src/presence/holographic-mira.css',
   'src/presence/holographic-mira-godmode.css',
+  'src/presence/holographic-mira-life.css',
   'public/assets/mira-holographic.webp',
   'src/core/audio-level.ts',
   'src/settings/SettingsPanel.tsx',
@@ -41,7 +42,22 @@ for (const token of ['HolographicMira', 'SettingsPanel']) {
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 
 const presence = readFileSync('src/presence/HolographicMira.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame', '--hm-level', '--hm-mouth', '/assets/mira-holographic.webp', 'holographic-mira-godmode.css', 'hm-god-stars', 'hm-speaking-pulse', 'hm-activation-flash']) {
+for (const token of [
+  'audioLevel',
+  'requestAnimationFrame',
+  '--hm-level',
+  '--hm-mouth',
+  '/assets/mira-holographic.webp',
+  'holographic-mira-godmode.css',
+  'holographic-mira-life.css',
+  'hm-god-stars',
+  'hm-speaking-pulse',
+  'hm-activation-flash',
+  'hm-voice-gravity',
+  'hm-eyelid',
+  'is-blinking',
+  '--hm-look-x',
+]) {
   if (!presence.includes(token)) failures.push(`HolographicMira missing approved visual/voice behavior: ${token}`);
 }
 if (presence.includes('<svg')) failures.push('production HolographicMira must use approved art, not a hand-drawn SVG face');
@@ -49,6 +65,11 @@ if (presence.includes('<svg')) failures.push('production HolographicMira must us
 const godMode = readFileSync('src/presence/holographic-mira-godmode.css', 'utf8');
 for (const token of ['hm-luxury-glints', 'hm-light-rays', 'hm-crown-halo', 'hm-speaking-pulse-near', 'hm-activation-flash']) {
   if (!godMode.includes(token)) failures.push(`Mira cinematic god mode missing: ${token}`);
+}
+
+const lifeMode = readFileSync('src/presence/holographic-mira-life.css', 'utf8');
+for (const token of ['hm-micro-expression', 'hm-eyelid', 'hm-eye-spark', 'hm-voice-gravity', 'hm-gravity-in', 'hm-gravity-out']) {
+  if (!lifeMode.includes(token)) failures.push(`Mira life layer missing: ${token}`);
 }
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
