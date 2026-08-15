@@ -3,8 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 const failures = [];
 const mustExist = [
   'src/app/AppV2.tsx',
-  'src/conversation/Composer.tsx',
-  'src/presence/PresenceStage.tsx',
+  'src/voice/VoiceOrb.tsx',
+  'src/core/audio-level.ts',
   'src/settings/SettingsPanel.tsx',
   'src/runtime/conversation-machine.ts',
   'src/runtime/speech-queue.ts',
@@ -27,15 +27,21 @@ if (!entry.includes('lazy(() => import(\'./App\'))') && !entry.includes('lazy(()
 }
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
-for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage"]) {
-  if (v2.includes(token)) failures.push(`AppV2 primary surface imports lab/heavy capability: ${token}`);
+for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer']) {
+  if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['Composer', 'PresenceStage', 'SettingsPanel']) {
+for (const token of ['VoiceOrb', 'SettingsPanel']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
+}
+if (v2.includes('sendText')) failures.push('orb-only production surface must not expose text composer flow');
+
+const orb = readFileSync('src/voice/VoiceOrb.tsx', 'utf8');
+for (const token of ['audioLevel', 'requestAnimationFrame']) {
+  if (!orb.includes(token)) failures.push(`VoiceOrb missing reactive audio behavior: ${token}`);
 }
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
-for (const token of ['TurnManager', 'SpeechQueue', 'createDefaultSkillRegistry', 'sendText']) {
+for (const token of ['TurnManager', 'SpeechQueue', 'createDefaultSkillRegistry']) {
   if (!runtime.includes(token)) failures.push(`useMira runtime boundary missing: ${token}`);
 }
 
