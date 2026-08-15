@@ -67,7 +67,11 @@ export class ServerTTS implements TTSAdapter {
     fetch(`${this.serverUrl}/tts`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: opts.text, voice: opts.voiceURI || null }),
+      body: JSON.stringify({
+        text: opts.text,
+        voice: opts.voiceURI || null,
+        instructions: opts.instructions || null,
+      }),
       signal: ac.signal,
     })
       .then(async (res) => {
