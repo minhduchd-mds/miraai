@@ -1,5 +1,5 @@
 import type { Brain, BrainReply, BrainTurn } from '../core/types';
-import type { HostBridge } from '../host';
+import type { HostActionDescriptor, HostActionResult, HostBridge, HostContext } from '../host';
 import { assembleBrainContext } from '../intelligence/context/context-assembler';
 import { MemoryService } from '../intelligence/memory/memory-service';
 import type { SkillRegistry, SkillResult } from '../intelligence/skills';
@@ -13,7 +13,16 @@ function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
-/** Coordinates context, memory, skills and Brain for one user turn. UI state stays in the React hook. */
+function hostActionToSkillResult(id: string, result: HostActionResult): SkillResult {
+  return {
+    skillId: `host:${id}`,
+    content: result.content,
+    speechHint: result.speechHint,
+    data: result.data,
+  };
+}
+
+/** Coordinates context, memory, skills, host actions and Brain for one user turn. */
 export class TurnManager {
   constructor(
     private readonly getBrain: () => Brain,
@@ -22,9 +31,50 @@ export class TurnManager {
     private readonly host: HostBridge,
   ) {}
 
+  private async listHostActions(): Promise<HostActionDescriptor[]> {
+    if (!this.host.listActions) return [];
+    try {
+      const actions = await this.host.listActions();
+      return Array.isArray(actions) ? actions : [];
+    } catch (error) {
+      console.warn('[Mira Host] listActions failed', error);
+      return [];
+    }
+  }
+
+  private async executeHostAction(
+    descriptor: HostActionDescriptor,
+    input: string,
+    context: HostContext,
+    onSkill?: (result: SkillResult) => void,
+  ): Promise<void> {
+    if (descriptor.risk !== 'read') {
+      onSkill?.({
+        skillId: `host:${descriptor.id}`,
+        content: {
+          kind: 'card',
+          data: {
+            eyebrow: 'Cần xác nhận',
+            title: descriptor.title,
+            body: `Mira chưa tự thực thi action ${descriptor.risk}. Hãy xác nhận trong ứng dụng chủ trước khi chạy.`,
+          },
+        },
+      });
+      return;
+    }
+    if (!this.host.executeAction) return;
+    try {
+      const result = await this.host.executeAction(descriptor.id, input, context);
+      if (result) onSkill?.(hostActionToSkillResult(descriptor.id, result));
+    } catch (error) {
+      console.warn(`[Mira Host] action ${descriptor.id} failed`, error);
+    }
+  }
+
   async run(input: string, prior: BrainTurn[], onSkill?: (result: SkillResult) => void): Promise<TurnResult> {
     const started = now();
     const hostPromise = Promise.resolve(this.host.getContext());
+    const hostActionsPromise = this.listHostActions();
 
     // Fast deterministic skills can render in parallel and never block the spoken response.
     void hostPromise
@@ -32,13 +82,26 @@ export class TurnManager {
       .then((result) => result && onSkill?.(result))
       .catch((error) => console.warn('[Mira Skill] execution failed', error));
 
-    const [memory, host] = await Promise.all([this.memory.recall(input), hostPromise]);
-    const context = assembleBrainContext(memory, host, this.skills.describe());
+    const [memory, host, hostActions] = await Promise.all([
+      this.memory.recall(input),
+      hostPromise,
+      hostActionsPromise,
+    ]);
+    const context = assembleBrainContext(
+      memory,
+      host,
+      this.skills.describe(),
+      hostActions.map((action) => `host:${action.id} [${action.risk}] — ${action.description}`),
+    );
     const reply = await this.getBrain().reply(input, prior, context);
 
-    // Structured Brain adapters/host agents can request explicit skills. Read-only skills execute directly;
-    // write/sensitive skills remain blocked until the interaction layer supplies approval in SkillContext.
     for (const call of reply.toolCalls || []) {
+      if (call.skillId.startsWith('host:')) {
+        const id = call.skillId.slice('host:'.length);
+        const descriptor = hostActions.find((action) => action.id === id);
+        if (descriptor) void this.executeHostAction(descriptor, call.input || input, host, onSkill);
+        continue;
+      }
       void this.skills
         .executeById(call.skillId, call.input || input, { locale: host.locale || 'vi-VN', host })
         .then((result) => result && onSkill?.(result))

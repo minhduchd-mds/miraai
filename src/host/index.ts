@@ -13,4 +13,10 @@ export function setHostBridge(next: HostBridge): void {
   bridge = next;
 }
 
-export type { HostBridge, HostContext } from './types';
+export type {
+  HostActionDescriptor,
+  HostActionResult,
+  HostActionRisk,
+  HostBridge,
+  HostContext,
+} from './types';
