@@ -17,6 +17,7 @@ const mustExist = [
   'src/core/tts/server-tts.ts',
   'src/settings/SettingsPanel.tsx',
   'src/runtime/conversation-machine.ts',
+  'src/runtime/conversation-timing.ts',
   'src/runtime/speech-utils.ts',
   'src/runtime/speech-queue.ts',
   'src/runtime/turn-manager.ts',
@@ -97,7 +98,17 @@ for (const token of ['hm-memory-constellation', 'hm-memory-thread-flow', 'state-
 }
 
 const speechQueue = readFileSync('src/runtime/speech-queue.ts', 'utf8');
-for (const token of ['planVietnameseTurn', 'turnSegmentPauseMs', 'semanticPauseMs', 'normalizeVietnameseSpeech', 'chunk.segment.instructions', 'segment.rateMultiplier', 'PlannedChunk']) {
+for (const token of [
+  'planVietnameseTurn',
+  'turnSegmentPauseMs',
+  'semanticPauseMs',
+  'normalizeVietnameseSpeech',
+  'chunk.segment.instructions',
+  'segment.rateMultiplier',
+  'PlannedChunk',
+  'playCue',
+  'backchannel',
+]) {
   if (!speechQueue.includes(token)) failures.push(`Vietnamese turn-level speech queue direction missing: ${token}`);
 }
 
@@ -122,6 +133,21 @@ for (const token of [
   if (!speechDirector.includes(token)) failures.push(`Vietnamese speech director missing: ${token}`);
 }
 
+const conversationTiming = readFileSync('src/runtime/conversation-timing.ts', 'utf8');
+for (const token of [
+  'planConversationTiming',
+  'chooseThinkingCue',
+  'previousLatencyMs',
+  'recentCue',
+  'resumeListeningDelayMs',
+  'interruptionRecoveryDelayMs',
+  'silenceRetryDelayMs',
+  'SHORT_ACK_RE',
+  'SENSITIVE_RE',
+]) {
+  if (!conversationTiming.includes(token)) failures.push(`adaptive conversation timing missing: ${token}`);
+}
+
 const viNormalize = readFileSync('src/core/tts/vi-normalize.ts', 'utf8');
 for (const token of ['readIntVi', 'normalizeVietnameseSpeech', 'phần trăm', 'triệu', 'ngày']) {
   if (!viNormalize.includes(token)) failures.push(`Vietnamese pronunciation normalizer missing: ${token}`);
@@ -131,7 +157,19 @@ const serverTts = readFileSync('src/core/tts/server-tts.ts', 'utf8');
 if (!serverTts.includes('instructions: opts.instructions')) failures.push('ServerTTS must forward dynamic speech instructions');
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
-for (const token of ['TurnManager', 'SpeechQueue', 'createDefaultSkillRegistry']) {
+for (const token of [
+  'TurnManager',
+  'SpeechQueue',
+  'createDefaultSkillRegistry',
+  'scheduleThinkingSignals',
+  'lastBrainLatencyRef',
+  'recentThinkingCueRef',
+  'interruptedTurnRef',
+  'playCue',
+  'resumeListeningDelayMs',
+  'interruptionRecoveryDelayMs',
+  'silenceRetryDelayMs',
+]) {
   if (!runtime.includes(token)) failures.push(`useMira runtime boundary missing: ${token}`);
 }
 
