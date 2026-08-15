@@ -151,6 +151,10 @@ export default function AppV2() {
     setVoiceReady(true);
     mira.toggleLive();
   };
+  const constellationContext = [
+    ...mira.history.slice(-6).map((turn) => turn.text),
+    mira.caption,
+  ].join(' ');
 
   return (
     <div className={`mira-v2 voice-only holographic-ui${voiceBooting ? ' voice-booting' : ''}${mira.content ? ' has-result' : ''}`}>
@@ -175,7 +179,11 @@ export default function AppV2() {
 
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage holographic-stage">
-          <HolographicMira state={mira.state} onActivate={activateVoice} />
+          <HolographicMira
+            state={mira.state}
+            onActivate={activateVoice}
+            contextText={constellationContext}
+          />
         </div>
 
         <div className="sr-only" aria-live="polite" aria-atomic="true">
