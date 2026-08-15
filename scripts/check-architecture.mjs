@@ -5,6 +5,7 @@ const mustExist = [
   'src/app/AppV2.tsx',
   'src/presence/HolographicMira.tsx',
   'src/presence/holographic-mira.css',
+  'public/assets/mira-holographic.webp',
   'src/core/audio-level.ts',
   'src/settings/SettingsPanel.tsx',
   'src/runtime/conversation-machine.ts',
@@ -39,9 +40,10 @@ for (const token of ['HolographicMira', 'SettingsPanel']) {
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 
 const presence = readFileSync('src/presence/HolographicMira.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame', '--hm-level', '--hm-mouth']) {
-  if (!presence.includes(token)) failures.push(`HolographicMira missing reactive voice behavior: ${token}`);
+for (const token of ['audioLevel', 'requestAnimationFrame', '--hm-level', '--hm-mouth', '/assets/mira-holographic.webp']) {
+  if (!presence.includes(token)) failures.push(`HolographicMira missing approved visual/voice behavior: ${token}`);
 }
+if (presence.includes('<svg')) failures.push('production HolographicMira must use approved art, not a hand-drawn SVG face');
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
 for (const token of ['TurnManager', 'SpeechQueue', 'createDefaultSkillRegistry']) {
