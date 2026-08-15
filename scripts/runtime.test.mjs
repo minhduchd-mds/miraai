@@ -94,6 +94,49 @@ test('semantic pauses are longer for quiet/serious delivery than warm delivery',
   assert.ok(serious > warm);
 });
 
+test('turn-level prosody assigns different roles inside one response', () => {
+  const plan = director.planVietnameseTurn(
+    'Xong rồi anh, phần đầu đã ổn. Em kiểm tra API thêm một lượt. Nhưng hiện có một lỗi nghiêm trọng. Quan trọng nhất, ưu tiên UI/UX trước. Chốt lại, mình xử lý voice sau cùng.',
+  );
+  assert.ok(plan.segments.length >= 5);
+  assert.equal(plan.segments[0].role, 'opening');
+  assert.equal(plan.segments[0].performance, 'excited');
+  assert.ok(plan.segments.some((segment) => segment.role === 'warning' && segment.performance === 'serious'));
+  assert.ok(plan.segments.some((segment) => segment.role === 'emphasis' && segment.performance === 'focused'));
+  assert.equal(plan.segments.at(-1).role, 'conclusion');
+});
+
+test('turn-level prosody changes rate and direction locally instead of flattening the whole turn', () => {
+  const plan = director.planVietnameseTurn(
+    'Xong rồi anh, build đã pass hết. Nhưng có một cảnh báo nghiêm trọng. Chốt lại, mình kiểm tra API trước.',
+  );
+  const opening = plan.segments[0];
+  const warning = plan.segments.find((segment) => segment.role === 'warning');
+  const conclusion = plan.segments.at(-1);
+  assert.ok(warning);
+  assert.ok(conclusion);
+  assert.ok(opening.rateMultiplier > warning.rateMultiplier);
+  assert.notEqual(opening.instructions, warning.instructions);
+  assert.notEqual(warning.instructions, conclusion.instructions);
+  assert.match(warning.instructions, /cảnh báo/);
+  assert.match(conclusion.instructions, /phần chốt/);
+});
+
+test('turn-level pauses are strongest around warning and emphasis transitions', () => {
+  const plan = director.planVietnameseTurn(
+    'Em xem xong rồi. Phần này hoạt động bình thường. Quan trọng nhất, giữ API ổn định. Có một cảnh báo nghiêm trọng. Mình xử lý ngay nhé.',
+  );
+  const emphasisIndex = plan.segments.findIndex((segment) => segment.role === 'emphasis');
+  const warningIndex = plan.segments.findIndex((segment) => segment.role === 'warning');
+  const explanationIndex = plan.segments.findIndex((segment) => segment.role === 'explanation');
+  assert.ok(emphasisIndex >= 0 && warningIndex >= 0 && explanationIndex >= 0);
+  const emphasisPause = director.turnSegmentPauseMs(plan.segments[emphasisIndex], emphasisIndex, plan.segments.length);
+  const warningPause = director.turnSegmentPauseMs(plan.segments[warningIndex], warningIndex, plan.segments.length);
+  const explanationPause = director.turnSegmentPauseMs(plan.segments[explanationIndex], explanationIndex, plan.segments.length);
+  assert.ok(emphasisPause > explanationPause);
+  assert.ok(warningPause > emphasisPause);
+});
+
 test('adaptive response presets expand token and timeout budgets monotonically', () => {
   const modes = ['short', 'auto', 'detailed', 'deep'];
   const budgets = modes.map((mode) => voice.responseTokenBudget(mode));
