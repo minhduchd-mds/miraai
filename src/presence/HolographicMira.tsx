@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { MiraState } from '../core/types';
 import { audioLevel } from '../core/audio-level';
+import MemoryConstellation from './MemoryConstellation';
 import './holographic-mira.css';
 import './holographic-mira-godmode.css';
 import './holographic-mira-life.css';
@@ -9,6 +10,7 @@ import './holographic-mira-life.css';
 interface Props {
   state: MiraState;
   onActivate: () => void;
+  contextText?: string;
 }
 
 const ART_URL = '/assets/mira-holographic.webp';
@@ -46,7 +48,7 @@ const GRAVITY_PARTICLES = Array.from({ length: GRAVITY_COUNT }, (_, index) => {
   };
 });
 
-export default function HolographicMira({ state, onActivate }: Props) {
+export default function HolographicMira({ state, onActivate, contextText = '' }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -210,6 +212,8 @@ export default function HolographicMira({ state, onActivate }: Props) {
       <span className="hm-light-rays rays-a" aria-hidden="true" />
       <span className="hm-light-rays rays-b" aria-hidden="true" />
       <span className="hm-light-rays rays-c" aria-hidden="true" />
+
+      <MemoryConstellation state={state} contextText={contextText} />
 
       <span className="hm-voice-gravity" aria-hidden="true">
         {GRAVITY_PARTICLES.map((particle) => <i key={particle.id} style={particle.style} />)}
