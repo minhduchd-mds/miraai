@@ -9,6 +9,8 @@ interface Props {
 }
 
 const ART_URL = '/assets/mira-holographic.webp';
+const STAR_COUNT = 42;
+const DUST_COUNT = 18;
 
 export default function HolographicMira({ state, onActivate }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
@@ -44,9 +46,9 @@ export default function HolographicMira({ state, onActivate }: Props) {
       node.style.setProperty('--hm-level', smooth.toFixed(3));
       node.style.setProperty('--hm-energy', Math.min(1, energy * 6).toFixed(3));
       node.style.setProperty('--hm-mouth', (speaking ? Math.max(0.07, smooth) : 0).toFixed(3));
-      node.style.setProperty('--hm-breathe', (1 + Math.sin(t / 2100) * 0.0045).toFixed(4));
-      node.style.setProperty('--hm-drift-x', `${(Math.sin(t / 2600) * 1.6).toFixed(2)}px`);
-      node.style.setProperty('--hm-drift-y', `${(Math.cos(t / 3100) * 1.2).toFixed(2)}px`);
+      node.style.setProperty('--hm-breathe', (1 + Math.sin(t / 2300) * 0.0035).toFixed(4));
+      node.style.setProperty('--hm-drift-x', `${(Math.sin(t / 3000) * 1.4).toFixed(2)}px`);
+      node.style.setProperty('--hm-drift-y', `${(Math.cos(t / 3400) * 1.1).toFixed(2)}px`);
       raf = requestAnimationFrame(frame);
     };
 
@@ -60,8 +62,10 @@ export default function HolographicMira({ state, onActivate }: Props) {
     const rect = node.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width - 0.5;
     const y = (event.clientY - rect.top) / rect.height - 0.5;
-    node.style.setProperty('--hm-pointer-x', `${(x * 5).toFixed(2)}px`);
+    node.style.setProperty('--hm-pointer-x', `${(x * 6).toFixed(2)}px`);
     node.style.setProperty('--hm-pointer-y', `${(y * 4).toFixed(2)}px`);
+    node.style.setProperty('--hm-pointer-nx', x.toFixed(3));
+    node.style.setProperty('--hm-pointer-ny', y.toFixed(3));
   }, []);
 
   const resetPointer = useCallback(() => {
@@ -69,6 +73,8 @@ export default function HolographicMira({ state, onActivate }: Props) {
     if (!node) return;
     node.style.setProperty('--hm-pointer-x', '0px');
     node.style.setProperty('--hm-pointer-y', '0px');
+    node.style.setProperty('--hm-pointer-nx', '0');
+    node.style.setProperty('--hm-pointer-ny', '0');
   }, []);
 
   const label =
@@ -88,20 +94,41 @@ export default function HolographicMira({ state, onActivate }: Props) {
       onPointerLeave={resetPointer}
       aria-label={label}
     >
-      <img className="hm-reference-art" src={ART_URL} alt="" draggable={false} aria-hidden="true" />
+      <span className="hm-deep-space" aria-hidden="true" />
+      <span className="hm-galaxy-band galaxy-a" aria-hidden="true" />
+      <span className="hm-galaxy-band galaxy-b" aria-hidden="true" />
+      <span className="hm-nebula-cloud cloud-left" aria-hidden="true" />
+      <span className="hm-nebula-cloud cloud-right" aria-hidden="true" />
 
-      <span className="hm-atmosphere" aria-hidden="true" />
-      <span className="hm-star-field stars-near" aria-hidden="true" />
-      <span className="hm-star-field stars-far" aria-hidden="true" />
+      <span className="hm-cosmos-stars" aria-hidden="true">
+        {Array.from({ length: STAR_COUNT }, (_, index) => <i key={index} />)}
+      </span>
+      <span className="hm-cosmic-dust" aria-hidden="true">
+        {Array.from({ length: DUST_COUNT }, (_, index) => <i key={index} />)}
+      </span>
 
+      <span className="hm-orbit orbit-outer" aria-hidden="true" />
+      <span className="hm-orbit orbit-mid" aria-hidden="true" />
+      <span className="hm-orbit orbit-inner" aria-hidden="true" />
+
+      <span className="hm-art-wrap" aria-hidden="true">
+        <img className="hm-reference-art" src={ART_URL} alt="" draggable={false} />
+      </span>
+
+      <span className="hm-aurora aurora-a" aria-hidden="true" />
+      <span className="hm-aurora aurora-b" aria-hidden="true" />
+      <span className="hm-presence-glow" aria-hidden="true" />
       <span className="hm-eye-glow eye-left" aria-hidden="true" />
       <span className="hm-eye-glow eye-right" aria-hidden="true" />
       <span className="hm-mouth-motion" aria-hidden="true" />
       <span className="hm-voice-wave" aria-hidden="true">
-        {Array.from({ length: 21 }, (_, index) => <i key={index} />)}
+        {Array.from({ length: 25 }, (_, index) => <i key={index} />)}
       </span>
-      <span className="hm-bottom-core" aria-hidden="true" />
-      <span className="hm-energy-wash" aria-hidden="true" />
+      <span className="hm-speech-ripple ripple-a" aria-hidden="true" />
+      <span className="hm-speech-ripple ripple-b" aria-hidden="true" />
+      <span className="hm-voice-sigil" aria-hidden="true">
+        <i /><i /><i /><i /><i />
+      </span>
 
       <span className="sr-only">{label}</span>
     </button>
