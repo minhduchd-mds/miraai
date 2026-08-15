@@ -34,6 +34,8 @@ export interface TTSSpeakOptions {
   voiceURI?: string;
   rate?: number;
   pitch?: number;
+  /** Optional neural-TTS performance direction. Browser/system adapters may ignore it. */
+  instructions?: string;
   onStart?: () => void;
   onBoundary?: (charIndex: number) => void;
   onEnd?: () => void;
