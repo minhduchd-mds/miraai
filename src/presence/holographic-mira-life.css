@@ -1,0 +1,250 @@
+/* Mira Life Layer — micro-expression + voice gravity. Additive over cinematic/godmode CSS. */
+
+.hm-micro-expression,
+.hm-voice-gravity {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* --- Micro expression ---------------------------------------------------- */
+.hm-micro-expression {
+  z-index: 9;
+}
+
+.hm-eyelid {
+  position: absolute;
+  top: 29.55%;
+  width: 4.45%;
+  max-width: 62px;
+  height: 2.55%;
+  min-height: 9px;
+  border-radius: 50%;
+  opacity: .94;
+  transform: scaleY(.02);
+  transform-origin: center top;
+  transition: transform 70ms cubic-bezier(.25,.7,.3,1), opacity 70ms linear;
+  background:
+    radial-gradient(ellipse at 50% 72%, rgba(111,134,214,.78) 0 28%, rgba(34,49,111,.88) 58%, rgba(7,12,42,.94) 82%, transparent 100%);
+  box-shadow: inset 0 -1px 0 rgba(179,195,255,.14), 0 0 8px rgba(111,139,255,.08);
+  filter: saturate(.92) blur(.25px);
+  mix-blend-mode: normal;
+}
+.hm-eyelid.eye-left { left: 42.95%; }
+.hm-eyelid.eye-right { right: 42.95%; }
+
+.holo-mira.is-blinking .hm-eyelid {
+  transform: scaleY(1);
+  opacity: 1;
+}
+
+.hm-eye-spark {
+  position: absolute;
+  top: 30.15%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f6f8ff;
+  box-shadow:
+    0 0 5px rgba(255,255,255,.92),
+    0 0 13px rgba(169,192,255,.74),
+    0 0 28px rgba(107,139,255,.30);
+  opacity: calc(.16 + var(--hm-level) * .34);
+  transform: translate3d(var(--hm-look-x, 0px), var(--hm-look-y, 0px), 0) scale(calc(.78 + var(--hm-focus, 0) * .28));
+  transition: transform 120ms ease-out, opacity 100ms linear;
+  mix-blend-mode: screen;
+}
+.hm-eye-spark.eye-left { left: 44.55%; }
+.hm-eye-spark.eye-right { right: 44.55%; }
+
+.hm-brow-energy {
+  position: absolute;
+  top: 27.75%;
+  width: 7.6%;
+  max-width: 105px;
+  height: 3.4%;
+  border-radius: 50%;
+  opacity: calc(.02 + var(--hm-focus, 0) * .14 + var(--hm-level) * .06);
+  background: radial-gradient(ellipse, rgba(188,207,255,.20), rgba(111,139,255,.08) 48%, transparent 74%);
+  filter: blur(4px);
+  mix-blend-mode: screen;
+  transform: translateY(calc(var(--hm-focus, 0) * -1.4px));
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.hm-brow-energy.eye-left { left: 40.8%; }
+.hm-brow-energy.eye-right { right: 40.8%; }
+
+.holo-mira.state-listening {
+  --hm-focus: 1;
+}
+.holo-mira.state-thinking {
+  --hm-focus: .72;
+}
+.holo-mira.state-speaking {
+  --hm-focus: .56;
+}
+.holo-mira.state-idle {
+  --hm-focus: .18;
+}
+
+.holo-mira.state-listening .hm-eye-spark {
+  opacity: calc(.34 + var(--hm-level) * .44);
+  animation: hm-eye-attention 2.4s ease-in-out infinite;
+}
+.holo-mira.state-thinking .hm-eye-spark {
+  animation: hm-eye-think 3.1s ease-in-out infinite alternate;
+}
+.holo-mira.state-speaking .hm-eye-spark {
+  opacity: calc(.24 + var(--hm-level) * .46);
+}
+.holo-mira.is-blinking .hm-eye-spark,
+.holo-mira.is-blinking .hm-eye-glow {
+  opacity: .015 !important;
+}
+
+/* --- Voice gravity ------------------------------------------------------- */
+.hm-voice-gravity {
+  z-index: 5;
+  overflow: hidden;
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.hm-voice-gravity i {
+  position: absolute;
+  left: var(--gx);
+  top: var(--gy);
+  width: var(--gsize);
+  height: var(--gsize);
+  border-radius: 50%;
+  background: rgba(239,244,255,.96);
+  box-shadow:
+    0 0 7px rgba(213,225,255,.88),
+    0 0 18px rgba(126,157,255,.46),
+    0 0 36px rgba(104,85,255,.12);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.holo-mira.state-listening .hm-voice-gravity,
+.holo-mira.state-speaking .hm-voice-gravity,
+.holo-mira.state-thinking .hm-voice-gravity {
+  opacity: 1;
+}
+
+/* Listening: energy is pulled from the environment into Mira. */
+.holo-mira.state-listening .hm-voice-gravity i {
+  animation-name: hm-gravity-in;
+  animation-duration: var(--gdur);
+  animation-delay: var(--gdelay);
+  animation-timing-function: cubic-bezier(.16,.58,.24,1);
+  animation-iteration-count: infinite;
+}
+
+/* Speaking: the same field reverses — energy leaves Mira and returns to space. */
+.holo-mira.state-speaking .hm-voice-gravity i {
+  animation-name: hm-gravity-out;
+  animation-duration: var(--gdur);
+  animation-delay: var(--gdelay);
+  animation-timing-function: cubic-bezier(.12,.52,.22,1);
+  animation-iteration-count: infinite;
+}
+
+/* Thinking: particles orbit/contract slowly instead of travelling aggressively. */
+.holo-mira.state-thinking .hm-voice-gravity i {
+  animation-name: hm-gravity-think;
+  animation-duration: calc(var(--gdur) * 2.2);
+  animation-delay: var(--gdelay);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.holo-mira.state-listening .hm-presence-glow {
+  transform: translate(-50%, -50%) scale(calc(1.01 + var(--hm-level) * .035));
+}
+.holo-mira.state-speaking .hm-presence-glow {
+  transform: translate(-50%, -50%) scale(calc(1.015 + var(--hm-level) * .055));
+}
+
+.holo-mira.state-listening .hm-crown-halo {
+  filter: brightness(calc(1.02 + var(--hm-level) * .24));
+}
+.holo-mira.state-speaking .hm-crown-halo {
+  filter: brightness(calc(1.08 + var(--hm-level) * .38));
+}
+
+@keyframes hm-gravity-in {
+  0% {
+    transform: translate3d(0, 0, 0) scale(var(--gscale));
+    opacity: 0;
+  }
+  14% {
+    opacity: calc(.28 + var(--hm-level) * .42);
+  }
+  62% {
+    opacity: calc(.45 + var(--hm-level) * .44);
+  }
+  100% {
+    transform: translate3d(var(--gdx), var(--gdy), 0) scale(.08);
+    opacity: 0;
+  }
+}
+
+@keyframes hm-gravity-out {
+  0% {
+    transform: translate3d(var(--gdx), var(--gdy), 0) scale(.06);
+    opacity: 0;
+  }
+  12% {
+    opacity: calc(.45 + var(--hm-level) * .48);
+  }
+  44% {
+    opacity: calc(.32 + var(--hm-level) * .34);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(calc(var(--gscale) * 1.12));
+    opacity: 0;
+  }
+}
+
+@keyframes hm-gravity-think {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(calc(var(--gscale) * .72));
+    opacity: .04;
+  }
+  50% {
+    transform: translate3d(calc(var(--gdx) * .28), calc(var(--gdy) * .28), 0) scale(var(--gscale));
+    opacity: calc(.08 + var(--hm-energy) * .18);
+  }
+}
+
+@keyframes hm-eye-attention {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.42); }
+}
+@keyframes hm-eye-think {
+  from { transform: translate3d(calc(var(--hm-look-x, 0px) - 1px), var(--hm-look-y, 0px), 0) scale(.88); }
+  to { transform: translate3d(calc(var(--hm-look-x, 0px) + 1px), calc(var(--hm-look-y, 0px) - 1px), 0) scale(1.03); }
+}
+
+@media (max-width: 760px) {
+  .hm-eyelid { width: 5.1%; top: 29.8%; }
+  .hm-eyelid.eye-left { left: 42.55%; }
+  .hm-eyelid.eye-right { right: 42.55%; }
+  .hm-eye-spark { width: 4px; height: 4px; top: 30.35%; }
+  .hm-eye-spark.eye-left { left: 44.35%; }
+  .hm-eye-spark.eye-right { right: 44.35%; }
+  .hm-voice-gravity i:nth-child(2n) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-eyelid,
+  .hm-eye-spark,
+  .hm-brow-energy,
+  .hm-voice-gravity {
+    animation: none !important;
+    transition: none !important;
+  }
+  .hm-voice-gravity { display: none; }
+  .holo-mira.is-blinking .hm-eyelid { transform: scaleY(.02); }
+}
