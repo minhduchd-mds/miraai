@@ -11,45 +11,47 @@ export interface LLMConfig {
   provider: '' | 'anthropic' | 'openai';
   apiKey: string;
   model: string;
-  webSearch: boolean; // cho Mira tìm kiếm web khi cần (như Grok) — hiện hỗ trợ Claude
+  webSearch: boolean;
 }
 
 const LS_KEY = 'mira.llm.config';
 
-// Cấu hình lấy từ: localStorage (nhập qua Developer Console) > .env > rỗng (brain demo).
-// ⚠️ Key trong localStorage chỉ dành cho dev cục bộ — production phải qua server proxy (§12).
+/** Browser-held provider keys are intentionally restricted to Vite development builds. */
+export function browserBYOKAllowed(): boolean {
+  return import.meta.env.DEV;
+}
+
 export function loadLLMConfig(): LLMConfig {
+  if (!browserBYOKAllowed()) {
+    return { provider: '', apiKey: '', model: '', webSearch: false };
+  }
+
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
-      const c = JSON.parse(raw);
-      if (c && typeof c === 'object') {
-        return {
-          provider: c.provider === 'anthropic' || c.provider === 'openai' ? c.provider : '',
-          apiKey: typeof c.apiKey === 'string' ? c.apiKey : '',
-          model: typeof c.model === 'string' ? c.model : '',
-          webSearch: typeof c.webSearch === 'boolean' ? c.webSearch : true, // mặc định BẬT
-        };
-      }
+      const config = JSON.parse(raw);
+      return {
+        provider: config?.provider === 'anthropic' || config?.provider === 'openai' ? config.provider : '',
+        apiKey: typeof config?.apiKey === 'string' ? config.apiKey : '',
+        model: typeof config?.model === 'string' ? config.model : '',
+        webSearch: typeof config?.webSearch === 'boolean' ? config.webSearch : true,
+      };
     }
   } catch {
-    /* localStorage hỏng/bị chặn → rơi xuống env */
+    // Fall through to server gateway.
   }
-  const provider = (import.meta.env.VITE_LLM_PROVIDER as string) || '';
-  return {
-    provider: provider === 'anthropic' || provider === 'openai' ? provider : '',
-    apiKey: (import.meta.env.VITE_LLM_API_KEY as string) || '',
-    model: (import.meta.env.VITE_LLM_MODEL as string) || '',
-    webSearch: (import.meta.env.VITE_LLM_WEB_SEARCH as string) !== '0', // mặc định BẬT
-  };
+  return { provider: '', apiKey: '', model: '', webSearch: true };
 }
 
-export function saveLLMConfig(cfg: LLMConfig): void {
+export function saveLLMConfig(config: LLMConfig): void {
   try {
-    if (!cfg.provider || !cfg.apiKey) localStorage.removeItem(LS_KEY);
-    else localStorage.setItem(LS_KEY, JSON.stringify(cfg));
+    if (!browserBYOKAllowed() || !config.provider || !config.apiKey) {
+      localStorage.removeItem(LS_KEY);
+      return;
+    }
+    localStorage.setItem(LS_KEY, JSON.stringify(config));
   } catch {
-    /* noop */
+    // The server gateway remains available.
   }
 }
 
@@ -58,14 +60,18 @@ export function defaultModelFor(provider: string): string {
 }
 
 export function createBrain(): Brain {
-  const cfg = loadLLMConfig();
-  if (cfg.provider && cfg.apiKey) {
+  const config = loadLLMConfig();
+  if (browserBYOKAllowed() && config.provider && config.apiKey) {
     try {
-      return new LLMBrain(cfg.provider, cfg.apiKey, cfg.model || DEFAULT_MODEL[cfg.provider], cfg.webSearch);
+      return new LLMBrain(
+        config.provider,
+        config.apiKey,
+        config.model || DEFAULT_MODEL[config.provider],
+        config.webSearch,
+      );
     } catch {
-      // Lỗi khởi tạo → rơi xuống Gemini free.
+      // Fall through to server gateway.
     }
   }
-  // Mặc định: bộ não Gemini free qua /api/chat (key server). Không tới được /api → tự rớt về demo brain.
   return new GeminiBrain();
 }
