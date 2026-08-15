@@ -181,7 +181,7 @@
 }
 
 @keyframes hm-constellation-drift-a {
-  from { margin-transform: none; }
+  from { translate: 0 0; }
   to { translate: 5px -4px; }
 }
 
