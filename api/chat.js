@@ -1,4 +1,4 @@
-import { generateChat } from '../lib/gemini.js';
+import { generateBrainChat } from '../lib/brain-gateway.js';
 
 const MAX_SYSTEM = 12000;
 const MAX_MESSAGE = 6000;
@@ -22,10 +22,21 @@ export default async function handler(req, res) {
   if (!messages.length) return res.status(400).json({ error: 'thiếu messages' });
 
   try {
-    const text = await generateChat(system, messages, { maxTokens: 500 });
-    if (text == null) return res.status(503).json({ error: 'server chưa cấu hình GEMINI key' });
-    return res.status(200).json({ text, provider: 'gemini' });
+    const result = await generateBrainChat(system, messages, { maxTokens: 500 });
+    if (!result) {
+      return res.status(503).json({
+        error: 'server chưa cấu hình Mira Brain provider',
+        hint: 'Set GEMINI_API_KEY or OPENAI_API_KEY+OPENAI_MODEL or ANTHROPIC_API_KEY+ANTHROPIC_MODEL',
+      });
+    }
+    return res.status(200).json({
+      text: result.text,
+      provider: result.provider,
+      model: result.model,
+      fallbacksTried: result.fallbacksTried || [],
+    });
   } catch (error) {
-    return res.status(502).json({ error: String(error?.message || error).slice(0, 200) });
+    console.error('[Mira Brain Gateway]', error);
+    return res.status(502).json({ error: String(error?.message || error).slice(0, 300) });
   }
 }
