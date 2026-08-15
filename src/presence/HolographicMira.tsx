@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { MiraState } from '../core/types';
 import { audioLevel } from '../core/audio-level';
 import './holographic-mira.css';
+import './holographic-mira-godmode.css';
 
 interface Props {
   state: MiraState;
@@ -13,6 +14,8 @@ const STAR_COUNT = 54;
 const DUST_COUNT = 24;
 const COMET_COUNT = 6;
 const BURST_COUNT = 8;
+const GOD_STAR_COUNT = 96;
+const GLINT_COUNT = 14;
 
 export default function HolographicMira({ state, onActivate }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
@@ -117,11 +120,26 @@ export default function HolographicMira({ state, onActivate }: Props) {
         {Array.from({ length: COMET_COUNT }, (_, index) => <i key={index} />)}
       </span>
 
+      <span className="hm-god-stars" aria-hidden="true">
+        {Array.from({ length: GOD_STAR_COUNT }, (_, index) => <i key={index} />)}
+      </span>
+      <span className="hm-luxury-glints" aria-hidden="true">
+        {Array.from({ length: GLINT_COUNT }, (_, index) => <i key={index} />)}
+      </span>
+      <span className="hm-light-dust dust-front-a" aria-hidden="true" />
+      <span className="hm-light-dust dust-front-b" aria-hidden="true" />
+      <span className="hm-light-rays rays-a" aria-hidden="true" />
+      <span className="hm-light-rays rays-b" aria-hidden="true" />
+      <span className="hm-light-rays rays-c" aria-hidden="true" />
+
       <span className="hm-orbit orbit-outer" aria-hidden="true" />
       <span className="hm-orbit orbit-mid" aria-hidden="true" />
       <span className="hm-orbit orbit-inner" aria-hidden="true" />
       <span className="hm-lens-ring lens-a" aria-hidden="true" />
       <span className="hm-lens-ring lens-b" aria-hidden="true" />
+
+      <span className="hm-crown-halo crown-a" aria-hidden="true" />
+      <span className="hm-crown-halo crown-b" aria-hidden="true" />
 
       <span className="hm-art-wrap" aria-hidden="true">
         <img className="hm-reference-art" src={ART_URL} alt="" draggable={false} />
@@ -143,10 +161,13 @@ export default function HolographicMira({ state, onActivate }: Props) {
       <span className="hm-speech-ripple ripple-a" aria-hidden="true" />
       <span className="hm-speech-ripple ripple-b" aria-hidden="true" />
       <span className="hm-speech-ripple ripple-c" aria-hidden="true" />
+      <span className="hm-speaking-pulse pulse-near" aria-hidden="true" />
+      <span className="hm-speaking-pulse pulse-far" aria-hidden="true" />
 
       <span className="hm-voice-sigil" aria-hidden="true">
         <i /><i /><i /><i /><i /><i /><i />
       </span>
+      <span className="hm-activation-flash" aria-hidden="true" />
       <span className="hm-cinematic-vignette" aria-hidden="true" />
 
       <span className="sr-only">{label}</span>
