@@ -5,6 +5,7 @@ const mustExist = [
   'src/app/AppV2.tsx',
   'src/presence/HolographicMira.tsx',
   'src/presence/holographic-mira.css',
+  'src/presence/holographic-mira-godmode.css',
   'public/assets/mira-holographic.webp',
   'src/core/audio-level.ts',
   'src/settings/SettingsPanel.tsx',
@@ -40,10 +41,15 @@ for (const token of ['HolographicMira', 'SettingsPanel']) {
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 
 const presence = readFileSync('src/presence/HolographicMira.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame', '--hm-level', '--hm-mouth', '/assets/mira-holographic.webp']) {
+for (const token of ['audioLevel', 'requestAnimationFrame', '--hm-level', '--hm-mouth', '/assets/mira-holographic.webp', 'holographic-mira-godmode.css', 'hm-god-stars', 'hm-speaking-pulse', 'hm-activation-flash']) {
   if (!presence.includes(token)) failures.push(`HolographicMira missing approved visual/voice behavior: ${token}`);
 }
 if (presence.includes('<svg')) failures.push('production HolographicMira must use approved art, not a hand-drawn SVG face');
+
+const godMode = readFileSync('src/presence/holographic-mira-godmode.css', 'utf8');
+for (const token of ['hm-luxury-glints', 'hm-light-rays', 'hm-crown-halo', 'hm-speaking-pulse-near', 'hm-activation-flash']) {
+  if (!godMode.includes(token)) failures.push(`Mira cinematic god mode missing: ${token}`);
+}
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
 for (const token of ['TurnManager', 'SpeechQueue', 'createDefaultSkillRegistry']) {
