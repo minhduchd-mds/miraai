@@ -14,6 +14,7 @@ import { IconMic, IconSettings } from '../ui/icons';
 import Composer from '../conversation/Composer';
 import PresenceStage from '../presence/PresenceStage';
 import SettingsPanel from '../settings/SettingsPanel';
+import '../ui/a11y.css';
 
 const STATE_COPY: Record<MiraState, string> = {
   idle: 'Sẵn sàng',
@@ -117,6 +118,8 @@ export default function AppV2() {
 
   return (
     <div className={`mira-v2${mira.content ? ' has-result' : ''}`}>
+      <a className="v2-skip" href="#main-content">Chuyển tới nội dung chính</a>
+
       <header className="v2-header">
         <div className="v2-brand" aria-label="Mira">
           <span className="v2-mark" aria-hidden="true"><i /></span>
@@ -126,8 +129,8 @@ export default function AppV2() {
           </span>
         </div>
 
-        <div className="v2-status" aria-live="polite">
-          <span className={`v2-status-dot ${mira.state}`} />
+        <div className="v2-status" role="status" aria-live="polite" aria-atomic="true">
+          <span className={`v2-status-dot ${mira.state}`} aria-hidden="true" />
           <span>{STATE_COPY[mira.state]}</span>
           {mira.latencyMs != null && <em>{mira.latencyMs} ms</em>}
         </div>
@@ -146,7 +149,7 @@ export default function AppV2() {
 
       {mira.error && <div className="v2-error" role="alert">{mira.error}</div>}
 
-      <main className="v2-workspace" id="main-content">
+      <main className="v2-workspace" id="main-content" tabIndex={-1}>
         <section className="v2-presence" aria-label="Mira presence">
           <PresenceStage
             footglowRef={footglowRef}

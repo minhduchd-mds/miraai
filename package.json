@@ -1,15 +1,18 @@
 {
   "name": "mira",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Mira — Voice-first AI Companion with realtime Vietnamese voice and 3D presence",
+  "description": "Mira — Voice-first AI Companion with realtime Vietnamese voice, memory, skills and optional 3D presence",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "node --test scripts/runtime.test.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
-    "check": "npm run check:architecture && tsc --noEmit && vite build"
+    "check:skills": "node scripts/check-skills.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "check": "npm run check:architecture && npm run check:skills && tsc --noEmit && npm test && vite build && npm run check:bundle"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
