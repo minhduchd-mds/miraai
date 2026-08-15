@@ -30,6 +30,7 @@ interface Props {
   voices: VoiceOption[];
   voiceURI?: string;
   onSelectVoice: (uri: string) => void;
+  onTestVoice: () => void;
   onOpenLabs: () => void;
 }
 
@@ -97,7 +98,13 @@ export default function SettingsPanel(props: Props) {
         </nav>
         <div className="v2-settings-body">
           {tab === 'voice' && <>
-            <div className="v2-setting-group"><h3>Giọng nói</h3><label className="v2-field"><span>Giọng Mira</span><select value={props.voiceURI || ''} onChange={(event) => props.onSelectVoice(event.target.value)}><option value="">Tự động · Tiếng Việt</option>{props.voices.map((voice) => <option key={voice.voiceURI || voice.name} value={voice.voiceURI}>{voice.name}</option>)}</select></label><div className="v2-choice-block"><span>Tốc độ</span><div className="v2-segmented">{SPEEDS.map((speed) => <button key={speed.id} type="button" className={Math.abs(rate - speed.rate) < .01 ? 'active' : ''} onClick={() => changeRate(speed.rate)}>{speed.label}</button>)}</div></div><p className="v2-disclosure">Mira luôn fallback sang giọng hệ thống tiếng Việt nếu dịch vụ giọng chính không phát được.</p></div>
+            <div className="v2-setting-group">
+              <h3>Giọng nói</h3>
+              <label className="v2-field"><span>Giọng Mira</span><select value={props.voiceURI || ''} onChange={(event) => props.onSelectVoice(event.target.value)}><option value="">Tự động · Tiếng Việt</option>{props.voices.map((voice) => <option key={voice.voiceURI || voice.name} value={voice.voiceURI}>{voice.name}</option>)}</select></label>
+              <div className="v2-choice-block"><span>Tốc độ</span><div className="v2-segmented">{SPEEDS.map((speed) => <button key={speed.id} type="button" className={Math.abs(rate - speed.rate) < .01 ? 'active' : ''} onClick={() => changeRate(speed.rate)}>{speed.label}</button>)}</div></div>
+              <div className="v2-memory-actions"><button type="button" onClick={props.onTestVoice}>Nghe thử giọng</button></div>
+              <p className="v2-disclosure">Mira luôn fallback sang giọng hệ thống tiếng Việt nếu dịch vụ giọng chính không phát được.</p>
+            </div>
             <div className="v2-setting-group"><h3>Độ dài câu trả lời</h3><div className="v2-choice-block"><span>Mức chi tiết</span><div className="v2-segmented">{RESPONSE_LENGTHS.map((item) => <button key={item.id} type="button" className={responseLength === item.id ? 'active' : ''} onClick={() => changeResponseLength(item.id)}>{item.label}</button>)}</div><p className="v2-disclosure">{selectedResponseLength.description}</p></div></div>
             <div className="v2-setting-group"><h3>Tính cách</h3><div className="v2-personas">{PERSONAS.map((item) => <button key={item.id} type="button" className={persona === item.id ? 'active' : ''} onClick={() => changePersona(item.id)}><span>{item.icon}</span><b>{item.label}</b></button>)}</div></div>
             <div className="v2-setting-group"><h3>Hội thoại tự nhiên</h3><Toggle checked={smartTurn} onChange={changeSmart} label="Smart turn-taking" hint="Chờ đúng lúc anh nói xong thay vì cắt theo khoảng lặng cứng." /><Toggle checked={vad} onChange={changeVad} label="Ngắt lời bằng giọng" hint="Cho phép nói chen khi Mira đang trả lời." /></div>
