@@ -1,6 +1,7 @@
 import type { MiraTTS } from '../core/tts';
 import { normalizeVietnameseSpeech } from '../core/tts/vi-normalize';
 import {
+  directVietnameseSpeech,
   planVietnameseTurn,
   semanticPauseMs,
   turnSegmentPauseMs,
@@ -15,6 +16,15 @@ export interface SpeechQueuePlayOptions {
   voiceURI?: string;
   isActive: () => boolean;
   onDone: () => void;
+}
+
+export interface SpeechQueueCueOptions {
+  text: string;
+  lang: string;
+  rate: number;
+  voiceURI?: string;
+  isActive: () => boolean;
+  onDone?: () => void;
 }
 
 interface PlannedChunk {
@@ -38,6 +48,44 @@ export class SpeechQueue {
       this.pauseTimer = null;
     }
     this.getTTS()?.cancel();
+  }
+
+  /**
+   * Plays one very short conversational backchannel while Mira is still in thinking state.
+   * It deliberately does not transition the conversation machine to speaking. A later final
+   * response supersedes this token and the TTS adapter naturally cancels/replaces the cue.
+   */
+  playCue(options: SpeechQueueCueOptions): void {
+    const tts = this.getTTS();
+    if (!tts || !options.isActive()) return;
+
+    if (this.pauseTimer != null) {
+      clearTimeout(this.pauseTimer);
+      this.pauseTimer = null;
+    }
+
+    const cleaned = cleanForSpeech(options.text) || options.text;
+    const directed = directVietnameseSpeech(cleaned);
+    const normalized = normalizeVietnameseSpeech(directed.speechText);
+    const token = ++this.sequence;
+    const rate = Math.max(0.76, Math.min(1.12, options.rate * 0.94));
+    const cueInstructions = `${directed.instructions} Đây chỉ là một backchannel rất ngắn trong lúc đang suy nghĩ. Nói nhỏ, tự nhiên, không diễn, không kéo dài âm và không biến nó thành một câu trả lời hoàn chỉnh.`;
+
+    tts.speak({
+      text: normalized,
+      lang: options.lang,
+      rate,
+      voiceURI: options.voiceURI,
+      instructions: cueInstructions,
+      onEnd: () => {
+        if (token !== this.sequence || !options.isActive()) return;
+        options.onDone?.();
+      },
+      onError: () => {
+        if (token !== this.sequence) return;
+        options.onDone?.();
+      },
+    });
   }
 
   play(options: SpeechQueuePlayOptions): void {
