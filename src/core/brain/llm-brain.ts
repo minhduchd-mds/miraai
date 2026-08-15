@@ -1,13 +1,13 @@
 import type { Brain, BrainReply, BrainTurn } from '../types';
+import { responseTimeoutMs, responseTokenBudget, voicePrefs } from '../voice-prefs';
 import { buildSystem, parseMood, buildTurns } from './prompt';
 
 // Claude có web_search tool → thêm hướng dẫn tìm web vào system (Gemini không có nên prompt.ts không kèm).
 const WEB_SEARCH_NOTE =
   '\n- Khi câu hỏi cần thông tin mới/thời sự (tin tức, giá cả, thời tiết, sự kiện…), hãy TÌM KIẾM web rồi ' +
-  'trả lời ngắn gọn bằng thông tin tìm được. KHÔNG đọc URL/đường link; nói tự nhiên như đang kể cho người nghe.';
+  'trả lời với độ dài theo preset hội thoại hiện tại. KHÔNG đọc URL/đường link; nói tự nhiên như đang kể cho người nghe.';
 
 // "Bộ não" thật qua LLM. CHỈ dùng dev cục bộ — gọi trực tiếp từ browser sẽ lộ key.
-// Production: chuyển sang server/edge proxy (§12).
 export class LLMBrain implements Brain {
   readonly name: string;
 
@@ -18,9 +18,7 @@ export class LLMBrain implements Brain {
     private webSearch = true,
   ) {
     this.name = `LLM · ${provider} · ${model}${webSearch && provider === 'anthropic' ? ' · 🔎' : ''}`;
-    console.warn(
-      '[Mira] LLMBrain gọi LLM trực tiếp từ browser — API key bị lộ. Chỉ dùng cho dev cục bộ.',
-    );
+    console.warn('[Mira] LLMBrain gọi LLM trực tiếp từ browser — API key bị lộ. Chỉ dùng cho dev cục bộ.');
   }
 
   async reply(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply> {
@@ -43,6 +41,7 @@ export class LLMBrain implements Brain {
   }
 
   private async anthropic(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply> {
+    const budget = responseTokenBudget(voicePrefs.responseLength);
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -53,20 +52,15 @@ export class LLMBrain implements Brain {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: this.webSearch ? 500 : 300,
+        max_tokens: budget,
         system: buildSystem(memory) + (this.webSearch ? WEB_SEARCH_NOTE : ''),
         messages: buildTurns(input, history),
-        // Web search tool (server-side): Claude tự quyết khi nào tìm — chỉ search khi cần thông tin mới.
-        ...(this.webSearch
-          ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] }
-          : {}),
+        ...(this.webSearch ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] } : {}),
       }),
-      signal: AbortSignal.timeout(25_000), // mạng treo → reject sau 25s thay vì kẹt 'thinking' mãi
+      signal: AbortSignal.timeout(responseTimeoutMs(voicePrefs.responseLength)),
     });
     if (!res.ok) await this.readError(res, 'Anthropic');
     const data = await res.json();
-    // Khi có web search, content gồm nhiều block (server_tool_use, web_search_tool_result, text…)
-    // → gộp mọi block 'text' để lấy câu trả lời cuối.
     const text = ((data?.content as any[]) || [])
       .filter((b) => b?.type === 'text' && typeof b.text === 'string')
       .map((b) => b.text)
@@ -85,10 +79,10 @@ export class LLMBrain implements Brain {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 300,
+        max_tokens: responseTokenBudget(voicePrefs.responseLength),
         messages: [{ role: 'system', content: buildSystem(memory) }, ...buildTurns(input, history)],
       }),
-      signal: AbortSignal.timeout(25_000), // mạng treo → reject sau 25s thay vì kẹt 'thinking' mãi
+      signal: AbortSignal.timeout(responseTimeoutMs(voicePrefs.responseLength)),
     });
     if (!res.ok) await this.readError(res, 'OpenAI');
     const data = await res.json();

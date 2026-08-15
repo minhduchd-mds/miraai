@@ -1,4 +1,5 @@
 import type { Brain, BrainReply, BrainTurn } from '../types';
+import { voicePrefs, responseTimeoutMs } from '../voice-prefs';
 import { buildSystem, parseMood, buildTurns } from './prompt';
 import { CannedBrain } from './canned-brain';
 
@@ -18,8 +19,8 @@ export class GeminiBrain implements Brain {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ system, messages }),
-        signal: AbortSignal.timeout(25_000),
+        body: JSON.stringify({ system, messages, responseLength: voicePrefs.responseLength }),
+        signal: AbortSignal.timeout(responseTimeoutMs(voicePrefs.responseLength)),
       });
       if (!response.ok) throw new Error(`/api/chat ${response.status}`);
       const json = await response.json();

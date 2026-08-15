@@ -6,10 +6,7 @@ import ts from 'typescript';
 async function importTypeScript(path) {
   const source = readFileSync(path, 'utf8');
   const output = ts.transpileModule(source, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ES2022,
-    },
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
     fileName: path,
   }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
@@ -17,17 +14,14 @@ async function importTypeScript(path) {
 
 const machine = await importTypeScript('src/runtime/conversation-machine.ts');
 const speech = await importTypeScript('src/runtime/speech-utils.ts');
+const voice = await importTypeScript('src/core/voice-prefs.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
-  state = machine.transition(state, 'MIC_START');
-  assert.equal(state, 'listening');
-  state = machine.transition(state, 'STT_FINAL');
-  assert.equal(state, 'thinking');
-  state = machine.transition(state, 'SPEAK');
-  assert.equal(state, 'speaking');
-  state = machine.transition(state, 'TTS_DONE');
-  assert.equal(state, 'idle');
+  state = machine.transition(state, 'MIC_START'); assert.equal(state, 'listening');
+  state = machine.transition(state, 'STT_FINAL'); assert.equal(state, 'thinking');
+  state = machine.transition(state, 'SPEAK'); assert.equal(state, 'speaking');
+  state = machine.transition(state, 'TTS_DONE'); assert.equal(state, 'idle');
 });
 
 test('text input enters the same thinking/speaking pipeline', () => {
@@ -36,9 +30,7 @@ test('text input enters the same thinking/speaking pipeline', () => {
 });
 
 test('barge-in is deterministic from listening/thinking/speaking and resumes listening', () => {
-  for (const state of ['listening', 'thinking', 'speaking']) {
-    assert.equal(machine.transition(state, 'INTERRUPT'), 'interrupted');
-  }
+  for (const state of ['listening', 'thinking', 'speaking']) assert.equal(machine.transition(state, 'INTERRUPT'), 'interrupted');
   assert.equal(machine.transition('interrupted', 'MIC_START'), 'listening');
 });
 
@@ -55,10 +47,7 @@ test('canTransition reflects the declared state graph', () => {
 });
 
 test('speech cleanup removes markdown links, formatting and emoji', () => {
-  assert.equal(
-    speech.cleanForSpeech('**Mira** xem [báo cáo](https://example.com) nhé 😊'),
-    'Mira xem báo cáo nhé',
-  );
+  assert.equal(speech.cleanForSpeech('**Mira** xem [báo cáo](https://example.com) nhé 😊'), 'Mira xem báo cáo nhé');
 });
 
 test('speech chunking emits the first sentence early and preserves content', () => {
@@ -67,4 +56,19 @@ test('speech chunking emits the first sentence early and preserves content', () 
   assert.ok(chunks.length >= 2);
   assert.match(chunks[0], /^Câu đầu tiên/);
   assert.equal(chunks.join(' ').replace(/\s+/g, ' ').trim(), input);
+});
+
+test('adaptive response presets expand token and timeout budgets monotonically', () => {
+  const modes = ['short', 'auto', 'detailed', 'deep'];
+  const budgets = modes.map((mode) => voice.responseTokenBudget(mode));
+  const timeouts = modes.map((mode) => voice.responseTimeoutMs(mode));
+  assert.deepEqual([...budgets].sort((a, b) => a - b), budgets);
+  assert.deepEqual([...timeouts].sort((a, b) => a - b), timeouts);
+  assert.ok(budgets[3] > budgets[0] * 4);
+});
+
+test('auto/deep response policies explicitly allow long spoken explanations', () => {
+  assert.match(voice.responseLengthInstruction('auto'), /10–20 câu/);
+  assert.match(voice.responseLengthInstruction('deep'), /14–28 câu/);
+  assert.match(voice.responseLengthInstruction('auto'), /nói kỹ hơn/);
 });
