@@ -97,12 +97,28 @@ for (const token of ['hm-memory-constellation', 'hm-memory-thread-flow', 'state-
 }
 
 const speechQueue = readFileSync('src/runtime/speech-queue.ts', 'utf8');
-for (const token of ['directVietnameseSpeech', 'semanticPauseMs', 'normalizeVietnameseSpeech', 'directed.instructions', 'rateMultiplier']) {
-  if (!speechQueue.includes(token)) failures.push(`Vietnamese speech queue direction missing: ${token}`);
+for (const token of ['planVietnameseTurn', 'turnSegmentPauseMs', 'semanticPauseMs', 'normalizeVietnameseSpeech', 'chunk.segment.instructions', 'segment.rateMultiplier', 'PlannedChunk']) {
+  if (!speechQueue.includes(token)) failures.push(`Vietnamese turn-level speech queue direction missing: ${token}`);
 }
 
 const speechDirector = readFileSync('src/core/tts/vi-speech-director.ts', 'utf8');
-for (const token of ['SpeechPerformance', 'directVietnameseSpeech', 'semanticPauseMs', 'hội thoại tự nhiên', "'focused'", "'serious'", "'excited'", "'quiet'"]) {
+for (const token of [
+  'SpeechPerformance',
+  'SpeechTurnRole',
+  'DirectedSpeechSegment',
+  'directVietnameseSpeech',
+  'planVietnameseTurn',
+  'turnSegmentPauseMs',
+  'ROLE_GUIDANCE',
+  "'opening'",
+  "'explanation'",
+  "'contrast'",
+  "'emphasis'",
+  "'warning'",
+  "'conclusion'",
+  "'question'",
+  'hội thoại tự nhiên',
+]) {
   if (!speechDirector.includes(token)) failures.push(`Vietnamese speech director missing: ${token}`);
 }
 
