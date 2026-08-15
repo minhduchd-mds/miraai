@@ -1,16 +1,9 @@
-import type { MiraState } from './types';
-
-// Port từ §9 của MIRA-KIEN-TRUC.md, có bổ sung trạng thái 'error'
-// (đề xuất #6 — state machine không chỉ có happy-path).
-export const transitions: Record<MiraState, MiraState[]> = {
-  idle: ['listening', 'error'],
-  listening: ['thinking', 'idle', 'error'],
-  thinking: ['speaking', 'idle', 'error'],
-  speaking: ['interrupted', 'listening', 'idle', 'error'],
-  interrupted: ['listening', 'idle'],
-  error: ['idle', 'listening'],
-};
-
-export function canTransition(from: MiraState, to: MiraState): boolean {
-  return from === to || transitions[from]?.includes(to) || false;
-}
+// Backward-compatible export. Runtime ownership now lives in src/runtime/conversation-machine.ts
+// so the state machine is no longer coupled to the legacy core folder.
+export {
+  transitions,
+  transition,
+  canTransition,
+  assertTransition,
+  type ConversationEvent,
+} from '../runtime/conversation-machine';
