@@ -1,5 +1,3 @@
-// ── Kiểu dữ liệu lõi cho engine Mira (không phụ thuộc UI) ──
-
 export type MiraState =
   | 'idle'
   | 'listening'
@@ -17,18 +15,15 @@ export interface STTResult {
 
 export interface STTStartOptions {
   lang: string;
-  /** Giữ session nghe LIÊN TỤC qua các quãng ngắt để endpointer tự quyết điểm kết lượt
-   *  (smart turn-taking). false = 1 lượt/lần, Web Speech tự kết theo im lặng (hành vi cũ). */
   continuous?: boolean;
-  onResult: (r: STTResult) => void;
+  onResult: (result: STTResult) => void;
   onError: (error: string) => void;
   onEnd: () => void;
 }
 
-/** Adapter STT — đổi provider (Web Speech → Viettel/FPT/Whisper) chỉ cần thay lớp này. */
 export interface STTAdapter {
   readonly available: boolean;
-  start(opts: STTStartOptions): void;
+  start(options: STTStartOptions): void;
   stop(): void;
   abort(): void;
 }
@@ -51,19 +46,27 @@ export interface VoiceOption {
   lang: string;
 }
 
-/** Adapter TTS — đổi provider (Web Speech → Vbee/Viettel/ElevenLabs) chỉ cần thay lớp này. */
 export interface TTSAdapter {
   readonly available: boolean;
-  speak(opts: TTSSpeakOptions): void;
+  speak(options: TTSSpeakOptions): void;
   cancel(): void;
   listVoices(langPrefix?: string): VoiceOption[];
 }
 
 export type Mood = 'neutral' | 'happy' | 'curious' | 'thinking' | 'surprised';
 
+export interface BrainToolCall {
+  skillId: string;
+  /** Natural-language input is intentional in V2; individual skills own structured parsing. */
+  input: string;
+  reason?: string;
+}
+
 export interface BrainReply {
   text: string;
   mood?: Mood;
+  intent?: string;
+  toolCalls?: BrainToolCall[];
 }
 
 export interface BrainTurn {
@@ -71,9 +74,8 @@ export interface BrainTurn {
   text: string;
 }
 
-/** "Bộ não" — đổi từ canned demo sang Claude/GPT chỉ cần thay lớp này.
- *  memory: ký ức ngữ nghĩa truy hồi được (RAG) để chèn vào ngữ cảnh — tuỳ chọn, brain có thể bỏ qua. */
+/** Brain adapters may ignore context/tool-call fields; the runtime keeps them backward compatible. */
 export interface Brain {
   readonly name: string;
-  reply(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply>;
+  reply(input: string, history: BrainTurn[], context?: string): Promise<BrainReply>;
 }

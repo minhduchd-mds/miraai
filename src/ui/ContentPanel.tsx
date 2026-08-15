@@ -1,20 +1,21 @@
 import { useState } from 'react';
-import type { Content } from '../core/content';
+import type { ResultView } from '../intelligence/skills/result-view';
 import { downloadImage } from '../core/content';
 import { IconClose, IconDownload } from './icons';
+import './result-surface.css';
 
-// Panel trực quan cạnh avatar: thẻ thời tiết hoặc ảnh (có nút tải về). Đóng → avatar về giữa.
 interface Props {
-  content: Content;
+  content: ResultView;
   onClose: () => void;
 }
 
+/** Generic Result Surface: skills choose a view model; UI owns the presentation. */
 export default function ContentPanel({ content, onClose }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <aside className="content-panel" aria-live="polite">
-      <button className="cp-close" onClick={onClose} aria-label="Đóng">
+    <aside className="content-panel" aria-live="polite" aria-label="Kết quả từ Mira">
+      <button className="cp-close" onClick={onClose} aria-label="Đóng kết quả">
         <IconClose />
       </button>
 
@@ -44,6 +45,22 @@ export default function ContentPanel({ content, onClose }: Props) {
           >
             <IconDownload /> Tải về máy
           </button>
+        </div>
+      )}
+
+      {content.kind === 'card' && (
+        <article className="result-card">
+          {content.data.eyebrow && <small>{content.data.eyebrow}</small>}
+          <h3>{content.data.title}</h3>
+          {content.data.body && <p>{content.data.body}</p>}
+          {!!content.data.meta?.length && <div className="result-meta">{content.data.meta.map((item) => <span key={item}>{item}</span>)}</div>}
+        </article>
+      )}
+
+      {content.kind === 'list' && (
+        <div className="result-list">
+          <h3>{content.data.title}</h3>
+          <ul>{content.data.items.map((item, index) => <li key={`${item.title}-${index}`}><b>{item.title}</b>{item.subtitle && <span>{item.subtitle}</span>}</li>)}</ul>
         </div>
       )}
     </aside>

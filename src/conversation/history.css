@@ -1,0 +1,16 @@
+.history-backdrop { position: fixed; inset: 0; z-index: 110; display: flex; justify-content: flex-end; background: rgba(3,7,13,.38); backdrop-filter: blur(6px); }
+.history-sheet { width: min(420px, 92vw); height: 100%; display: grid; grid-template-rows: auto minmax(0,1fr); border-left: 1px solid var(--stroke); background: color-mix(in srgb, var(--bg2) 97%, #080b10); box-shadow: -24px 0 70px rgba(0,0,0,.35); }
+.history-sheet header { padding: max(20px, env(safe-area-inset-top)) 20px 14px; display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid var(--stroke); }
+.history-sheet header small { color: var(--accent); font: 700 9px/1 'JetBrains Mono', monospace; letter-spacing: 1.2px; }
+.history-sheet h2 { margin: 6px 0 0; font-size: 21px; }
+.history-sheet header button { width: 36px; height: 36px; border: 1px solid var(--stroke); border-radius: 11px; background: var(--glass); color: var(--dim); font-size: 22px; cursor: pointer; }
+.history-turns { min-height: 0; overflow-y: auto; padding: 16px 18px max(18px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 9px; }
+.history-turn { max-width: 88%; padding: 10px 12px; border: 1px solid var(--stroke); border-radius: 15px; background: var(--glass); }
+.history-turn.user { align-self: flex-end; border-color: color-mix(in srgb, var(--accent) 28%, var(--stroke)); background: color-mix(in srgb, var(--accent) 7%, var(--glass)); }
+.history-turn.mira { align-self: flex-start; }
+.history-turn span { color: var(--faint); font: 700 8.5px/1 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: .8px; }
+.history-turn p { margin: 5px 0 0; color: var(--text); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.history-empty { margin: auto; color: var(--faint); font-size: 12px; }
+.v2-history-trigger { border: 0; padding: 0; background: transparent; color: var(--faint); font: inherit; cursor: pointer; }
+.v2-history-trigger:hover { color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .history-backdrop, .history-sheet { scroll-behavior: auto; } }

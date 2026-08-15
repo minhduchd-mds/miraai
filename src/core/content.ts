@@ -1,19 +1,9 @@
-// Nội dung trực quan hiện cạnh avatar: THỜI TIẾT (Open-Meteo) + ẢNH (Pollinations). Đều FREE, KHÔNG cần key.
+import type { ResultView, WeatherData } from '../intelligence/skills/result-view';
 
-export interface WeatherData {
-  city: string;
-  temp: number;
-  desc: string;
-  emoji: string;
-  wind: number;
-  humidity: number;
-}
+// Compatibility exports: old UI/runtime callers can keep using Content/WeatherData while
+// new skills depend on intelligence/skills/result-view.ts as the canonical view contract.
+export type { ResultView as Content, WeatherData } from '../intelligence/skills/result-view';
 
-export type Content =
-  | { kind: 'weather'; data: WeatherData }
-  | { kind: 'image'; data: { prompt: string; url: string } };
-
-// Mã thời tiết WMO (Open-Meteo) → mô tả tiếng Việt + emoji.
 const WMO: Record<number, [string, string]> = {
   0: ['Trời quang', '☀️'], 1: ['Ít mây', '🌤️'], 2: ['Có mây', '⛅'], 3: ['Nhiều mây', '☁️'],
   45: ['Sương mù', '🌫️'], 48: ['Sương mù', '🌫️'],
@@ -33,25 +23,25 @@ const VN_CITIES = [
 export async function fetchWeather(city: string): Promise<WeatherData | null> {
   try {
     const q = city === 'Sài Gòn' ? 'Ho Chi Minh' : city;
-    const g = await fetch(
+    const geo = await fetch(
       `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=vi`,
-    ).then((r) => r.json());
-    const loc = g?.results?.[0];
-    if (!loc) return null;
-    const f = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
+    ).then((response) => response.json());
+    const location = geo?.results?.[0];
+    if (!location) return null;
+    const forecast = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}` +
         `&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m`,
-    ).then((r) => r.json());
-    const c = f?.current;
-    if (!c) return null;
-    const [desc, emoji] = WMO[c.weather_code as number] || ['—', '🌡️'];
+    ).then((response) => response.json());
+    const current = forecast?.current;
+    if (!current) return null;
+    const [desc, emoji] = WMO[current.weather_code as number] || ['—', '🌡️'];
     return {
-      city: loc.name,
-      temp: Math.round(c.temperature_2m),
+      city: location.name,
+      temp: Math.round(current.temperature_2m),
       desc,
       emoji,
-      wind: Math.round(c.wind_speed_10m),
-      humidity: Math.round(c.relative_humidity_2m),
+      wind: Math.round(current.wind_speed_10m),
+      humidity: Math.round(current.relative_humidity_2m),
     };
   } catch {
     return null;
@@ -65,36 +55,40 @@ export function pollinationsImage(prompt: string): string {
 
 export async function downloadImage(url: string, name = 'mira-image.jpg'): Promise<void> {
   try {
-    const blob = await fetch(url).then((r) => r.blob());
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    const blob = await fetch(url).then((response) => response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = URL.createObjectURL(blob);
+    anchor.download = name;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(anchor.href), 4000);
   } catch {
-    window.open(url, '_blank'); // CORS chặn tải → mở tab cho người dùng tự lưu
+    window.open(url, '_blank');
   }
 }
 
-// Nhận diện ý định từ câu người dùng (phía app, v1). Không khớp → null (chỉ trả lời bằng giọng).
+// Lightweight deterministic matcher for built-in visual skills. Future host/tools may also be invoked
+// through BrainReply.toolCalls without adding more logic to useMira.
 export function detectContent(
   text: string,
 ): { kind: 'weather'; city: string } | { kind: 'image'; prompt: string } | null {
-  const t = text.toLowerCase();
-  if (/thời tiết|thoi tiet|weather|nhiệt độ|trời (mưa|nắng|nóng|lạnh)/.test(t)) {
-    const found = VN_CITIES.find((c) => t.includes(c.toLowerCase()));
+  const normalized = text.toLowerCase();
+  if (/thời tiết|thoi tiet|weather|nhiệt độ|trời (mưa|nắng|nóng|lạnh)/.test(normalized)) {
+    const found = VN_CITIES.find((city) => normalized.includes(city.toLowerCase()));
     let city = found || '';
     if (!city) {
-      const m = text.match(/(?:ở|tại|in|at)\s+([\p{Lu}][\p{L}\s]{1,24})/u);
-      city = (m?.[1] || '').trim();
+      const match = text.match(/(?:ở|tại|in|at)\s+([\p{Lu}][\p{L}\s]{1,24})/u);
+      city = (match?.[1] || '').trim();
     }
     return { kind: 'weather', city: city || 'Hà Nội' };
   }
-  if (/(vẽ|tạo|tìm|cho.*(xem|coi)|hiện|show).*(ảnh|hình|tranh|image|picture)|(bức ảnh|tấm hình|tấm ảnh)/.test(t)) {
-    const m = text.match(/(?:bức ảnh|tấm hình|tấm ảnh|ảnh|hình|tranh|về|của|vẽ)\s+(.{2,60})/iu);
-    let prompt = (m?.[1] || text).trim();
+  if (/(vẽ|tạo|tìm|cho.*(xem|coi)|hiện|show).*(ảnh|hình|tranh|image|picture)|(bức ảnh|tấm hình|tấm ảnh)/.test(normalized)) {
+    const match = text.match(/(?:bức ảnh|tấm hình|tấm ảnh|ảnh|hình|tranh|về|của|vẽ)\s+(.{2,60})/iu);
+    let prompt = (match?.[1] || text).trim();
     prompt = prompt.replace(/\b(giúp|cho|em|anh|với|nhé|đi|ạ|nha)\b/giu, ' ').replace(/\s+/g, ' ').trim();
     return { kind: 'image', prompt: prompt || text };
   }
   return null;
 }
+
+// Keep the type referenced in this compatibility module so TS verifies the canonical contract.
+export type VisualResult = ResultView;

@@ -26,15 +26,24 @@ export class TurnManager {
     const started = now();
     const hostPromise = Promise.resolve(this.host.getContext());
 
-    // Visual/tool skills run in parallel and never block the conversational answer.
+    // Fast deterministic skills can render in parallel and never block the spoken response.
     void hostPromise
       .then((host) => this.skills.execute(input, { locale: host.locale || 'vi-VN', host }))
       .then((result) => result && onSkill?.(result))
       .catch((error) => console.warn('[Mira Skill] execution failed', error));
 
     const [memory, host] = await Promise.all([this.memory.recall(input), hostPromise]);
-    const context = assembleBrainContext(memory, host, this.skills.list().map((skill) => skill.id));
+    const context = assembleBrainContext(memory, host, this.skills.describe());
     const reply = await this.getBrain().reply(input, prior, context);
+
+    // Structured Brain adapters/host agents can request explicit skills. Read-only skills execute directly;
+    // write/sensitive skills remain blocked until the interaction layer supplies approval in SkillContext.
+    for (const call of reply.toolCalls || []) {
+      void this.skills
+        .executeById(call.skillId, call.input || input, { locale: host.locale || 'vi-VN', host })
+        .then((result) => result && onSkill?.(result))
+        .catch((error) => console.warn(`[Mira ToolCall] ${call.skillId} failed`, error));
+    }
 
     this.memory.distill(`Người dùng: ${input}\nMira: ${reply.text}`);
     return { reply, latencyMs: Math.round(now() - started) };
