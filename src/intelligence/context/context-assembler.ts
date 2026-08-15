@@ -1,4 +1,5 @@
 import type { HostContext } from '../../host';
+import { ownerIdentityContext } from '../identity/owner-profile';
 
 export function assembleBrainContext(
   memory: string,
@@ -6,7 +7,7 @@ export function assembleBrainContext(
   skills: string[],
   hostActions: string[] = [],
 ): string {
-  const sections: string[] = [];
+  const sections: string[] = [ownerIdentityContext()];
   if (memory.trim()) sections.push(memory.trim());
 
   const hostLines = [

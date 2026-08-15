@@ -4,16 +4,19 @@ const failures = [];
 const mustExist = [
   'src/app/AppV2.tsx',
   'src/voice/VoiceOrb.tsx',
+  'src/voice/voice-orb.css',
   'src/core/audio-level.ts',
   'src/settings/SettingsPanel.tsx',
   'src/runtime/conversation-machine.ts',
   'src/runtime/speech-queue.ts',
   'src/runtime/turn-manager.ts',
+  'src/intelligence/identity/owner-profile.ts',
   'src/intelligence/skills/registry.ts',
   'src/intelligence/memory/memory-service.ts',
   'src/host/index.ts',
   'src/core/useMira.ts',
   'src/ui/v2.css',
+  'api/tts.js',
 ];
 
 for (const path of mustExist) {
@@ -36,13 +39,23 @@ for (const token of ['VoiceOrb', 'SettingsPanel']) {
 if (v2.includes('sendText')) failures.push('orb-only production surface must not expose text composer flow');
 
 const orb = readFileSync('src/voice/VoiceOrb.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame']) {
+for (const token of ['audioLevel', 'requestAnimationFrame', '--voice-energy']) {
   if (!orb.includes(token)) failures.push(`VoiceOrb missing reactive audio behavior: ${token}`);
 }
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
 for (const token of ['TurnManager', 'SpeechQueue', 'createDefaultSkillRegistry']) {
   if (!runtime.includes(token)) failures.push(`useMira runtime boundary missing: ${token}`);
+}
+
+const turnManager = readFileSync('src/runtime/turn-manager.ts', 'utf8');
+if (!turnManager.includes('ownerIdentityReply')) failures.push('TurnManager must preserve deterministic Mira owner identity');
+const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8');
+if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
+
+const tts = readFileSync('api/tts.js', 'utf8');
+for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs']) {
+  if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 
 const brain = readFileSync('src/core/brain/index.ts', 'utf8');

@@ -1,6 +1,7 @@
 import type { Brain, BrainReply, BrainTurn } from '../core/types';
 import type { HostActionDescriptor, HostActionResult, HostBridge, HostContext } from '../host';
 import { assembleBrainContext } from '../intelligence/context/context-assembler';
+import { ownerIdentityReply } from '../intelligence/identity/owner-profile';
 import { MemoryService } from '../intelligence/memory/memory-service';
 import type { SkillRegistry, SkillResult } from '../intelligence/skills';
 
@@ -73,6 +74,16 @@ export class TurnManager {
 
   async run(input: string, prior: BrainTurn[], onSkill?: (result: SkillResult) => void): Promise<TurnResult> {
     const started = now();
+
+    // Product identity is deterministic and must not depend on provider memory/history.
+    const identity = ownerIdentityReply(input);
+    if (identity) {
+      return {
+        reply: { text: identity, mood: 'happy' },
+        latencyMs: Math.round(now() - started),
+      };
+    }
+
     const hostPromise = Promise.resolve(this.host.getContext());
     const hostActionsPromise = this.listHostActions();
 

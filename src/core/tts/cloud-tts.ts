@@ -1,16 +1,15 @@
 import { ServerTTS } from './server-tts';
 import { WebSpeechTTS } from './webspeech-tts';
 
-// Engine MẶC ĐỊNH: ElevenLabs qua Vercel serverless (/api/tts) — key nằm phía server (elevenlabs_api_key),
-// KHÔNG lộ ra browser. Danh sách giọng lấy từ /api/voices. Server không tới được (vd dev cục bộ không chạy
-// `vercel dev`, hoặc thiếu key) → tự fallback sang giọng hệ thống (Web Speech) để không bao giờ câm.
+// Production neural voice gateway. /api/tts prefers OpenAI natural speech, then ElevenLabs.
+// If neither provider is reachable, ServerTTS falls back to the browser's vi-VN Web Speech voice.
 export class CloudTTS extends ServerTTS {
   constructor() {
     super({
       serverUrl: '/api',
-      label: 'Mira',
-      fallbackVoice: { name: 'Sarah', voiceURI: 'EXAVITQu4vr4xnSDxMaL', lang: 'vi-VN' },
-      sampleText: 'Xin chào anh, em là Mira. Đây là giọng nói của em ạ.',
+      label: 'Mira Neural',
+      fallbackVoice: { name: 'Mira Natural · Tự động', voiceURI: 'auto', lang: 'vi-VN' },
+      sampleText: 'Em nghe anh. Giọng này được tối ưu để nói tự nhiên và gần với hội thoại hơn.',
       fallback: new WebSpeechTTS(),
     });
   }
