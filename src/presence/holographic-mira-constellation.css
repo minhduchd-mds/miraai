@@ -1,0 +1,234 @@
+.hm-memory-constellation {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: screen;
+}
+
+.hm-constellation {
+  position: absolute;
+  width: min(210px, 16vw);
+  height: min(150px, 12vw);
+  opacity: .16;
+  transform: translate3d(calc(var(--hm-pointer-x) * -.08), calc(var(--hm-pointer-y) * -.08), 0) scale(.96);
+  transform-origin: center;
+  transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease;
+  filter: saturate(.78) brightness(.82);
+}
+
+.hm-constellation.is-active {
+  opacity: calc(.38 + var(--mc-score) * .48);
+  filter: saturate(calc(1 + var(--mc-score) * .3)) brightness(calc(1.05 + var(--mc-score) * .35));
+  transform: translate3d(calc(var(--hm-pointer-x) * -.05), calc(var(--hm-pointer-y) * -.05), 0) scale(calc(.98 + var(--mc-score) * .06));
+}
+
+.hm-constellation-lines,
+.hm-constellation-stars {
+  position: absolute;
+  inset: 0;
+}
+
+.hm-constellation-lines i {
+  position: absolute;
+  height: 1px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(151,174,255,.06), rgba(216,227,255,.32), rgba(151,174,255,.06));
+  opacity: .26;
+  box-shadow: 0 0 6px rgba(120,145,255,.12);
+}
+
+.hm-constellation.is-active .hm-constellation-lines i {
+  opacity: calc(.38 + var(--mc-score) * .36);
+  background: linear-gradient(90deg, rgba(153,181,255,.16), rgba(239,245,255,.78), rgba(156,126,255,.18));
+  box-shadow: 0 0 8px rgba(135,161,255,.28), 0 0 18px rgba(111,85,255,.09);
+  animation: hm-memory-line-pulse 2.8s ease-in-out infinite;
+}
+
+.hm-constellation-stars i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(219,229,255,.85);
+  box-shadow: 0 0 6px rgba(195,211,255,.62), 0 0 14px rgba(112,143,255,.22);
+  opacity: .58;
+}
+
+.hm-constellation-stars i.major {
+  width: 4px;
+  height: 4px;
+  background: #f7f9ff;
+  box-shadow: 0 0 8px rgba(255,255,255,.9), 0 0 20px rgba(137,168,255,.52), 0 0 38px rgba(116,91,255,.16);
+}
+
+.hm-constellation.is-active .hm-constellation-stars i {
+  opacity: calc(.68 + var(--mc-score) * .32);
+  animation: hm-memory-star-pulse 2.4s ease-in-out infinite;
+}
+
+.hm-constellation.is-active .hm-constellation-stars i:nth-child(2n) { animation-delay: -.7s; }
+.hm-constellation.is-active .hm-constellation-stars i:nth-child(3n) { animation-delay: -1.35s; }
+.hm-constellation.is-active .hm-constellation-stars i:nth-child(5n) { animation-delay: -1.9s; }
+
+.hm-constellation-label {
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  transform: translateX(-50%) translateY(4px);
+  white-space: nowrap;
+  font-size: clamp(8px, .68vw, 11px);
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(210,221,255,.45);
+  opacity: .18;
+  text-shadow: 0 0 14px rgba(110,138,255,.28);
+  transition: opacity 360ms ease, transform 360ms ease, color 360ms ease;
+}
+
+.hm-constellation.is-active .hm-constellation-label {
+  opacity: calc(.48 + var(--mc-score) * .36);
+  transform: translateX(-50%) translateY(0);
+  color: rgba(236,242,255,.86);
+}
+
+.hm-constellation-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 80%;
+  height: 70%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(ellipse, rgba(118,145,255,.12), rgba(127,83,255,.04) 38%, transparent 72%);
+  filter: blur(14px);
+}
+
+.hm-constellation.is-active .hm-constellation-core {
+  opacity: calc(.12 + var(--mc-score) * .28);
+  animation: hm-memory-core-breathe 3.6s ease-in-out infinite;
+}
+
+.hm-memory-threads {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+
+.hm-memory-constellation.has-active-memory .hm-memory-threads {
+  opacity: .5;
+}
+
+.hm-memory-threads i {
+  position: absolute;
+  height: 1px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, transparent, rgba(161,184,255,.18), rgba(223,230,255,.28), rgba(141,108,255,.16), transparent);
+  filter: drop-shadow(0 0 8px rgba(126,151,255,.15));
+  animation: hm-memory-thread-flow 3.4s ease-in-out infinite;
+}
+
+.hm-memory-constellation.state-thinking .hm-constellation.is-active .hm-constellation-lines i {
+  animation-duration: 1.5s;
+}
+
+.hm-memory-constellation.state-thinking .hm-memory-threads i {
+  animation-duration: 1.8s;
+  opacity: .78;
+}
+
+.hm-memory-constellation.state-speaking .hm-constellation.is-active {
+  filter: saturate(calc(1.06 + var(--mc-score) * .38)) brightness(calc(1.14 + var(--mc-score) * .42));
+}
+
+.hm-memory-constellation.state-speaking .hm-constellation.is-active .hm-constellation-stars i {
+  box-shadow: 0 0 8px rgba(255,255,255,.92), 0 0 22px rgba(129,161,255,.58), 0 0 44px rgba(117,86,255,.18);
+}
+
+.hm-memory-constellation.state-listening .hm-constellation.is-active {
+  opacity: calc(.46 + var(--mc-score) * .44);
+}
+
+.constellation-owner { animation: hm-constellation-drift-a 10s ease-in-out infinite alternate; }
+.constellation-mira { animation: hm-constellation-drift-b 12s ease-in-out infinite alternate; }
+.constellation-soi { animation: hm-constellation-drift-c 13s ease-in-out infinite alternate; }
+.constellation-design { animation: hm-constellation-drift-a 14s ease-in-out infinite alternate-reverse; }
+.constellation-voice { animation: hm-constellation-drift-b 11s ease-in-out infinite alternate-reverse; }
+.constellation-memory { animation: hm-constellation-drift-c 15s ease-in-out infinite alternate-reverse; }
+
+@keyframes hm-memory-line-pulse {
+  0%,100% { opacity: .28; filter: brightness(.9); }
+  50% { opacity: .92; filter: brightness(1.35); }
+}
+
+@keyframes hm-memory-star-pulse {
+  0%,100% { filter: brightness(.88); }
+  50% { filter: brightness(1.55); }
+}
+
+@keyframes hm-memory-core-breathe {
+  0%,100% { transform: translate(-50%, -50%) scale(.92); }
+  50% { transform: translate(-50%, -50%) scale(1.12); }
+}
+
+@keyframes hm-memory-thread-flow {
+  0%,100% { opacity: .18; filter: brightness(.8); }
+  50% { opacity: .72; filter: brightness(1.45); }
+}
+
+@keyframes hm-constellation-drift-a {
+  from { margin-transform: none; }
+  to { translate: 5px -4px; }
+}
+
+@keyframes hm-constellation-drift-b {
+  from { translate: 0 0; }
+  to { translate: -5px 4px; }
+}
+
+@keyframes hm-constellation-drift-c {
+  from { translate: 0 0; }
+  to { translate: 3px 6px; }
+}
+
+@media (max-width: 900px) {
+  .hm-constellation {
+    width: 24vw;
+    height: 17vw;
+  }
+  .hm-constellation-label { font-size: 8px; }
+}
+
+@media (max-width: 760px) {
+  .hm-memory-constellation { z-index: 2; }
+  .hm-constellation {
+    width: 30vw;
+    height: 22vw;
+    opacity: .10;
+  }
+  .hm-constellation.is-active { opacity: calc(.28 + var(--mc-score) * .44); }
+  .constellation-owner { left: 3% !important; top: 18% !important; }
+  .constellation-mira { left: 71% !important; top: 16% !important; }
+  .constellation-soi { left: 1% !important; top: 48% !important; }
+  .constellation-design { left: 72% !important; top: 45% !important; }
+  .constellation-voice { left: 5% !important; top: 73% !important; }
+  .constellation-memory { left: 69% !important; top: 72% !important; }
+  .hm-constellation-label { display: none; }
+  .hm-memory-threads { opacity: .24 !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-constellation,
+  .hm-constellation-lines i,
+  .hm-constellation-stars i,
+  .hm-constellation-core,
+  .hm-memory-threads i {
+    animation: none !important;
+    transition: none !important;
+    translate: none !important;
+  }
+}
