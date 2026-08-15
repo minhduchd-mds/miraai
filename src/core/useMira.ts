@@ -18,6 +18,13 @@ import {
 import { createBrain, saveLLMConfig, type LLMConfig } from './brain';
 import { transition, type ConversationEvent } from '../runtime/conversation-machine';
 import { SpeechQueue } from '../runtime/speech-queue';
+import {
+  interruptionRecoveryDelayMs,
+  planConversationTiming,
+  resumeListeningDelayMs,
+  silenceRetryDelayMs,
+  type ConversationSource,
+} from '../runtime/conversation-timing';
 import { TurnManager } from '../runtime/turn-manager';
 import { MemoryService } from '../intelligence/memory/memory-service';
 import { createDefaultSkillRegistry } from '../intelligence/skills';
@@ -25,7 +32,6 @@ import { getHostBridge } from '../host';
 
 const LANG = 'vi-VN';
 const IDLE_CAPTION = 'Chạm để nói, hoặc nhập tin nhắn cho Mira.';
-const RESTART_DELAY = 450;
 const MAX_EMPTY = 5;
 
 const DEMO_COPY: Record<MiraState, { who: string; txt: string }> = {
@@ -111,12 +117,28 @@ export function useMira() {
   const startListeningRef = useRef<() => void>(() => {});
   const pendingListenRef = useRef<number | null>(null);
   const endpointTimerRef = useRef<number | null>(null);
+  const thinkingCaptionTimerRef = useRef<number | null>(null);
+  const thinkingCueTimerRef = useRef<number | null>(null);
+  const thinkingLongTimerRef = useRef<number | null>(null);
   const vadRef = useRef<SileroVAD | null>(null);
   const turnSeqRef = useRef(0);
+  const lastBrainLatencyRef = useRef<number | null>(null);
+  const recentThinkingCueRef = useRef('');
+  const interruptedTurnRef = useRef(false);
+
+  const clearThinkingSignals = useCallback(() => {
+    for (const ref of [thinkingCaptionTimerRef, thinkingCueTimerRef, thinkingLongTimerRef]) {
+      if (ref.current != null) {
+        window.clearTimeout(ref.current);
+        ref.current = null;
+      }
+    }
+  }, []);
 
   const cancelSpeech = useCallback(() => {
+    clearThinkingSignals();
     speechQueueRef.current?.cancel();
-  }, []);
+  }, [clearThinkingSignals]);
 
   const pushHistory = useCallback((turn: BrainTurn) => {
     historyRef.current = [...historyRef.current, turn].slice(-12);
@@ -157,6 +179,7 @@ export function useMira() {
       turnSeqRef.current += 1;
       if (pendingListenRef.current != null) clearTimeout(pendingListenRef.current);
       if (endpointTimerRef.current != null) clearTimeout(endpointTimerRef.current);
+      clearThinkingSignals();
       try {
         stopMicLevel();
         vadRef.current?.destroy();
@@ -166,7 +189,7 @@ export function useMira() {
         // best-effort cleanup
       }
     },
-    [],
+    [clearThinkingSignals],
   );
 
   const selectVoice = useCallback((uri: string) => {
@@ -236,22 +259,78 @@ export function useMira() {
     }, delayMs);
   }, [clearPendingListen]);
 
+  const scheduleThinkingSignals = useCallback((
+    text: string,
+    source: ConversationSource,
+    token: number,
+    wasInterrupted: boolean,
+  ) => {
+    clearThinkingSignals();
+    const plan = planConversationTiming({
+      input: text,
+      source,
+      turnIndex: token,
+      previousLatencyMs: lastBrainLatencyRef.current,
+      interrupted: wasInterrupted,
+      recentCue: recentThinkingCueRef.current,
+    });
+    const stillThinking = () => turnSeqRef.current === token && stateRef.current === 'thinking';
+
+    thinkingCaptionTimerRef.current = window.setTimeout(() => {
+      thinkingCaptionTimerRef.current = null;
+      if (!stillThinking()) return;
+      setWho('MIRA');
+      setPartial(false);
+      setCaption(plan.captionText);
+    }, plan.captionDelayMs);
+
+    if (plan.audibleCue && plan.audibleCueDelayMs != null) {
+      thinkingCueTimerRef.current = window.setTimeout(() => {
+        thinkingCueTimerRef.current = null;
+        if (!stillThinking()) return;
+        recentThinkingCueRef.current = plan.audibleCue!;
+        setWho('MIRA');
+        setPartial(false);
+        setCaption(plan.audibleCue!);
+        speechQueueRef.current?.playCue({
+          text: plan.audibleCue!,
+          lang: LANG,
+          rate: voicePrefs.rate,
+          voiceURI: voiceURIRef.current,
+          isActive: stillThinking,
+        });
+      }, plan.audibleCueDelayMs);
+    }
+
+    if (plan.longWaitCaption && plan.longWaitDelayMs != null) {
+      thinkingLongTimerRef.current = window.setTimeout(() => {
+        thinkingLongTimerRef.current = null;
+        if (!stillThinking()) return;
+        setWho('MIRA');
+        setPartial(false);
+        setCaption(plan.longWaitCaption!);
+      }, plan.longWaitDelayMs);
+    }
+  }, [clearThinkingSignals]);
+
   const goIdle = useCallback((message?: string) => {
     clearPendingListen();
     clearEndpointTimer();
+    clearThinkingSignals();
     stopMicLevel();
     setMoodBoth('neutral');
     sendEvent('RESET');
     setWho('CHẠM ĐỂ NÓI');
     setPartial(false);
     if (message) setCaption(message);
-  }, [clearEndpointTimer, clearPendingListen, sendEvent, setMoodBoth]);
+  }, [clearEndpointTimer, clearPendingListen, clearThinkingSignals, sendEvent, setMoodBoth]);
 
-  const restartListenSoon = useCallback(() => {
-    schedulePendingListen(RESTART_DELAY, () => liveRef.current);
+  const restartListenSoon = useCallback((responseText: string) => {
+    schedulePendingListen(resumeListeningDelayMs(responseText), () => liveRef.current);
   }, [schedulePendingListen]);
 
   const speak = useCallback((text: string) => {
+    clearThinkingSignals();
     sttRef.current!.abort();
     clearEndpointTimer();
     stopMicLevel();
@@ -270,7 +349,7 @@ export function useMira() {
         if (stateRef.current !== 'speaking') return;
         sendEvent('TTS_DONE');
         if (liveRef.current) {
-          restartListenSoon();
+          restartListenSoon(text);
         } else {
           setMoodBoth('neutral');
           setWho('CHẠM ĐỂ NÓI');
@@ -279,15 +358,17 @@ export function useMira() {
         }
       },
     });
-  }, [clearEndpointTimer, restartListenSoon, sendEvent, setMoodBoth]);
+  }, [clearEndpointTimer, clearThinkingSignals, restartListenSoon, sendEvent, setMoodBoth]);
 
-  const handleUtterance = useCallback(async (rawText: string, source: 'voice' | 'text' = 'voice') => {
+  const handleUtterance = useCallback(async (rawText: string, source: ConversationSource = 'voice') => {
     const text = rawText.trim();
     if (!text) return;
 
     emptyCountRef.current = 0;
     stopMicLevel();
     const token = ++turnSeqRef.current;
+    const wasInterrupted = interruptedTurnRef.current;
+    interruptedTurnRef.current = false;
     const prior = historyRef.current;
     pushHistory({ role: 'user', text });
 
@@ -297,6 +378,7 @@ export function useMira() {
     setCaption('Đang suy nghĩ…');
     setMoodBoth('thinking');
     sendEvent(source === 'voice' ? 'STT_FINAL' : 'TEXT_SUBMIT');
+    scheduleThinkingSignals(text, source, token, wasInterrupted);
 
     try {
       const result = await turnManagerRef.current!.run(text, prior, (skillResult) => {
@@ -304,11 +386,14 @@ export function useMira() {
       });
       if (turnSeqRef.current !== token || stateRef.current !== 'thinking') return;
 
+      clearThinkingSignals();
+      lastBrainLatencyRef.current = result.latencyMs;
       setLatencyMs(result.latencyMs);
       setMoodBoth(result.reply.mood || 'neutral');
       pushHistory({ role: 'mira', text: result.reply.text });
       speak(result.reply.text);
     } catch (err) {
+      clearThinkingSignals();
       if (turnSeqRef.current !== token) return;
       const message = err instanceof Error ? err.message : String(err);
       console.error('[Mira Brain] reply failed:', err);
@@ -317,7 +402,7 @@ export function useMira() {
         speak('Xin lỗi anh, bộ não của em đang trục trặc. Anh thử lại giúp em nhé.');
       }
     }
-  }, [pushHistory, sendEvent, setMoodBoth, speak]);
+  }, [clearThinkingSignals, pushHistory, scheduleThinkingSignals, sendEvent, setMoodBoth, speak]);
 
   const handleEmptyListen = useCallback(() => {
     if (!liveRef.current) {
@@ -333,9 +418,9 @@ export function useMira() {
     } else {
       setWho('MIRA');
       setCaption('Em vẫn đang nghe…');
-      restartListenSoon();
+      schedulePendingListen(silenceRetryDelayMs(emptyCountRef.current), () => liveRef.current);
     }
-  }, [cancelSpeech, goIdle, restartListenSoon, setLive]);
+  }, [cancelSpeech, goIdle, schedulePendingListen, setLive]);
 
   const startListening = useCallback(() => {
     const stt = sttRef.current!;
@@ -423,6 +508,7 @@ export function useMira() {
 
   const interrupt = useCallback(() => {
     turnSeqRef.current += 1;
+    interruptedTurnRef.current = true;
     cancelSpeech();
     sttRef.current!.abort();
     clearEndpointTimer();
@@ -431,7 +517,7 @@ export function useMira() {
     setWho('MIRA');
     setPartial(false);
     setCaption('— Được, em nghe đây.');
-    schedulePendingListen(350, () => stateRef.current === 'interrupted');
+    schedulePendingListen(interruptionRecoveryDelayMs(), () => stateRef.current === 'interrupted');
   }, [cancelSpeech, clearEndpointTimer, schedulePendingListen, sendEvent]);
 
   const startLive = useCallback(() => {
@@ -460,6 +546,7 @@ export function useMira() {
 
   const stopLive = useCallback(() => {
     turnSeqRef.current += 1;
+    interruptedTurnRef.current = false;
     setLive(false);
     vadRef.current?.pause();
     cancelSpeech();
@@ -490,6 +577,7 @@ export function useMira() {
     if (!text) return;
 
     turnSeqRef.current += 1;
+    interruptedTurnRef.current = false;
     setLive(false);
     vadRef.current?.pause();
     clearPendingListen();
@@ -501,6 +589,7 @@ export function useMira() {
 
   const demoGo = useCallback((next: MiraState, speakIt = false) => {
     turnSeqRef.current += 1;
+    interruptedTurnRef.current = false;
     setLive(false);
     clearPendingListen();
     clearEndpointTimer();
