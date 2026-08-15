@@ -4,9 +4,12 @@ const failures = [];
 const mustExist = [
   'src/app/AppV2.tsx',
   'src/presence/HolographicMira.tsx',
+  'src/presence/MemoryConstellation.tsx',
+  'src/presence/memory-constellation.ts',
   'src/presence/holographic-mira.css',
   'src/presence/holographic-mira-godmode.css',
   'src/presence/holographic-mira-life.css',
+  'src/presence/holographic-mira-constellation.css',
   'public/assets/mira-holographic.webp',
   'src/core/audio-level.ts',
   'src/settings/SettingsPanel.tsx',
@@ -36,7 +39,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['HolographicMira', 'SettingsPanel']) {
+for (const token of ['HolographicMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -50,6 +53,8 @@ for (const token of [
   '/assets/mira-holographic.webp',
   'holographic-mira-godmode.css',
   'holographic-mira-life.css',
+  'MemoryConstellation',
+  'contextText',
   'hm-god-stars',
   'hm-speaking-pulse',
   'hm-activation-flash',
@@ -70,6 +75,21 @@ for (const token of ['hm-luxury-glints', 'hm-light-rays', 'hm-crown-halo', 'hm-s
 const lifeMode = readFileSync('src/presence/holographic-mira-life.css', 'utf8');
 for (const token of ['hm-micro-expression', 'hm-eyelid', 'hm-eye-spark', 'hm-voice-gravity', 'hm-gravity-in', 'hm-gravity-out']) {
   if (!lifeMode.includes(token)) failures.push(`Mira life layer missing: ${token}`);
+}
+
+const constellationModel = readFileSync('src/presence/memory-constellation.ts', 'utf8');
+for (const token of ['CONSTELLATIONS', 'scoreConstellations', "id: 'owner'", "id: 'mira'", "id: 'soi'", "id: 'design'", "id: 'voice'", "id: 'memory'"]) {
+  if (!constellationModel.includes(token)) failures.push(`Mira constellation model missing: ${token}`);
+}
+
+const constellationView = readFileSync('src/presence/MemoryConstellation.tsx', 'utf8');
+for (const token of ['scoreConstellations', 'hm-memory-constellation', 'hm-memory-threads', 'hm-constellation-label', 'contextText']) {
+  if (!constellationView.includes(token)) failures.push(`Mira constellation view missing: ${token}`);
+}
+
+const constellationCss = readFileSync('src/presence/holographic-mira-constellation.css', 'utf8');
+for (const token of ['hm-memory-constellation', 'hm-memory-thread-flow', 'state-thinking', 'state-speaking', 'prefers-reduced-motion']) {
+  if (!constellationCss.includes(token)) failures.push(`Mira constellation CSS missing: ${token}`);
 }
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
