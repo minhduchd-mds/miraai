@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
 import ContentPanel from '../ui/ContentPanel';
@@ -17,6 +17,8 @@ const STATE_COPY: Record<MiraState, string> = {
   error: 'Cần kiểm tra',
 };
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
+const VOICE_HANDSHAKE_TEXT = 'Em nghe anh.';
+const VOICE_HANDSHAKE_TIMEOUT = 5000;
 
 function loadTheme(): Theme {
   try {
@@ -32,6 +34,11 @@ export default function AppV2() {
   const mira = useMira();
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [voiceReady, setVoiceReady] = useState(false);
+  const [voiceBooting, setVoiceBooting] = useState(false);
+  const bootPendingRef = useRef(false);
+  const bootSawSpeakingRef = useRef(false);
+  const bootTimerRef = useRef<number | null>(null);
 
   useDialogFocus(settingsOpen, '.v2-settings');
 
@@ -54,17 +61,88 @@ export default function AppV2() {
     };
   }, [mira.unlockAudio]);
 
+  const clearBootTimer = useCallback(() => {
+    if (bootTimerRef.current != null) {
+      window.clearTimeout(bootTimerRef.current);
+      bootTimerRef.current = null;
+    }
+  }, []);
+
+  const finishVoiceHandshake = useCallback(() => {
+    if (!bootPendingRef.current) return;
+    bootPendingRef.current = false;
+    bootSawSpeakingRef.current = false;
+    clearBootTimer();
+    setVoiceBooting(false);
+    setVoiceReady(true);
+    window.setTimeout(() => mira.startListening(), 80);
+  }, [clearBootTimer, mira.startListening]);
+
+  useEffect(() => {
+    if (!voiceBooting || !bootPendingRef.current) return;
+    if (mira.state === 'speaking') bootSawSpeakingRef.current = true;
+    if (mira.state === 'idle' && bootSawSpeakingRef.current) finishVoiceHandshake();
+  }, [finishVoiceHandshake, mira.state, voiceBooting]);
+
+  useEffect(() => () => clearBootTimer(), [clearBootTimer]);
+
+  const activateVoice = useCallback(() => {
+    // Must happen synchronously inside the click/Space gesture so browser audio policies are satisfied.
+    mira.unlockAudio();
+
+    if (voiceReady) {
+      mira.toggleMic();
+      return;
+    }
+
+    // Second tap during the short greeting skips it and immediately returns control to the user.
+    if (bootPendingRef.current) {
+      bootPendingRef.current = false;
+      bootSawSpeakingRef.current = false;
+      clearBootTimer();
+      setVoiceBooting(false);
+      setVoiceReady(true);
+      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') mira.interrupt();
+      else mira.startListening();
+      return;
+    }
+
+    // If another voice action is already active, do not inject the startup phrase into that turn.
+    if (mira.stateRef.current !== 'idle') {
+      setVoiceReady(true);
+      mira.toggleMic();
+      return;
+    }
+
+    bootPendingRef.current = true;
+    bootSawSpeakingRef.current = false;
+    setVoiceBooting(true);
+    mira.say(VOICE_HANDSHAKE_TEXT);
+
+    // A failed/blocked cloud audio request must never leave Mira stuck in "speaking".
+    bootTimerRef.current = window.setTimeout(() => {
+      if (!bootPendingRef.current) return;
+      bootPendingRef.current = false;
+      bootSawSpeakingRef.current = false;
+      bootTimerRef.current = null;
+      setVoiceBooting(false);
+      setVoiceReady(true);
+      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') mira.interrupt();
+      else mira.startListening();
+    }, VOICE_HANDSHAKE_TIMEOUT);
+  }, [clearBootTimer, mira.interrupt, mira.say, mira.startListening, mira.stateRef, mira.toggleMic, mira.unlockAudio, voiceReady]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (settingsOpen || event.code !== 'Space' || event.repeat) return;
       const element = event.target as HTMLElement | null;
       if (element && /^(BUTTON|SELECT|INPUT|TEXTAREA)$/.test(element.tagName)) return;
       event.preventDefault();
-      mira.toggleMic();
+      activateVoice();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [mira.toggleMic, settingsOpen]);
+  }, [activateVoice, settingsOpen]);
 
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
@@ -72,9 +150,14 @@ export default function AppV2() {
     url.searchParams.set('legacy', '1');
     window.location.assign(url.toString());
   };
+  const toggleLive = () => {
+    mira.unlockAudio();
+    setVoiceReady(true);
+    mira.toggleLive();
+  };
 
   return (
-    <div className={`mira-v2 voice-only${mira.content ? ' has-result' : ''}`}>
+    <div className={`mira-v2 voice-only${voiceBooting ? ' voice-booting' : ''}${mira.content ? ' has-result' : ''}`}>
       <a className="v2-skip" href="#main-content">Chuyển tới nội dung chính</a>
 
       <header className="v2-header voice-header">
@@ -82,9 +165,9 @@ export default function AppV2() {
           <span className="v2-mark" aria-hidden="true"><i /></span>
           <span className="v2-wordmark"><b>Mira</b><small>Voice Companion</small></span>
         </div>
-        <div className="v2-status compact" role="status" aria-live="polite" aria-atomic="true">
+        <div className="v2-status compact" role="status" aria-live="polite" aria-atomic="true" title={STATE_COPY[mira.state]}>
           <span className={`v2-status-dot ${mira.state}`} aria-hidden="true" />
-          <span>{STATE_COPY[mira.state]}</span>
+          <span className="sr-only">{STATE_COPY[mira.state]}</span>
         </div>
         <nav className="v2-actions" aria-label="Điều khiển Mira">
           <button type="button" onClick={cycleTheme} title="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
@@ -96,8 +179,7 @@ export default function AppV2() {
 
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage">
-          <VoiceOrb state={mira.state} onActivate={mira.toggleMic} />
-          <span className="voice-state-label" aria-hidden="true">{STATE_COPY[mira.state]}</span>
+          <VoiceOrb state={mira.state} onActivate={activateVoice} />
         </div>
 
         <div className="sr-only" aria-live="polite" aria-atomic="true">
@@ -115,7 +197,7 @@ export default function AppV2() {
         <button
           type="button"
           className={`voice-live${mira.live ? ' active' : ''}`}
-          onClick={mira.toggleLive}
+          onClick={toggleLive}
           aria-pressed={mira.live}
           aria-label={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
           title={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
@@ -132,6 +214,7 @@ export default function AppV2() {
         voices={mira.voices}
         voiceURI={mira.voiceURI}
         onSelectVoice={mira.selectVoice}
+        onTestVoice={mira.testVoice}
         onOpenLabs={openLabs}
       />
     </div>
