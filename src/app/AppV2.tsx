@@ -5,7 +5,7 @@ import ContentPanel from '../ui/ContentPanel';
 import { IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import SettingsPanel from '../settings/SettingsPanel';
-import VoiceOrb from '../voice/VoiceOrb';
+import HolographicMira from '../presence/HolographicMira';
 import '../ui/a11y.css';
 
 const STATE_COPY: Record<MiraState, string> = {
@@ -87,7 +87,6 @@ export default function AppV2() {
   useEffect(() => () => clearBootTimer(), [clearBootTimer]);
 
   const activateVoice = useCallback(() => {
-    // Must happen synchronously inside the click/Space gesture so browser audio policies are satisfied.
     mira.unlockAudio();
 
     if (voiceReady) {
@@ -95,7 +94,6 @@ export default function AppV2() {
       return;
     }
 
-    // Second tap during the short greeting skips it and immediately returns control to the user.
     if (bootPendingRef.current) {
       bootPendingRef.current = false;
       bootSawSpeakingRef.current = false;
@@ -107,7 +105,6 @@ export default function AppV2() {
       return;
     }
 
-    // If another voice action is already active, do not inject the startup phrase into that turn.
     if (mira.stateRef.current !== 'idle') {
       setVoiceReady(true);
       mira.toggleMic();
@@ -119,7 +116,6 @@ export default function AppV2() {
     setVoiceBooting(true);
     mira.say(VOICE_HANDSHAKE_TEXT);
 
-    // A failed/blocked cloud audio request must never leave Mira stuck in "speaking".
     bootTimerRef.current = window.setTimeout(() => {
       if (!bootPendingRef.current) return;
       bootPendingRef.current = false;
@@ -157,7 +153,7 @@ export default function AppV2() {
   };
 
   return (
-    <div className={`mira-v2 voice-only${voiceBooting ? ' voice-booting' : ''}${mira.content ? ' has-result' : ''}`}>
+    <div className={`mira-v2 voice-only holographic-ui${voiceBooting ? ' voice-booting' : ''}${mira.content ? ' has-result' : ''}`}>
       <a className="v2-skip" href="#main-content">Chuyển tới nội dung chính</a>
 
       <header className="v2-header voice-header">
@@ -178,8 +174,8 @@ export default function AppV2() {
       {mira.error && <div className="v2-error" role="alert">{mira.error}</div>}
 
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
-        <div className="voice-stage">
-          <VoiceOrb state={mira.state} onActivate={activateVoice} />
+        <div className="voice-stage holographic-stage">
+          <HolographicMira state={mira.state} onActivate={activateVoice} />
         </div>
 
         <div className="sr-only" aria-live="polite" aria-atomic="true">

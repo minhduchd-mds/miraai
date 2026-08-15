@@ -3,8 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 const failures = [];
 const mustExist = [
   'src/app/AppV2.tsx',
-  'src/voice/VoiceOrb.tsx',
-  'src/voice/voice-orb.css',
+  'src/presence/HolographicMira.tsx',
+  'src/presence/holographic-mira.css',
   'src/core/audio-level.ts',
   'src/settings/SettingsPanel.tsx',
   'src/runtime/conversation-machine.ts',
@@ -30,17 +30,17 @@ if (!entry.includes('lazy(() => import(\'./App\'))') && !entry.includes('lazy(()
 }
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
-for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer']) {
+for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['VoiceOrb', 'SettingsPanel']) {
+for (const token of ['HolographicMira', 'SettingsPanel']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
-if (v2.includes('sendText')) failures.push('orb-only production surface must not expose text composer flow');
+if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 
-const orb = readFileSync('src/voice/VoiceOrb.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame', '--voice-energy']) {
-  if (!orb.includes(token)) failures.push(`VoiceOrb missing reactive audio behavior: ${token}`);
+const presence = readFileSync('src/presence/HolographicMira.tsx', 'utf8');
+for (const token of ['audioLevel', 'requestAnimationFrame', '--hm-level', '--hm-mouth']) {
+  if (!presence.includes(token)) failures.push(`HolographicMira missing reactive voice behavior: ${token}`);
 }
 
 const runtime = readFileSync('src/core/useMira.ts', 'utf8');
