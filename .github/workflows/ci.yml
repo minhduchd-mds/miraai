@@ -26,6 +26,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Architecture guard
+        run: npm run check:architecture
+
       - name: Type-check
         run: npx tsc --noEmit
 

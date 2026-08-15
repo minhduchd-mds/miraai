@@ -3,11 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Mira — Trợ lý giọng nói 3D (vertical slice chạy thật bằng Web Speech API)",
+  "description": "Mira — Voice-first AI Companion with realtime Vietnamese voice and 3D presence",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check": "npm run check:architecture && tsc --noEmit && vite build"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
