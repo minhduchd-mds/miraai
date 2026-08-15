@@ -15,6 +15,8 @@ async function importTypeScript(path) {
 const machine = await importTypeScript('src/runtime/conversation-machine.ts');
 const speech = await importTypeScript('src/runtime/speech-utils.ts');
 const voice = await importTypeScript('src/core/voice-prefs.ts');
+const viSpeech = await importTypeScript('src/core/tts/vi-normalize.ts');
+const director = await importTypeScript('src/core/tts/vi-speech-director.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -50,12 +52,46 @@ test('speech cleanup removes markdown links, formatting and emoji', () => {
   assert.equal(speech.cleanForSpeech('**Mira** xem [báo cáo](https://example.com) nhé 😊'), 'Mira xem báo cáo nhé');
 });
 
+test('speech cleanup converts written bullet structure into spoken phrases', () => {
+  assert.equal(speech.cleanForSpeech('- UI\n- Backend\n- Hiệu năng'), 'UI. Backend. Hiệu năng');
+});
+
 test('speech chunking emits the first sentence early and preserves content', () => {
   const input = 'Câu đầu tiên để nói sớm. Câu thứ hai dài hơn một chút để kiểm tra hàng đợi. Câu cuối.';
   const chunks = speech.chunkSpeech(input);
   assert.ok(chunks.length >= 2);
   assert.match(chunks[0], /^Câu đầu tiên/);
   assert.equal(chunks.join(' ').replace(/\s+/g, ' ').trim(), input);
+});
+
+test('Vietnamese normalizer reads common product and reporting shorthand naturally', () => {
+  const normalized = viSpeech.normalizeVietnameseSpeech('Mức 16.5M, độ đúng 99.9%, ngày 12/08/2026.');
+  assert.match(normalized, /mười sáu phẩy năm triệu/);
+  assert.match(normalized, /chín mươi chín phẩy chín phần trăm/);
+  assert.match(normalized, /ngày mười hai tháng tám năm hai nghìn không trăm hai mươi sáu/);
+});
+
+test('Vietnamese speech director keeps facts but turns written phrasing into conversation', () => {
+  const plan = director.directVietnameseSpeech('Tuy nhiên, ưu tiên UI/UX trước. P0 đang có lỗi nghiêm trọng.');
+  assert.match(plan.speechText, /^Nhưng /);
+  assert.match(plan.speechText, /UI, UX/);
+  assert.match(plan.speechText, /P không/);
+  assert.equal(plan.performance, 'serious');
+  assert.ok(plan.rateMultiplier < 1);
+  assert.match(plan.instructions, /hội thoại tự nhiên/);
+  assert.match(plan.instructions, /không phải đọc văn bản/);
+});
+
+test('speech director raises energy subtly for successful completion', () => {
+  const plan = director.directVietnameseSpeech('Xong rồi anh, build đã pass hết và deploy thành công.');
+  assert.equal(plan.performance, 'excited');
+  assert.ok(plan.rateMultiplier > 1);
+});
+
+test('semantic pauses are longer for quiet/serious delivery than warm delivery', () => {
+  const warm = director.semanticPauseMs('Em xem xong rồi.', 'warm');
+  const serious = director.semanticPauseMs('Có một lỗi nghiêm trọng.', 'serious');
+  assert.ok(serious > warm);
 });
 
 test('adaptive response presets expand token and timeout budgets monotonically', () => {
