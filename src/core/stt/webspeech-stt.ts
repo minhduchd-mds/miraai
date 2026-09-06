@@ -2,7 +2,7 @@ import type { STTAdapter, STTStartOptions } from '../types';
 
 // STT bằng Web Speech API (có sẵn trong Chrome/Edge, miễn phí, hỗ trợ vi-VN).
 // LƯU Ý: Chrome gửi audio lên server Google để nhận dạng — KHÔNG phải on-device.
-// Vùng bảo mật cao → thay adapter này bằng Whisper/Viettel self-host (xem §7, §12).
+// Vùng bảo mật cao → thay adapter này bằng Whisper/self-host nội bộ (xem §7, §12).
 type AnyRecognition = any;
 
 export class WebSpeechSTT implements STTAdapter {
