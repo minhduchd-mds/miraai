@@ -2,7 +2,7 @@ import type { VRM } from '@pixiv/three-vrm';
 
 // LipSync MVP (đề xuất research): chỉ tiêu thụ MỘT biên độ `amp` 0..1 mỗi frame —
 // KHÔNG biết amp đến từ đâu. Web Speech không cho audio node nên amp là envelope
-// tổng hợp theo vòng đời câu nói; sau này đổi sang Vbee/Viettel (audio file) thì
+// tổng hợp theo vòng đời câu nói; sau này đổi sang provider TTS nội bộ (audio file) thì
 // thay nguồn amp bằng AnalyserNode RMS, phần này giữ nguyên.
 const VISEMES = ['aa', 'ih', 'ou', 'ee', 'oh'] as const;
 
