@@ -17,12 +17,12 @@ export interface TTSDiagnostics {
 //  (3) speak() ngay sau cancel() bị "nuốt" → luôn chờ một nhịp sau cancel gần đây
 //  (4) getVoices() rỗng lúc gọi sớm → chờ 'voiceschanged' rồi mới nói
 //  (5) keep-alive resume() né bug Chrome tự pause synth sau ~15s
-// Nâng cấp: thay bằng Vbee/Viettel/ElevenLabs (streaming theo câu, giọng nữ tự nhiên hơn — §6).
+// Có thể nâng cấp sang nhà cung cấp TTS bên thứ ba qua adapter riêng.
 export class WebSpeechTTS implements TTSAdapter {
   private synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
   private unlocked = false;
   private keepAlive: number | null = null;
-  private current: SpeechSynthesisUtterance | null = null; // chống GC (2)
+  private current: SpeechSynthesisUtterance | null = null;
   private lastCancelAt = 0;
   private lastError: string | null = null;
   private pendingFire: number | null = null;
@@ -31,7 +31,6 @@ export class WebSpeechTTS implements TTSAdapter {
     return !!this.synth;
   }
 
-  /** Gọi trong một user-gesture (click/keydown) để "mồi" engine — idempotent. */
   unlock(): void {
     if (!this.synth || this.unlocked) return;
     try {
@@ -40,7 +39,6 @@ export class WebSpeechTTS implements TTSAdapter {
       this.synth.speak(u);
       this.synth.resume();
       this.unlocked = true;
-      // eslint-disable-next-line no-console
       console.info('[Mira TTS] engine unlocked');
     } catch {
       /* noop */
@@ -78,7 +76,6 @@ export class WebSpeechTTS implements TTSAdapter {
 
       u.onstart = () => {
         this.startKeepAlive();
-        // eslint-disable-next-line no-console
         console.info('[Mira TTS] speaking:', voice?.name || u.lang);
         opts.onStart?.();
       };
@@ -92,17 +89,16 @@ export class WebSpeechTTS implements TTSAdapter {
         this.stopKeepAlive();
         if (this.current === u) this.current = null;
         const err = e?.error || 'tts_error';
-        if (err === 'interrupted' || err === 'canceled') return; // do mình chủ động cancel (barge-in)
+        if (err === 'interrupted' || err === 'canceled') return;
         this.lastError = err;
-        // eslint-disable-next-line no-console
         console.warn('[Mira TTS] error:', err);
         opts.onError?.(err);
       };
 
-      this.current = u; // giữ tham chiếu tới khi end/error (2)
+      this.current = u;
       try {
         synth.speak(u);
-        synth.resume(); // nudge: một số bản Chrome ở trạng thái paused sau cancel
+        synth.resume();
       } catch {
         this.lastError = 'tts_speak_failed';
         opts.onError?.('tts_speak_failed');
@@ -110,7 +106,6 @@ export class WebSpeechTTS implements TTSAdapter {
     };
 
     const fire = () => {
-      // (4) voices chưa nạp → chờ voiceschanged (tối đa 1s) rồi nói
       if (synth.getVoices().length === 0) {
         let done = false;
         const go = () => {
@@ -126,7 +121,6 @@ export class WebSpeechTTS implements TTSAdapter {
       buildAndFire();
     };
 
-    // (3) Đang nói dở HOẶC vừa cancel xong → chờ một nhịp mới speak, tránh race "nuốt câu".
     const sinceCancel = Date.now() - this.lastCancelAt;
     if (synth.speaking || synth.pending) {
       synth.cancel();
@@ -156,7 +150,6 @@ export class WebSpeechTTS implements TTSAdapter {
 
   listVoices(langPrefix?: string): VoiceOption[] {
     if (!this.synth) return [];
-    // Bỏ hết giọng Google (không dùng) khỏi danh sách chọn.
     const all = this.synth.getVoices().filter((v) => !/google/i.test(v.name));
     const list = langPrefix
       ? all.filter((v) => v.lang?.toLowerCase().startsWith(langPrefix.toLowerCase()))
@@ -164,7 +157,6 @@ export class WebSpeechTTS implements TTSAdapter {
     return list.map((v) => ({ name: v.name, voiceURI: v.voiceURI, lang: v.lang }));
   }
 
-  /** Đọc câu thử cố định — gọi TRONG user-gesture (nút bấm) để loại trừ autoplay-block. */
   test(voiceURI?: string): void {
     this.unlock();
     this.speak({
