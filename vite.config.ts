@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react';
 // host: true → mở ra LAN để test trên điện thoại cùng Wi-Fi.
 // Camera & Web Speech STT cần secure context; dùng HTTPS tunnel khi test qua thiết bị khác.
 export default defineConfig({
+  // Relative base keeps one build portable across Vercel and GitHub Pages (/miraai/).
+  base: './',
   plugins: [react()],
   server: {
     port: 5173,

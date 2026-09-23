@@ -10,25 +10,29 @@ interface Props {
   contextText?: string;
 }
 
+// Resolve public assets through Vite BASE_URL so the same UI works at /
+// (Vercel/local) and under /miraai/ (GitHub Pages).
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+
 // V3 uses the high-resolution photoreal cutouts/scenes already shipped in public/.
 // Keeping these URLs in one map makes it straightforward to swap in the new asset pack
 // without touching the voice/state engine.
 const POSE_BY_STATE: Record<MiraState, string> = {
-  idle: '/looks/female-idol.png',
-  listening: '/looks/female-sweater.png',
-  thinking: '/looks/female-sweater.png',
-  speaking: '/looks/female-idol.png',
-  interrupted: '/looks/female-idol.png',
-  error: '/looks/female-idol.png',
+  idle: asset('looks/female-idol.png'),
+  listening: asset('looks/female-sweater.png'),
+  thinking: asset('looks/female-sweater.png'),
+  speaking: asset('looks/female-idol.png'),
+  interrupted: asset('looks/female-idol.png'),
+  error: asset('looks/female-idol.png'),
 };
 
 const SCENE_BY_STATE: Record<MiraState, string> = {
-  idle: '/scenes/home.png',
-  listening: '/scenes/home.png',
-  thinking: '/scenes/office.png',
-  speaking: '/scenes/home.png',
-  interrupted: '/scenes/home.png',
-  error: '/scenes/home.png',
+  idle: asset('scenes/home.png'),
+  listening: asset('scenes/home.png'),
+  thinking: asset('scenes/office.png'),
+  speaking: asset('scenes/home.png'),
+  interrupted: asset('scenes/home.png'),
+  error: asset('scenes/home.png'),
 };
 
 const COPY_BY_STATE: Record<MiraState, { eyebrow: string; title: string; hint: string }> = {
