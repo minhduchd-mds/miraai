@@ -1,3 +1,4 @@
+# Mira static Pages publisher — Vite build -> gh-pages branch
 name: Build GitHub Pages branch
 
 on:
