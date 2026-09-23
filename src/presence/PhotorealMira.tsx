@@ -16,7 +16,7 @@ interface Props {
   sttAvailable?: boolean;
 }
 
-const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\\/+/, '')}`;
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
 const MIRA_REAL = asset('looks/mira-photoreal.webp');
 
 const POSE_BY_STATE: Record<MiraState, string> = {
