@@ -4,6 +4,8 @@ const failures = [];
 const mustExist = [
   'src/app/AppV2.tsx',
   'src/presence/HolographicMira.tsx',
+  'src/presence/PhotorealMira.tsx',
+  'src/presence/photoreal-mira.css',
   'src/presence/MemoryConstellation.tsx',
   'src/presence/memory-constellation.ts',
   'src/presence/holographic-mira.css',
@@ -44,7 +46,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['HolographicMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -70,7 +72,12 @@ for (const token of [
 ]) {
   if (!presence.includes(token)) failures.push(`HolographicMira missing approved visual/voice behavior: ${token}`);
 }
-if (presence.includes('<svg')) failures.push('production HolographicMira must use approved art, not a hand-drawn SVG face');
+if (presence.includes('<svg')) failures.push('HolographicMira must use approved art, not a hand-drawn SVG face');
+
+const photoreal = readFileSync('src/presence/PhotorealMira.tsx', 'utf8');
+for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'POSE_BY_STATE', 'SCENE_BY_STATE', 'contextText', 'pm-wave', 'pm-character']) {
+  if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved visual/voice behavior: ${token}`);
+}
 
 const godMode = readFileSync('src/presence/holographic-mira-godmode.css', 'utf8');
 for (const token of ['hm-luxury-glints', 'hm-light-rays', 'hm-crown-halo', 'hm-speaking-pulse-near', 'hm-activation-flash']) {

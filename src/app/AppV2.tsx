@@ -5,7 +5,7 @@ import ContentPanel from '../ui/ContentPanel';
 import { IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import SettingsPanel from '../settings/SettingsPanel';
-import HolographicMira from '../presence/HolographicMira';
+import PhotorealMira from '../presence/PhotorealMira';
 import '../ui/a11y.css';
 
 const STATE_COPY: Record<MiraState, string> = {
@@ -179,7 +179,7 @@ export default function AppV2() {
 
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage holographic-stage">
-          <HolographicMira
+          <PhotorealMira
             state={mira.state}
             onActivate={activateVoice}
             contextText={constellationContext}
