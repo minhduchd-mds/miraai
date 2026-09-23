@@ -4,6 +4,7 @@ import { ElevenLabsTTS } from './elevenlabs-tts';
 import { VieNeuTTS, VIENEU_DEFAULT_URL } from './vieneu-tts';
 import { EdgeTTS, EDGE_DEFAULT_URL } from './edge-tts';
 import { CloudTTS } from './cloud-tts';
+import { GoogleTranslateTTS } from './google-translate-tts';
 
 // Bề mặt TTS đầy đủ mà useMira cần (adapter + tiện ích unlock/test/chẩn đoán).
 export interface MiraTTS extends TTSAdapter {
@@ -61,9 +62,9 @@ export function saveTTSConfig(cfg: TTSConfig): void {
 //  edge | vieneu | elevenlabs (client key, chỉ dev) | system (Web Speech)
 export function createTTS(): MiraTTS {
   const cfg = loadTTSConfig();
-  // GitHub Pages is static: there is no /api/tts gateway. Use browser speech directly
-  // so the initial handshake and normal replies work instead of waiting for a 404 fallback.
-  if (isGitHubPagesRuntime() && cfg.engine === 'cloud') return new WebSpeechTTS();
+  // GitHub Pages is static: there is no /api/tts gateway. Mirror the Portable Voice
+  // Assistant's Google connecttospeech path instead of falling back to the harsh OS voice.
+  if (isGitHubPagesRuntime() && cfg.engine === 'cloud') return new GoogleTranslateTTS();
   if (cfg.engine === 'edge') return new EdgeTTS(cfg.serverUrl || EDGE_DEFAULT_URL);
   if (cfg.engine === 'vieneu') return new VieNeuTTS(cfg.serverUrl || VIENEU_DEFAULT_URL);
   if (cfg.engine === 'elevenlabs' && cfg.apiKey) return new ElevenLabsTTS(cfg.apiKey);
