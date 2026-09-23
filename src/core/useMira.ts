@@ -31,8 +31,8 @@ import { createDefaultSkillRegistry } from '../intelligence/skills';
 import { getHostBridge } from '../host';
 
 const LANG = 'vi-VN';
-const IDLE_CAPTION = 'Chạm để nói, hoặc nhập tin nhắn cho Mira.';
-const MAX_EMPTY = 5;
+const IDLE_CAPTION = 'Chạm một lần để bật Mira 24/7.';
+const MAX_EMPTY_BACKOFF = 6;
 
 const DEMO_COPY: Record<MiraState, { who: string; txt: string }> = {
   idle: { who: 'CHẠM ĐỂ NÓI', txt: IDLE_CAPTION },
@@ -410,17 +410,12 @@ export function useMira() {
       return;
     }
 
-    emptyCountRef.current += 1;
-    if (emptyCountRef.current >= MAX_EMPTY) {
-      setLive(false);
-      cancelSpeech();
-      goIdle('Em tạm dừng nhé — bật lại trò chuyện khi anh cần.');
-    } else {
-      setWho('MIRA');
-      setCaption('Em vẫn đang nghe…');
-      schedulePendingListen(silenceRetryDelayMs(emptyCountRef.current), () => liveRef.current);
-    }
-  }, [cancelSpeech, goIdle, schedulePendingListen, setLive]);
+    emptyCountRef.current = Math.min(emptyCountRef.current + 1, MAX_EMPTY_BACKOFF);
+    setWho('MIRA · 24/7');
+    setPartial(false);
+    setCaption('Em vẫn ở đây — anh cứ nói khi cần.');
+    schedulePendingListen(silenceRetryDelayMs(emptyCountRef.current), () => liveRef.current);
+  }, [goIdle, schedulePendingListen]);
 
   const startListening = useCallback(() => {
     const stt = sttRef.current!;
@@ -521,6 +516,10 @@ export function useMira() {
   }, [cancelSpeech, clearEndpointTimer, schedulePendingListen, sendEvent]);
 
   const startLive = useCallback(() => {
+    if (liveRef.current) {
+      if (stateRef.current === 'idle' || stateRef.current === 'interrupted') startListening();
+      return;
+    }
     setLive(true);
     emptyCountRef.current = 0;
     ttsRef.current!.unlock();
@@ -635,6 +634,8 @@ export function useMira() {
     ttsDiagnostics,
     toggleMic,
     toggleLive,
+    startLive,
+    stopLive,
     startListening,
     interrupt,
     sendText,

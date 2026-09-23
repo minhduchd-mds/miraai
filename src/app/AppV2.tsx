@@ -17,7 +17,7 @@ const STATE_COPY: Record<MiraState, string> = {
   error: 'Cần kiểm tra',
 };
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
-const VOICE_HANDSHAKE_TEXT = 'Em nghe anh.';
+const VOICE_HANDSHAKE_TEXT = 'Em nghe anh. Chế độ trò chuyện liên tục đã bật.';
 const VOICE_HANDSHAKE_TIMEOUT = 5000;
 
 function loadTheme(): Theme {
@@ -75,8 +75,8 @@ export default function AppV2() {
     clearBootTimer();
     setVoiceBooting(false);
     setVoiceReady(true);
-    window.setTimeout(() => mira.startListening(), 80);
-  }, [clearBootTimer, mira.startListening]);
+    window.setTimeout(() => mira.startLive(), 80);
+  }, [clearBootTimer, mira.startLive]);
 
   useEffect(() => {
     if (!voiceBooting || !bootPendingRef.current) return;
@@ -90,7 +90,13 @@ export default function AppV2() {
     mira.unlockAudio();
 
     if (voiceReady) {
-      mira.toggleMic();
+      if (!mira.live) {
+        mira.startLive();
+      } else if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') {
+        mira.interrupt();
+      } else if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
+        mira.startListening();
+      }
       return;
     }
 
@@ -101,13 +107,13 @@ export default function AppV2() {
       setVoiceBooting(false);
       setVoiceReady(true);
       if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') mira.interrupt();
-      else mira.startListening();
+      else mira.startLive();
       return;
     }
 
     if (mira.stateRef.current !== 'idle') {
       setVoiceReady(true);
-      mira.toggleMic();
+      mira.startLive();
       return;
     }
 
@@ -124,9 +130,9 @@ export default function AppV2() {
       setVoiceBooting(false);
       setVoiceReady(true);
       if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') mira.interrupt();
-      else mira.startListening();
+      else mira.startLive();
     }, VOICE_HANDSHAKE_TIMEOUT);
-  }, [clearBootTimer, mira.interrupt, mira.say, mira.startListening, mira.stateRef, mira.toggleMic, mira.unlockAudio, voiceReady]);
+  }, [clearBootTimer, mira.interrupt, mira.live, mira.say, mira.startListening, mira.startLive, mira.stateRef, mira.unlockAudio, voiceReady]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -151,6 +157,25 @@ export default function AppV2() {
     setVoiceReady(true);
     mira.toggleLive();
   };
+
+  useEffect(() => {
+    const resumeIfNeeded = () => {
+      if (document.visibilityState !== 'visible' || !mira.live) return;
+      if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
+        window.setTimeout(() => {
+          if (mira.live && (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted')) {
+            mira.startListening();
+          }
+        }, 180);
+      }
+    };
+    document.addEventListener('visibilitychange', resumeIfNeeded);
+    window.addEventListener('focus', resumeIfNeeded);
+    return () => {
+      document.removeEventListener('visibilitychange', resumeIfNeeded);
+      window.removeEventListener('focus', resumeIfNeeded);
+    };
+  }, [mira.live, mira.startListening, mira.stateRef]);
   const constellationContext = [
     ...mira.history.slice(-6).map((turn) => turn.text),
     mira.caption,
@@ -183,6 +208,12 @@ export default function AppV2() {
             state={mira.state}
             onActivate={activateVoice}
             contextText={constellationContext}
+            live={mira.live}
+            voiceReady={voiceReady}
+            caption={mira.caption}
+            who={mira.who}
+            brainName={mira.brainName}
+            sttAvailable={mira.sttAvailable}
           />
         </div>
 

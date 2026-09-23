@@ -8,22 +8,24 @@ interface Props {
   state: MiraState;
   onActivate: () => void;
   contextText?: string;
+  live?: boolean;
+  voiceReady?: boolean;
+  caption?: string;
+  who?: string;
+  brainName?: string;
+  sttAvailable?: boolean;
 }
 
-// Resolve public assets through Vite BASE_URL so the same UI works at /
-// (Vercel/local) and under /miraai/ (GitHub Pages).
-const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\\/+/, '')}`;
+const MIRA_REAL = asset('looks/mira-photoreal.webp');
 
-// V3 uses the high-resolution photoreal cutouts/scenes already shipped in public/.
-// Keeping these URLs in one map makes it straightforward to swap in the new asset pack
-// without touching the voice/state engine.
 const POSE_BY_STATE: Record<MiraState, string> = {
-  idle: asset('looks/female-idol.png'),
-  listening: asset('looks/female-sweater.png'),
-  thinking: asset('looks/female-sweater.png'),
-  speaking: asset('looks/female-idol.png'),
-  interrupted: asset('looks/female-idol.png'),
-  error: asset('looks/female-idol.png'),
+  idle: MIRA_REAL,
+  listening: MIRA_REAL,
+  thinking: MIRA_REAL,
+  speaking: MIRA_REAL,
+  interrupted: MIRA_REAL,
+  error: MIRA_REAL,
 };
 
 const SCENE_BY_STATE: Record<MiraState, string> = {
@@ -35,23 +37,51 @@ const SCENE_BY_STATE: Record<MiraState, string> = {
   error: asset('scenes/home.png'),
 };
 
-const COPY_BY_STATE: Record<MiraState, { eyebrow: string; title: string; hint: string }> = {
-  idle: { eyebrow: 'MIRA · PRESENT', title: 'Always here, in your space', hint: 'Chạm hoặc nhấn Space để nói' },
-  listening: { eyebrow: 'VOICE · LIVE', title: 'Em đang nghe anh', hint: 'Nói tự nhiên, Mira sẽ tự bắt lượt' },
-  thinking: { eyebrow: 'MEMORY · CONTEXT', title: 'Đang kết nối ký ức', hint: 'Ghép ngữ cảnh trước khi trả lời' },
-  speaking: { eyebrow: 'MIRA · SPEAKING', title: 'Em đang trả lời', hint: 'Anh có thể ngắt lời bất cứ lúc nào' },
-  interrupted: { eyebrow: 'VOICE · PAUSED', title: 'Đã dừng', hint: 'Chạm để tiếp tục cuộc trò chuyện' },
-  error: { eyebrow: 'MIRA · CHECK', title: 'Cần kiểm tra kết nối', hint: 'Chạm để thử lại' },
+const COPY_BY_STATE: Record<MiraState, { eyebrow: string; title: string }> = {
+  idle: { eyebrow: 'MIRA · PRESENT', title: 'Em vẫn ở đây.' },
+  listening: { eyebrow: 'VOICE · ALWAYS ON', title: 'Em đang nghe anh.' },
+  thinking: { eyebrow: 'MEMORY · CONTEXT', title: 'Em đang nghĩ…' },
+  speaking: { eyebrow: 'MIRA · SPEAKING', title: 'Em đang trả lời.' },
+  interrupted: { eyebrow: 'VOICE · RESUME', title: 'Em nghe tiếp đây.' },
+  error: { eyebrow: 'MIRA · CHECK', title: 'Mình kiểm tra kết nối nhé.' },
+};
+
+const STATE_LABEL: Record<MiraState, string> = {
+  idle: 'READY',
+  listening: 'LISTENING',
+  thinking: 'THINKING',
+  speaking: 'SPEAKING',
+  interrupted: 'RESUMING',
+  error: 'CHECK',
 };
 
 const PRELOAD = [...Object.values(POSE_BY_STATE), ...new Set(Object.values(SCENE_BY_STATE))];
 const WAVE_BARS = Array.from({ length: 31 }, (_, index) => index);
 const STARS = Array.from({ length: 28 }, (_, index) => index);
 
-export default function PhotorealMira({ state, onActivate, contextText = '' }: Props) {
+export default function PhotorealMira({
+  state,
+  onActivate,
+  contextText = '',
+  live = false,
+  voiceReady = false,
+  caption = '',
+  who = 'MIRA',
+  brainName = '',
+  sttAvailable = true,
+}: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
   const copy = COPY_BY_STATE[state];
   const memoryStrength = Math.min(1, contextText.trim().split(/\s+/).filter(Boolean).length / 80);
+  const brainLabel = /server/i.test(brainName)
+    ? 'CLOUD BRAIN'
+    : /demo|canned/i.test(brainName)
+      ? 'LOCAL FALLBACK'
+      : (brainName || 'MIRA BRAIN').toUpperCase();
+  const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
+  const hint = live
+    ? 'Anh cứ nói tự nhiên — không cần chạm lại.'
+    : 'Chạm một lần để mở mic và giữ phiên trò chuyện liên tục.';
 
   useEffect(() => {
     PRELOAD.forEach((src) => {
@@ -71,7 +101,7 @@ export default function PhotorealMira({ state, onActivate, contextText = '' }: P
       const node = rootRef.current;
       if (!node) return;
       const elapsed = now - startedAt;
-      const live = audioLevel.active ? audioLevel.value : -1;
+      const input = audioLevel.active ? audioLevel.value : -1;
       const synthetic = state === 'speaking'
         ? 0.18 + Math.sin(elapsed / 92) * 0.07 + Math.sin(elapsed / 41) * 0.025
         : state === 'listening'
@@ -79,7 +109,7 @@ export default function PhotorealMira({ state, onActivate, contextText = '' }: P
           : state === 'thinking'
             ? 0.055 + Math.sin(elapsed / 240) * 0.02
             : 0.018 + Math.sin(elapsed / 1100) * 0.007;
-      const target = Math.max(0, Math.min(1, live >= 0 ? live : synthetic));
+      const target = Math.max(0, Math.min(1, input >= 0 ? input : synthetic));
       smooth += (target - smooth) * (target > smooth ? 0.28 : 0.11);
       energy += (Math.abs(target - smooth) - energy) * 0.16;
 
@@ -101,10 +131,10 @@ export default function PhotorealMira({ state, onActivate, contextText = '' }: P
     const rect = node.getBoundingClientRect();
     const x = (event.clientX - rect.left) / rect.width - 0.5;
     const y = (event.clientY - rect.top) / rect.height - 0.5;
-    node.style.setProperty('--pm-look-x', `${(x * 12).toFixed(2)}px`);
-    node.style.setProperty('--pm-look-y', `${(y * 7).toFixed(2)}px`);
-    node.style.setProperty('--pm-scene-x', `${(x * -5).toFixed(2)}px`);
-    node.style.setProperty('--pm-scene-y', `${(y * -3).toFixed(2)}px`);
+    node.style.setProperty('--pm-look-x', `${(x * 10).toFixed(2)}px`);
+    node.style.setProperty('--pm-look-y', `${(y * 6).toFixed(2)}px`);
+    node.style.setProperty('--pm-scene-x', `${(x * -4).toFixed(2)}px`);
+    node.style.setProperty('--pm-scene-y', `${(y * -2).toFixed(2)}px`);
   }, []);
 
   const resetPointer = useCallback(() => {
@@ -116,19 +146,14 @@ export default function PhotorealMira({ state, onActivate, contextText = '' }: P
     node.style.setProperty('--pm-scene-y', '0px');
   }, []);
 
-  const label = state === 'listening'
-    ? 'Dừng nghe'
-    : state === 'speaking' || state === 'thinking'
-      ? 'Ngắt Mira'
-      : 'Nói với Mira';
-
   const rootStyle = { '--pm-memory': memoryStrength.toFixed(3) } as CSSProperties;
+  const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bật Mira 24/7';
 
   return (
     <button
       ref={rootRef}
       type="button"
-      className={`photo-mira state-${state}`}
+      className={`photo-mira state-${state}${live ? ' is-live' : ''}`}
       style={rootStyle}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
@@ -141,12 +166,10 @@ export default function PhotorealMira({ state, onActivate, contextText = '' }: P
       <span className="pm-scene-shade" aria-hidden="true" />
       <span className="pm-atmosphere" aria-hidden="true" />
       <span className="pm-grid" aria-hidden="true" />
-      <span className="pm-stars" aria-hidden="true">
-        {STARS.map((index) => <i key={index} />)}
-      </span>
+      <span className="pm-stars" aria-hidden="true">{STARS.map((index) => <i key={index} />)}</span>
 
       <span className="pm-feature-rail" aria-hidden="true">
-        <span><i />Voice</span>
+        <span><i />Voice Loop</span>
         <span><i />Memory</span>
         <span><i />Vision</span>
         <span><i />Spatial AI</span>
@@ -154,24 +177,43 @@ export default function PhotorealMira({ state, onActivate, contextText = '' }: P
 
       <span className="pm-character-zone" aria-hidden="true">
         <span className="pm-character-halo" />
+        <span className="pm-character-ring" />
         <img className="pm-character" src={POSE_BY_STATE[state]} alt="" draggable={false} />
         <span className="pm-floor-light" />
       </span>
 
-      <span className="pm-memory-field" aria-hidden="true">
-        <i /><i /><i /><i /><i /><i />
-      </span>
+      <span className="pm-memory-field" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
 
       <span className="pm-copy" aria-hidden="true">
         <small>{copy.eyebrow}</small>
         <b>{copy.title}</b>
-        <span>{copy.hint}</span>
+        <span>{hint}</span>
       </span>
 
-      <span className="pm-wave" aria-hidden="true">
-        {WAVE_BARS.map((index) => <i key={index} />)}
+      <span className="pm-live-pill" aria-hidden="true">
+        <i />
+        <b>{liveLabel}</b>
+        <em>{STATE_LABEL[state]}</em>
       </span>
 
+      <span className="pm-runtime" aria-hidden="true">
+        <span className="pm-runtime-head">
+          <span><small>MIRA CORE</small><b>Companion Console</b></span>
+          <i className={live ? 'online' : ''} />
+        </span>
+        <span className="pm-runtime-grid">
+          <span><small>MIC</small><b>{sttAvailable ? (live ? 'ALWAYS ON' : 'READY') : 'UNAVAILABLE'}</b></span>
+          <span><small>VOICE LOOP</small><b>{live ? 'CONTINUOUS' : 'STANDBY'}</b></span>
+          <span><small>BRAIN</small><b>{brainLabel}</b></span>
+          <span><small>MEMORY</small><b>{Math.round(memoryStrength * 100)}% CONTEXT</b></span>
+        </span>
+        <span className="pm-caption-card">
+          <small>{who || 'MIRA'}</small>
+          <b>{caption || (live ? 'Em đang nghe.' : 'Chạm một lần để bắt đầu.')}</b>
+        </span>
+      </span>
+
+      <span className="pm-wave" aria-hidden="true">{WAVE_BARS.map((index) => <i key={index} />)}</span>
       <span className="pm-state-orb" aria-hidden="true"><i /></span>
       <span className="pm-vignette" aria-hidden="true" />
       <span className="sr-only">{label}</span>
