@@ -21,6 +21,10 @@ export interface TTSConfig {
 
 const LS_KEY = 'mira.tts.config';
 
+function isGitHubPagesRuntime(): boolean {
+  return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
+}
+
 function isEngine(e: any): e is TTSConfig['engine'] {
   return e === 'system' || e === 'edge' || e === 'elevenlabs' || e === 'vieneu' || e === 'cloud';
 }
@@ -57,6 +61,9 @@ export function saveTTSConfig(cfg: TTSConfig): void {
 //  edge | vieneu | elevenlabs (client key, chỉ dev) | system (Web Speech)
 export function createTTS(): MiraTTS {
   const cfg = loadTTSConfig();
+  // GitHub Pages is static: there is no /api/tts gateway. Use browser speech directly
+  // so the initial handshake and normal replies work instead of waiting for a 404 fallback.
+  if (isGitHubPagesRuntime() && cfg.engine === 'cloud') return new WebSpeechTTS();
   if (cfg.engine === 'edge') return new EdgeTTS(cfg.serverUrl || EDGE_DEFAULT_URL);
   if (cfg.engine === 'vieneu') return new VieNeuTTS(cfg.serverUrl || VIENEU_DEFAULT_URL);
   if (cfg.engine === 'elevenlabs' && cfg.apiKey) return new ElevenLabsTTS(cfg.apiKey);
