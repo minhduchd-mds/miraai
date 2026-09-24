@@ -16,10 +16,22 @@ export default async function handler(req, res) {
     let queryVector = null;
     try {
       queryVector = await embed(q, 'RETRIEVAL_QUERY');
-    } catch (error) {
-      return res.status(502).json({ error: 'embed lỗi: ' + String(error?.message || error).slice(0, 160) });
+    } catch {
+      // GPT-only deployments can still use recent durable context without vector search.
     }
-    if (!queryVector) return res.status(200).json({ memories: [], facts: [] });
+    if (!queryVector) {
+      const memories = await sql`
+        select role, text, 0::float as score
+        from chat_messages
+        where device_id = ${device}
+        order by id desc limit 6`;
+      const facts = await sql`
+        select fact, 0::float as score
+        from user_facts
+        where device_id = ${device}
+        order by updated_at desc limit 5`;
+      return res.status(200).json({ memories: memories.reverse(), facts, degraded: true });
+    }
 
     const vector = toVectorLiteral(queryVector);
     const memories = await sql`
