@@ -4,9 +4,8 @@ import { ElevenLabsTTS } from './elevenlabs-tts';
 import { VieNeuTTS, VIENEU_DEFAULT_URL } from './vieneu-tts';
 import { EdgeTTS, EDGE_DEFAULT_URL } from './edge-tts';
 import { CloudTTS } from './cloud-tts';
-import { GoogleTranslateTTS } from './google-translate-tts';
+import { PiperLocalTTS } from './piper-local-tts';
 
-// Bề mặt TTS đầy đủ mà useMira cần (adapter + tiện ích unlock/test/chẩn đoán).
 export interface MiraTTS extends TTSAdapter {
   unlock(): void;
   test(voiceURI?: string): void;
@@ -42,9 +41,7 @@ export function loadTTSConfig(): TTSConfig {
         serverUrl: typeof c?.serverUrl === 'string' ? c.serverUrl : '',
       };
     }
-  } catch {
-    /* noop */
-  }
+  } catch { /* noop */ }
   return { engine: 'cloud', apiKey: '', voiceId: '', serverUrl: '' };
 }
 
@@ -52,24 +49,17 @@ export function saveTTSConfig(cfg: TTSConfig): void {
   try {
     if (cfg.engine === 'system') localStorage.removeItem(LS_KEY);
     else localStorage.setItem(LS_KEY, JSON.stringify(cfg));
-  } catch {
-    /* noop */
-  }
+  } catch { /* noop */ }
 }
 
-// Chọn engine giọng nói:
-//  cloud (MẶC ĐỊNH — ElevenLabs qua /api, key trên server, fallback Web Speech) |
-//  edge | vieneu | elevenlabs (client key, chỉ dev) | system (Web Speech)
 export function createTTS(): MiraTTS {
   const cfg = loadTTSConfig();
-  // GitHub Pages is static: there is no /api/tts gateway. Mirror the Portable Voice
-  // Assistant's Google connecttospeech path instead of falling back to the harsh OS voice.
-  if (isGitHubPagesRuntime() && cfg.engine === 'cloud') return new GoogleTranslateTTS();
+  if (isGitHubPagesRuntime()) return new PiperLocalTTS();
   if (cfg.engine === 'edge') return new EdgeTTS(cfg.serverUrl || EDGE_DEFAULT_URL);
   if (cfg.engine === 'vieneu') return new VieNeuTTS(cfg.serverUrl || VIENEU_DEFAULT_URL);
   if (cfg.engine === 'elevenlabs' && cfg.apiKey) return new ElevenLabsTTS(cfg.apiKey);
   if (cfg.engine === 'system') return new WebSpeechTTS();
-  return new CloudTTS(); // 'cloud' (mặc định)
+  return new CloudTTS();
 }
 
 export { VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL };

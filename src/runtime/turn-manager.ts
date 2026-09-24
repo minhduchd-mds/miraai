@@ -16,14 +16,13 @@ function now(): number {
 
 function hostActionToSkillResult(id: string, result: HostActionResult): SkillResult {
   return {
-    skillId: `host:${id}`,
+    skillId: 'host:' + id,
     content: result.content,
     speechHint: result.speechHint,
     data: result.data,
   };
 }
 
-/** Coordinates context, memory, skills, host actions and Brain for one user turn. */
 export class TurnManager {
   constructor(
     private readonly getBrain: () => Brain,
@@ -51,13 +50,13 @@ export class TurnManager {
   ): Promise<void> {
     if (descriptor.risk !== 'read') {
       onSkill?.({
-        skillId: `host:${descriptor.id}`,
+        skillId: 'host:' + descriptor.id,
         content: {
           kind: 'card',
           data: {
             eyebrow: 'Cần xác nhận',
             title: descriptor.title,
-            body: `Mira chưa tự thực thi action ${descriptor.risk}. Hãy xác nhận trong ứng dụng chủ trước khi chạy.`,
+            body: 'Mira chưa tự thực thi action ' + descriptor.risk + '. Hãy xác nhận trong ứng dụng chủ trước khi chạy.',
           },
         },
       });
@@ -68,26 +67,25 @@ export class TurnManager {
       const result = await this.host.executeAction(descriptor.id, input, context);
       if (result) onSkill?.(hostActionToSkillResult(descriptor.id, result));
     } catch (error) {
-      console.warn(`[Mira Host] action ${descriptor.id} failed`, error);
+      console.warn('[Mira Host] action ' + descriptor.id + ' failed', error);
     }
   }
 
-  async run(input: string, prior: BrainTurn[], onSkill?: (result: SkillResult) => void): Promise<TurnResult> {
+  async run(
+    input: string,
+    prior: BrainTurn[],
+    onSkill?: (result: SkillResult) => void,
+    runtimeContext = '',
+  ): Promise<TurnResult> {
     const started = now();
-
-    // Product identity is deterministic and must not depend on provider memory/history.
     const identity = ownerIdentityReply(input);
     if (identity) {
-      return {
-        reply: { text: identity, mood: 'happy' },
-        latencyMs: Math.round(now() - started),
-      };
+      return { reply: { text: identity, mood: 'happy' }, latencyMs: Math.round(now() - started) };
     }
 
     const hostPromise = Promise.resolve(this.host.getContext());
     const hostActionsPromise = this.listHostActions();
 
-    // Fast deterministic skills can render in parallel and never block the spoken response.
     void hostPromise
       .then((host) => this.skills.execute(input, { locale: host.locale || 'vi-VN', host }))
       .then((result) => result && onSkill?.(result))
@@ -98,12 +96,13 @@ export class TurnManager {
       hostPromise,
       hostActionsPromise,
     ]);
-    const context = assembleBrainContext(
+    const baseContext = assembleBrainContext(
       memory,
       host,
       this.skills.describe(),
-      hostActions.map((action) => `host:${action.id} [${action.risk}] — ${action.description}`),
+      hostActions.map((action) => 'host:' + action.id + ' [' + action.risk + '] — ' + action.description),
     );
+    const context = [baseContext, runtimeContext.trim()].filter(Boolean).join('\n\n');
     const reply = await this.getBrain().reply(input, prior, context);
 
     for (const call of reply.toolCalls || []) {
@@ -116,10 +115,10 @@ export class TurnManager {
       void this.skills
         .executeById(call.skillId, call.input || input, { locale: host.locale || 'vi-VN', host })
         .then((result) => result && onSkill?.(result))
-        .catch((error) => console.warn(`[Mira ToolCall] ${call.skillId} failed`, error));
+        .catch((error) => console.warn('[Mira ToolCall] ' + call.skillId + ' failed', error));
     }
 
-    this.memory.distill(`Người dùng: ${input}\nMira: ${reply.text}`);
+    this.memory.distill('Người dùng: ' + input + '\nMira: ' + reply.text);
     return { reply, latencyMs: Math.round(now() - started) };
   }
 }

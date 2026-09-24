@@ -17,6 +17,15 @@ const mustExist = [
   'src/core/tts/vi-normalize.ts',
   'src/core/tts/vi-speech-director.ts',
   'src/core/tts/server-tts.ts',
+  'src/core/tts/piper-local-tts.ts',
+  'src/core/brain/local-webllm-brain.ts',
+  'src/intelligence/affect/mood-engine.ts',
+  'src/intelligence/proactive/proactive-engine.ts',
+  'src/intelligence/memory/local-memory-store.ts',
+  'src/runtime/background-companion.ts',
+  'src/presence/FaceMeshOverlay.tsx',
+  'public/sw.js',
+  'public/manifest.webmanifest',
   'src/settings/SettingsPanel.tsx',
   'src/runtime/conversation-machine.ts',
   'src/runtime/conversation-timing.ts',
@@ -46,7 +55,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -176,6 +185,9 @@ for (const token of [
   'resumeListeningDelayMs',
   'interruptionRecoveryDelayMs',
   'silenceRetryDelayMs',
+  'observeAffect',
+  'ProactiveEngine',
+  'affectRef.current.speechRate',
 ]) {
   if (!runtime.includes(token)) failures.push(`useMira runtime boundary missing: ${token}`);
 }
@@ -190,8 +202,17 @@ for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs', 'body.in
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 
+const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
+if (!localTts.includes('PiperLocalTTS')) failures.push('GitHub Pages must use local neural Piper TTS');
 const brain = readFileSync('src/core/brain/index.ts', 'utf8');
+if (!brain.includes('LocalWebLLMBrain')) failures.push('GitHub Pages must expose a real local WebLLM brain');
 if (brain.includes('VITE_LLM_API_KEY')) failures.push('production brain source must not read VITE_LLM_API_KEY');
+const localMemory = readFileSync('src/intelligence/memory/memory-service.ts', 'utf8');
+if (!localMemory.includes('LocalMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
+const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
+for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'muscles', 'gazeX']) {
+  if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
+}
 const prompt = readFileSync('src/core/brain/prompt.ts', 'utf8');
 if (/trợ lý[^\n]{0,80}sản phẩm\s+Soi/i.test(prompt)) failures.push('Mira core persona must not be hardcoded to Soi');
 

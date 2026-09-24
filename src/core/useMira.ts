@@ -29,6 +29,8 @@ import { TurnManager } from '../runtime/turn-manager';
 import { MemoryService } from '../intelligence/memory/memory-service';
 import { createDefaultSkillRegistry } from '../intelligence/skills';
 import { getHostBridge } from '../host';
+import { neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
+import { ProactiveEngine } from '../intelligence/proactive/proactive-engine';
 
 const LANG = 'vi-VN';
 const IDLE_CAPTION = 'Chạm một lần để bật Mira 24/7.';
@@ -125,6 +127,9 @@ export function useMira() {
   const lastBrainLatencyRef = useRef<number | null>(null);
   const recentThinkingCueRef = useRef('');
   const interruptedTurnRef = useRef(false);
+  const affectRef = useRef<AffectState>(neutralAffect());
+  const [observedMood, setObservedMood] = useState<AffectState['mood']>('neutral');
+  const proactiveRef = useRef(new ProactiveEngine());
 
   const clearThinkingSignals = useCallback(() => {
     for (const ref of [thinkingCaptionTimerRef, thinkingCueTimerRef, thinkingLongTimerRef]) {
@@ -213,6 +218,13 @@ export function useMira() {
   }, []);
 
   const ttsDiagnostics = useCallback((): TTSDiagnostics => ttsRef.current!.diagnostics(), []);
+
+  const observeAffect = useCallback((affect: AffectState) => {
+    affectRef.current = affect;
+    setObservedMood(affect.mood);
+    proactiveRef.current.observeAffect(affect);
+    memoryRef.current?.observeAffect(affect);
+  }, []);
 
   const applyTTSConfig = useCallback((cfg: TTSConfig) => {
     saveTTSConfig(cfg);
@@ -342,7 +354,7 @@ export function useMira() {
     speechQueueRef.current!.play({
       text,
       lang: LANG,
-      rate: voicePrefs.rate,
+      rate: Math.max(0.72, Math.min(1.2, voicePrefs.rate * affectRef.current.speechRate)),
       voiceURI: voiceURIRef.current,
       isActive: () => stateRef.current === 'speaking',
       onDone: () => {
@@ -365,6 +377,7 @@ export function useMira() {
     if (!text) return;
 
     emptyCountRef.current = 0;
+    proactiveRef.current.noteUserActivity();
     stopMicLevel();
     const token = ++turnSeqRef.current;
     const wasInterrupted = interruptedTurnRef.current;
@@ -383,7 +396,7 @@ export function useMira() {
     try {
       const result = await turnManagerRef.current!.run(text, prior, (skillResult) => {
         if (turnSeqRef.current === token && skillResult.content) setContent(skillResult.content);
-      });
+      }, affectRef.current.promptContext);
       if (turnSeqRef.current !== token || stateRef.current !== 'thinking') return;
 
       clearThinkingSignals();
@@ -411,11 +424,16 @@ export function useMira() {
     }
 
     emptyCountRef.current = Math.min(emptyCountRef.current + 1, MAX_EMPTY_BACKOFF);
+    const proactive = proactiveRef.current.nextForSilence(affectRef.current);
+    if (proactive) {
+      speak(proactive);
+      return;
+    }
     setWho('MIRA · 24/7');
     setPartial(false);
     setCaption('Em vẫn ở đây — anh cứ nói khi cần.');
     schedulePendingListen(silenceRetryDelayMs(emptyCountRef.current), () => liveRef.current);
-  }, [goIdle, schedulePendingListen]);
+  }, [goIdle, schedulePendingListen, speak]);
 
   const startListening = useCallback(() => {
     const stt = sttRef.current!;
@@ -571,6 +589,14 @@ export function useMira() {
     else startListening();
   }, [interrupt, startListening, stopListening]);
 
+  const notifyContextEvent = useCallback((kind: 'resume' | 'wake') => {
+    const prompt = proactiveRef.current.nextContextPrompt(kind, affectRef.current);
+    if (!prompt || !liveRef.current) return;
+    if (stateRef.current === 'idle' || stateRef.current === 'listening' || stateRef.current === 'interrupted') {
+      speak(prompt);
+    }
+  }, [speak]);
+
   const sendText = useCallback((rawText: string) => {
     const text = rawText.trim();
     if (!text) return;
@@ -627,6 +653,9 @@ export function useMira() {
     sttAvailable: sttRef.current!.available,
     ttsAvailable: ttsRef.current!.available,
     brainName,
+    observedMood,
+    observeAffect,
+    notifyContextEvent,
     applyLLMConfig,
     applyTTSConfig,
     testBrain,

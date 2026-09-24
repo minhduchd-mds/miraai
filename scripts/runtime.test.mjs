@@ -19,6 +19,8 @@ const voice = await importTypeScript('src/core/voice-prefs.ts');
 const viSpeech = await importTypeScript('src/core/tts/vi-normalize.ts');
 const director = await importTypeScript('src/core/tts/vi-speech-director.ts');
 const spatial = await importTypeScript('src/presence/spatial-math.ts');
+const affect = await importTypeScript('src/intelligence/affect/mood-engine.ts');
+const proactive = await importTypeScript('src/intelligence/proactive/proactive-engine.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -237,4 +239,37 @@ test('spatial rotation uses the shortest angular path and remains bounded', () =
 test('spatial smoothing dampens jitter instead of jumping to raw input', () => {
   const smoothed = spatial.smoothValue(0.5, 1, 0.25);
   assert.equal(smoothed, 0.625);
+});
+
+
+test('face affect scoring separates a strong smile from a frown without claiming diagnosis', () => {
+  const happy = affect.inferAffect({ present: true, smile: 0.92, cheekSquint: 0.55, frown: 0.02 });
+  const sad = affect.inferAffect({ present: true, smile: 0.02, frown: 0.82, browUp: 0.42 });
+  assert.equal(happy.mood, 'happy');
+  assert.equal(sad.mood, 'sad');
+  assert.match(sad.promptContext, /ước lượng|tín hiệu/i);
+});
+
+test('affect tracker rejects a single-frame tired blink until the signal is stable', () => {
+  const tracker = new affect.AffectTracker();
+  const blink = { present: true, blinkL: 0.95, blinkR: 0.95, smile: 0.02 };
+  const first = tracker.update(blink, 1000);
+  const later = tracker.update(blink, 3400);
+  assert.equal(first.mood, 'neutral');
+  assert.equal(later.mood, 'tired');
+});
+
+test('proactive engine waits for a stable confident mood and emits one conservative prompt', () => {
+  const engine = new proactive.ProactiveEngine();
+  const state = {
+    mood: 'happy',
+    confidence: 0.9,
+    speechRate: 1.02,
+    visualEnergy: 0.8,
+    promptContext: '',
+    metrics: { positive: 0.9, negative: 0, fatigue: 0, surprise: 0, tension: 0 },
+  };
+  engine.observeAffect(state, 1000);
+  assert.equal(engine.nextForSilence(state, 4000), null);
+  assert.match(engine.nextForSilence(state, 10000) || '', /cười|vui/i);
 });

@@ -1,29 +1,47 @@
 import * as THREE from 'three';
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
 
-// Face-tracking ETHICAL (KHÔNG deepfake): đọc webcam bằng MediaPipe FaceLandmarker →
-// lái VRM của Mira theo đầu + biểu cảm của bạn (gương). Lazy-load (không vào bundle chính),
-// chạy cả desktop lẫn iPhone Safari (cần HTTPS + cử chỉ người dùng để mở camera). Lỗi/từ chối
-// camera → available=false, avatar quay về nhìn theo chuột. Đọc faceData ở VRMAvatar mỗi frame.
-
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
+export interface FaceLandmark {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface FaceMuscles {
+  brow: number;
+  eyes: number;
+  cheeks: number;
+  mouth: number;
+  jaw: number;
+}
+
 export interface FaceData {
-  active: boolean; // tracker đang bật
-  present: boolean; // có khuôn mặt trong khung hình
-  yaw: number; // rad, đã làm mượt (đầu quay trái/phải)
-  pitch: number; // rad (gật)
-  roll: number; // rad (nghiêng)
-  jaw: number; // 0..1 há miệng
-  blinkL: number; // 0..1
-  blinkR: number; // 0..1
-  smile: number; // 0..1
-  browUp: number; // 0..1 nhướng mày
-  frown: number; // 0..1 méo miệng (buồn)
-  browDown: number; // 0..1 cau mày
-  emotion: 'happy' | 'sad' | 'surprised' | 'angry' | 'neutral'; // suy từ blendshapes
+  active: boolean;
+  present: boolean;
+  yaw: number;
+  pitch: number;
+  roll: number;
+  jaw: number;
+  blinkL: number;
+  blinkR: number;
+  smile: number;
+  browUp: number;
+  frown: number;
+  browDown: number;
+  cheekSquint: number;
+  eyeWide: number;
+  mouthPress: number;
+  gazeX: number;
+  gazeY: number;
+  emotion: 'happy' | 'sad' | 'tired' | 'surprised' | 'angry' | 'neutral';
+  emotionConfidence: number;
+  headGesture: 'nod' | 'shake' | 'none';
+  landmarks: FaceLandmark[];
+  muscles: FaceMuscles;
 }
 
 export const faceData: FaceData = {
@@ -39,7 +57,16 @@ export const faceData: FaceData = {
   browUp: 0,
   frown: 0,
   browDown: 0,
+  cheekSquint: 0,
+  eyeWide: 0,
+  mouthPress: 0,
+  gazeX: 0,
+  gazeY: 0,
   emotion: 'neutral',
+  emotionConfidence: 0,
+  headGesture: 'none',
+  landmarks: [],
+  muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
 };
 
 let landmarker: { detectForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
@@ -48,6 +75,9 @@ let raf = 0;
 let stopped = true;
 let busy = false;
 let lastError: string | null = null;
+let lastInferenceAt = 0;
+let gestureUntil = 0;
+const poseHistory: Array<{ at: number; yaw: number; pitch: number }> = [];
 
 export function faceTrackerError(): string | null {
   return lastError;
@@ -58,49 +88,152 @@ export function faceTrackerActive(): boolean {
 
 const _m = new THREE.Matrix4();
 const _e = new THREE.Euler();
-const SMOOTH = 0.45;
+const SMOOTH = 0.4;
+
+function inferenceIntervalMs(): number {
+  if (typeof navigator === 'undefined') return 30;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? 45 : 30;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function avg(a: number, b: number): number {
+  return (a + b) / 2;
+}
+
+function updateHeadGesture(now: number): void {
+  poseHistory.push({ at: now, yaw: faceData.yaw, pitch: faceData.pitch });
+  while (poseHistory.length && now - poseHistory[0].at > 900) poseHistory.shift();
+  const yawValues = poseHistory.map((item) => item.yaw);
+  const pitchValues = poseHistory.map((item) => item.pitch);
+  const yawRange = yawValues.length ? Math.max(...yawValues) - Math.min(...yawValues) : 0;
+  const pitchRange = pitchValues.length ? Math.max(...pitchValues) - Math.min(...pitchValues) : 0;
+
+  if (pitchRange > 0.28 && yawRange < 0.3) {
+    faceData.headGesture = 'nod';
+    gestureUntil = now + 700;
+    poseHistory.length = 0;
+  } else if (yawRange > 0.36) {
+    faceData.headGesture = 'shake';
+    gestureUntil = now + 700;
+    poseHistory.length = 0;
+  } else if (now > gestureUntil) {
+    faceData.headGesture = 'none';
+  }
+}
+
+function updateEmotion(bs: Record<string, number>): void {
+  const cheek = avg(bs.cheekSquintLeft || 0, bs.cheekSquintRight || 0);
+  const eyeWide = avg(bs.eyeWideLeft || 0, bs.eyeWideRight || 0);
+  const eyeSquint = avg(bs.eyeSquintLeft || 0, bs.eyeSquintRight || 0);
+  const mouthPress = avg(bs.mouthPressLeft || 0, bs.mouthPressRight || 0);
+  faceData.cheekSquint += (cheek - faceData.cheekSquint) * SMOOTH;
+  faceData.eyeWide += (eyeWide - faceData.eyeWide) * SMOOTH;
+  faceData.mouthPress += (mouthPress - faceData.mouthPress) * SMOOTH;
+
+  const scores = {
+    happy: clamp01(faceData.smile * 0.84 + faceData.cheekSquint * 0.2),
+    sad: clamp01(faceData.frown * 0.72 + faceData.browUp * 0.16 + (1 - faceData.smile) * 0.06),
+    tired: clamp01(
+      avg(faceData.blinkL, faceData.blinkR) * 0.55 +
+      faceData.jaw * 0.12 +
+      (1 - faceData.eyeWide) * 0.08,
+    ),
+    surprised: clamp01(faceData.jaw * 0.5 + faceData.browUp * 0.3 + faceData.eyeWide * 0.24),
+    angry: clamp01(faceData.browDown * 0.58 + faceData.mouthPress * 0.24 + eyeSquint * 0.08),
+  };
+  const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]) as Array<
+    [Exclude<FaceData['emotion'], 'neutral'>, number]
+  >;
+  const [emotion, top] = ranked[0];
+  const second = ranked[1]?.[1] || 0;
+  const confidence = clamp01(top * 0.82 + Math.max(0, top - second) * 0.42);
+  faceData.emotion = top >= 0.28 && confidence >= 0.26 ? emotion : 'neutral';
+  faceData.emotionConfidence = faceData.emotion === 'neutral' ? 0 : confidence;
+
+  faceData.muscles = {
+    brow: clamp01(Math.max(faceData.browUp, faceData.browDown)),
+    eyes: clamp01(Math.max(avg(faceData.blinkL, faceData.blinkR), faceData.eyeWide, eyeSquint)),
+    cheeks: clamp01(faceData.cheekSquint),
+    mouth: clamp01(Math.max(faceData.smile, faceData.frown, faceData.mouthPress)),
+    jaw: clamp01(faceData.jaw),
+  };
+}
 
 function readFrame(): void {
   if (stopped || !landmarker || !video) return;
+  const now = performance.now();
+  if (now - lastInferenceAt < inferenceIntervalMs()) {
+    raf = requestAnimationFrame(readFrame);
+    return;
+  }
+  lastInferenceAt = now;
+
   let res: any = null;
   try {
-    res = landmarker.detectForVideo(video, performance.now());
+    res = landmarker.detectForVideo(video, now);
   } catch {
     res = null;
   }
+
   const cats = res?.faceBlendshapes?.[0]?.categories;
-  if (cats && cats.length) {
+  const landmarks = res?.faceLandmarks?.[0];
+  if (cats?.length && landmarks?.length) {
     faceData.present = true;
     const bs: Record<string, number> = {};
-    for (const c of cats) bs[c.categoryName] = c.score;
+    for (const category of cats) bs[category.categoryName] = Number(category.score || 0);
+
     faceData.jaw += ((bs.jawOpen || 0) - faceData.jaw) * SMOOTH;
     faceData.blinkL += ((bs.eyeBlinkLeft || 0) - faceData.blinkL) * SMOOTH;
     faceData.blinkR += ((bs.eyeBlinkRight || 0) - faceData.blinkR) * SMOOTH;
     faceData.smile +=
-      (((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2 - faceData.smile) * SMOOTH;
+      (avg(bs.mouthSmileLeft || 0, bs.mouthSmileRight || 0) - faceData.smile) * SMOOTH;
     faceData.browUp += ((bs.browInnerUp || 0) - faceData.browUp) * SMOOTH;
-    faceData.frown += (((bs.mouthFrownLeft || 0) + (bs.mouthFrownRight || 0)) / 2 - faceData.frown) * SMOOTH;
-    faceData.browDown += (((bs.browDownLeft || 0) + (bs.browDownRight || 0)) / 2 - faceData.browDown) * SMOOTH;
-    // Suy cảm xúc từ blendshapes (ngưỡng heuristic — có thể chỉnh).
-    faceData.emotion =
-      faceData.smile > 0.4 ? 'happy'
-        : faceData.frown > 0.28 || (faceData.browUp > 0.55 && faceData.smile < 0.12) ? 'sad'
-          : faceData.jaw > 0.45 && faceData.browUp > 0.4 ? 'surprised'
-            : faceData.browDown > 0.4 && faceData.smile < 0.12 ? 'angry'
-              : 'neutral';
+    faceData.frown +=
+      (avg(bs.mouthFrownLeft || 0, bs.mouthFrownRight || 0) - faceData.frown) * SMOOTH;
+    faceData.browDown +=
+      (avg(bs.browDownLeft || 0, bs.browDownRight || 0) - faceData.browDown) * SMOOTH;
+
+    const gazeXRaw = avg(
+      (bs.eyeLookOutLeft || 0) - (bs.eyeLookInLeft || 0),
+      (bs.eyeLookInRight || 0) - (bs.eyeLookOutRight || 0),
+    );
+    const gazeYRaw = avg(
+      (bs.eyeLookUpLeft || 0) - (bs.eyeLookDownLeft || 0),
+      (bs.eyeLookUpRight || 0) - (bs.eyeLookDownRight || 0),
+    );
+    faceData.gazeX += (gazeXRaw - faceData.gazeX) * SMOOTH;
+    faceData.gazeY += (gazeYRaw - faceData.gazeY) * SMOOTH;
+
+    faceData.landmarks = landmarks.slice(0, 478).map((point: any) => ({
+      x: Number(point.x || 0),
+      y: Number(point.y || 0),
+      z: Number(point.z || 0),
+    }));
+
+    updateEmotion(bs);
 
     const mtx = res?.facialTransformationMatrixes?.[0]?.data;
-    if (mtx && mtx.length === 16) {
-      _m.fromArray(mtx); // MediaPipe trả column-major — khớp THREE.Matrix4
+    if (mtx?.length === 16) {
+      _m.fromArray(mtx);
       _e.setFromRotationMatrix(_m, 'YXZ');
       faceData.yaw += (_e.y - faceData.yaw) * SMOOTH;
       faceData.pitch += (_e.x - faceData.pitch) * SMOOTH;
       faceData.roll += (_e.z - faceData.roll) * SMOOTH;
+      updateHeadGesture(now);
     }
   } else {
     faceData.present = false;
     faceData.emotion = 'neutral';
+    faceData.emotionConfidence = 0;
+    faceData.landmarks = [];
+    faceData.headGesture = 'none';
+    faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
+    poseHistory.length = 0;
   }
+
   raf = requestAnimationFrame(readFrame);
 }
 
@@ -112,21 +245,32 @@ export async function startFaceTracking(): Promise<boolean> {
   try {
     const vision = await import('@mediapipe/tasks-vision');
     const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
-    landmarker = await vision.FaceLandmarker.createFromOptions(resolver, {
-      baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-      runningMode: 'VIDEO',
-      numFaces: 1,
-      outputFaceBlendshapes: true,
-      outputFacialTransformationMatrixes: true,
-    });
+    try {
+      landmarker = await vision.FaceLandmarker.createFromOptions(resolver, {
+        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+        outputFaceBlendshapes: true,
+        outputFacialTransformationMatrixes: true,
+      });
+    } catch {
+      landmarker = await vision.FaceLandmarker.createFromOptions(resolver, {
+        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+        outputFaceBlendshapes: true,
+        outputFacialTransformationMatrixes: true,
+      });
+    }
     video = await acquireVisionCamera('face');
     stopped = false;
     faceData.active = true;
+    lastInferenceAt = 0;
     raf = requestAnimationFrame(readFrame);
     return true;
-  } catch (e) {
-    lastError = e instanceof Error ? e.message : String(e);
-    console.warn('[Mira Face] không bật được camera/landmarker — avatar dùng chuột.', lastError);
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : String(error);
+    console.warn('[Mira Face] không bật được camera/landmarker.', lastError);
     stopFaceTracking();
     return false;
   } finally {
@@ -139,12 +283,15 @@ export function stopFaceTracking(): void {
   cancelAnimationFrame(raf);
   releaseVisionCamera('face');
   video = null;
-  try {
-    landmarker?.close?.();
-  } catch {
-    /* noop */
-  }
+  try { landmarker?.close?.(); } catch { /* noop */ }
   landmarker = null;
   faceData.active = false;
   faceData.present = false;
+  faceData.landmarks = [];
+  faceData.emotion = 'neutral';
+  faceData.emotionConfidence = 0;
+  faceData.headGesture = 'none';
+  faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
+  poseHistory.length = 0;
+  lastInferenceAt = 0;
 }

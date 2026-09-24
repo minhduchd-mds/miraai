@@ -1,60 +1,42 @@
-import type { Brain, BrainReply } from '../types';
+import type { Brain, BrainReply, BrainTurn } from '../types';
 
-// Brain demo: không cần API key, chứng minh đủ vòng voice + UI.
-// Tính cách Mira: trợ lý audit của Soi, xưng "em", trả lời NGẮN (đề xuất #5 — voice-first).
 const RULES: { test: RegExp; reply: () => BrainReply }[] = [
   {
     test: /(xin chào|chào|hế?lô|^hi$|^hey$|mira ơi|mira oi)/i,
-    reply: () => ({ text: 'Em đây! Anh cần em giúp gì cho phiên audit hôm nay?', mood: 'happy' }),
-  },
-  {
-    test: /(tóm tắt|tổng hợp|báo cáo).*(audit|phiên|sáng|kết quả)|audit.*(thế nào|sao|ra sao)/i,
-    reply: () => ({
-      text: 'Phiên sáng nay có ba lỗi nghiêm trọng và mười hai cảnh báo. Em ưu tiên phần lệch màu ở màn Đăng nhập trước nhé.',
-      mood: 'neutral',
-    }),
-  },
-  {
-    test: /(so sánh|so |đối chiếu).*(figma)|figma/i,
-    reply: () => ({
-      text: 'Em đang so màn hiện tại với bản Figma. Khác biệt rõ nhất là khoảng cách nút và sắc xanh nhấn lệch một chút.',
-      mood: 'curious',
-    }),
-  },
-  {
-    test: /(lỗi nghiêm trọng|critical|nghiêm trọng|lỗi nặng)/i,
-    reply: () => ({
-      text: 'Có ba lỗi nghiêm trọng: tương phản chữ ở form, nút thiếu trạng thái focus, và ảnh nền tải chậm. Anh muốn em đọc chi tiết cái nào?',
-      mood: 'thinking',
-    }),
+    reply: () => ({ text: 'Em đây. Anh cứ nói tự nhiên nhé.', mood: 'happy' }),
   },
   {
     test: /(cảm ơn|cám ơn|thank)/i,
-    reply: () => ({ text: 'Dạ không có gì ạ. Anh cứ gọi em bất cứ lúc nào.', mood: 'happy' }),
+    reply: () => ({ text: 'Dạ. Em vẫn ở đây.', mood: 'happy' }),
   },
   {
-    test: /(bạn là ai|em là ai|giới thiệu|mira là gì|làm được gì)/i,
+    test: /(bạn là ai|em là ai|mira là gì|giới thiệu)/i,
     reply: () => ({
-      text: 'Em là Mira, trợ lý giọng nói của Soi. Em giúp anh đọc và soát kết quả audit giao diện bằng giọng nói.',
+      text: 'Em là Mira, người đồng hành giọng nói chạy cùng anh trên trình duyệt. Em có voice loop, memory cục bộ, camera nhận diện cử chỉ và có thể chạy bộ não local khi máy hỗ trợ WebGPU.',
       mood: 'neutral',
+    }),
+  },
+  {
+    test: /(làm được gì|chức năng|tính năng)/i,
+    reply: () => ({
+      text: 'Em có thể nghe và nói liên tục, ghi nhớ cục bộ, nhận diện tay và nét mặt, điều chỉnh cách nói theo tín hiệu biểu cảm, và chạy mô hình ngôn ngữ local nếu thiết bị hỗ trợ.',
+      mood: 'curious',
     }),
   },
 ];
 
-function truncate(s: string, n = 60): string {
-  return s.length > n ? s.slice(0, n).trim() + '…' : s;
+function truncate(text: string, max = 90): string {
+  return text.length > max ? text.slice(0, max).trim() + '…' : text;
 }
 
 export class CannedBrain implements Brain {
-  readonly name = 'demo (canned)';
+  readonly name = 'Mira Brain · lightweight fallback';
 
-  async reply(input: string): Promise<BrainReply> {
-    // Độ trễ "suy nghĩ" giả lập để trạng thái THINKING hiện rõ (cảm giác thật hơn).
-    await new Promise((r) => setTimeout(r, 450 + Math.random() * 500));
-    const hit = RULES.find((r) => r.test.test(input));
+  async reply(input: string, _history?: BrainTurn[], _context?: string): Promise<BrainReply> {
+    const hit = RULES.find((rule) => rule.test.test(input));
     if (hit) return hit.reply();
     return {
-      text: `Em nghe anh nói: “${truncate(input)}”. Bản demo này chưa nối LLM thật — anh cắm API key vào file .env để em trả lời thông minh hơn nhé.`,
+      text: 'Em nghe anh nói: “' + truncate(input) + '”. Máy hiện chưa chạy được bộ não WebGPU nên em đang ở chế độ nhẹ; voice, memory và vision vẫn hoạt động.',
       mood: 'curious',
     };
   }

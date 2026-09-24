@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { MiraState } from '../core/types';
+import type { ObservedMood } from '../intelligence/affect/mood-engine';
 import { audioLevel } from '../core/audio-level';
 import './photoreal-mira.css';
 
@@ -14,6 +15,8 @@ interface Props {
   who?: string;
   brainName?: string;
   sttAvailable?: boolean;
+  observedMood?: ObservedMood;
+  moodConfidence?: number;
 }
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
@@ -69,6 +72,8 @@ export default function PhotorealMira({
   who = 'MIRA',
   brainName = '',
   sttAvailable = true,
+  observedMood = 'neutral',
+  moodConfidence = 0,
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
   const copy = COPY_BY_STATE[state];
@@ -153,7 +158,7 @@ export default function PhotorealMira({
     <button
       ref={rootRef}
       type="button"
-      className={`photo-mira state-${state}${live ? ' is-live' : ''}`}
+      className={`photo-mira state-${state} user-mood-${observedMood}${live ? ' is-live' : ''}`}
       style={rootStyle}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
@@ -206,6 +211,7 @@ export default function PhotorealMira({
           <span><small>VOICE LOOP</small><b>{live ? 'CONTINUOUS' : 'STANDBY'}</b></span>
           <span><small>BRAIN</small><b>{brainLabel}</b></span>
           <span><small>MEMORY</small><b>{Math.round(memoryStrength * 100)}% CONTEXT</b></span>
+          <span><small>AFFECT</small><b>{observedMood.toUpperCase()} {Math.round(moodConfidence * 100)}%</b></span>
         </span>
         <span className="pm-caption-card">
           <small>{who || 'MIRA'}</small>

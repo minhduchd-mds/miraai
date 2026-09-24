@@ -1,6 +1,7 @@
 import type { Brain } from '../types';
 import { GeminiBrain } from './gemini-brain';
 import { LLMBrain } from './llm-brain';
+import { LocalWebLLMBrain } from './local-webllm-brain';
 
 const DEFAULT_MODEL: Record<string, string> = {
   anthropic: 'claude-sonnet-4-6',
@@ -16,7 +17,6 @@ export interface LLMConfig {
 
 const LS_KEY = 'mira.llm.config';
 
-/** Browser-held provider keys are intentionally restricted to Vite development builds. */
 export function browserBYOKAllowed(): boolean {
   return import.meta.env.DEV;
 }
@@ -25,7 +25,6 @@ export function loadLLMConfig(): LLMConfig {
   if (!browserBYOKAllowed()) {
     return { provider: '', apiKey: '', model: '', webSearch: false };
   }
-
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
@@ -37,9 +36,7 @@ export function loadLLMConfig(): LLMConfig {
         webSearch: typeof config?.webSearch === 'boolean' ? config.webSearch : true,
       };
     }
-  } catch {
-    // Fall through to server gateway.
-  }
+  } catch { /* fall through */ }
   return { provider: '', apiKey: '', model: '', webSearch: true };
 }
 
@@ -50,9 +47,7 @@ export function saveLLMConfig(config: LLMConfig): void {
       return;
     }
     localStorage.setItem(LS_KEY, JSON.stringify(config));
-  } catch {
-    // The server gateway remains available.
-  }
+  } catch { /* server gateway remains available */ }
 }
 
 export function defaultModelFor(provider: string): string {
@@ -60,6 +55,9 @@ export function defaultModelFor(provider: string): string {
 }
 
 export function createBrain(): Brain {
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io')) {
+    return new LocalWebLLMBrain();
+  }
   const config = loadLLMConfig();
   if (browserBYOKAllowed() && config.provider && config.apiKey) {
     try {
@@ -69,9 +67,7 @@ export function createBrain(): Brain {
         config.model || DEFAULT_MODEL[config.provider],
         config.webSearch,
       );
-    } catch {
-      // Fall through to server gateway.
-    }
+    } catch { /* fall through */ }
   }
   return new GeminiBrain();
 }

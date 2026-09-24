@@ -6,6 +6,9 @@ import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
+import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
+import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
+import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import AirControlOverlay from '../presence/AirControlOverlay';
 import {
@@ -63,6 +66,14 @@ export default function AppV2() {
   const [visionBooting, setVisionBooting] = useState(false);
   const [visionError, setVisionError] = useState('');
   const [faceSeen, setFaceSeen] = useState(false);
+  const [faceLandmarks, setFaceLandmarks] = useState<FaceLandmarkPoint[]>([]);
+  const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
+  const affectTrackerRef = useRef(new AffectTracker());
+  const [faceTelemetry, setFaceTelemetry] = useState({
+    smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
+    gazeX: 0, gazeY: 0, headGesture: 'none',
+    muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
+  });
   const [handSeen, setHandSeen] = useState(false);
   const [gestureName, setGestureName] = useState('None');
   const [gestureScore, setGestureScore] = useState(0);
@@ -119,6 +130,16 @@ export default function AppV2() {
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
     setVisionOn(false);
     setFaceSeen(false);
+    setFaceLandmarks([]);
+    const neutral = neutralAffect();
+    setFaceAffect(neutral);
+    affectTrackerRef.current = new AffectTracker();
+    mira.observeAffect(neutral);
+    setFaceTelemetry({
+      smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
+      gazeX: 0, gazeY: 0, headGesture: 'none',
+      muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
+    });
     setHandSeen(false);
     setGestureName('None');
     setGestureScore(0);
@@ -143,7 +164,7 @@ export default function AppV2() {
       baseScale: surfaceTransform.scale,
       baseRotation: surfaceTransform.rotation,
     };
-  }, [surfaceTransform.rotation, surfaceTransform.scale]);
+  }, [mira.observeAffect, surfaceTransform.rotation, surfaceTransform.scale]);
 
   const toggleVision = useCallback(async () => {
     if (visionBooting) return;
@@ -195,6 +216,22 @@ export default function AppV2() {
       const current = visionModulesRef.current;
       const snapshot = current?.visionSnapshot();
       setFaceSeen(Boolean(snapshot?.faceSeen));
+      const face = snapshot?.face;
+      setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
+      const nextAffect = affectTrackerRef.current.update(face || { present: false }, performance.now());
+      setFaceAffect(nextAffect);
+      mira.observeAffect(nextAffect);
+      setFaceTelemetry({
+        smile: Number(face?.smile || 0),
+        frown: Number(face?.frown || 0),
+        jaw: Number(face?.jaw || 0),
+        browUp: Number(face?.browUp || 0),
+        browDown: Number(face?.browDown || 0),
+        gazeX: Number(face?.gazeX || 0),
+        gazeY: Number(face?.gazeY || 0),
+        headGesture: String(face?.headGesture || 'none'),
+        muscles: face?.muscles || { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
+      });
       setHandSeen(Boolean(snapshot?.handSeen));
       setGestureName(snapshot?.gesture || 'None');
       setGestureScore(Number(snapshot?.gestureScore || 0));
@@ -219,7 +256,7 @@ export default function AppV2() {
       }
     }, 120);
     return () => window.clearInterval(timer);
-  }, [visionOn]);
+  }, [mira.observeAffect, visionOn]);
 
   useEffect(() => () => {
     const modules = visionModulesRef.current;
@@ -263,6 +300,7 @@ export default function AppV2() {
 
   const activateVoice = useCallback(() => {
     mira.unlockAudio();
+    if (!visionOn && !visionBooting) void toggleVision();
 
     if (voiceReady) {
       if (!mira.live) {
@@ -281,8 +319,12 @@ export default function AppV2() {
       clearBootTimer();
       setVoiceBooting(false);
       setVoiceReady(true);
-      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') mira.interrupt();
-      else mira.startLive();
+      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') {
+        mira.interrupt();
+        window.setTimeout(() => mira.startLive(), 160);
+      } else {
+        mira.startLive();
+      }
       return;
     }
 
@@ -304,10 +346,14 @@ export default function AppV2() {
       bootTimerRef.current = null;
       setVoiceBooting(false);
       setVoiceReady(true);
-      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') mira.interrupt();
-      else mira.startLive();
+      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') {
+        mira.interrupt();
+        window.setTimeout(() => mira.startLive(), 160);
+      } else {
+        mira.startLive();
+      }
     }, VOICE_HANDSHAKE_TIMEOUT);
-  }, [clearBootTimer, mira.interrupt, mira.live, mira.say, mira.startListening, mira.startLive, mira.stateRef, mira.unlockAudio, voiceReady]);
+  }, [clearBootTimer, mira.interrupt, mira.live, mira.say, mira.startListening, mira.startLive, mira.stateRef, mira.unlockAudio, toggleVision, visionBooting, visionOn, voiceReady]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -529,6 +575,7 @@ export default function AppV2() {
   useEffect(() => {
     const resumeIfNeeded = () => {
       if (document.visibilityState !== 'visible' || !mira.live) return;
+      mira.notifyContextEvent('resume');
       if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
         window.setTimeout(() => {
           if (mira.live && (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted')) {
@@ -543,7 +590,31 @@ export default function AppV2() {
       document.removeEventListener('visibilitychange', resumeIfNeeded);
       window.removeEventListener('focus', resumeIfNeeded);
     };
-  }, [mira.live, mira.startListening, mira.stateRef]);
+  }, [mira.live, mira.notifyContextEvent, mira.startListening, mira.stateRef]);
+
+  useEffect(() => {
+    if (!mira.live) {
+      void disableBackgroundCompanion();
+      return;
+    }
+    void enableBackgroundCompanion(() => {
+      mira.notifyContextEvent('wake');
+      if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
+        mira.startListening();
+      }
+    });
+    return () => { void disableBackgroundCompanion(); };
+  }, [mira.live, mira.notifyContextEvent, mira.startListening, mira.stateRef]);
+
+  const moodLabel = ({
+    happy: 'Cười / tích cực',
+    sad: 'Trầm',
+    tired: 'Có vẻ mệt',
+    angry: 'Căng',
+    surprised: 'Bất ngờ',
+    neutral: 'Trung tính',
+  } as Record<AffectState['mood'], string>)[faceAffect.mood];
+
   const gestureLabel = waveSeen ? 'Wave' : ({
     Open_Palm: 'Open Palm',
     Closed_Fist: 'Closed Fist',
@@ -561,7 +632,7 @@ export default function AppV2() {
   ].join(' ');
 
   return (
-    <div className={`mira-v2 voice-only holographic-ui${voiceBooting ? ' voice-booting' : ''}${mira.content ? ' has-result' : ''}`}>
+    <div className={`mira-v2 voice-only holographic-ui user-mood-${faceAffect.mood}${voiceBooting ? ' voice-booting' : ''}${mira.content ? ' has-result' : ''}`}>
       <a className="v2-skip" href="#main-content">Chuyển tới nội dung chính</a>
 
       <header className="v2-header voice-header">
@@ -598,7 +669,15 @@ export default function AppV2() {
             <div className="v2-camera-status">
               <span className={faceSeen ? 'detected' : ''}>Face</span>
               <span className={handSeen ? 'detected' : ''}>Hand</span>
+              <span className={faceSeen && faceAffect.mood !== 'neutral' ? 'detected' : ''}>{moodLabel}</span>
             </div>
+            {faceSeen && (
+              <FaceMeshOverlay
+                points={faceLandmarks}
+                active={faceSeen}
+                muscles={faceTelemetry.muscles}
+              />
+            )}
             {handSeen && (
               <>
                 {(spatialHands.length ? spatialHands : [{ landmarks: handLandmarks } as SpatialHand]).map((hand, index) => (
@@ -615,7 +694,24 @@ export default function AppV2() {
                 </div>
               </>
             )}
-            {!handSeen && <div className="v2-gesture-hint">Đưa bàn tay vào khung</div>}
+            {!handSeen && <div className="v2-gesture-hint">{faceSeen ? 'Đưa tay vào khung để điều khiển' : 'Đưa khuôn mặt vào khung'}</div>}
+          </div>
+          <div className="v2-face-panel">
+            <div className="v2-face-panel-head">
+              <span><small>AFFECT</small><b>{moodLabel}</b></span>
+              <em>{Math.round(faceAffect.confidence * 100)}%</em>
+            </div>
+            <div className="v2-face-bars" aria-hidden="true">
+              <i style={{ '--level': faceTelemetry.muscles.brow } as CSSProperties}><span>Brow</span></i>
+              <i style={{ '--level': faceTelemetry.muscles.eyes } as CSSProperties}><span>Eyes</span></i>
+              <i style={{ '--level': faceTelemetry.muscles.cheeks } as CSSProperties}><span>Cheek</span></i>
+              <i style={{ '--level': faceTelemetry.muscles.mouth } as CSSProperties}><span>Mouth</span></i>
+              <i style={{ '--level': faceTelemetry.muscles.jaw } as CSSProperties}><span>Jaw</span></i>
+            </div>
+            <div className="v2-face-meta">
+              <span>Smile {Math.round(faceTelemetry.smile * 100)}%</span>
+              <span>{faceTelemetry.headGesture === 'none' ? 'Head stable' : faceTelemetry.headGesture}</span>
+            </div>
           </div>
         </div>
       )}
@@ -644,6 +740,8 @@ export default function AppV2() {
             who={mira.who}
             brainName={mira.brainName}
             sttAvailable={mira.sttAvailable}
+            observedMood={faceAffect.mood}
+            moodConfidence={faceAffect.confidence}
           />
         </div>
 

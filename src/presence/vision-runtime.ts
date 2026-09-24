@@ -1,5 +1,15 @@
-import { faceData, faceTrackerError, startFaceTracking, stopFaceTracking } from '../core/face/face-tracker';
-import { gestureTrackerError, handData, startGestureTracking, stopGestureTracking } from '../core/face/gesture-tracker';
+import {
+  faceData,
+  faceTrackerError,
+  startFaceTracking,
+  stopFaceTracking,
+} from '../core/face/face-tracker';
+import {
+  gestureTrackerError,
+  handData,
+  startGestureTracking,
+  stopGestureTracking,
+} from '../core/face/gesture-tracker';
 import { getVisionCameraStream } from '../core/vision/camera-manager';
 
 export async function startVision(): Promise<{ ok: boolean; error: string }> {
@@ -32,6 +42,29 @@ export function visionSnapshot() {
 
   return {
     faceSeen: Boolean(faceData.active && faceData.present),
+    face: {
+      present: Boolean(faceData.active && faceData.present),
+      emotion: faceData.emotion,
+      confidence: faceData.emotionConfidence,
+      yaw: faceData.yaw,
+      pitch: faceData.pitch,
+      roll: faceData.roll,
+      jaw: faceData.jaw,
+      blinkL: faceData.blinkL,
+      blinkR: faceData.blinkR,
+      smile: faceData.smile,
+      frown: faceData.frown,
+      browUp: faceData.browUp,
+      browDown: faceData.browDown,
+      cheekSquint: faceData.cheekSquint,
+      eyeWide: faceData.eyeWide,
+      mouthPress: faceData.mouthPress,
+      gazeX: faceData.gazeX,
+      gazeY: faceData.gazeY,
+      headGesture: faceData.headGesture,
+      landmarks: faceData.landmarks.map((point) => ({ ...point })),
+      muscles: { ...faceData.muscles },
+    },
     handSeen: Boolean(handData.active && handData.present),
     handCount: hands.length,
     hands,
