@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
+import { inferFacialGesture, type FacialGesture } from './facial-gesture';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
@@ -40,6 +41,8 @@ export interface FaceData {
   emotion: 'happy' | 'sad' | 'tired' | 'surprised' | 'angry' | 'neutral';
   emotionConfidence: number;
   headGesture: 'nod' | 'shake' | 'none';
+  faceGesture: FacialGesture;
+  faceGestureConfidence: number;
   landmarks: FaceLandmark[];
   muscles: FaceMuscles;
 }
@@ -65,6 +68,8 @@ export const faceData: FaceData = {
   emotion: 'neutral',
   emotionConfidence: 0,
   headGesture: 'none',
+  faceGesture: 'none',
+  faceGestureConfidence: 0,
   landmarks: [],
   muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
 };
@@ -213,6 +218,19 @@ function readFrame(): void {
       z: Number(point.z || 0),
     }));
 
+    const facialGesture = inferFacialGesture({
+      smile: faceData.smile,
+      frown: faceData.frown,
+      browUp: faceData.browUp,
+      jaw: faceData.jaw,
+      blinkL: faceData.blinkL,
+      blinkR: faceData.blinkR,
+      cheekSquint: faceData.cheekSquint,
+      eyeWide: faceData.eyeWide,
+    });
+    faceData.faceGesture = facialGesture.gesture;
+    faceData.faceGestureConfidence = facialGesture.confidence;
+
     updateEmotion(bs);
 
     const mtx = res?.facialTransformationMatrixes?.[0]?.data;
@@ -230,6 +248,8 @@ function readFrame(): void {
     faceData.emotionConfidence = 0;
     faceData.landmarks = [];
     faceData.headGesture = 'none';
+    faceData.faceGesture = 'none';
+    faceData.faceGestureConfidence = 0;
     faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
     poseHistory.length = 0;
   }
@@ -291,6 +311,8 @@ export function stopFaceTracking(): void {
   faceData.emotion = 'neutral';
   faceData.emotionConfidence = 0;
   faceData.headGesture = 'none';
+  faceData.faceGesture = 'none';
+  faceData.faceGestureConfidence = 0;
   faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
   poseHistory.length = 0;
   lastInferenceAt = 0;

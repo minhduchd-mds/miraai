@@ -19,6 +19,7 @@ const mustExist = [
   'src/core/tts/server-tts.ts',
   'src/core/tts/piper-local-tts.ts',
   'src/core/brain/local-webllm-brain.ts',
+  'src/core/face/facial-gesture.ts',
   'src/intelligence/affect/mood-engine.ts',
   'src/intelligence/proactive/proactive-engine.ts',
   'src/intelligence/memory/local-memory-store.ts',
@@ -209,8 +210,10 @@ if (!brain.includes('LocalWebLLMBrain')) failures.push('GitHub Pages must expose
 if (brain.includes('VITE_LLM_API_KEY')) failures.push('production brain source must not read VITE_LLM_API_KEY');
 const localMemory = readFileSync('src/intelligence/memory/memory-service.ts', 'utf8');
 if (!localMemory.includes('LocalMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
+const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
+if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('local memory should request persistent browser storage');
 const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
-for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'muscles', 'gazeX']) {
+for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'muscles', 'gazeX']) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
 }
 const prompt = readFileSync('src/core/brain/prompt.ts', 'utf8');

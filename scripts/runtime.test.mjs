@@ -21,6 +21,7 @@ const director = await importTypeScript('src/core/tts/vi-speech-director.ts');
 const spatial = await importTypeScript('src/presence/spatial-math.ts');
 const affect = await importTypeScript('src/intelligence/affect/mood-engine.ts');
 const proactive = await importTypeScript('src/intelligence/proactive/proactive-engine.ts');
+const facialGesture = await importTypeScript('src/core/face/facial-gesture.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -272,4 +273,15 @@ test('proactive engine waits for a stable confident mood and emits one conservat
   engine.observeAffect(state, 1000);
   assert.equal(engine.nextForSilence(state, 4000), null);
   assert.match(engine.nextForSilence(state, 10000) || '', /cười|vui/i);
+});
+
+
+test('facial gesture classifier separates wink, smile and mouth-open signals', () => {
+  const wink = facialGesture.inferFacialGesture({ blinkL: 0.94, blinkR: 0.08, smile: 0.05 });
+  const smile = facialGesture.inferFacialGesture({ smile: 0.92, cheekSquint: 0.5, blinkL: 0.05, blinkR: 0.05 });
+  const mouth = facialGesture.inferFacialGesture({ jaw: 0.9, smile: 0.04, frown: 0.02 });
+  assert.equal(wink.gesture, 'wink_left');
+  assert.equal(smile.gesture, 'smile');
+  assert.equal(mouth.gesture, 'mouth_open');
+  assert.ok(wink.confidence > 0.7);
 });

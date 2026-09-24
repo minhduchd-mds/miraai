@@ -71,7 +71,7 @@ export default function AppV2() {
   const affectTrackerRef = useRef(new AffectTracker());
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
-    gazeX: 0, gazeY: 0, headGesture: 'none',
+    gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
     muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
   });
   const [handSeen, setHandSeen] = useState(false);
@@ -137,7 +137,7 @@ export default function AppV2() {
     mira.observeAffect(neutral);
     setFaceTelemetry({
       smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
-      gazeX: 0, gazeY: 0, headGesture: 'none',
+      gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
     setHandSeen(false);
@@ -230,6 +230,8 @@ export default function AppV2() {
         gazeX: Number(face?.gazeX || 0),
         gazeY: Number(face?.gazeY || 0),
         headGesture: String(face?.headGesture || 'none'),
+        faceGesture: String(face?.faceGesture || 'none'),
+        faceGestureConfidence: Number(face?.faceGestureConfidence || 0),
         muscles: face?.muscles || { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
       });
       setHandSeen(Boolean(snapshot?.handSeen));
@@ -615,6 +617,17 @@ export default function AppV2() {
     neutral: 'Trung tính',
   } as Record<AffectState['mood'], string>)[faceAffect.mood];
 
+  const facialGestureLabel = ({
+    smile: 'Cười',
+    frown: 'Nhíu môi',
+    wink_left: 'Nháy mắt trái',
+    wink_right: 'Nháy mắt phải',
+    brow_raise: 'Nhướn mày',
+    mouth_open: 'Há miệng',
+    squint: 'Nheo mắt',
+    none: 'Không có cử chỉ',
+  } as Record<string, string>)[faceTelemetry.faceGesture] || faceTelemetry.faceGesture;
+
   const gestureLabel = waveSeen ? 'Wave' : ({
     Open_Palm: 'Open Palm',
     Closed_Fist: 'Closed Fist',
@@ -709,7 +722,7 @@ export default function AppV2() {
               <i style={{ '--level': faceTelemetry.muscles.jaw } as CSSProperties}><span>Jaw</span></i>
             </div>
             <div className="v2-face-meta">
-              <span>Smile {Math.round(faceTelemetry.smile * 100)}%</span>
+              <span>{facialGestureLabel} {faceTelemetry.faceGesture === 'none' ? '' : Math.round(faceTelemetry.faceGestureConfidence * 100) + '%'}</span>
               <span>{faceTelemetry.headGesture === 'none' ? 'Head stable' : faceTelemetry.headGesture}</span>
             </div>
           </div>

@@ -9,11 +9,22 @@ interface EpisodeRow { id?: number; text: string; ts: number; }
 interface AffectRow { id?: number; mood: AffectState['mood']; confidence: number; ts: number; }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let persistencePromise: Promise<boolean> | null = null;
+
+async function requestPersistentStorage(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !navigator.storage?.persist) return false;
+  if (!persistencePromise) {
+    persistencePromise = navigator.storage.persist().catch(() => false);
+  }
+  return persistencePromise;
+}
 
 function openDb(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB unavailable'));
   if (!dbPromise) {
-    dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+    dbPromise = (async () => {
+      await requestPersistentStorage();
+      return new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
       request.onupgradeneeded = () => {
@@ -31,13 +42,14 @@ function openDb(): Promise<IDBDatabase> {
           store.createIndex('ts', 'ts');
         }
       };
-      request.onsuccess = () => resolve(request.result);
-    }).catch((error) => {
+        request.onsuccess = () => resolve(request.result);
+      });
+    })().catch((error) => {
       dbPromise = null;
       throw error;
     });
   }
-  return dbPromise!;
+  return dbPromise;
 }
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {

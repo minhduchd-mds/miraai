@@ -62,6 +62,8 @@ export function visionSnapshot() {
       gazeX: faceData.gazeX,
       gazeY: faceData.gazeY,
       headGesture: faceData.headGesture,
+      faceGesture: faceData.faceGesture,
+      faceGestureConfidence: faceData.faceGestureConfidence,
       landmarks: faceData.landmarks.map((point) => ({ ...point })),
       muscles: { ...faceData.muscles },
     },
