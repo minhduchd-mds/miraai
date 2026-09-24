@@ -61,6 +61,7 @@ export default function AppV2() {
   const palmHoldSinceRef = useRef(0);
   const victoryLatchRef = useRef(false);
   const lastAirActionRef = useRef(0);
+  const palmSwipeRef = useRef({ x: 0.5, at: 0 });
 
   useDialogFocus(settingsOpen, '.v2-settings');
 
@@ -97,6 +98,7 @@ export default function AppV2() {
     pinchWasDownRef.current = false;
     palmHoldSinceRef.current = 0;
     victoryLatchRef.current = false;
+    palmSwipeRef.current = { x: 0.5, at: 0 };
   }, []);
 
   const toggleVision = useCallback(async () => {
@@ -301,11 +303,12 @@ export default function AppV2() {
   }, []);
 
   useEffect(() => {
-    if (!visionOn || !handSeen) {
+    if (!visionOn || !handSeen || settingsOpen) {
       setAirTargetLabel('');
       pinchWasDownRef.current = false;
       palmHoldSinceRef.current = 0;
       victoryLatchRef.current = false;
+      palmSwipeRef.current = { x: airPoint.x, at: 0 };
       return;
     }
 
@@ -326,9 +329,23 @@ export default function AppV2() {
     pinchWasDownRef.current = pinching;
 
     if (gestureName === 'Open_Palm' && gestureScore >= 0.58) {
-      if (!palmHoldSinceRef.current) palmHoldSinceRef.current = now;
+      if (!palmHoldSinceRef.current) {
+        palmHoldSinceRef.current = now;
+        palmSwipeRef.current = { x: airPoint.x, at: now };
+      }
+
       const held = now - palmHoldSinceRef.current;
-      if (held >= 720 && freshAction && (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking')) {
+      const swipeAge = now - palmSwipeRef.current.at;
+      const swipeDelta = airPoint.x - palmSwipeRef.current.x;
+
+      if (swipeAge <= 620 && Math.abs(swipeDelta) >= 0.22 && freshAction) {
+        cycleTheme();
+        lastAirActionRef.current = now;
+        palmHoldSinceRef.current = 0;
+        palmSwipeRef.current = { x: airPoint.x, at: now };
+        setAirFeedback(swipeDelta > 0 ? '→ Đổi theme' : '← Đổi theme');
+        window.setTimeout(() => setAirFeedback(''), 900);
+      } else if (held >= 720 && freshAction && (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking')) {
         mira.interrupt();
         lastAirActionRef.current = now;
         palmHoldSinceRef.current = 0;
@@ -337,6 +354,7 @@ export default function AppV2() {
       }
     } else {
       palmHoldSinceRef.current = 0;
+      palmSwipeRef.current = { x: airPoint.x, at: 0 };
     }
 
     if (gestureName === 'Victory' && gestureScore >= 0.62) {
@@ -352,7 +370,7 @@ export default function AppV2() {
     } else {
       victoryLatchRef.current = false;
     }
-  }, [airPoint, gestureName, gestureScore, handSeen, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, visionOn]);
+  }, [airPoint, gestureName, gestureScore, handSeen, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, settingsOpen, visionOn]);
 
   useEffect(() => {
     const resumeIfNeeded = () => {
