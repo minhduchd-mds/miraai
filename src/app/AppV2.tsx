@@ -40,11 +40,7 @@ export default function AppV2() {
   const bootSawSpeakingRef = useRef(false);
   const bootTimerRef = useRef<number | null>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
-  const visionModulesRef = useRef<{
-    face: typeof import('../core/face/face-tracker');
-    gesture: typeof import('../core/face/gesture-tracker');
-    camera: typeof import('../core/vision/camera-manager');
-  } | null>(null);
+  const visionModulesRef = useRef<typeof import('../presence/vision-runtime') | null>(null);
   const [visionOn, setVisionOn] = useState(false);
   const [visionBooting, setVisionBooting] = useState(false);
   const [visionError, setVisionError] = useState('');
@@ -64,19 +60,14 @@ export default function AppV2() {
 
   const loadVisionModules = useCallback(async () => {
     if (visionModulesRef.current) return visionModulesRef.current;
-    const [face, gesture, camera] = await Promise.all([
-      import('../core/face/face-tracker'),
-      import('../core/face/gesture-tracker'),
-      import('../core/vision/camera-manager'),
-    ]);
-    visionModulesRef.current = { face, gesture, camera };
-    return visionModulesRef.current;
+    const runtime = await import('../presence/vision-runtime');
+    visionModulesRef.current = runtime;
+    return runtime;
   }, []);
 
   const stopVision = useCallback(async () => {
     const modules = visionModulesRef.current;
-    modules?.face.stopFaceTracking();
-    modules?.gesture.stopGestureTracking();
+    modules?.stopVision();
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
     setVisionOn(false);
     setFaceSeen(false);
@@ -94,14 +85,11 @@ export default function AppV2() {
     setVisionError('');
     try {
       const modules = await loadVisionModules();
-      const [faceOk, handOk] = await Promise.all([
-        modules.face.startFaceTracking(),
-        modules.gesture.startGestureTracking(),
-      ]);
-      const on = faceOk || handOk;
+      const result = await modules.startVision();
+      const on = result.ok;
       setVisionOn(on);
 
-      const stream = modules.camera.getVisionCameraStream();
+      const stream = modules.visionStream();
       if (on && stream && cameraPreviewRef.current) {
         cameraPreviewRef.current.srcObject = stream;
         cameraPreviewRef.current.muted = true;
@@ -110,8 +98,7 @@ export default function AppV2() {
       }
 
       if (!on) {
-        const reason = modules.face.faceTrackerError() || modules.gesture.gestureTrackerError();
-        setVisionError(reason || 'Không mở được camera. Hãy kiểm tra quyền Camera của trình duyệt.');
+        setVisionError(result.error || 'Không mở được camera. Hãy kiểm tra quyền Camera của trình duyệt.');
       }
     } catch (error) {
       setVisionError(error instanceof Error ? error.message : 'Không mở được camera.');
@@ -125,7 +112,7 @@ export default function AppV2() {
     if (!visionOn) return;
     const modules = visionModulesRef.current;
     const preview = cameraPreviewRef.current;
-    const stream = modules?.camera.getVisionCameraStream() || null;
+    const stream = modules?.visionStream() || null;
     if (preview && stream) {
       preview.srcObject = stream;
       preview.muted = true;
@@ -135,16 +122,16 @@ export default function AppV2() {
 
     const timer = window.setInterval(() => {
       const current = visionModulesRef.current;
-      setFaceSeen(Boolean(current?.face.faceData.active && current.face.faceData.present));
-      setHandSeen(Boolean(current?.gesture.handData.active && current.gesture.handData.present));
+      const snapshot = current?.visionSnapshot();
+      setFaceSeen(Boolean(snapshot?.faceSeen));
+      setHandSeen(Boolean(snapshot?.handSeen));
     }, 180);
     return () => window.clearInterval(timer);
   }, [visionOn]);
 
   useEffect(() => () => {
     const modules = visionModulesRef.current;
-    modules?.face.stopFaceTracking();
-    modules?.gesture.stopGestureTracking();
+    modules?.stopVision();
   }, []);
 
   useEffect(() => {
