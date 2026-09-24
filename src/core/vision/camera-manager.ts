@@ -72,6 +72,10 @@ export function releaseVisionCamera(consumer: VisionCameraConsumer): void {
   if (!consumers.size) closeCamera();
 }
 
+export function getVisionCameraStream(): MediaStream | null {
+  return streamIsLive() ? stream : null;
+}
+
 export function visionCameraStatus() {
   return {
     active: streamIsLive(),

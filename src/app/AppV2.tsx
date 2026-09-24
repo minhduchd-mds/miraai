@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
 import ContentPanel from '../ui/ContentPanel';
-import { IconSettings } from '../ui/icons';
+import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
@@ -39,6 +39,13 @@ export default function AppV2() {
   const bootPendingRef = useRef(false);
   const bootSawSpeakingRef = useRef(false);
   const bootTimerRef = useRef<number | null>(null);
+  const cameraPreviewRef = useRef<HTMLVideoElement>(null);
+  const visionModulesRef = useRef<typeof import('../presence/vision-runtime') | null>(null);
+  const [visionOn, setVisionOn] = useState(false);
+  const [visionBooting, setVisionBooting] = useState(false);
+  const [visionError, setVisionError] = useState('');
+  const [faceSeen, setFaceSeen] = useState(false);
+  const [handSeen, setHandSeen] = useState(false);
 
   useDialogFocus(settingsOpen, '.v2-settings');
 
@@ -50,6 +57,82 @@ export default function AppV2() {
   useEffect(() => {
     try { localStorage.setItem('mira.theme', theme); } catch { /* noop */ }
   }, [theme]);
+
+  const loadVisionModules = useCallback(async () => {
+    if (visionModulesRef.current) return visionModulesRef.current;
+    const runtime = await import('../presence/vision-runtime');
+    visionModulesRef.current = runtime;
+    return runtime;
+  }, []);
+
+  const stopVision = useCallback(async () => {
+    const modules = visionModulesRef.current;
+    modules?.stopVision();
+    if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
+    setVisionOn(false);
+    setFaceSeen(false);
+    setHandSeen(false);
+  }, []);
+
+  const toggleVision = useCallback(async () => {
+    if (visionBooting) return;
+    if (visionOn) {
+      await stopVision();
+      return;
+    }
+
+    setVisionBooting(true);
+    setVisionError('');
+    try {
+      const modules = await loadVisionModules();
+      const result = await modules.startVision();
+      const on = result.ok;
+      setVisionOn(on);
+
+      const stream = modules.visionStream();
+      if (on && stream && cameraPreviewRef.current) {
+        cameraPreviewRef.current.srcObject = stream;
+        cameraPreviewRef.current.muted = true;
+        cameraPreviewRef.current.playsInline = true;
+        await cameraPreviewRef.current.play().catch(() => {});
+      }
+
+      if (!on) {
+        setVisionError(result.error || 'Không mở được camera. Hãy kiểm tra quyền Camera của trình duyệt.');
+      }
+    } catch (error) {
+      setVisionError(error instanceof Error ? error.message : 'Không mở được camera.');
+      await stopVision();
+    } finally {
+      setVisionBooting(false);
+    }
+  }, [loadVisionModules, stopVision, visionBooting, visionOn]);
+
+  useEffect(() => {
+    if (!visionOn) return;
+    const modules = visionModulesRef.current;
+    const preview = cameraPreviewRef.current;
+    const stream = modules?.visionStream() || null;
+    if (preview && stream) {
+      preview.srcObject = stream;
+      preview.muted = true;
+      preview.playsInline = true;
+      void preview.play().catch(() => {});
+    }
+
+    const timer = window.setInterval(() => {
+      const current = visionModulesRef.current;
+      const snapshot = current?.visionSnapshot();
+      setFaceSeen(Boolean(snapshot?.faceSeen));
+      setHandSeen(Boolean(snapshot?.handSeen));
+    }, 180);
+    return () => window.clearInterval(timer);
+  }, [visionOn]);
+
+  useEffect(() => () => {
+    const modules = visionModulesRef.current;
+    modules?.stopVision();
+  }, []);
 
   useEffect(() => {
     const unlock = () => mira.unlockAudio();
@@ -195,12 +278,33 @@ export default function AppV2() {
           <span className="sr-only">{STATE_COPY[mira.state]}</span>
         </div>
         <nav className="v2-actions" aria-label="Điều khiển Mira">
+          <button
+            type="button"
+            className={visionOn ? 'vision-active' : ''}
+            onClick={() => void toggleVision()}
+            aria-pressed={visionOn}
+            title={visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}
+          >
+            {visionOn ? <IconCameraOff /> : <IconCamera />}
+            <span className="sr-only">{visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}</span>
+          </button>
           <button type="button" onClick={cycleTheme} title="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
           <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
         </nav>
       </header>
 
-      {mira.error && <div className="v2-error" role="alert">{mira.error}</div>}
+      {(mira.error || visionError) && <div className="v2-error" role="alert">{visionError || mira.error}</div>}
+
+      {visionOn && (
+        <div className="v2-vision-monitor" aria-live="polite">
+          <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
+          <div className="v2-vision-badges">
+            <span className={faceSeen ? 'detected' : ''}>Face</span>
+            <span className={handSeen ? 'detected' : ''}>Hand</span>
+          </div>
+        </div>
+      )}
+      {visionBooting && <div className="v2-vision-loading">Đang mở camera…</div>}
 
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage holographic-stage">

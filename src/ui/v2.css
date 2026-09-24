@@ -273,3 +273,77 @@
     transition-duration: .001ms !important;
   }
 }
+
+.v2-actions button.vision-active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, rgba(5,10,31,.24));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.v2-vision-monitor {
+  position: fixed;
+  z-index: 84;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  width: 116px;
+  display: grid;
+  gap: 6px;
+  pointer-events: none;
+}
+.v2-camera-preview {
+  width: 116px;
+  height: 86px;
+  object-fit: cover;
+  border-radius: 16px;
+  transform: scaleX(-1);
+  border: 1px solid rgba(173,190,255,.18);
+  background: rgba(3,7,22,.78);
+  box-shadow: 0 12px 28px rgba(0,0,0,.32);
+}
+.v2-vision-badges {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+}
+.v2-vision-badges span {
+  padding: 4px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(151,169,255,.12);
+  background: rgba(5,10,31,.7);
+  color: rgba(205,216,255,.48);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  backdrop-filter: blur(10px);
+}
+.v2-vision-badges span.detected {
+  color: #eaf2ff;
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.v2-vision-loading {
+  position: fixed;
+  z-index: 90;
+  left: 50%;
+  bottom: max(56px, calc(env(safe-area-inset-bottom) + 46px));
+  transform: translateX(-50%);
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(151,169,255,.12);
+  background: rgba(5,10,31,.74);
+  color: rgba(225,232,255,.72);
+  font-size: 10px;
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 760px) {
+  .v2-actions { gap: 5px; }
+  .v2-actions button { width: 34px; height: 34px; }
+  .v2-vision-monitor {
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: 104px;
+  }
+  .v2-camera-preview { width: 104px; height: 78px; border-radius: 14px; }
+}
