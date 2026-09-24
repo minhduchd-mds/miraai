@@ -13,7 +13,7 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 function openDb(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB unavailable'));
   if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
+    dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
       request.onupgradeneeded = () => {
@@ -37,7 +37,7 @@ function openDb(): Promise<IDBDatabase> {
       throw error;
     });
   }
-  return dbPromise;
+  return dbPromise!;
 }
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
