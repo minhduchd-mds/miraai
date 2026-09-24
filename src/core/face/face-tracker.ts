@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
 
 // Face-tracking ETHICAL (KHÔNG deepfake): đọc webcam bằng MediaPipe FaceLandmarker →
 // lái VRM của Mira theo đầu + biểu cảm của bạn (gương). Lazy-load (không vào bundle chính),
@@ -43,7 +44,6 @@ export const faceData: FaceData = {
 
 let landmarker: { detectForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
-let stream: MediaStream | null = null;
 let raf = 0;
 let stopped = true;
 let busy = false;
@@ -119,16 +119,7 @@ export async function startFaceTracking(): Promise<boolean> {
       outputFaceBlendshapes: true,
       outputFacialTransformationMatrixes: true,
     });
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false,
-    });
-    const v = document.createElement('video');
-    v.playsInline = true;
-    v.muted = true;
-    v.srcObject = stream;
-    await v.play();
-    video = v;
+    video = await acquireVisionCamera('face');
     stopped = false;
     faceData.active = true;
     raf = requestAnimationFrame(readFrame);
@@ -146,14 +137,8 @@ export async function startFaceTracking(): Promise<boolean> {
 export function stopFaceTracking(): void {
   stopped = true;
   cancelAnimationFrame(raf);
-  if (stream) {
-    stream.getTracks().forEach((t) => t.stop());
-    stream = null;
-  }
-  if (video) {
-    video.srcObject = null;
-    video = null;
-  }
+  releaseVisionCamera('face');
+  video = null;
   try {
     landmarker?.close?.();
   } catch {

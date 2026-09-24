@@ -1,3 +1,5 @@
+import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
+
 // Điều khiển bằng BÀN TAY qua webcam (MediaPipe GestureRecognizer — cùng @mediapipe/tasks-vision với face).
 // FREE, chạy trong trình duyệt, không GPU server. Lazy-load. Xuất handData để App đọc mỗi frame:
 //   gesture: 'Open_Palm' | 'Thumb_Up' | 'Victory' | 'Closed_Fist' | 'Pointing_Up' | 'None' ...
@@ -19,7 +21,6 @@ export const handData: HandData = { active: false, present: false, gesture: 'Non
 
 let recognizer: { recognizeForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
-let stream: MediaStream | null = null;
 let raf = 0;
 let stopped = true;
 let busy = false;
@@ -89,16 +90,7 @@ export async function startGestureTracking(): Promise<boolean> {
       runningMode: 'VIDEO',
       numHands: 1,
     });
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false,
-    });
-    const v = document.createElement('video');
-    v.playsInline = true;
-    v.muted = true;
-    v.srcObject = stream;
-    await v.play();
-    video = v;
+    video = await acquireVisionCamera('gesture');
     stopped = false;
     handData.active = true;
     raf = requestAnimationFrame(readFrame);
@@ -116,14 +108,8 @@ export async function startGestureTracking(): Promise<boolean> {
 export function stopGestureTracking(): void {
   stopped = true;
   cancelAnimationFrame(raf);
-  if (stream) {
-    stream.getTracks().forEach((t) => t.stop());
-    stream = null;
-  }
-  if (video) {
-    video.srcObject = null;
-    video = null;
-  }
+  releaseVisionCamera('gesture');
+  video = null;
   try {
     recognizer?.close?.();
   } catch {
