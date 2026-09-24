@@ -15,9 +15,10 @@ export interface HandData {
   x: number;
   y: number;
   wave: boolean;
+  score: number;
 }
 
-export const handData: HandData = { active: false, present: false, gesture: 'None', x: 0.5, y: 0.5, wave: false };
+export const handData: HandData = { active: false, present: false, gesture: 'None', x: 0.5, y: 0.5, wave: false, score: 0 };
 
 let recognizer: { recognizeForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
@@ -62,6 +63,7 @@ function readFrame(): void {
   if (lm && lm.length) {
     handData.present = true;
     handData.gesture = res?.gestures?.[0]?.[0]?.categoryName || 'None';
+    handData.score = Number(res?.gestures?.[0]?.[0]?.score || 0);
     const palm = lm[9] || lm[0]; // gốc ngón giữa ~ tâm bàn tay
     handData.x += (palm.x - handData.x) * SMOOTH;
     handData.y += (palm.y - handData.y) * SMOOTH;
@@ -72,6 +74,7 @@ function readFrame(): void {
     handData.present = false;
     handData.gesture = 'None';
     handData.wave = false;
+    handData.score = 0;
     if (xHist.length) xHist.length = 0;
   }
   raf = requestAnimationFrame(readFrame);
@@ -120,5 +123,6 @@ export function stopGestureTracking(): void {
   handData.present = false;
   handData.gesture = 'None';
   handData.wave = false;
+  handData.score = 0;
   xHist.length = 0;
 }
