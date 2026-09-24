@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Theme, VoiceOption } from '../core/types';
 import { loadSmartTurn, saveSmartTurn } from '../core/stt/turn-config';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
@@ -10,6 +10,7 @@ import {
   SPEEDS,
   type ResponseLength,
 } from '../core/voice-prefs';
+import { exportIdentityCapsule, importIdentityCapsule } from '../intelligence/identity/capsule-client';
 import { memoryEnabled, setMemoryEnabled } from '../intelligence/memory/preferences';
 import {
   exportMemory,
@@ -61,6 +62,8 @@ export default function SettingsPanel(props: Props) {
   const [profile, setProfile] = useState<MemoryProfile | null>(null);
   const [profileError, setProfileError] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [capsuleBusy, setCapsuleBusy] = useState(false);
+  const capsuleInputRef = useRef<HTMLInputElement>(null);
 
   const refreshProfile = useCallback(async () => {
     setLoadingProfile(true); setProfileError('');
@@ -85,6 +88,34 @@ export default function SettingsPanel(props: Props) {
   const changeVad = (next: boolean) => { setVad(next); saveVadEnabled(next); };
   const changeMemory = (next: boolean) => { setMemoryOn(next); setMemoryEnabled(next); };
   const eraseAll = async () => { if (!window.confirm('Xoá toàn bộ lịch sử và hồ sơ Mira đã ghi nhớ? Thao tác này không hoàn tác được.')) return; await forgetAllMemory(); await refreshProfile(); };
+  const exportCapsule = async () => {
+    setCapsuleBusy(true); setProfileError('');
+    try { await exportIdentityCapsule(props.theme, props.voiceURI); }
+    catch (error) { setProfileError('Không tạo được Identity Capsule: ' + (error instanceof Error ? error.message : String(error))); }
+    finally { setCapsuleBusy(false); }
+  };
+  const importCapsule = async (file?: File) => {
+    if (!file) return;
+    if (!window.confirm('Nhập Identity Capsule này vào Mira? Dữ liệu sẽ được gộp, không xoá ký ức hiện có.')) {
+      if (capsuleInputRef.current) capsuleInputRef.current.value = '';
+      return;
+    }
+    setCapsuleBusy(true); setProfileError('');
+    try {
+      const restored = await importIdentityCapsule(file);
+      if (restored.theme) props.onTheme(restored.theme);
+      if (restored.voiceURI != null) props.onSelectVoice(restored.voiceURI);
+      const vp = loadVoicePrefs();
+      setRate(vp.rate); setPersona(vp.persona); setResponseLength(vp.responseLength);
+      setSmartTurn(loadSmartTurn()); setVad(loadVadEnabled()); setMemoryOn(memoryEnabled());
+      await refreshProfile();
+    } catch (error) {
+      setProfileError('Không nhập được Identity Capsule: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setCapsuleBusy(false);
+      if (capsuleInputRef.current) capsuleInputRef.current.value = '';
+    }
+  };
   const selectedResponseLength = RESPONSE_LENGTHS.find((item) => item.id === responseLength) ?? RESPONSE_LENGTHS[1];
 
   return (
@@ -111,7 +142,7 @@ export default function SettingsPanel(props: Props) {
           </>}
           {tab === 'appearance' && <div className="v2-setting-group"><h3>Màu quả cầu</h3><div className="v2-theme-grid">{THEMES.map((item) => <button key={item} type="button" data-theme-preview={item} className={props.theme === item ? 'active' : ''} onClick={() => props.onTheme(item)}><i /><span>{item}</span></button>)}</div></div>}
           {tab === 'memory' && <>
-            <div className="v2-setting-group"><h3>Ký ức</h3><Toggle checked={memoryOn} onChange={changeMemory} label="Cho phép Mira ghi nhớ" hint="Tắt để ngừng lưu lượt mới, truy hồi ký ức và chắt lọc hồ sơ." /><div className="v2-memory-meta"><span>{loadingProfile ? 'Đang đọc kho ký ức…' : `${profile?.messageCount ?? 0} lượt hội thoại đã lưu`}</span><button type="button" onClick={() => void refreshProfile()}>Làm mới</button></div>{profileError && <p className="v2-profile-error">{profileError}</p>}<div className="v2-memory-list">{profile?.facts.map((fact) => <FactRow key={fact.id} fact={fact} onChanged={() => void refreshProfile()} />)}{!loadingProfile && profile && !profile.facts.length && <p className="v2-empty">Mira chưa ghi nhớ thông tin bền vững nào về anh.</p>}</div><div className="v2-memory-actions"><button type="button" onClick={() => void exportMemory()}>Xuất dữ liệu</button><button type="button" className="danger" onClick={() => void eraseAll()}>Xoá toàn bộ ký ức</button></div></div>
+            <div className="v2-setting-group"><h3>Ký ức</h3><Toggle checked={memoryOn} onChange={changeMemory} label="Cho phép Mira ghi nhớ" hint="Tắt để ngừng lưu lượt mới, truy hồi ký ức và chắt lọc hồ sơ." /><div className="v2-memory-meta"><span>{loadingProfile ? 'Đang đọc kho ký ức…' : `${profile?.messageCount ?? 0} lượt hội thoại đã lưu`}</span><button type="button" onClick={() => void refreshProfile()}>Làm mới</button></div>{profileError && <p className="v2-profile-error">{profileError}</p>}<div className="v2-memory-list">{profile?.facts.map((fact) => <FactRow key={fact.id} fact={fact} onChanged={() => void refreshProfile()} />)}{!loadingProfile && profile && !profile.facts.length && <p className="v2-empty">Mira chưa ghi nhớ thông tin bền vững nào về anh.</p>}</div><div className="v2-memory-actions"><button type="button" className="primary" disabled={capsuleBusy} onClick={() => void exportCapsule()}>{capsuleBusy ? 'Đang xử lý…' : 'Xuất Identity Capsule'}</button><button type="button" disabled={capsuleBusy} onClick={() => capsuleInputRef.current?.click()}>Nhập Capsule</button><button type="button" onClick={() => void exportMemory()}>Xuất dữ liệu thô</button><button type="button" className="danger" onClick={() => void eraseAll()}>Xoá toàn bộ ký ức</button><input ref={capsuleInputRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importCapsule(event.target.files?.[0])} /></div><p className="v2-disclosure">Identity Capsule đóng gói ký ức, lịch sử và tuỳ chọn Mira thành JSON có version + SHA-256 để mang sang thiết bị hoặc model khác. Nhập Capsule chỉ gộp dữ liệu, không xoá dữ liệu đang có.</p></div>
             <div className="v2-setting-group v2-privacy-note"><h3>Riêng tư mặc định</h3><p>Mic chỉ hoạt động khi anh bật nghe hoặc trò chuyện rảnh tay. Giao diện chính không tải avatar 3D, camera hay hand gesture.</p></div>
             <div className="v2-setting-group v2-labs-entry"><div><h3>Developer Labs</h3><p>Avatar, camera, hand gesture, Splat, simulator, BYOK và chẩn đoán kỹ thuật.</p></div><button type="button" onClick={props.onOpenLabs}>Mở Labs →</button></div>
           </>}
