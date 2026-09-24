@@ -18,6 +18,7 @@ const timing = await importTypeScript('src/runtime/conversation-timing.ts');
 const voice = await importTypeScript('src/core/voice-prefs.ts');
 const viSpeech = await importTypeScript('src/core/tts/vi-normalize.ts');
 const director = await importTypeScript('src/core/tts/vi-speech-director.ts');
+const spatial = await importTypeScript('src/presence/spatial-math.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -209,4 +210,31 @@ test('auto/deep response policies explicitly allow long spoken explanations', ()
   assert.match(voice.responseLengthInstruction('auto'), /10–20 câu/);
   assert.match(voice.responseLengthInstruction('deep'), /14–28 câu/);
   assert.match(voice.responseLengthInstruction('auto'), /nói kỹ hơn/);
+});
+
+
+test('spatial two-hand geometry measures center distance and angle deterministically', () => {
+  const geometry = spatial.measureTwoHands({ x: 0.2, y: 0.4 }, { x: 0.8, y: 0.4 });
+  assert.equal(geometry.center.x, 0.5);
+  assert.equal(geometry.center.y, 0.4);
+  assert.ok(Math.abs(geometry.distance - 0.6) < 1e-9);
+  assert.ok(Math.abs(geometry.angleDeg) < 1e-9);
+});
+
+test('spatial scale is proportional and clamped for mobile safety', () => {
+  assert.ok(Math.abs(spatial.scaleFromDistance(1, 0.4, 0.6) - 1.5) < 1e-9);
+  assert.equal(spatial.scaleFromDistance(1, 0.4, 1.2), 1.55);
+  assert.equal(spatial.scaleFromDistance(1, 0.4, 0.1), 0.72);
+});
+
+test('spatial rotation uses the shortest angular path and remains bounded', () => {
+  assert.equal(spatial.shortestAngleDeltaDeg(170, -170), 20);
+  assert.equal(spatial.shortestAngleDeltaDeg(-170, 170), -20);
+  assert.equal(spatial.rotationFromAngles(0, 0, 80), 24);
+  assert.equal(spatial.rotationFromAngles(0, 0, -80), -24);
+});
+
+test('spatial smoothing dampens jitter instead of jumping to raw input', () => {
+  const smoothed = spatial.smoothValue(0.5, 1, 0.25);
+  assert.equal(smoothed, 0.625);
 });

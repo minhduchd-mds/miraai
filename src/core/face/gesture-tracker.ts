@@ -8,6 +8,16 @@ const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/w
 const GESTURE_MODEL =
   'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
 
+export interface TrackedHand {
+  handedness: string;
+  gesture: string;
+  score: number;
+  x: number;
+  y: number;
+  pinching: boolean;
+  landmarks: Array<{ x: number; y: number }>;
+}
+
 export interface HandData {
   active: boolean;
   present: boolean;
@@ -17,9 +27,20 @@ export interface HandData {
   wave: boolean;
   score: number;
   landmarks: Array<{ x: number; y: number }>;
+  hands: TrackedHand[];
 }
 
-export const handData: HandData = { active: false, present: false, gesture: 'None', x: 0.5, y: 0.5, wave: false, score: 0, landmarks: [] };
+export const handData: HandData = {
+  active: false,
+  present: false,
+  gesture: 'None',
+  x: 0.5,
+  y: 0.5,
+  wave: false,
+  score: 0,
+  landmarks: [],
+  hands: [],
+};
 
 let recognizer: { recognizeForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
@@ -27,8 +48,18 @@ let raf = 0;
 let stopped = true;
 let busy = false;
 let lastError: string | null = null;
+let lastInferenceAt = 0;
 
 const SMOOTH = 0.4;
+const MOBILE_INFERENCE_MS = 42;
+const DESKTOP_INFERENCE_MS = 30;
+
+function inferenceIntervalMs(): number {
+  if (typeof navigator === 'undefined') return DESKTOP_INFERENCE_MS;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    ? MOBILE_INFERENCE_MS
+    : DESKTOP_INFERENCE_MS;
+}
 const xHist: number[] = []; // lịch sử x tâm tay để phát hiện vẫy
 
 export function gestureTrackerError(): string | null {
@@ -54,24 +85,57 @@ function detectWave(): boolean {
 
 function readFrame(): void {
   if (stopped || !recognizer || !video) return;
+
+  const now = performance.now();
+  if (now - lastInferenceAt < inferenceIntervalMs()) {
+    raf = requestAnimationFrame(readFrame);
+    return;
+  }
+  lastInferenceAt = now;
+
   let res: any = null;
   try {
-    res = recognizer.recognizeForVideo(video, performance.now());
+    res = recognizer.recognizeForVideo(video, now);
   } catch {
     res = null;
   }
-  const lm = res?.landmarks?.[0];
-  if (lm && lm.length) {
+
+  const allLandmarks = Array.isArray(res?.landmarks) ? res.landmarks.slice(0, 2) : [];
+  const hands: TrackedHand[] = allLandmarks
+    .map((lm: any[], index: number) => {
+      if (!lm?.length) return null;
+      const landmarks = lm.slice(0, 21).map((point: { x: number; y: number }) => ({
+        x: Number(point.x),
+        y: Number(point.y),
+      }));
+      const palm = lm[9] || lm[0];
+      const gesture = res?.gestures?.[index]?.[0]?.categoryName || 'None';
+      const score = Number(res?.gestures?.[index]?.[0]?.score || 0);
+      const handed = res?.handednesses?.[index]?.[0] || res?.handedness?.[index]?.[0];
+      const indexTip = landmarks[8] || landmarks[0];
+      const thumbTip = landmarks[4] || indexTip;
+      return {
+        handedness: String(handed?.categoryName || handed?.displayName || `Hand ${index + 1}`),
+        gesture,
+        score,
+        x: Number(palm.x),
+        y: Number(palm.y),
+        pinching: Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y) < 0.055,
+        landmarks,
+      } satisfies TrackedHand;
+    })
+    .filter(Boolean) as TrackedHand[];
+
+  handData.hands = hands;
+  const primary = hands.find((hand) => hand.handedness === 'Right') || hands[0];
+
+  if (primary) {
     handData.present = true;
-    handData.gesture = res?.gestures?.[0]?.[0]?.categoryName || 'None';
-    handData.score = Number(res?.gestures?.[0]?.[0]?.score || 0);
-    handData.landmarks = lm.slice(0, 21).map((point: { x: number; y: number }) => ({
-      x: Number(point.x),
-      y: Number(point.y),
-    }));
-    const palm = lm[9] || lm[0]; // gốc ngón giữa ~ tâm bàn tay
-    handData.x += (palm.x - handData.x) * SMOOTH;
-    handData.y += (palm.y - handData.y) * SMOOTH;
+    handData.gesture = primary.gesture;
+    handData.score = primary.score;
+    handData.landmarks = primary.landmarks;
+    handData.x += (primary.x - handData.x) * SMOOTH;
+    handData.y += (primary.y - handData.y) * SMOOTH;
     xHist.push(handData.x);
     if (xHist.length > 12) xHist.shift();
     handData.wave = handData.gesture === 'Open_Palm' && detectWave();
@@ -83,6 +147,7 @@ function readFrame(): void {
     handData.landmarks = [];
     if (xHist.length) xHist.length = 0;
   }
+
   raf = requestAnimationFrame(readFrame);
 }
 
@@ -97,7 +162,7 @@ export async function startGestureTracking(): Promise<boolean> {
     recognizer = await vision.GestureRecognizer.createFromOptions(resolver, {
       baseOptions: { modelAssetPath: GESTURE_MODEL, delegate: 'GPU' },
       runningMode: 'VIDEO',
-      numHands: 1,
+      numHands: 2,
     });
     video = await acquireVisionCamera('gesture');
     stopped = false;
@@ -131,5 +196,7 @@ export function stopGestureTracking(): void {
   handData.wave = false;
   handData.score = 0;
   handData.landmarks = [];
+  handData.hands = [];
+  lastInferenceAt = 0;
   xHist.length = 0;
 }

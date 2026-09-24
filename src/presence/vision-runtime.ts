@@ -20,10 +20,21 @@ export function visionSnapshot() {
   const indexTip = landmarks[8] || { x: handData.x, y: handData.y };
   const thumbTip = landmarks[4] || indexTip;
   const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+  const hands = handData.hands.map((hand) => ({
+    handedness: hand.handedness,
+    gesture: hand.gesture,
+    score: hand.score,
+    x: 1 - hand.x,
+    y: hand.y,
+    pinching: hand.pinching,
+    landmarks: hand.landmarks.map((point) => ({ ...point })),
+  }));
 
   return {
     faceSeen: Boolean(faceData.active && faceData.present),
     handSeen: Boolean(handData.active && handData.present),
+    handCount: hands.length,
+    hands,
     gesture: handData.gesture,
     wave: handData.wave,
     handX: handData.x,
