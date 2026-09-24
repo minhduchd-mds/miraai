@@ -14,7 +14,7 @@ export default function ContentPanel({ content, onClose }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <aside className="content-panel" aria-live="polite" aria-label="Kết quả từ Mira">
+    <aside className="content-panel" data-air-grab="result" aria-live="polite" aria-label="Kết quả từ Mira">
       <button className="cp-close" onClick={onClose} aria-label="Đóng kết quả">
         <IconClose />
       </button>

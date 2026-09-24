@@ -218,6 +218,38 @@
   right: 3vw;
   width: min(390px, 38vw);
   backdrop-filter: blur(18px);
+  translate: var(--grab-x, 0px) var(--grab-y, 0px);
+  transition:
+    translate .34s cubic-bezier(.18,.8,.24,1),
+    scale .22s ease,
+    box-shadow .22s ease,
+    border-color .22s ease;
+  will-change: translate, scale;
+}
+.v2-result.grabbing .content-panel {
+  scale: 1.035;
+  transition: none;
+  border-color: color-mix(in srgb, var(--accent) 42%, rgba(178,193,255,.16));
+  box-shadow:
+    0 28px 70px rgba(0,0,0,.42),
+    0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 0 42px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.v2-result.grabbing .content-panel::after {
+  content: 'GRAB';
+  position: sticky;
+  top: 0;
+  float: left;
+  margin: -9px 0 0 -8px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, rgba(4,8,28,.78));
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
+  color: rgba(244,247,255,.82);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  backdrop-filter: blur(10px);
 }
 
 .sr-only {
@@ -561,4 +593,11 @@
     height: 38px;
     margin: -19px 0 0 -19px;
   }
+}
+
+.v2-result:not(.grabbing) .content-panel[data-air-grab="result"] {
+  cursor: grab;
+}
+.v2-result.grabbing .content-panel[data-air-grab="result"] {
+  cursor: grabbing;
 }

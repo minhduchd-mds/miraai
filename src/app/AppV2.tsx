@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
 import ContentPanel from '../ui/ContentPanel';
@@ -62,6 +62,10 @@ export default function AppV2() {
   const victoryLatchRef = useRef(false);
   const lastAirActionRef = useRef(0);
   const palmSwipeRef = useRef({ x: 0.5, at: 0 });
+  const [grabActive, setGrabActive] = useState(false);
+  const [grabOffset, setGrabOffset] = useState({ x: 0, y: 0 });
+  const grabStartRef = useRef({ pointerX: 0, pointerY: 0, offsetX: 0, offsetY: 0 });
+  const lastGrabPinchRef = useRef(0);
 
   useDialogFocus(settingsOpen, '.v2-settings');
 
@@ -99,6 +103,7 @@ export default function AppV2() {
     palmHoldSinceRef.current = 0;
     victoryLatchRef.current = false;
     palmSwipeRef.current = { x: 0.5, at: 0 };
+    setGrabActive(false);
   }, []);
 
   const toggleVision = useCallback(async () => {
@@ -315,16 +320,57 @@ export default function AppV2() {
     const x = airPoint.x * window.innerWidth;
     const y = airPoint.y * window.innerHeight;
     const target = resolveAirTarget(x, y);
-    setAirTargetLabel(target?.dataset.airLabel || '');
+    const hit = document.elementFromPoint(x, y) as HTMLElement | null;
+    const grabTarget = hit?.closest<HTMLElement>('[data-air-grab]') || null;
+    setAirTargetLabel(grabActive ? 'Đang giữ Result Surface' : (grabTarget ? 'Nắm Result Surface' : (target?.dataset.airLabel || '')));
 
     const now = Date.now();
     const freshAction = now - lastAirActionRef.current > 900;
+    const pinchDown = pinching && !pinchWasDownRef.current;
+    const pinchUp = !pinching && pinchWasDownRef.current;
 
-    if (pinching && !pinchWasDownRef.current && target && freshAction) {
+    if (pinchDown && grabTarget) {
+      if (now - lastGrabPinchRef.current < 520) {
+        setGrabOffset({ x: 0, y: 0 });
+        setGrabActive(false);
+        setAirFeedback('↺ Result Surface · về vị trí cũ');
+        window.setTimeout(() => setAirFeedback(''), 900);
+        lastGrabPinchRef.current = 0;
+      } else {
+        lastGrabPinchRef.current = now;
+        grabStartRef.current = {
+          pointerX: x,
+          pointerY: y,
+          offsetX: grabOffset.x,
+          offsetY: grabOffset.y,
+        };
+        setGrabActive(true);
+        setAirFeedback('🤏 Đã nắm Result Surface');
+        window.setTimeout(() => setAirFeedback(''), 700);
+      }
+    } else if (pinchDown && target && freshAction && !grabActive) {
       target.click();
       lastAirActionRef.current = now;
       setAirFeedback(`Pinch · ${target.dataset.airLabel || 'Đã chọn'}`);
       window.setTimeout(() => setAirFeedback(''), 900);
+    }
+
+    if (pinching && grabActive) {
+      const dx = x - grabStartRef.current.pointerX;
+      const dy = y - grabStartRef.current.pointerY;
+      const limitX = window.innerWidth * 0.52;
+      const limitY = window.innerHeight * 0.46;
+      setGrabOffset({
+        x: Math.max(-limitX, Math.min(limitX, grabStartRef.current.offsetX + dx)),
+        y: Math.max(-limitY, Math.min(limitY, grabStartRef.current.offsetY + dy)),
+      });
+    }
+
+    if (pinchUp && grabActive) {
+      setGrabActive(false);
+      lastAirActionRef.current = now;
+      setAirFeedback('✦ Đã thả Result Surface');
+      window.setTimeout(() => setAirFeedback(''), 800);
     }
     pinchWasDownRef.current = pinching;
 
@@ -370,7 +416,7 @@ export default function AppV2() {
     } else {
       victoryLatchRef.current = false;
     }
-  }, [airPoint, gestureName, gestureScore, handSeen, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, settingsOpen, visionOn]);
+  }, [airPoint, gestureName, gestureScore, grabActive, grabOffset.x, grabOffset.y, handSeen, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, settingsOpen, visionOn]);
 
   useEffect(() => {
     const resumeIfNeeded = () => {
@@ -493,7 +539,14 @@ export default function AppV2() {
         </div>
 
         {mira.content && (
-          <aside className="v2-result" aria-label="Kết quả trực quan">
+          <aside
+            className={`v2-result${grabActive ? ' grabbing' : ''}`}
+            aria-label="Kết quả trực quan"
+            style={{
+              '--grab-x': `${grabOffset.x}px`,
+              '--grab-y': `${grabOffset.y}px`,
+            } as CSSProperties & Record<'--grab-x' | '--grab-y', string>}
+          >
             <ContentPanel content={mira.content} onClose={mira.clearContent} />
           </aside>
         )}
