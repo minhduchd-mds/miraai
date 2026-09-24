@@ -49,7 +49,8 @@ export default function App() {
   }, [avatarSel.scene]);
   const [simulating, setSimulating] = useState(false);
 
-  // Webcam: 2 chế độ LOẠI TRỪ nhau — gương mặt (face) HOẶC điều khiển tay (gesture). Tắt hết khi rời trang.
+  // Webcam: face + hand dùng chung một camera stream và có thể hoạt động đồng thời.
+  // Shared camera runtime chỉ dừng physical stream khi consumer cuối cùng được tắt.
   useEffect(() => () => { stopFaceTracking(); stopGestureTracking(); }, []);
   const toggleFace = async () => {
     if (faceOn) {
@@ -57,9 +58,8 @@ export default function App() {
       setFaceOn(false);
       return;
     }
-    if (handOn) { stopGestureTracking(); setHandOn(false); } // nhường camera cho chế độ gương
     const ok = await startFaceTracking();
-    setFaceOn(ok); // thất bại (từ chối camera/không HTTPS) → giữ tắt; lý do đã log ở tracker
+    setFaceOn(ok); // camera bị từ chối/không HTTPS → giữ tắt; tracker tự cleanup consumer
   };
   const toggleHand = async () => {
     if (handOn) {
@@ -67,7 +67,6 @@ export default function App() {
       setHandOn(false);
       return;
     }
-    if (faceOn) { stopFaceTracking(); setFaceOn(false); } // nhường camera cho chế độ tay
     const ok = await startGestureTracking();
     setHandOn(ok);
   };
