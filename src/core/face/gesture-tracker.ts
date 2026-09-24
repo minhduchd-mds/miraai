@@ -16,9 +16,10 @@ export interface HandData {
   y: number;
   wave: boolean;
   score: number;
+  landmarks: Array<{ x: number; y: number }>;
 }
 
-export const handData: HandData = { active: false, present: false, gesture: 'None', x: 0.5, y: 0.5, wave: false, score: 0 };
+export const handData: HandData = { active: false, present: false, gesture: 'None', x: 0.5, y: 0.5, wave: false, score: 0, landmarks: [] };
 
 let recognizer: { recognizeForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
@@ -64,6 +65,10 @@ function readFrame(): void {
     handData.present = true;
     handData.gesture = res?.gestures?.[0]?.[0]?.categoryName || 'None';
     handData.score = Number(res?.gestures?.[0]?.[0]?.score || 0);
+    handData.landmarks = lm.slice(0, 21).map((point: { x: number; y: number }) => ({
+      x: Number(point.x),
+      y: Number(point.y),
+    }));
     const palm = lm[9] || lm[0]; // gốc ngón giữa ~ tâm bàn tay
     handData.x += (palm.x - handData.x) * SMOOTH;
     handData.y += (palm.y - handData.y) * SMOOTH;
@@ -75,6 +80,7 @@ function readFrame(): void {
     handData.gesture = 'None';
     handData.wave = false;
     handData.score = 0;
+    handData.landmarks = [];
     if (xHist.length) xHist.length = 0;
   }
   raf = requestAnimationFrame(readFrame);
@@ -124,5 +130,6 @@ export function stopGestureTracking(): void {
   handData.gesture = 'None';
   handData.wave = false;
   handData.score = 0;
+  handData.landmarks = [];
   xHist.length = 0;
 }
