@@ -7,6 +7,7 @@ import { useDialogFocus } from '../ui/useDialogFocus';
 import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
+import AirControlOverlay from '../presence/AirControlOverlay';
 import '../ui/a11y.css';
 
 const STATE_COPY: Record<MiraState, string> = {
@@ -52,6 +53,15 @@ export default function AppV2() {
   const [handPoint, setHandPoint] = useState({ x: 0.5, y: 0.5 });
   const [waveSeen, setWaveSeen] = useState(false);
   const [handLandmarks, setHandLandmarks] = useState<HandLandmarkPoint[]>([]);
+  const [airPoint, setAirPoint] = useState({ x: 0.5, y: 0.5 });
+  const [pinching, setPinching] = useState(false);
+  const [airTargetLabel, setAirTargetLabel] = useState('');
+  const [airFeedback, setAirFeedback] = useState('');
+  const pinchWasDownRef = useRef(false);
+  const palmHoldSinceRef = useRef(0);
+  const victoryLatchRef = useRef(false);
+  const lastAirActionRef = useRef(0);
+  const palmSwipeRef = useRef({ x: 0.5, at: 0 });
 
   useDialogFocus(settingsOpen, '.v2-settings');
 
@@ -82,6 +92,13 @@ export default function AppV2() {
     setGestureScore(0);
     setWaveSeen(false);
     setHandLandmarks([]);
+    setPinching(false);
+    setAirTargetLabel('');
+    setAirFeedback('');
+    pinchWasDownRef.current = false;
+    palmHoldSinceRef.current = 0;
+    victoryLatchRef.current = false;
+    palmSwipeRef.current = { x: 0.5, at: 0 };
   }, []);
 
   const toggleVision = useCallback(async () => {
@@ -139,7 +156,12 @@ export default function AppV2() {
       setGestureScore(Number(snapshot?.gestureScore || 0));
       setWaveSeen(Boolean(snapshot?.wave));
       setHandLandmarks(Array.isArray(snapshot?.landmarks) ? snapshot.landmarks : []);
+      setPinching(Boolean(snapshot?.pinching));
       if (snapshot?.handSeen) {
+        setAirPoint({
+          x: Math.max(0.03, Math.min(0.97, Number(snapshot.pointerX ?? 0.5))),
+          y: Math.max(0.04, Math.min(0.96, Number(snapshot.pointerY ?? 0.5))),
+        });
         setHandPoint({
           x: Math.max(0, Math.min(1, Number(snapshot.handX ?? 0.5))),
           y: Math.max(0, Math.min(1, Number(snapshot.handY ?? 0.5))),
@@ -261,6 +283,95 @@ export default function AppV2() {
     mira.toggleLive();
   };
 
+  const resolveAirTarget = useCallback((x: number, y: number): HTMLElement | null => {
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>('[data-air-action="safe"]'))
+      .filter((element) => !element.hasAttribute('disabled') && element.offsetParent !== null);
+    let winner: HTMLElement | null = null;
+    let bestDistance = 78;
+
+    for (const element of candidates) {
+      const rect = element.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const distance = Math.hypot(cx - x, cy - y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        winner = element;
+      }
+    }
+    return winner;
+  }, []);
+
+  useEffect(() => {
+    if (!visionOn || !handSeen || settingsOpen) {
+      setAirTargetLabel('');
+      pinchWasDownRef.current = false;
+      palmHoldSinceRef.current = 0;
+      victoryLatchRef.current = false;
+      palmSwipeRef.current = { x: airPoint.x, at: 0 };
+      return;
+    }
+
+    const x = airPoint.x * window.innerWidth;
+    const y = airPoint.y * window.innerHeight;
+    const target = resolveAirTarget(x, y);
+    setAirTargetLabel(target?.dataset.airLabel || '');
+
+    const now = Date.now();
+    const freshAction = now - lastAirActionRef.current > 900;
+
+    if (pinching && !pinchWasDownRef.current && target && freshAction) {
+      target.click();
+      lastAirActionRef.current = now;
+      setAirFeedback(`Pinch · ${target.dataset.airLabel || 'Đã chọn'}`);
+      window.setTimeout(() => setAirFeedback(''), 900);
+    }
+    pinchWasDownRef.current = pinching;
+
+    if (gestureName === 'Open_Palm' && gestureScore >= 0.58) {
+      if (!palmHoldSinceRef.current) {
+        palmHoldSinceRef.current = now;
+        palmSwipeRef.current = { x: airPoint.x, at: now };
+      }
+
+      const held = now - palmHoldSinceRef.current;
+      const swipeAge = now - palmSwipeRef.current.at;
+      const swipeDelta = airPoint.x - palmSwipeRef.current.x;
+
+      if (swipeAge <= 620 && Math.abs(swipeDelta) >= 0.22 && freshAction) {
+        cycleTheme();
+        lastAirActionRef.current = now;
+        palmHoldSinceRef.current = 0;
+        palmSwipeRef.current = { x: airPoint.x, at: now };
+        setAirFeedback(swipeDelta > 0 ? '→ Đổi theme' : '← Đổi theme');
+        window.setTimeout(() => setAirFeedback(''), 900);
+      } else if (held >= 720 && freshAction && (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking')) {
+        mira.interrupt();
+        lastAirActionRef.current = now;
+        palmHoldSinceRef.current = 0;
+        setAirFeedback('✋ Mira đã dừng');
+        window.setTimeout(() => setAirFeedback(''), 900);
+      }
+    } else {
+      palmHoldSinceRef.current = 0;
+      palmSwipeRef.current = { x: airPoint.x, at: 0 };
+    }
+
+    if (gestureName === 'Victory' && gestureScore >= 0.62) {
+      if (!victoryLatchRef.current && freshAction) {
+        victoryLatchRef.current = true;
+        mira.unlockAudio();
+        setVoiceReady(true);
+        mira.toggleLive();
+        lastAirActionRef.current = now;
+        setAirFeedback(mira.live ? '✌ Live voice · tắt' : '✌ Live voice · bật');
+        window.setTimeout(() => setAirFeedback(''), 900);
+      }
+    } else {
+      victoryLatchRef.current = false;
+    }
+  }, [airPoint, gestureName, gestureScore, handSeen, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, settingsOpen, visionOn]);
+
   useEffect(() => {
     const resumeIfNeeded = () => {
       if (document.visibilityState !== 'visible' || !mira.live) return;
@@ -319,8 +430,8 @@ export default function AppV2() {
             {visionOn ? <IconCameraOff /> : <IconCamera />}
             <span className="sr-only">{visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}</span>
           </button>
-          <button type="button" onClick={cycleTheme} title="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
-          <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
+          <button type="button" data-air-action="safe" data-air-label="Đổi theme" onClick={cycleTheme} title="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
+          <button type="button" data-air-action="safe" data-air-label="Cài đặt" onClick={() => setSettingsOpen(true)} title="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
         </nav>
       </header>
 
@@ -353,6 +464,14 @@ export default function AppV2() {
         </div>
       )}
       {visionBooting && <div className="v2-vision-loading">Đang mở camera…</div>}
+      <AirControlOverlay
+        visible={visionOn && handSeen}
+        x={airPoint.x}
+        y={airPoint.y}
+        pinching={pinching}
+        targetLabel={airTargetLabel}
+        feedback={airFeedback}
+      />
 
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage holographic-stage">
@@ -388,6 +507,8 @@ export default function AppV2() {
           aria-pressed={mira.live}
           aria-label={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
           title={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
+          data-air-action="safe"
+          data-air-label={mira.live ? 'Tắt live voice' : 'Bật live voice'}
         >
           <span aria-hidden="true" />
         </button>
