@@ -46,6 +46,10 @@ export default function AppV2() {
   const [visionError, setVisionError] = useState('');
   const [faceSeen, setFaceSeen] = useState(false);
   const [handSeen, setHandSeen] = useState(false);
+  const [gestureName, setGestureName] = useState('None');
+  const [gestureScore, setGestureScore] = useState(0);
+  const [handPoint, setHandPoint] = useState({ x: 0.5, y: 0.5 });
+  const [waveSeen, setWaveSeen] = useState(false);
 
   useDialogFocus(settingsOpen, '.v2-settings');
 
@@ -72,6 +76,9 @@ export default function AppV2() {
     setVisionOn(false);
     setFaceSeen(false);
     setHandSeen(false);
+    setGestureName('None');
+    setGestureScore(0);
+    setWaveSeen(false);
   }, []);
 
   const toggleVision = useCallback(async () => {
@@ -125,7 +132,16 @@ export default function AppV2() {
       const snapshot = current?.visionSnapshot();
       setFaceSeen(Boolean(snapshot?.faceSeen));
       setHandSeen(Boolean(snapshot?.handSeen));
-    }, 180);
+      setGestureName(snapshot?.gesture || 'None');
+      setGestureScore(Number(snapshot?.gestureScore || 0));
+      setWaveSeen(Boolean(snapshot?.wave));
+      if (snapshot?.handSeen) {
+        setHandPoint({
+          x: Math.max(0, Math.min(1, Number(snapshot.handX ?? 0.5))),
+          y: Math.max(0, Math.min(1, Number(snapshot.handY ?? 0.5))),
+        });
+      }
+    }, 120);
     return () => window.clearInterval(timer);
   }, [visionOn]);
 
@@ -259,6 +275,17 @@ export default function AppV2() {
       window.removeEventListener('focus', resumeIfNeeded);
     };
   }, [mira.live, mira.startListening, mira.stateRef]);
+  const gestureLabel = waveSeen ? 'Wave' : ({
+    Open_Palm: 'Open Palm',
+    Closed_Fist: 'Closed Fist',
+    Thumb_Up: 'Thumb Up',
+    Thumb_Down: 'Thumb Down',
+    Victory: 'Victory',
+    Pointing_Up: 'Pointing Up',
+    ILoveYou: 'I Love You',
+    None: 'No gesture',
+  } as Record<string, string>)[gestureName] || gestureName;
+
   const constellationContext = [
     ...mira.history.slice(-6).map((turn) => turn.text),
     mira.caption,
@@ -297,10 +324,26 @@ export default function AppV2() {
 
       {visionOn && (
         <div className="v2-vision-monitor" aria-live="polite">
-          <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
-          <div className="v2-vision-badges">
-            <span className={faceSeen ? 'detected' : ''}>Face</span>
-            <span className={handSeen ? 'detected' : ''}>Hand</span>
+          <div className="v2-camera-frame">
+            <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
+            <div className="v2-camera-status">
+              <span className={faceSeen ? 'detected' : ''}>Face</span>
+              <span className={handSeen ? 'detected' : ''}>Hand</span>
+            </div>
+            {handSeen && (
+              <>
+                <span
+                  className={`v2-hand-point${waveSeen ? ' wave' : ''}`}
+                  style={{ left: `${(1 - handPoint.x) * 100}%`, top: `${handPoint.y * 100}%` }}
+                  aria-hidden="true"
+                />
+                <div className={`v2-gesture-overlay${waveSeen ? ' wave' : ''}`}>
+                  <b>{gestureLabel}</b>
+                  <span>{Math.round(gestureScore * 100)}%</span>
+                </div>
+              </>
+            )}
+            {!handSeen && <div className="v2-gesture-hint">Đưa bàn tay vào khung</div>}
           </div>
         </div>
       )}
