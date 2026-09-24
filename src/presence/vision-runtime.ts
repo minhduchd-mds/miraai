@@ -21,6 +21,9 @@ export function visionSnapshot() {
     handSeen: Boolean(handData.active && handData.present),
     gesture: handData.gesture,
     wave: handData.wave,
+    handX: handData.x,
+    handY: handData.y,
+    gestureScore: handData.score,
   };
 }
 
