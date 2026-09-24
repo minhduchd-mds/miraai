@@ -123,10 +123,20 @@ export default function AppV2() {
 
   useEffect(() => {
     if (!visionOn) return;
+    const modules = visionModulesRef.current;
+    const preview = cameraPreviewRef.current;
+    const stream = modules?.camera.getVisionCameraStream() || null;
+    if (preview && stream) {
+      preview.srcObject = stream;
+      preview.muted = true;
+      preview.playsInline = true;
+      void preview.play().catch(() => {});
+    }
+
     const timer = window.setInterval(() => {
-      const modules = visionModulesRef.current;
-      setFaceSeen(Boolean(modules?.face.faceData.active && modules.face.faceData.present));
-      setHandSeen(Boolean(modules?.gesture.handData.active && modules.gesture.handData.present));
+      const current = visionModulesRef.current;
+      setFaceSeen(Boolean(current?.face.faceData.active && current.face.faceData.present));
+      setHandSeen(Boolean(current?.gesture.handData.active && current.gesture.handData.present));
     }, 180);
     return () => window.clearInterval(timer);
   }, [visionOn]);
