@@ -24,6 +24,7 @@ export function visionSnapshot() {
     handX: handData.x,
     handY: handData.y,
     gestureScore: handData.score,
+    landmarks: handData.landmarks.map((point) => ({ ...point })),
   };
 }
 

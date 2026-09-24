@@ -6,6 +6,7 @@ import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
+import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import '../ui/a11y.css';
 
 const STATE_COPY: Record<MiraState, string> = {
@@ -50,6 +51,7 @@ export default function AppV2() {
   const [gestureScore, setGestureScore] = useState(0);
   const [handPoint, setHandPoint] = useState({ x: 0.5, y: 0.5 });
   const [waveSeen, setWaveSeen] = useState(false);
+  const [handLandmarks, setHandLandmarks] = useState<HandLandmarkPoint[]>([]);
 
   useDialogFocus(settingsOpen, '.v2-settings');
 
@@ -79,6 +81,7 @@ export default function AppV2() {
     setGestureName('None');
     setGestureScore(0);
     setWaveSeen(false);
+    setHandLandmarks([]);
   }, []);
 
   const toggleVision = useCallback(async () => {
@@ -135,6 +138,7 @@ export default function AppV2() {
       setGestureName(snapshot?.gesture || 'None');
       setGestureScore(Number(snapshot?.gestureScore || 0));
       setWaveSeen(Boolean(snapshot?.wave));
+      setHandLandmarks(Array.isArray(snapshot?.landmarks) ? snapshot.landmarks : []);
       if (snapshot?.handSeen) {
         setHandPoint({
           x: Math.max(0, Math.min(1, Number(snapshot.handX ?? 0.5))),
@@ -332,6 +336,7 @@ export default function AppV2() {
             </div>
             {handSeen && (
               <>
+                <HandSkeletonOverlay points={handLandmarks} active={handSeen} />
                 <span
                   className={`v2-hand-point${waveSeen ? ' wave' : ''}`}
                   style={{ left: `${(1 - handPoint.x) * 100}%`, top: `${handPoint.y * 100}%` }}
