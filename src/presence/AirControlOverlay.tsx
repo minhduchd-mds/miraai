@@ -22,6 +22,7 @@ export default function AirControlOverlay({ visible, x, y, pinching, targetLabel
       <div className="v2-air-legend">
         <b>Air Control</b>
         <span>Pinch · chọn</span>
+        <span>↔ · theme</span>
         <span>✋ · dừng</span>
         <span>✌ · live voice</span>
       </div>
