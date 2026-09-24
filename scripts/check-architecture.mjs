@@ -85,9 +85,11 @@ for (const token of [
 if (presence.includes('<svg')) failures.push('HolographicMira must use approved art, not a hand-drawn SVG face');
 
 const photoreal = readFileSync('src/presence/PhotorealMira.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'POSE_BY_STATE', 'SCENE_BY_STATE', 'contextText', 'pm-wave', 'pm-character']) {
-  if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved visual/voice behavior: ${token}`);
+for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_BEDROOM', 'SCENE_BY_STATE', 'mira-bedroom.webp', 'bedroom-presence', 'pm-wave', 'pm-state-orb']) {
+  if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved bedroom visual/voice behavior: ${token}`);
 }
+if (photoreal.includes('pm-runtime')) failures.push('PhotorealMira must not render the legacy Mira Core popup');
+if (photoreal.includes('pm-character')) failures.push('PhotorealMira must not overlay the old standing character on the bedroom scene');
 
 const godMode = readFileSync('src/presence/holographic-mira-godmode.css', 'utf8');
 for (const token of ['hm-luxury-glints', 'hm-light-rays', 'hm-crown-halo', 'hm-speaking-pulse-near', 'hm-activation-flash']) {

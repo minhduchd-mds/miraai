@@ -468,3 +468,111 @@
   .photo-mira *::after { animation: none !important; transition: none !important; }
   .pm-character { transform: translateX(-50%) !important; }
 }
+
+
+/* Bedroom Presence — exact Mira scene supplied for the primary companion surface.
+   The image already contains the cinematic copy and decorative UI, so legacy
+   character/card overlays are intentionally suppressed. */
+.bedroom-presence .pm-scene-shell {
+  background: #080717;
+}
+
+.bedroom-presence .pm-scene {
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  margin: -6px;
+  object-fit: cover;
+  object-position: center center;
+  transform: translate(var(--pm-scene-x), var(--pm-scene-y)) scale(1.008);
+  filter: saturate(.98) contrast(1.015) brightness(.96);
+  transition: filter .55s ease, transform .34s ease-out;
+}
+
+.bedroom-presence.state-listening .pm-scene,
+.bedroom-presence.state-speaking .pm-scene {
+  filter: saturate(1.025) contrast(1.02) brightness(.99);
+}
+
+.bedroom-presence.state-thinking .pm-scene {
+  filter: saturate(.94) contrast(1.025) brightness(.93);
+}
+
+.bedroom-presence.state-error .pm-scene {
+  filter: saturate(.82) contrast(1.035) brightness(.88);
+}
+
+.pm-bedroom-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 52% 46%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 36%),
+    linear-gradient(180deg, rgba(2, 3, 13, .05), transparent 24%, transparent 76%, rgba(2, 3, 13, .18));
+  mix-blend-mode: screen;
+}
+
+.bedroom-presence .pm-live-pill {
+  top: auto;
+  bottom: 26px;
+  z-index: 14;
+  padding: 7px 11px;
+  background: rgba(5, 9, 28, .28);
+  border-color: rgba(174, 193, 255, .11);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .14);
+  backdrop-filter: blur(14px);
+}
+
+.bedroom-presence .pm-wave {
+  bottom: 62px;
+  z-index: 13;
+  opacity: .48;
+}
+
+.bedroom-presence .pm-state-orb {
+  z-index: 14;
+  right: clamp(21px, 3vw, 48px);
+  bottom: clamp(21px, 3vw, 48px);
+  background: rgba(8, 13, 36, .18);
+}
+
+.bedroom-presence .pm-vignette {
+  z-index: 12;
+  box-shadow: inset 0 0 84px 8px rgba(1, 3, 13, .24);
+}
+
+/* Hard-disable the old duplicated overlays, including the Mira Core popup. */
+.bedroom-presence .pm-runtime,
+.bedroom-presence .pm-character-zone,
+.bedroom-presence .pm-feature-rail,
+.bedroom-presence .pm-copy,
+.bedroom-presence .pm-memory-field,
+.bedroom-presence .pm-grid,
+.bedroom-presence .pm-stars,
+.bedroom-presence .pm-atmosphere,
+.bedroom-presence .pm-scene-shade {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .bedroom-presence .pm-scene {
+    object-position: 48% center;
+  }
+
+  .bedroom-presence .pm-live-pill {
+    top: auto;
+    bottom: 22px;
+    max-width: calc(100vw - 96px);
+  }
+
+  .bedroom-presence .pm-wave {
+    bottom: 58px;
+    transform: translateX(-50%) scale(.72);
+  }
+
+  .bedroom-presence .pm-state-orb {
+    display: grid;
+    right: 16px;
+    bottom: 18px;
+  }
+}
