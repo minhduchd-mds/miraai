@@ -16,6 +16,11 @@ export function stopVision(): void {
 }
 
 export function visionSnapshot() {
+  const landmarks = handData.landmarks.map((point) => ({ ...point }));
+  const indexTip = landmarks[8] || { x: handData.x, y: handData.y };
+  const thumbTip = landmarks[4] || indexTip;
+  const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+
   return {
     faceSeen: Boolean(faceData.active && faceData.present),
     handSeen: Boolean(handData.active && handData.present),
@@ -23,8 +28,12 @@ export function visionSnapshot() {
     wave: handData.wave,
     handX: handData.x,
     handY: handData.y,
+    pointerX: 1 - indexTip.x,
+    pointerY: indexTip.y,
+    pinching: landmarks.length >= 21 && pinchDistance < 0.055,
+    pinchDistance,
     gestureScore: handData.score,
-    landmarks: handData.landmarks.map((point) => ({ ...point })),
+    landmarks,
   };
 }
 
