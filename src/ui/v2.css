@@ -330,6 +330,27 @@
   border-color: color-mix(in srgb, var(--accent) 62%, transparent);
   background: color-mix(in srgb, var(--accent) 13%, rgba(3,7,22,.65));
 }
+.v2-hand-skeleton {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(124,154,255,.4));
+}
+.v2-hand-bones line {
+  stroke: color-mix(in srgb, var(--accent) 74%, white 26%);
+  stroke-width: 1.15;
+  vector-effect: non-scaling-stroke;
+  opacity: .82;
+}
+.v2-hand-joints circle {
+  fill: #f7f9ff;
+  stroke: color-mix(in srgb, var(--accent) 72%, white 28%);
+  stroke-width: .7;
+  vector-effect: non-scaling-stroke;
+}
 .v2-hand-point {
   position: absolute;
   width: 16px;
