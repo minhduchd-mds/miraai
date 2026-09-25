@@ -264,9 +264,9 @@ const capsuleClient = readFileSync('src/intelligence/identity/capsule-client.ts'
 for (const token of ['verifyLocalCapsule', 'localMemory.exportSnapshot', 'localMemory.importTurns', "crypto.subtle.digest('SHA-256'"]) {
   if (!capsuleClient.includes(token)) failures.push(`GitHub Pages Identity Capsule fallback missing: ${token}`);
 }
-const visionRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
+const faceRecoveryRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
 for (const token of ['faceRecoveryTimer', 'face.lastSeenAt > 0', 'startLegacyVision(session)', '4_500']) {
-  if (!visionRuntime.includes(token)) failures.push(`face recovery watchdog missing: ${token}`);
+  if (!faceRecoveryRuntime.includes(token)) failures.push(`face recovery watchdog missing: ${token}`);
 }
 const cameraSurfaceStart = v2.indexOf('<div className="v2-camera-frame">');
 const cameraSurfaceEnd = v2.indexOf('</div>\n          <div className="v2-face-panel">', cameraSurfaceStart);
