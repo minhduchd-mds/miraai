@@ -853,3 +853,75 @@
   .v2-affect-vector small { font-size: 5px; }
   .v2-affect-vector b { font-size: 7px; }
 }
+
+
+/* Affect Engine v3 — posture, temporal micro-expression and experimental rPPG */
+.v2-pose-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.v2-pose-bones line {
+  stroke: rgba(124, 239, 212, .34);
+  stroke-width: .46;
+  vector-effect: non-scaling-stroke;
+}
+.v2-pose-joints circle {
+  fill: rgba(165, 255, 230, .72);
+  stroke: rgba(6, 16, 28, .68);
+  stroke-width: .25;
+  vector-effect: non-scaling-stroke;
+}
+.v2-sensor-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+.v2-sensor-strip > span {
+  min-width: 0;
+  padding: 5px 6px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(145, 167, 228, .08);
+  border-radius: 8px;
+  background: rgba(5, 9, 28, .32);
+}
+.v2-sensor-strip > span.active {
+  border-color: rgba(104, 239, 205, .2);
+  background: rgba(33, 97, 87, .12);
+}
+.v2-sensor-strip small {
+  color: rgba(158, 181, 233, .44);
+  font: 650 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .55px;
+}
+.v2-sensor-strip b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(234, 242, 255, .76);
+  font: 650 7px/1.25 'Inter', system-ui, sans-serif;
+}
+.v2-fusion-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  color: rgba(154, 178, 226, .44);
+  font: 600 6px/1.2 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .35px;
+}
+.v2-sensor-note {
+  color: rgba(155, 170, 205, .36);
+  font-size: 7px;
+  line-height: 1.25;
+}
+@media (max-width: 760px) {
+  .v2-sensor-strip { gap: 2px; }
+  .v2-sensor-strip > span { padding: 4px; }
+  .v2-sensor-strip b { font-size: 6px; }
+  .v2-fusion-channels { font-size: 5.5px; }
+}

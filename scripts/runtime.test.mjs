@@ -24,6 +24,9 @@ const proactive = await importTypeScript('src/intelligence/proactive/proactive-e
 const facialGesture = await importTypeScript('src/core/face/facial-gesture.ts');
 const facs = await importTypeScript('src/core/face/facs-proxy.ts');
 const realPresence = await importTypeScript('src/core/vision/real-presence.ts');
+const microExpression = await importTypeScript('src/core/face/micro-expression.ts');
+const postureModel = await importTypeScript('src/core/vision/posture-model.ts');
+const rppgSignal = await importTypeScript('src/core/vision/rppg-signal.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -359,4 +362,73 @@ test('affect tracker keeps temporal stability before adopting a new expression l
   assert.equal(state.mood, 'neutral');
   state = tracker.update({ present: true, smile: 0.9, cheekSquint: 0.6, actionUnits: { AU12: 0.9, AU06: 0.62 } }, 2000);
   assert.equal(state.mood, 'happy');
+});
+
+
+test('micro-expression tracker emits only a brief temporal AU-proxy excursion', () => {
+  const tracker = new microExpression.MicroExpressionTracker();
+  const base = { AU01:0,AU02:0,AU04:0,AU05:0,AU06:0,AU07:0,AU09:0,AU10:0,AU12:0,AU14:0,AU15:0,AU17:0,AU20:0,AU23:0,AU25:0,AU26:0,AU45:0,activity:0,symmetry:1 };
+  tracker.update(base, 0);
+  tracker.update({ ...base, AU12: 0.86, AU06: 0.62 }, 120);
+  const event = tracker.update({ ...base, AU12: 0.05, AU06: 0.04 }, 310);
+  assert.equal(event.kind, 'smile_flash');
+  assert.ok(event.confidence >= 0.28);
+  assert.ok(event.durationMs >= 55 && event.durationMs <= 720);
+});
+
+test('posture model distinguishes upright from visibly slouched 2D geometry', () => {
+  const make = (noseY) => {
+    const points = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, visibility: 0.95 }));
+    points[0] = { x: 0.5, y: noseY, visibility: 0.95 };
+    points[11] = { x: 0.42, y: 0.4, visibility: 0.95 };
+    points[12] = { x: 0.58, y: 0.4, visibility: 0.95 };
+    points[23] = { x: 0.44, y: 0.7, visibility: 0.95 };
+    points[24] = { x: 0.56, y: 0.7, visibility: 0.95 };
+    return points;
+  };
+  const upright = postureModel.derivePosture(make(0.17));
+  const slouched = postureModel.derivePosture(make(0.34));
+  assert.equal(upright.present, true);
+  assert.ok(upright.upright > slouched.upright);
+  assert.ok(slouched.slump > upright.slump);
+});
+
+test('rPPG signal estimator finds a clean synthetic 72 BPM trend without claiming clinical accuracy', () => {
+  const samples = [];
+  const bpm = 72;
+  const hz = bpm / 60;
+  for (let i = 0; i < 180; i += 1) {
+    const t = i * (1000 / 15);
+    const phase = 2 * Math.PI * hz * (t / 1000);
+    samples.push({
+      t,
+      r: 128 + Math.sin(phase) * 1.6,
+      g: 118 + Math.sin(phase) * 3.2,
+      b: 105 + Math.sin(phase) * 0.8,
+      motion: 0.02,
+      illumination: 0.7,
+    });
+  }
+  const result = rppgSignal.estimatePulseFromSamples(samples);
+  assert.ok(Math.abs(result.bpm - bpm) <= 3);
+  assert.ok(result.quality > 0.35);
+});
+
+test('multimodal affect v3 keeps physiology low-weight and uses posture as supporting context', () => {
+  const state = affect.inferAffect({
+    present: true,
+    smile: 0.15,
+    frown: 0.08,
+    eyeWide: 0.2,
+    actionUnits: { AU12: 0.12, AU04: 0.08 },
+    voice: { energy: 0.45, activity: 0.55, pitchVariability: 0.2, confidence: 0.7 },
+    posture: { present: true, confidence: 0.9, upright: 0.88, slump: 0.08, motion: 0.05 },
+    physiology: { quality: 0.82, relativeActivation: 0.7 },
+    microExpression: { kind: 'none', confidence: 0 },
+  });
+  assert.equal(state.mood, 'neutral');
+  assert.ok(state.dimensions.arousal > 0.05);
+  assert.ok(state.dimensions.engagement > 0.65);
+  assert.equal(state.channels.posture, 0.9);
+  assert.equal(state.channels.physiology, 0.82);
 });

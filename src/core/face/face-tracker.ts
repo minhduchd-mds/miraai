@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
 import { inferFacialGesture, type FacialGesture } from './facial-gesture';
 import { EMPTY_FACS_PROXY, facsProxyFromBlendshapes, type FACSProxy } from './facs-proxy';
+import { MicroExpressionTracker, type MicroExpressionState } from './micro-expression';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
@@ -45,6 +46,7 @@ export interface FaceData {
   faceGesture: FacialGesture;
   faceGestureConfidence: number;
   actionUnits: FACSProxy;
+  microExpression: MicroExpressionState;
   landmarks: FaceLandmark[];
   muscles: FaceMuscles;
 }
@@ -73,6 +75,7 @@ export const faceData: FaceData = {
   faceGesture: 'none',
   faceGestureConfidence: 0,
   actionUnits: { ...EMPTY_FACS_PROXY },
+  microExpression: { kind: 'none', confidence: 0, durationMs: 0, at: 0 },
   landmarks: [],
   muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
 };
@@ -86,6 +89,7 @@ let lastError: string | null = null;
 let lastInferenceAt = 0;
 let gestureUntil = 0;
 const poseHistory: Array<{ at: number; yaw: number; pitch: number }> = [];
+const microExpressionTracker = new MicroExpressionTracker();
 
 export function faceTrackerError(): string | null {
   return lastError;
@@ -193,6 +197,7 @@ function readFrame(): void {
     const bs: Record<string, number> = {};
     for (const category of cats) bs[category.categoryName] = Number(category.score || 0);
     faceData.actionUnits = facsProxyFromBlendshapes(bs);
+    faceData.microExpression = microExpressionTracker.update(faceData.actionUnits, now);
 
     faceData.jaw += ((bs.jawOpen || 0) - faceData.jaw) * SMOOTH;
     faceData.blinkL += ((bs.eyeBlinkLeft || 0) - faceData.blinkL) * SMOOTH;
@@ -255,6 +260,8 @@ function readFrame(): void {
     faceData.faceGesture = 'none';
     faceData.faceGestureConfidence = 0;
     faceData.actionUnits = { ...EMPTY_FACS_PROXY };
+    faceData.microExpression = { kind: 'none', confidence: 0, durationMs: 0, at: 0 };
+    microExpressionTracker.reset();
     faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
     poseHistory.length = 0;
   }
@@ -319,6 +326,8 @@ export function stopFaceTracking(): void {
   faceData.faceGesture = 'none';
   faceData.faceGestureConfidence = 0;
   faceData.actionUnits = { ...EMPTY_FACS_PROXY };
+  faceData.microExpression = { kind: 'none', confidence: 0, durationMs: 0, at: 0 };
+  microExpressionTracker.reset();
   faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
   poseHistory.length = 0;
   lastInferenceAt = 0;

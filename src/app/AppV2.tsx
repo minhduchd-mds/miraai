@@ -11,6 +11,7 @@ import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
+import PoseSkeletonOverlay, { type PoseSkeletonPoint } from '../presence/PoseSkeletonOverlay';
 import AirControlOverlay from '../presence/AirControlOverlay';
 import RealPresenceOverlay from '../presence/RealPresenceOverlay';
 import { EMPTY_REAL_PRESENCE_POSE, type RealPresencePose } from '../core/vision/real-presence';
@@ -73,6 +74,14 @@ export default function AppV2() {
   const [realPresencePose, setRealPresencePose] = useState<RealPresencePose>(() => ({ ...EMPTY_REAL_PRESENCE_POSE }));
   const [faceLandmarks, setFaceLandmarks] = useState<FaceLandmarkPoint[]>([]);
   const [faceActionUnits, setFaceActionUnits] = useState<Record<string, number>>({});
+  const [microTelemetry, setMicroTelemetry] = useState({ kind: 'none', confidence: 0, durationMs: 0 });
+  const [postureTelemetry, setPostureTelemetry] = useState({
+    present: false, label: 'unknown', confidence: 0, upright: 0, slump: 0, lean: 0, motion: 0,
+  });
+  const [poseLandmarks, setPoseLandmarks] = useState<PoseSkeletonPoint[]>([]);
+  const [pulseTelemetry, setPulseTelemetry] = useState({
+    status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0,
+  });
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [faceTelemetry, setFaceTelemetry] = useState({
@@ -140,6 +149,10 @@ export default function AppV2() {
     setRealPresencePose({ ...EMPTY_REAL_PRESENCE_POSE });
     setFaceLandmarks([]);
     setFaceActionUnits({});
+    setMicroTelemetry({ kind: 'none', confidence: 0, durationMs: 0 });
+    setPostureTelemetry({ present: false, label: 'unknown', confidence: 0, upright: 0, slump: 0, lean: 0, motion: 0 });
+    setPoseLandmarks([]);
+    setPulseTelemetry({ status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0 });
     const neutral = neutralAffect();
     setFaceAffect(neutral);
     affectTrackerRef.current = new AffectTracker();
@@ -229,10 +242,45 @@ export default function AppV2() {
       const face = snapshot?.face;
       setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
       setFaceActionUnits(face?.actionUnits || {});
+      const micro = face?.microExpression || { kind: 'none', confidence: 0, durationMs: 0 };
+      setMicroTelemetry({
+        kind: String(micro.kind || 'none'),
+        confidence: Number(micro.confidence || 0),
+        durationMs: Number(micro.durationMs || 0),
+      });
+      const posture = snapshot?.posture || {
+        present: false, label: 'unknown', confidence: 0, upright: 0, slump: 0, lean: 0, motion: 0, landmarks: [],
+      };
+      setPostureTelemetry({
+        present: Boolean(posture.present),
+        label: String(posture.label || 'unknown'),
+        confidence: Number(posture.confidence || 0),
+        upright: Number(posture.upright || 0),
+        slump: Number(posture.slump || 0),
+        lean: Number(posture.lean || 0),
+        motion: Number(posture.motion || 0),
+      });
+      setPoseLandmarks(Array.isArray(posture.landmarks) ? posture.landmarks : []);
+      const pulse = snapshot?.rppg || {
+        status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0,
+      };
+      setPulseTelemetry({
+        status: String(pulse.status || 'off'),
+        bpmTrend: Number(pulse.bpmTrend || 0),
+        quality: Number(pulse.quality || 0),
+        relativeActivation: Number(pulse.relativeActivation || 0),
+        sampleCount: Number(pulse.sampleCount || 0),
+      });
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
       const nextAffect = affectTrackerRef.current.update({
         ...(face || { present: false }),
         voice: micProsodySnapshot(),
+        posture,
+        physiology: {
+          quality: Number(pulse.quality || 0),
+          relativeActivation: Number(pulse.relativeActivation || 0),
+        },
+        microExpression: micro,
       }, performance.now());
       setFaceAffect(nextAffect);
       mira.observeAffect(nextAffect);
@@ -624,11 +672,11 @@ export default function AppV2() {
   }, [mira.live, mira.notifyContextEvent, mira.startListening, mira.stateRef]);
 
   const moodLabel = ({
-    happy: 'Cười / tích cực',
-    sad: 'Trầm',
-    tired: 'Có vẻ mệt',
-    angry: 'Căng',
-    surprised: 'Bất ngờ',
+    happy: 'Tín hiệu tích cực',
+    sad: 'Tín hiệu trầm',
+    tired: 'Hoạt động thấp',
+    angry: 'Tín hiệu căng',
+    surprised: 'Phản ứng mở',
     neutral: 'Trung tính',
   } as Record<AffectState['mood'], string>)[faceAffect.mood];
 
@@ -642,6 +690,33 @@ export default function AppV2() {
     squint: 'Nheo mắt',
     none: 'Không có cử chỉ',
   } as Record<string, string>)[faceTelemetry.faceGesture] || faceTelemetry.faceGesture;
+
+  const microLabel = ({
+    smile_flash: 'Smile flash',
+    brow_flash: 'Brow flash',
+    lip_press_flash: 'Lip press',
+    surprise_flash: 'Surprise flash',
+    tension_flash: 'Tension flash',
+    blink_burst: 'Blink burst',
+    none: 'Không có micro-expression',
+  } as Record<string, string>)[microTelemetry.kind] || microTelemetry.kind;
+
+  const postureLabel = ({
+    upright: 'Thẳng',
+    slouched: 'Cúi / co người',
+    lean_left: 'Nghiêng trái',
+    lean_right: 'Nghiêng phải',
+    moving: 'Đang chuyển động',
+    unknown: 'Chưa đủ khung người',
+  } as Record<string, string>)[postureTelemetry.label] || postureTelemetry.label;
+
+  const pulseLabel = pulseTelemetry.bpmTrend > 0 && pulseTelemetry.quality >= 0.22
+    ? `~${Math.round(pulseTelemetry.bpmTrend)} · Q${Math.round(pulseTelemetry.quality * 100)}%`
+    : pulseTelemetry.status === 'calibrating'
+      ? 'Đang hiệu chỉnh'
+      : pulseTelemetry.status === 'low_signal'
+        ? 'Tín hiệu thấp'
+        : 'Chờ tín hiệu';
 
   const gestureLabel = waveSeen ? 'Wave' : ({
     Open_Palm: 'Open Palm',
@@ -707,6 +782,9 @@ export default function AppV2() {
                 muscles={faceTelemetry.muscles}
               />
             )}
+            {postureTelemetry.present && (
+              <PoseSkeletonOverlay points={poseLandmarks} active={postureTelemetry.present} />
+            )}
             {handSeen && (
               <>
                 {(spatialHands.length ? spatialHands : [{ landmarks: handLandmarks } as SpatialHand]).map((hand, index) => (
@@ -744,11 +822,24 @@ export default function AppV2() {
               <span><small>FAT</small><b>{Math.round(faceAffect.dimensions.fatigue * 100)}</b></span>
               <span><small>TEN</small><b>{Math.round(faceAffect.dimensions.tension * 100)}</b></span>
             </div>
+            <div className="v2-sensor-strip">
+              <span className={microTelemetry.kind !== 'none' ? 'active' : ''}><small>MICRO</small><b>{microLabel}</b></span>
+              <span className={postureTelemetry.present ? 'active' : ''}><small>POSE</small><b>{postureLabel}</b></span>
+              <span className={pulseTelemetry.quality >= 0.5 ? 'active' : ''}><small>rPPG*</small><b>{pulseLabel}</b></span>
+            </div>
+            <div className="v2-fusion-channels" aria-label="Multimodal fusion confidence">
+              <span>FACE {Math.round(faceAffect.channels.face * 100)}</span>
+              <span>VOICE {Math.round(faceAffect.channels.voice * 100)}</span>
+              <span>BODY {Math.round(faceAffect.channels.posture * 100)}</span>
+              <span>PULSE {Math.round(faceAffect.channels.physiology * 100)}</span>
+            </div>
             <div className="v2-face-meta">
               <span>{facialGestureLabel} {faceTelemetry.faceGesture === 'none' ? '' : Math.round(faceTelemetry.faceGestureConfidence * 100) + '%'}</span>
               <span>AU12 {Math.round(Number(faceActionUnits.AU12 || 0) * 100)} · AU4 {Math.round(Number(faceActionUnits.AU04 || 0) * 100)}</span>
               <span>{realPresencePose.present ? `Depth ~${realPresencePose.distanceM.toFixed(2)}m` : 'Depth —'}</span>
+              <span>Baseline {Math.round(faceAffect.channels.baselineReady * 100)}%</span>
             </div>
+            <div className="v2-sensor-note">* rPPG là xu hướng thử nghiệm từ camera, không phải đo y tế.</div>
           </div>
         </div>
       )}

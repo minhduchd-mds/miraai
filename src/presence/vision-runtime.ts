@@ -12,18 +12,27 @@ import {
 } from '../core/face/gesture-tracker';
 import { getVisionCameraStream } from '../core/vision/camera-manager';
 import { estimateRealPresencePose } from '../core/vision/real-presence';
+import { postureData, postureTrackerError, startPostureTracking, stopPostureTracking } from '../core/vision/posture-tracker';
+import { rppgData, startRppgMonitoring, stopRppgMonitoring } from '../core/vision/rppg-monitor';
 
 export async function startVision(): Promise<{ ok: boolean; error: string }> {
-  const [faceOk, handOk] = await Promise.all([startFaceTracking(), startGestureTracking()]);
+  const [faceOk, handOk, postureOk, rppgOk] = await Promise.all([
+    startFaceTracking(),
+    startGestureTracking(),
+    startPostureTracking(),
+    startRppgMonitoring(),
+  ]);
   return {
-    ok: faceOk || handOk,
-    error: faceTrackerError() || gestureTrackerError() || '',
+    ok: faceOk || handOk || postureOk || rppgOk,
+    error: faceTrackerError() || gestureTrackerError() || postureTrackerError() || '',
   };
 }
 
 export function stopVision(): void {
   stopFaceTracking();
   stopGestureTracking();
+  stopPostureTracking();
+  stopRppgMonitoring();
 }
 
 export function visionSnapshot() {
@@ -67,10 +76,24 @@ export function visionSnapshot() {
       faceGesture: faceData.faceGesture,
       faceGestureConfidence: faceData.faceGestureConfidence,
       actionUnits: { ...faceData.actionUnits },
+      microExpression: { ...faceData.microExpression },
       landmarks: faceData.landmarks.map((point) => ({ ...point })),
       muscles: { ...faceData.muscles },
       spatialPose,
     },
+    posture: {
+      active: postureData.active,
+      present: postureData.present,
+      label: postureData.label,
+      confidence: postureData.confidence,
+      upright: postureData.upright,
+      slump: postureData.slump,
+      lean: postureData.lean,
+      shoulderSlope: postureData.shoulderSlope,
+      motion: postureData.motion,
+      landmarks: postureData.landmarks.map((point) => ({ ...point })),
+    },
+    rppg: { ...rppgData },
     handSeen: Boolean(handData.active && handData.present),
     handCount: hands.length,
     hands,

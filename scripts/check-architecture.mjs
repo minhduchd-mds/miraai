@@ -21,7 +21,13 @@ const mustExist = [
   'src/core/brain/local-webllm-brain.ts',
   'src/core/face/facial-gesture.ts',
   'src/core/face/facs-proxy.ts',
+  'src/core/face/micro-expression.ts',
   'src/core/vision/real-presence.ts',
+  'src/core/vision/posture-model.ts',
+  'src/core/vision/posture-tracker.ts',
+  'src/core/vision/rppg-signal.ts',
+  'src/core/vision/rppg-monitor.ts',
+  'src/presence/PoseSkeletonOverlay.tsx',
   'src/presence/RealPresenceOverlay.tsx',
   'src/presence/real-presence-overlay.css',
   'src/intelligence/affect/mood-engine.ts',
@@ -60,7 +66,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'RealPresenceOverlay', 'realPresencePose', 'micProsodySnapshot', 'v2-affect-vector', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -218,6 +224,7 @@ const localMemory = readFileSync('src/intelligence/memory/memory-service.ts', 'u
 if (!localMemory.includes('LocalMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
 const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
 if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('local memory should request persistent browser storage');
+if (localMemoryStore.includes('bpmTrend') || localMemoryStore.includes('pulseTrace')) failures.push('experimental physiological estimates must remain ephemeral, not long-term memory');
 const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
 for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
@@ -230,12 +237,32 @@ const facsProxy = readFileSync('src/core/face/facs-proxy.ts', 'utf8');
 for (const token of ['FACSProxy', 'AU01', 'AU04', 'AU06', 'AU12', 'AU23', 'AU45', 'not a validated FACS detector']) {
   if (!facsProxy.includes(token)) failures.push(`FACS-like blendshape mapping missing: ${token}`);
 }
+const microExpression = readFileSync('src/core/face/micro-expression.ts', 'utf8');
+for (const token of ['MicroExpressionTracker', 'smile_flash', 'tension_flash', 'durationMs', 'temporal visual event detector']) {
+  if (!microExpression.includes(token)) failures.push(`micro-expression temporal layer missing: ${token}`);
+}
+const postureModel = readFileSync('src/core/vision/posture-model.ts', 'utf8');
+for (const token of ['derivePosture', 'slouched', 'upright', 'shoulderSlope', 'not a health assessment']) {
+  if (!postureModel.includes(token)) failures.push(`posture model missing: ${token}`);
+}
+const postureTracker = readFileSync('src/core/vision/posture-tracker.ts', 'utf8');
+for (const token of ['PoseLandmarker', 'pose_landmarker_lite', "acquireVisionCamera('pose')", 'motionEma']) {
+  if (!postureTracker.includes(token)) failures.push(`posture runtime missing: ${token}`);
+}
+const rppgSignal = readFileSync('src/core/vision/rppg-signal.ts', 'utf8');
+for (const token of ['estimatePulseFromSamples', 'CHROM-style', '45', '180', 'must not be used for diagnosis']) {
+  if (!rppgSignal.includes(token)) failures.push(`rPPG signal estimator missing: ${token}`);
+}
+const rppgMonitor = readFileSync('src/core/vision/rppg-monitor.ts', 'utf8');
+for (const token of ['startRppgMonitoring', "acquireVisionCamera('rppg')", 'relativeActivation', 'sampleSkin', 'baselineBpm']) {
+  if (!rppgMonitor.includes(token)) failures.push(`rPPG runtime missing: ${token}`);
+}
 const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
-for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'facsProxyFromBlendshapes', 'muscles', 'gazeX']) {
+for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'microExpression', 'MicroExpressionTracker', 'facsProxyFromBlendshapes', 'muscles', 'gazeX']) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
 }
 const affectEngine = readFileSync('src/intelligence/affect/mood-engine.ts', 'utf8');
-for (const token of ['AffectDimensions', 'valence', 'arousal', 'engagement', 'baselineReady', 'BASELINE_KEY', 'voicePitchVar']) {
+for (const token of ['AffectDimensions', 'valence', 'arousal', 'engagement', 'baselineReady', 'BASELINE_KEY', 'voicePitchVar', 'PostureAffectSample', 'PhysiologyAffectSample', 'microExpression', 'physiologyQuality']) {
   if (!affectEngine.includes(token)) failures.push(`Affect Engine v2 missing: ${token}`);
 }
 const audioLevelSource = readFileSync('src/core/audio-level.ts', 'utf8');

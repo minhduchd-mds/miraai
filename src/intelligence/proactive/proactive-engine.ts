@@ -44,18 +44,18 @@ export class ProactiveEngine {
     if (now - this.lastPromptAt < COOLDOWN_MS) return null;
 
     if (affect.confidence >= 0.58 && now - this.moodSince >= 8_000) {
-      if (affect.mood === 'happy') return this.commit('Em thấy anh đang cười. Có chuyện vui à?', now);
+      if (affect.mood === 'happy') return this.commit('Em thấy tín hiệu nụ cười đang rõ hơn. Có chuyện vui anh muốn kể em không?', now);
       if (affect.mood === 'sad') {
-        return this.commit('Nét mặt anh có vẻ trầm xuống. Anh muốn em nói nhẹ hơn hay mình cứ tiếp tục như bình thường?', now);
+        return this.commit('Nét mặt của anh đang trầm hơn baseline một chút. Anh muốn em nói nhẹ hơn hay mình cứ tiếp tục như bình thường?', now);
       }
       if (affect.mood === 'tired') {
-        return this.commit('Mắt anh có vẻ mệt. Em sẽ nói ngắn và chậm hơn một chút nhé.', now);
+        return this.commit('Tín hiệu mắt và tư thế đang có vẻ chậm hơn bình thường. Em sẽ nói ngắn và chậm hơn một chút nhé.', now);
       }
       if (affect.mood === 'angry') {
-        return this.commit('Em thấy nét mặt anh đang căng hơn. Em sẽ nói gọn và rõ để mình đỡ bị ngắt nhịp.', now);
+        return this.commit('Em thấy tín hiệu brow và lip-press đang căng hơn. Em sẽ nói gọn và rõ để mình đỡ bị ngắt nhịp.', now);
       }
       if (affect.mood === 'surprised') {
-        return this.commit('Anh vừa có vẻ khá bất ngờ. Em đang nghe đây.', now);
+        return this.commit('Camera vừa thấy một phản ứng mở khá nhanh ở mắt và hàm. Em đang nghe đây.', now);
       }
     }
 
