@@ -22,6 +22,7 @@ const spatial = await importTypeScript('src/presence/spatial-math.ts');
 const affect = await importTypeScript('src/intelligence/affect/mood-engine.ts');
 const proactive = await importTypeScript('src/intelligence/proactive/proactive-engine.ts');
 const facialGesture = await importTypeScript('src/core/face/facial-gesture.ts');
+const realPresence = await importTypeScript('src/core/vision/real-presence.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -284,4 +285,29 @@ test('facial gesture classifier separates wink, smile and mouth-open signals', (
   assert.equal(smile.gesture, 'smile');
   assert.equal(mouth.gesture, 'mouth_open');
   assert.ok(wink.confidence > 0.7);
+});
+
+
+test('real presence estimates conversation distance and stable scene placement from face landmarks', () => {
+  const points = Array.from({ length: 478 }, (_, index) => {
+    const angle = (index / 478) * Math.PI * 2;
+    return {
+      x: 0.5 + Math.cos(angle) * 0.12,
+      y: 0.46 + Math.sin(angle) * 0.16,
+      z: 0,
+    };
+  });
+  const pose = realPresence.estimateRealPresencePose(points);
+  assert.equal(pose.present, true);
+  assert.equal(pose.proximity, 'conversation');
+  assert.ok(pose.distanceM > 0.45 && pose.distanceM < 1.1);
+  assert.ok(pose.confidence > 0.7);
+  assert.ok(Math.abs(pose.sceneOffsetX) < 2);
+});
+
+test('real presence rejects incomplete landmark scans and keeps raw identity out of the pose model', () => {
+  const pose = realPresence.estimateRealPresencePose([{ x: 0.5, y: 0.5 }]);
+  assert.equal(pose.present, false);
+  assert.equal(pose.proximity, 'unknown');
+  assert.equal('embedding' in pose, false);
 });

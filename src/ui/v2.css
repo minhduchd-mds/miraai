@@ -811,3 +811,12 @@
   .v2-face-bars span { display: none; }
   .v2-face-meta span:last-child { display: none; }
 }
+
+
+/* Real Presence surface spacing */
+.v2-face-meta {
+  flex-wrap: wrap;
+}
+.v2-face-meta span:last-child {
+  color: rgba(151, 238, 213, .68);
+}

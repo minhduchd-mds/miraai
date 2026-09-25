@@ -11,6 +11,8 @@ import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import AirControlOverlay from '../presence/AirControlOverlay';
+import RealPresenceOverlay from '../presence/RealPresenceOverlay';
+import { EMPTY_REAL_PRESENCE_POSE, type RealPresencePose } from '../core/vision/real-presence';
 import {
   measureTwoHands,
   rotationFromAngles,
@@ -61,11 +63,13 @@ export default function AppV2() {
   const bootSawSpeakingRef = useRef(false);
   const bootTimerRef = useRef<number | null>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
+  const [visionMediaStream, setVisionMediaStream] = useState<MediaStream | null>(null);
   const visionModulesRef = useRef<typeof import('../presence/vision-runtime') | null>(null);
   const [visionOn, setVisionOn] = useState(false);
   const [visionBooting, setVisionBooting] = useState(false);
   const [visionError, setVisionError] = useState('');
   const [faceSeen, setFaceSeen] = useState(false);
+  const [realPresencePose, setRealPresencePose] = useState<RealPresencePose>(() => ({ ...EMPTY_REAL_PRESENCE_POSE }));
   const [faceLandmarks, setFaceLandmarks] = useState<FaceLandmarkPoint[]>([]);
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
@@ -128,8 +132,10 @@ export default function AppV2() {
     const modules = visionModulesRef.current;
     modules?.stopVision();
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
+    setVisionMediaStream(null);
     setVisionOn(false);
     setFaceSeen(false);
+    setRealPresencePose({ ...EMPTY_REAL_PRESENCE_POSE });
     setFaceLandmarks([]);
     const neutral = neutralAffect();
     setFaceAffect(neutral);
@@ -182,6 +188,7 @@ export default function AppV2() {
       setVisionOn(on);
 
       const stream = modules.visionStream();
+      setVisionMediaStream(on ? stream : null);
       if (on && stream && cameraPreviewRef.current) {
         cameraPreviewRef.current.srcObject = stream;
         cameraPreviewRef.current.muted = true;
@@ -218,6 +225,7 @@ export default function AppV2() {
       setFaceSeen(Boolean(snapshot?.faceSeen));
       const face = snapshot?.face;
       setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
+      setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
       const nextAffect = affectTrackerRef.current.update(face || { present: false }, performance.now());
       setFaceAffect(nextAffect);
       mira.observeAffect(nextAffect);
@@ -683,6 +691,7 @@ export default function AppV2() {
               <span className={faceSeen ? 'detected' : ''}>Face</span>
               <span className={handSeen ? 'detected' : ''}>Hand</span>
               <span className={faceSeen && faceAffect.mood !== 'neutral' ? 'detected' : ''}>{moodLabel}</span>
+              <span className={faceSeen && realPresencePose.confidence >= 0.55 ? 'detected' : ''}>REAL</span>
             </div>
             {faceSeen && (
               <FaceMeshOverlay
@@ -724,6 +733,7 @@ export default function AppV2() {
             <div className="v2-face-meta">
               <span>{facialGestureLabel} {faceTelemetry.faceGesture === 'none' ? '' : Math.round(faceTelemetry.faceGestureConfidence * 100) + '%'}</span>
               <span>{faceTelemetry.headGesture === 'none' ? 'Head stable' : faceTelemetry.headGesture}</span>
+              <span>{realPresencePose.present ? `Depth ~${realPresencePose.distanceM.toFixed(2)}m` : 'Depth —'}</span>
             </div>
           </div>
         </div>
@@ -754,6 +764,14 @@ export default function AppV2() {
             brainName={mira.brainName}
             sttAvailable={mira.sttAvailable}
             observedMood={faceAffect.mood}
+            moodConfidence={faceAffect.confidence}
+          />
+          <RealPresenceOverlay
+            active={visionOn}
+            stream={visionMediaStream}
+            faceSeen={faceSeen}
+            pose={realPresencePose}
+            mood={faceAffect.mood}
             moodConfidence={faceAffect.confidence}
           />
         </div>

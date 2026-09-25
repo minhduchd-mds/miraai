@@ -20,6 +20,9 @@ const mustExist = [
   'src/core/tts/piper-local-tts.ts',
   'src/core/brain/local-webllm-brain.ts',
   'src/core/face/facial-gesture.ts',
+  'src/core/vision/real-presence.ts',
+  'src/presence/RealPresenceOverlay.tsx',
+  'src/presence/real-presence-overlay.css',
   'src/intelligence/affect/mood-engine.ts',
   'src/intelligence/proactive/proactive-engine.ts',
   'src/intelligence/memory/local-memory-store.ts',
@@ -56,7 +59,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'RealPresenceOverlay', 'realPresencePose', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -214,6 +217,14 @@ const localMemory = readFileSync('src/intelligence/memory/memory-service.ts', 'u
 if (!localMemory.includes('LocalMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
 const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
 if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('local memory should request persistent browser storage');
+const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
+for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
+  if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
+}
+const realPresenceView = readFileSync('src/presence/RealPresenceOverlay.tsx', 'utf8');
+for (const token of ['ImageSegmenter', 'selfie_segmenter_landscape', 'segmentForVideo', 'getAsFloat32Array', 'REAL SEAT · LOCKED']) {
+  if (!realPresenceView.includes(token)) failures.push(`real presence compositor missing: ${token}`);
+}
 const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
 for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'muscles', 'gazeX']) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);

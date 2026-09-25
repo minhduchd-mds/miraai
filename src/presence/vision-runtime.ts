@@ -11,6 +11,7 @@ import {
   stopGestureTracking,
 } from '../core/face/gesture-tracker';
 import { getVisionCameraStream } from '../core/vision/camera-manager';
+import { estimateRealPresencePose } from '../core/vision/real-presence';
 
 export async function startVision(): Promise<{ ok: boolean; error: string }> {
   const [faceOk, handOk] = await Promise.all([startFaceTracking(), startGestureTracking()]);
@@ -27,6 +28,7 @@ export function stopVision(): void {
 
 export function visionSnapshot() {
   const landmarks = handData.landmarks.map((point) => ({ ...point }));
+  const spatialPose = estimateRealPresencePose(faceData.landmarks);
   const indexTip = landmarks[8] || { x: handData.x, y: handData.y };
   const thumbTip = landmarks[4] || indexTip;
   const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
@@ -66,6 +68,7 @@ export function visionSnapshot() {
       faceGestureConfidence: faceData.faceGestureConfidence,
       landmarks: faceData.landmarks.map((point) => ({ ...point })),
       muscles: { ...faceData.muscles },
+      spatialPose,
     },
     handSeen: Boolean(handData.active && handData.present),
     handCount: hands.length,
