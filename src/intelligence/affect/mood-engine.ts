@@ -196,7 +196,7 @@ export function inferAffect(sample: FaceAffectSample): AffectState {
   const surprise = surprised;
 
   const acousticArousal = clamp01(voiceEnergy * 0.58 + voiceActivity * 0.24 + voicePitchVar * 0.18);
-  const faceArousal = clamp01(Math.max(surprise, tension) * 0.7 + eyeWide * 0.16 + jaw * 0.14);
+  const faceArousal = clamp01(Math.max(surprise, tension, positive * 0.45) * 0.7 + eyeWide * 0.16 + jaw * 0.14);
   // Only above-baseline pulse activation can add a small arousal cue; neutral baseline contributes zero.
   const physiologyArousal = clamp01(Math.max(0, physiologyActivation));
 
