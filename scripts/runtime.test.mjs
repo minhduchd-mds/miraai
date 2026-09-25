@@ -27,6 +27,8 @@ const realPresence = await importTypeScript('src/core/vision/real-presence.ts');
 const microExpression = await importTypeScript('src/core/face/micro-expression.ts');
 const postureModel = await importTypeScript('src/core/vision/posture-model.ts');
 const rppgSignal = await importTypeScript('src/core/vision/rppg-signal.ts');
+const interaction = await importTypeScript('src/intelligence/social/interaction-engine.ts');
+const behaviorTimeline = await importTypeScript('src/intelligence/social/behavior-timeline.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -431,4 +433,76 @@ test('multimodal affect v3 keeps physiology low-weight and uses posture as suppo
   assert.ok(state.dimensions.engagement > 0.65);
   assert.equal(state.channels.posture, 0.9);
   assert.equal(state.channels.physiology, 0.82);
+});
+
+
+test('social interaction tracker separates focus, look-away, absence and return without claiming intent', () => {
+  const tracker = new interaction.InteractionTracker();
+  const focusedSample = {
+    facePresent: true,
+    faceConfidence: 0.88,
+    yaw: 0.02,
+    pitch: 0.01,
+    gazeX: 0.02,
+    gazeY: 0.01,
+    posturePresent: true,
+    postureConfidence: 0.85,
+    postureMotion: 0.04,
+    distanceM: 0.82,
+  };
+  tracker.update(focusedSample, 100);
+  tracker.update(focusedSample, 700);
+  tracker.update(focusedSample, 1400);
+  tracker.update(focusedSample, 2200);
+  tracker.update(focusedSample, 3800);
+  const focused = tracker.update(focusedSample, 5400);
+  assert.equal(focused.state, 'focused');
+  assert.ok(focused.attention > 0.7);
+  assert.ok(focused.eyeContact > 0.9);
+
+  const lookAway = tracker.update({ ...focusedSample, yaw: 0.9, gazeX: 0.82 }, 6000);
+  assert.equal(lookAway.state, 'looking_away');
+
+  tracker.update({ facePresent: false }, 6500);
+  const absent = tracker.update({ facePresent: false }, 7900);
+  assert.equal(absent.state, 'absent');
+
+  const returning = tracker.update(focusedSample, 8100);
+  assert.equal(returning.state, 'returning');
+  assert.ok(returning.lastAwayMs >= 1500);
+  assert.match(interaction.interactionPrompt(lookAway), /không suy diễn|im lặng|ngắn/i);
+});
+
+test('behavior timeline keeps recent observable transitions ephemeral and deduplicated', () => {
+  const timeline = new behaviorTimeline.BehaviorTimeline();
+  const engaged = { state: 'engaged', attention: 0.72, eyeContact: 0.7, headAlignment: 0.8, continuityMs: 2000, awayMs: 0, lastAwayMs: 0, confidence: 0.82 };
+  let events = timeline.observe({ interaction: engaged, postureLabel: 'upright', postureConfidence: 0.9, proximity: 'conversation' }, 1000);
+  const firstCount = events.length;
+  events = timeline.observe({ interaction: engaged, postureLabel: 'upright', postureConfidence: 0.9, proximity: 'conversation' }, 1200);
+  assert.equal(events.length, firstCount);
+
+  events = timeline.observe({ interaction: { ...engaged, state: 'looking_away' }, microKind: 'brow_flash', microConfidence: 0.7, gesture: 'Open_Palm', gestureScore: 0.8 }, 2000);
+  assert.ok(events.some((event) => event.type === 'micro'));
+  assert.ok(events.some((event) => event.label === 'looking_away'));
+  const withMicro = events.length;
+  events = timeline.observe({ interaction: { ...engaged, state: 'looking_away' }, microKind: 'brow_flash', microConfidence: 0.72, gesture: 'Open_Palm', gestureScore: 0.82 }, 2120);
+  assert.equal(events.length, withMicro);
+  assert.match(timeline.promptSummary(2500), /ngữ cảnh phụ|không suy diễn/i);
+});
+
+test('proactive engine stays quiet when social geometry says user is away', () => {
+  const engine = new proactive.ProactiveEngine();
+  const state = {
+    mood: 'happy',
+    confidence: 0.92,
+    speechRate: 1,
+    visualEnergy: 0.8,
+    promptContext: '',
+    dimensions: { valence: 0.7, arousal: 0.5, engagement: 0.3, fatigue: 0, tension: 0 },
+    channels: { face: 0.9, voice: 0, posture: 0, physiology: 0, micro: 0, baselineReady: 1 },
+    metrics: { positive: 0.9, negative: 0, fatigue: 0, surprise: 0, tension: 0 },
+    interaction: { state: 'absent', attention: 0, eyeContact: 0, headAlignment: 0, continuityMs: 0, awayMs: 5000, lastAwayMs: 0, confidence: 0.8 },
+  };
+  engine.observeAffect(state, 1000);
+  assert.equal(engine.nextForSilence(state, 20_000), null);
 });

@@ -31,6 +31,8 @@ const mustExist = [
   'src/presence/RealPresenceOverlay.tsx',
   'src/presence/real-presence-overlay.css',
   'src/intelligence/affect/mood-engine.ts',
+  'src/intelligence/social/interaction-engine.ts',
+  'src/intelligence/social/behavior-timeline.ts',
   'src/intelligence/proactive/proactive-engine.ts',
   'src/intelligence/memory/local-memory-store.ts',
   'src/runtime/background-companion.ts',
@@ -66,7 +68,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -225,6 +227,7 @@ if (!localMemory.includes('LocalMemoryStore') || !localMemory.includes('observeA
 const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
 if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('local memory should request persistent browser storage');
 if (localMemoryStore.includes('bpmTrend') || localMemoryStore.includes('pulseTrace')) failures.push('experimental physiological estimates must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('BehaviorEvent') || localMemoryStore.includes('behaviorTimeline')) failures.push('social behavior timeline must remain ephemeral, not long-term memory');
 const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
 for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
@@ -261,13 +264,25 @@ const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
 for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'microExpression', 'MicroExpressionTracker', 'facsProxyFromBlendshapes', 'muscles', 'gazeX']) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
 }
+const interactionEngine = readFileSync('src/intelligence/social/interaction-engine.ts', 'utf8');
+for (const token of ['InteractionTracker', 'joint-attention proxy', 'looking_away', 'returning', 'eyeContact', 'headAlignment', 'interactionPrompt']) {
+  if (!interactionEngine.includes(token)) failures.push(`social interaction engine missing: ${token}`);
+}
+const behaviorTimeline = readFileSync('src/intelligence/social/behavior-timeline.ts', 'utf8');
+for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'promptSummary', '90_000']) {
+  if (!behaviorTimeline.includes(token)) failures.push(`behavior timeline missing: ${token}`);
+}
 const affectEngine = readFileSync('src/intelligence/affect/mood-engine.ts', 'utf8');
-for (const token of ['AffectDimensions', 'valence', 'arousal', 'engagement', 'baselineReady', 'BASELINE_KEY', 'voicePitchVar', 'PostureAffectSample', 'PhysiologyAffectSample', 'microExpression', 'physiologyQuality']) {
+for (const token of ['AffectDimensions', 'InteractionAffectContext', 'interaction?: InteractionAffectContext', 'valence', 'arousal', 'engagement', 'baselineReady', 'BASELINE_KEY', 'voicePitchVar', 'PostureAffectSample', 'PhysiologyAffectSample', 'microExpression', 'physiologyQuality']) {
   if (!affectEngine.includes(token)) failures.push(`Affect Engine v2 missing: ${token}`);
 }
 const audioLevelSource = readFileSync('src/core/audio-level.ts', 'utf8');
 for (const token of ['MicProsodySnapshot', 'micProsodySnapshot', 'estimatePitchHz', 'pitchVariability', 'silenceRatio']) {
   if (!audioLevelSource.includes(token)) failures.push(`mic prosody layer missing: ${token}`);
+}
+const proactiveEngine = readFileSync('src/intelligence/proactive/proactive-engine.ts', 'utf8');
+for (const token of ["interaction?.state === 'absent'", "interaction?.state === 'looking_away'", 'lastAwayMs >= 15_000']) {
+  if (!proactiveEngine.includes(token)) failures.push(`social-aware proactive policy missing: ${token}`);
 }
 const prompt = readFileSync('src/core/brain/prompt.ts', 'utf8');
 if (/trợ lý[^\n]{0,80}sản phẩm\s+Soi/i.test(prompt)) failures.push('Mira core persona must not be hardcoded to Soi');

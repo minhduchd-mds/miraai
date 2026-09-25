@@ -8,6 +8,8 @@ import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
+import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
+import { BehaviorTimeline, type BehaviorEvent } from '../intelligence/social/behavior-timeline';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
@@ -84,6 +86,10 @@ export default function AppV2() {
   });
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
+  const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
+  const interactionTrackerRef = useRef(new InteractionTracker());
+  const [behaviorEvents, setBehaviorEvents] = useState<BehaviorEvent[]>([]);
+  const behaviorTimelineRef = useRef(new BehaviorTimeline());
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
     gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
@@ -153,6 +159,10 @@ export default function AppV2() {
     setPostureTelemetry({ present: false, label: 'unknown', confidence: 0, upright: 0, slump: 0, lean: 0, motion: 0 });
     setPoseLandmarks([]);
     setPulseTelemetry({ status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0 });
+    setInteractionTelemetry({ ...EMPTY_INTERACTION });
+    interactionTrackerRef.current.reset();
+    setBehaviorEvents([]);
+    behaviorTimelineRef.current.reset();
     const neutral = neutralAffect();
     setFaceAffect(neutral);
     affectTrackerRef.current = new AffectTracker();
@@ -272,6 +282,34 @@ export default function AppV2() {
         sampleCount: Number(pulse.sampleCount || 0),
       });
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
+      const now = performance.now();
+      const spatial = face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE };
+      const interaction = interactionTrackerRef.current.update({
+        facePresent: Boolean(face?.present),
+        faceConfidence: Math.max(Number(spatial.confidence || 0), face?.present ? 0.65 : 0),
+        yaw: Number(face?.yaw || 0),
+        pitch: Number(face?.pitch || 0),
+        gazeX: Number(face?.gazeX || 0),
+        gazeY: Number(face?.gazeY || 0),
+        posturePresent: Boolean(posture.present),
+        postureConfidence: Number(posture.confidence || 0),
+        postureMotion: Number(posture.motion || 0),
+        distanceM: Number(spatial.distanceM || 0),
+      }, now);
+      setInteractionTelemetry(interaction);
+
+      const recentBehavior = behaviorTimelineRef.current.observe({
+        interaction,
+        microKind: String(micro.kind || 'none'),
+        microConfidence: Number(micro.confidence || 0),
+        postureLabel: String(posture.label || 'unknown'),
+        postureConfidence: Number(posture.confidence || 0),
+        gesture: String(snapshot?.gesture || 'None'),
+        gestureScore: Number(snapshot?.gestureScore || 0),
+        proximity: String(spatial.proximity || 'unknown'),
+      }, now);
+      setBehaviorEvents(recentBehavior);
+
       const nextAffect = affectTrackerRef.current.update({
         ...(face || { present: false }),
         voice: micProsodySnapshot(),
@@ -281,7 +319,12 @@ export default function AppV2() {
           relativeActivation: Number(pulse.relativeActivation || 0),
         },
         microExpression: micro,
-      }, performance.now());
+      }, now);
+      nextAffect.interaction = interaction;
+      const socialContext = [interactionPrompt(interaction), behaviorTimelineRef.current.promptSummary(now)]
+        .filter(Boolean)
+        .join(' ');
+      if (socialContext) nextAffect.promptContext = nextAffect.promptContext + ' ' + socialContext;
       setFaceAffect(nextAffect);
       mira.observeAffect(nextAffect);
       setFaceTelemetry({
@@ -718,6 +761,31 @@ export default function AppV2() {
         ? 'Tín hiệu thấp'
         : 'Chờ tín hiệu';
 
+  const interactionLabel = ({
+    focused: 'Đang tập trung',
+    engaged: 'Đang tương tác',
+    looking_away: 'Đang nhìn lệch',
+    returning: 'Vừa quay lại',
+    absent: 'Ngoài khung',
+    uncertain: 'Đang hiệu chỉnh',
+  } as Record<string, string>)[interactionTelemetry.state] || interactionTelemetry.state;
+
+  const behaviorLabel = (event: BehaviorEvent) => ({
+    focused: 'Focus',
+    engaged: 'Engaged',
+    looking_away: 'Look away',
+    returning: 'Return',
+    absent: 'Away',
+    upright: 'Upright',
+    slouched: 'Slouch',
+    lean_left: 'Lean L',
+    lean_right: 'Lean R',
+    moving: 'Moving',
+    near: 'Near',
+    conversation: 'Conversation',
+    far: 'Far',
+  } as Record<string, string>)[event.label] || event.label.replaceAll('_', ' ');
+
   const gestureLabel = waveSeen ? 'Wave' : ({
     Open_Palm: 'Open Palm',
     Closed_Fist: 'Closed Fist',
@@ -832,6 +900,25 @@ export default function AppV2() {
               <span>VOICE {Math.round(faceAffect.channels.voice * 100)}</span>
               <span>BODY {Math.round(faceAffect.channels.posture * 100)}</span>
               <span>PULSE {Math.round(faceAffect.channels.physiology * 100)}</span>
+            </div>
+            <div className={`v2-social-awareness state-${interactionTelemetry.state}`}>
+              <div className="v2-social-head">
+                <span><small>SOCIAL</small><b>{interactionLabel}</b></span>
+                <em>{Math.round(interactionTelemetry.attention * 100)}%</em>
+              </div>
+              <div className="v2-social-bars" aria-label="Social attention proxy">
+                <span><small>ATT</small><i><b style={{ '--social-level': interactionTelemetry.attention } as CSSProperties} /></i></span>
+                <span><small>EYE*</small><i><b style={{ '--social-level': interactionTelemetry.eyeContact } as CSSProperties} /></i></span>
+                <span><small>HEAD</small><i><b style={{ '--social-level': interactionTelemetry.headAlignment } as CSSProperties} /></i></span>
+              </div>
+              {behaviorEvents.length > 0 && (
+                <div className="v2-behavior-timeline" aria-label="Recent observed behavior">
+                  {behaviorEvents.slice(-5).map((event) => (
+                    <span key={event.id} data-kind={event.type}>{behaviorLabel(event)}</span>
+                  ))}
+                </div>
+              )}
+              <small className="v2-social-note">* Eye contact là gaze proxy từ camera, không phải xác nhận chú ý hay ý định.</small>
             </div>
             <div className="v2-face-meta">
               <span>{facialGestureLabel} {faceTelemetry.faceGesture === 'none' ? '' : Math.round(faceTelemetry.faceGestureConfidence * 100) + '%'}</span>

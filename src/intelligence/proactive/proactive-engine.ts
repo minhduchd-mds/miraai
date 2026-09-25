@@ -43,6 +43,12 @@ export class ProactiveEngine {
     this.observeAffect(affect, now);
     if (now - this.lastPromptAt < COOLDOWN_MS) return null;
 
+    const interaction = affect.interaction;
+    if (interaction?.state === 'absent' || interaction?.state === 'looking_away') return null;
+    if (interaction?.state === 'returning' && interaction.lastAwayMs >= 15_000 && interaction.confidence >= 0.55) {
+      return this.commit('Anh quay lại rồi. Em tiếp tục ở đây nhé.', now);
+    }
+
     if (affect.confidence >= 0.58 && now - this.moodSince >= 8_000) {
       if (affect.mood === 'happy') return this.commit('Em thấy tín hiệu nụ cười đang rõ hơn. Có chuyện vui anh muốn kể em không?', now);
       if (affect.mood === 'sad') {
@@ -70,6 +76,7 @@ export class ProactiveEngine {
   nextContextPrompt(kind: 'resume' | 'wake', affect: AffectState, now = Date.now()): string | null {
     this.observeAffect(affect, now);
     if (now - this.lastPromptAt < COOLDOWN_MS) return null;
+    if (affect.interaction?.state === 'absent' || affect.interaction?.state === 'looking_away') return null;
     const awayMs = now - this.lastUserAt;
     if ((kind === 'resume' || kind === 'wake') && awayMs > 30 * 60_000) {
       return this.commit('Anh quay lại rồi à. Em vẫn ở đây.', now);

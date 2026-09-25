@@ -57,6 +57,17 @@ export interface AffectDimensions {
   tension: number;
 }
 
+export interface InteractionAffectContext {
+  state: 'engaged' | 'focused' | 'looking_away' | 'returning' | 'absent' | 'uncertain';
+  attention: number;
+  eyeContact: number;
+  headAlignment: number;
+  continuityMs: number;
+  awayMs: number;
+  lastAwayMs: number;
+  confidence: number;
+}
+
 export interface AffectState {
   mood: ObservedMood;
   confidence: number;
@@ -79,6 +90,7 @@ export interface AffectState {
     surprise: number;
     tension: number;
   };
+  interaction?: InteractionAffectContext;
 }
 
 interface BaselineState {
@@ -265,10 +277,12 @@ export function inferAffect(sample: FaceAffectSample): AffectState {
     contextSignals.length ? base + ' ' + contextSignals.join(' ') : base;
 
   if (top < 0.28 || faceConfidence < 0.26) {
+    const neutral = neutralAffect();
     return {
-      ...neutralAffect(),
+      ...neutral,
       confidence: clamp01(Math.max(0.16, faceConfidence * 0.62)),
       visualEnergy: clamp01(0.36 + arousal * 0.36),
+      promptContext: withContextSignals(neutral.promptContext),
       dimensions,
       channels,
       metrics: { positive, negative, fatigue, surprise, tension },
