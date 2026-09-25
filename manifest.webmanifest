@@ -1,0 +1,12 @@
+{
+  "name": "Mira AI Companion",
+  "short_name": "Mira",
+  "description": "Voice-first local AI companion with vision, memory and continuous conversation.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#020513",
+  "theme_color": "#070a18",
+  "lang": "vi",
+  "categories": ["productivity", "utilities"]
+}

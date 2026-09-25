@@ -1,0 +1,128 @@
+{
+  "_App-DRMAov3v.js": {
+    "file": "assets/App-DRMAov3v.js",
+    "name": "App",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_gesture-tracker-sMmscJSU.js",
+      "_avatar-config-Ds55Sh0D.js",
+      "__commonjsHelpers-Cpj98o6Y.js",
+      "src/ui/ContentPanel.tsx"
+    ],
+    "dynamicImports": [
+      "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js"
+    ]
+  },
+  "__commonjsHelpers-Cpj98o6Y.js": {
+    "file": "assets/_commonjsHelpers-Cpj98o6Y.js",
+    "name": "_commonjsHelpers"
+  },
+  "_avatar-config-Ds55Sh0D.js": {
+    "file": "assets/avatar-config-Ds55Sh0D.js",
+    "name": "avatar-config"
+  },
+  "_gesture-tracker-sMmscJSU.js": {
+    "file": "assets/gesture-tracker-sMmscJSU.js",
+    "name": "gesture-tracker",
+    "imports": [
+      "index.html"
+    ],
+    "dynamicImports": [
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs"
+    ]
+  },
+  "_index-CE_Hj1Kb.js": {
+    "file": "assets/index-CE_Hj1Kb.js",
+    "name": "index",
+    "isDynamicEntry": true,
+    "imports": [
+      "__commonjsHelpers-Cpj98o6Y.js"
+    ]
+  },
+  "index.html": {
+    "file": "assets/index-CE_shVLV.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "dynamicImports": [
+      "_index-CE_Hj1Kb.js",
+      "src/ui/ContentPanel.tsx",
+      "src/settings/SettingsPanel.tsx",
+      "src/presence/vision-runtime.ts",
+      "_App-DRMAov3v.js"
+    ],
+    "css": [
+      "assets/index-BevLP6l1.css"
+    ]
+  },
+  "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs": {
+    "file": "assets/vision_bundle-DuCNxPTS.js",
+    "name": "vision_bundle",
+    "src": "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+    "isDynamicEntry": true
+  },
+  "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js": {
+    "file": "assets/gaussian-splats-3d.module-LCLkLNXf.js",
+    "name": "gaussian-splats-3d.module",
+    "src": "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_App-DRMAov3v.js",
+      "_gesture-tracker-sMmscJSU.js",
+      "index.html",
+      "_avatar-config-Ds55Sh0D.js",
+      "__commonjsHelpers-Cpj98o6Y.js",
+      "src/ui/ContentPanel.tsx"
+    ]
+  },
+  "src/presence/vision-runtime.ts": {
+    "file": "assets/vision-runtime-Cv0_L_xP.js",
+    "name": "vision-runtime",
+    "src": "src/presence/vision-runtime.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_gesture-tracker-sMmscJSU.js",
+      "index.html"
+    ],
+    "dynamicImports": [
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs"
+    ]
+  },
+  "src/settings/SettingsPanel.tsx": {
+    "file": "assets/SettingsPanel-BUGLIqM6.js",
+    "name": "SettingsPanel",
+    "src": "src/settings/SettingsPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_avatar-config-Ds55Sh0D.js"
+    ],
+    "css": [
+      "assets/SettingsPanel-DcqN2xD2.css"
+    ]
+  },
+  "src/ui/ContentPanel.tsx": {
+    "file": "assets/ContentPanel-BKdRev11.js",
+    "name": "ContentPanel",
+    "src": "src/ui/ContentPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ],
+    "css": [
+      "assets/ContentPanel-CLRIO5ak.css"
+    ]
+  },
+  "src/ui/styles.css": {
+    "file": "assets/styles-C-AHWP0W.css",
+    "src": "src/ui/styles.css"
+  },
+  "src/ui/vision-v2.css": {
+    "file": "assets/vision-v2-C6tGu4d0.css",
+    "src": "src/ui/vision-v2.css"
+  }
+}
