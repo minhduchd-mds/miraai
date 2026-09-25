@@ -1,6 +1,7 @@
 .photo-mira {
   --pm-level: 0;
   --pm-energy: 0;
+  --pm-affect: 0;
   --pm-memory: 0;
   --pm-breathe: 1;
   --pm-look-x: 0px;
@@ -575,4 +576,51 @@
     right: 16px;
     bottom: 18px;
   }
+}
+
+
+/* Observed-expression response — visual adaptation only, never a claim about inner emotion. */
+.bedroom-presence.affect-follow.affect-active .pm-bedroom-tint {
+  opacity: calc(.34 + var(--pm-affect) * .42);
+  transition: opacity .7s ease, background .7s ease;
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-happy .pm-scene {
+  filter: saturate(1.055) contrast(1.015) brightness(1.005);
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-happy .pm-bedroom-tint {
+  background:
+    radial-gradient(circle at 56% 43%, rgba(255, 218, 170, .16), transparent 32%),
+    radial-gradient(circle at 28% 70%, rgba(255, 178, 130, .08), transparent 34%);
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-sad .pm-scene {
+  filter: saturate(.86) contrast(1.02) brightness(.91);
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-sad .pm-bedroom-tint {
+  background:
+    radial-gradient(circle at 56% 43%, rgba(115, 154, 235, .13), transparent 35%),
+    linear-gradient(180deg, rgba(20, 30, 65, .08), rgba(12, 19, 47, .16));
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-tired .pm-scene {
+  filter: saturate(.78) contrast(1.01) brightness(.88);
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-tired .pm-bedroom-tint {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(122, 138, 184, .1), transparent 38%),
+    linear-gradient(180deg, rgba(17, 21, 39, .08), rgba(8, 11, 28, .2));
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-angry .pm-scene {
+  filter: saturate(.9) contrast(1.03) brightness(.93);
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-angry .pm-bedroom-tint {
+  background:
+    radial-gradient(circle at 58% 42%, rgba(192, 124, 176, .11), transparent 34%),
+    linear-gradient(180deg, rgba(35, 21, 49, .05), rgba(22, 12, 36, .14));
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-surprised .pm-scene {
+  filter: saturate(1.02) contrast(1.045) brightness(1.015);
+}
+.bedroom-presence.affect-follow.affect-active.user-mood-surprised .pm-bedroom-tint {
+  background:
+    radial-gradient(circle at 54% 42%, rgba(207, 224, 255, .16), transparent 31%),
+    radial-gradient(circle at 72% 58%, rgba(154, 194, 255, .08), transparent 30%);
 }

@@ -20,6 +20,7 @@ const viSpeech = await importTypeScript('src/core/tts/vi-normalize.ts');
 const director = await importTypeScript('src/core/tts/vi-speech-director.ts');
 const spatial = await importTypeScript('src/presence/spatial-math.ts');
 const affect = await importTypeScript('src/intelligence/affect/mood-engine.ts');
+const affectControl = await importTypeScript('src/intelligence/affect/affect-control.ts');
 const proactive = await importTypeScript('src/intelligence/proactive/proactive-engine.ts');
 const facialGesture = await importTypeScript('src/core/face/facial-gesture.ts');
 const facs = await importTypeScript('src/core/face/facs-proxy.ts');
@@ -1285,4 +1286,69 @@ test('causal action graph v13 does not advance evidence while camera motion guar
 
   assert.equal(state.hypotheses.length, 0);
   assert.equal(state.cameraStable, false);
+});
+
+
+test('affect presentation waits for a stable visual signal before showing a label', () => {
+  const reading = affectControl.describeAffectSignal({
+    faceSeen: true,
+    mood: 'happy',
+    confidence: 0.31,
+    faceChannel: 0.3,
+  });
+  assert.equal(reading.ready, false);
+  assert.equal(reading.label, 'Đang đọc biểu cảm');
+
+  const stable = affectControl.describeAffectSignal({
+    faceSeen: true,
+    mood: 'happy',
+    confidence: 0.63,
+    faceChannel: 0.58,
+  });
+  assert.equal(stable.ready, true);
+  assert.equal(stable.label, 'Tín hiệu tích cực');
+});
+
+test('face nod only starts listening when voice is already ready and face lock is reliable', () => {
+  assert.equal(affectControl.resolveFaceControlAction({
+    faceSeen: true,
+    faceConfidence: 0.72,
+    headGesture: 'nod',
+    state: 'idle',
+    voiceReady: true,
+  }), 'listen');
+  assert.equal(affectControl.resolveFaceControlAction({
+    faceSeen: true,
+    faceConfidence: 0.72,
+    headGesture: 'nod',
+    state: 'idle',
+    voiceReady: false,
+  }), 'none');
+});
+
+test('face shake can interrupt active Mira speech but not trigger an unrelated idle action', () => {
+  assert.equal(affectControl.resolveFaceControlAction({
+    faceSeen: true,
+    faceConfidence: 0.72,
+    headGesture: 'shake',
+    state: 'speaking',
+    voiceReady: true,
+  }), 'interrupt');
+  assert.equal(affectControl.resolveFaceControlAction({
+    faceSeen: true,
+    faceConfidence: 0.72,
+    headGesture: 'shake',
+    state: 'idle',
+    voiceReady: true,
+  }), 'none');
+});
+
+test('face control refuses low-confidence head movement', () => {
+  assert.equal(affectControl.resolveFaceControlAction({
+    faceSeen: true,
+    faceConfidence: 0.4,
+    headGesture: 'shake',
+    state: 'thinking',
+    voiceReady: true,
+  }), 'none');
 });

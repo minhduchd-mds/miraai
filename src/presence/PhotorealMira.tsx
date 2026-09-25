@@ -17,6 +17,8 @@ interface Props {
   sttAvailable?: boolean;
   observedMood?: ObservedMood;
   moodConfidence?: number;
+  affectActive?: boolean;
+  affectFollowing?: boolean;
 }
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
@@ -49,10 +51,22 @@ export default function PhotorealMira({
   live = false,
   voiceReady = false,
   observedMood = 'neutral',
+  moodConfidence = 0,
+  affectActive = false,
+  affectFollowing = true,
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
   const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bật Mira 24/7';
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    const strength = affectActive && affectFollowing
+      ? Math.max(0, Math.min(1, Number(moodConfidence) || 0))
+      : 0;
+    node.style.setProperty('--pm-affect', strength.toFixed(3));
+  }, [affectActive, affectFollowing, moodConfidence]);
 
   useEffect(() => {
     PRELOAD.forEach((src) => {
@@ -116,7 +130,7 @@ export default function PhotorealMira({
     <button
       ref={rootRef}
       type="button"
-      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood}${live ? ' is-live' : ''}`}
+      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}`}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
       onPointerLeave={resetPointer}

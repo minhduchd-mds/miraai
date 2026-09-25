@@ -8,6 +8,7 @@ import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
+import { describeAffectSignal, resolveFaceControlAction } from '../intelligence/affect/affect-control';
 import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
 import { BehaviorTimeline, type BehaviorEvent } from '../intelligence/social/behavior-timeline';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
@@ -83,9 +84,22 @@ function loadTheme(): Theme {
   return 'nova';
 }
 
+function loadAffectFollowing(): boolean {
+  try {
+    return localStorage.getItem('mira.affect.follow') !== '0';
+  } catch {
+    return true;
+  }
+}
+
 export default function AppV2() {
   const mira = useMira();
   const [theme, setTheme] = useState<Theme>(loadTheme);
+  const [affectFollowing, setAffectFollowing] = useState(loadAffectFollowing);
+  const [faceActionFeedback, setFaceActionFeedback] = useState('');
+  const faceActionTimerRef = useRef<number | null>(null);
+  const lastHeadGestureRef = useRef('none');
+  const lastFaceActionAtRef = useRef(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
@@ -199,6 +213,31 @@ export default function AppV2() {
     try { localStorage.setItem('mira.theme', theme); } catch { /* noop */ }
   }, [theme]);
 
+  useEffect(() => {
+    try { localStorage.setItem('mira.affect.follow', affectFollowing ? '1' : '0'); } catch { /* noop */ }
+  }, [affectFollowing]);
+
+  useEffect(() => () => {
+    if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
+  }, []);
+
+  const showFaceActionFeedback = useCallback((message: string) => {
+    if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
+    setFaceActionFeedback(message);
+    faceActionTimerRef.current = window.setTimeout(() => {
+      faceActionTimerRef.current = null;
+      setFaceActionFeedback('');
+    }, 1100);
+  }, []);
+
+  const toggleAffectFollowing = useCallback(() => {
+    setAffectFollowing((previous) => {
+      const next = !previous;
+      if (!next) mira.observeAffect(neutralAffect());
+      return next;
+    });
+  }, [mira.observeAffect]);
+
   const loadVisionModules = useCallback(async () => {
     if (visionModulesRef.current) return visionModulesRef.current;
     const runtime = await import('../presence/vision-runtime');
@@ -212,6 +251,9 @@ export default function AppV2() {
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
     setVisionOn(false);
     setFaceSeen(false);
+    setFaceActionFeedback('');
+    lastHeadGestureRef.current = 'none';
+    lastFaceActionAtRef.current = 0;
     setRealPresencePose({ ...EMPTY_REAL_PRESENCE_POSE });
     setFaceLandmarks([]);
     setFaceActionUnits({});
@@ -550,7 +592,32 @@ export default function AppV2() {
         .join(' ');
       if (socialContext) nextAffect.promptContext = nextAffect.promptContext + ' ' + socialContext;
       setFaceAffect(nextAffect);
-      mira.observeAffect(nextAffect);
+      mira.observeAffect(affectFollowing ? nextAffect : neutralAffect());
+
+      const headGesture = String(face?.headGesture || 'none');
+      if (headGesture === 'none') {
+        lastHeadGestureRef.current = 'none';
+      } else if (headGesture !== lastHeadGestureRef.current) {
+        lastHeadGestureRef.current = headGesture;
+        const faceAction = resolveFaceControlAction({
+          faceSeen: Boolean(face?.present),
+          faceConfidence,
+          headGesture,
+          state: mira.stateRef.current,
+          voiceReady,
+        });
+        if (faceAction !== 'none' && now - lastFaceActionAtRef.current >= 1_400) {
+          lastFaceActionAtRef.current = now;
+          if (faceAction === 'interrupt') {
+            mira.interrupt();
+            showFaceActionFeedback('Lắc đầu · Mira đã dừng');
+          } else if (faceAction === 'listen') {
+            mira.startListening();
+            showFaceActionFeedback('Gật đầu · Mira đang nghe');
+          }
+        }
+      }
+
       setFaceTelemetry({
         smile: Number(face?.smile || 0),
         frown: Number(face?.frown || 0),
@@ -588,7 +655,7 @@ export default function AppV2() {
       }
     }, 120);
     return () => window.clearInterval(timer);
-  }, [mira.observeAffect, visionOn]);
+  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, showFaceActionFeedback, visionOn, voiceReady]);
 
   useEffect(() => () => {
     const modules = visionModulesRef.current;
@@ -952,6 +1019,13 @@ export default function AppV2() {
     neutral: 'Trung tính',
   } as Record<AffectState['mood'], string>)[faceAffect.mood];
 
+  const affectSignal = describeAffectSignal({
+    faceSeen,
+    mood: faceAffect.mood,
+    confidence: faceAffect.confidence,
+    faceChannel: faceAffect.channels.face,
+  });
+
   const facialGestureLabel = ({
     smile: 'Cười',
     frown: 'Nhíu môi',
@@ -1185,6 +1259,25 @@ export default function AppV2() {
                 muscles={faceTelemetry.muscles}
               />
             )}
+            {faceSeen && (
+              <>
+                <div className={`v2-affect-readout tone-${affectSignal.tone}${affectSignal.ready ? ' ready' : ' reading'}`}>
+                  <span>Biểu cảm</span>
+                  <b>{affectSignal.label}</b>
+                </div>
+                <button
+                  type="button"
+                  className={`v2-affect-follow${affectFollowing ? ' active' : ''}`}
+                  aria-pressed={affectFollowing}
+                  onClick={toggleAffectFollowing}
+                  title={affectFollowing ? 'Tắt phản ứng theo biểu cảm' : 'Bật phản ứng theo biểu cảm'}
+                >
+                  <i aria-hidden="true" />
+                  <span>{affectFollowing ? 'Phản ứng · Bật' : 'Chỉ quan sát'}</span>
+                </button>
+                {faceActionFeedback && <div className="v2-face-action-feedback" role="status">{faceActionFeedback}</div>}
+              </>
+            )}
             {!faceSeen && <div className="v2-face-scan-hint">Đưa khuôn mặt vào giữa khung hình</div>}
           </div>
           <div className="v2-face-panel">
@@ -1348,8 +1441,10 @@ export default function AppV2() {
             who={mira.who}
             brainName={mira.brainName}
             sttAvailable={mira.sttAvailable}
-            observedMood={faceAffect.mood}
+            observedMood={affectFollowing ? faceAffect.mood : 'neutral'}
             moodConfidence={faceAffect.confidence}
+            affectActive={visionOn && faceSeen}
+            affectFollowing={affectFollowing}
           />
         </div>
 

@@ -49,6 +49,7 @@ const mustExist = [
   'src/presence/RealPresenceOverlay.tsx',
   'src/presence/real-presence-overlay.css',
   'src/intelligence/affect/mood-engine.ts',
+  'src/intelligence/affect/affect-control.ts',
   'src/intelligence/social/interaction-engine.ts',
   'src/intelligence/social/behavior-timeline.ts',
   'src/intelligence/proactive/proactive-engine.ts',
@@ -117,6 +118,9 @@ if (presence.includes('<svg')) failures.push('HolographicMira must use approved 
 const photoreal = readFileSync('src/presence/PhotorealMira.tsx', 'utf8');
 for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_BEDROOM', 'SCENE_BY_STATE', 'mira-bedroom.webp', 'bedroom-presence', 'pm-wave', 'pm-state-orb']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved bedroom visual/voice behavior: ${token}`);
+}
+for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow']) {
+  if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
 if (photoreal.includes('pm-runtime')) failures.push('PhotorealMira must not render the legacy Mira Core popup');
 if (photoreal.includes('pm-character')) failures.push('PhotorealMira must not overlay the old standing character on the bedroom scene');
@@ -276,7 +280,7 @@ const cameraSurface = cameraSurfaceStart >= 0 && cameraSurfaceEnd > cameraSurfac
 for (const token of ['PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'HandSkeletonOverlay', 'v2-gesture-overlay']) {
   if (cameraSurface.includes(token)) failures.push(`camera recognition surface must remain face-only: ${token}`);
 }
-for (const token of ['FaceMeshOverlay', 'v2-camera-status face-only', 'Đã nhận diện khuôn mặt']) {
+for (const token of ['FaceMeshOverlay', 'v2-camera-status face-only', 'Đã nhận diện khuôn mặt', 'v2-affect-readout', 'v2-affect-follow', 'faceActionFeedback']) {
   if (!cameraSurface.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
 }
 if (v2.includes('<RealPresenceOverlay')) failures.push('primary surface must not render the secondary Real Presence popup');
@@ -324,7 +328,7 @@ for (const token of ['faceBounds', 'v2-face-lock', 'FACE LOCK']) {
   if (!faceOverlay.includes(token)) failures.push(`face recognition overlay missing: ${token}`);
 }
 const v2Css = readFileSync('src/ui/v2.css', 'utf8');
-for (const token of ['Camera recognition mode', '.v2-face-panel {', 'display: none !important', '.v2-face-scan-hint']) {
+for (const token of ['Camera recognition mode', '.v2-face-panel {', 'display: none !important', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-face-action-feedback']) {
   if (!v2Css.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
 }
 const workerClient = readFileSync('src/core/vision/vision-worker-client.ts', 'utf8');
@@ -402,6 +406,10 @@ for (const token of ['InteractionTracker', 'Joint-attention proxy', 'looking_awa
 const behaviorTimeline = readFileSync('src/intelligence/social/behavior-timeline.ts', 'utf8');
 for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'environment', 'environmentConfidence', 'spatial', 'spatialTarget', 'object_interaction', 'objectInteractionStage', 'action_sequence', 'actionSequenceStage', 'causal_action', 'causalActionLabel', 'promptSummary', '90_000']) {
   if (!behaviorTimeline.includes(token)) failures.push(`behavior timeline missing: ${token}`);
+}
+const affectControl = readFileSync('src/intelligence/affect/affect-control.ts', 'utf8');
+for (const token of ['describeAffectSignal', 'resolveFaceControlAction', "'listen'", "'interrupt'", 'faceConfidence']) {
+  if (!affectControl.includes(token)) failures.push(`affect/face control policy missing: ${token}`);
 }
 const affectEngine = readFileSync('src/intelligence/affect/mood-engine.ts', 'utf8');
 for (const token of ['AffectDimensions', 'InteractionAffectContext', 'interaction?: InteractionAffectContext', 'valence', 'arousal', 'engagement', 'baselineReady', 'BASELINE_KEY', 'voicePitchVar', 'PostureAffectSample', 'PhysiologyAffectSample', 'microExpression', 'physiologyQuality']) {
