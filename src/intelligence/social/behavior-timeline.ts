@@ -1,6 +1,6 @@
 import type { InteractionContext } from './interaction-engine';
 
-export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment' | 'spatial';
+export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment' | 'spatial' | 'object_interaction';
 
 export interface BehaviorEvent {
   id: string;
@@ -23,6 +23,9 @@ export interface BehaviorObservation {
   environmentConfidence?: number;
   spatialTarget?: string;
   spatialConfidence?: number;
+  objectInteractionStage?: string;
+  objectInteractionLabel?: string;
+  objectInteractionConfidence?: number;
 }
 
 function clamp01(value: number): number {
@@ -90,6 +93,24 @@ export class BehaviorTimeline {
       this.push('spatial', 'target:' + spatialTarget, Number(observation.spatialConfidence || 0), now);
     } else if (!spatialTarget) {
       this.lastKeys.delete('spatial');
+    }
+
+    const objectInteractionStage = String(observation.objectInteractionStage || 'none');
+    const objectInteractionLabel = String(observation.objectInteractionLabel || '');
+    const objectInteractionConfidence = Number(observation.objectInteractionConfidence || 0);
+    if (
+      (objectInteractionStage === 'possible_manipulation' || objectInteractionStage === 'possible_reposition') &&
+      objectInteractionLabel &&
+      objectInteractionConfidence >= 0.52
+    ) {
+      this.push(
+        'object_interaction',
+        objectInteractionStage + ':' + objectInteractionLabel,
+        objectInteractionConfidence,
+        now,
+      );
+    } else if (objectInteractionStage === 'none' || objectInteractionStage === 'hand_near') {
+      this.lastKeys.delete('object_interaction');
     }
 
     this.events = this.events.filter((event) => now - event.at <= 90_000);

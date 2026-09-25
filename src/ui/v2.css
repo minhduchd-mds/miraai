@@ -1395,3 +1395,61 @@
 @media (max-width: 760px) {
   .v2-vision-engine > strong { font-size: 5.2px; }
 }
+
+
+/* Object Interaction Proxy v11 — conservative hand/object temporal fusion */
+.v2-object-interaction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(121, 165, 201, .07);
+  background: rgba(9, 18, 31, .18);
+}
+.v2-object-interaction > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.v2-object-interaction small {
+  color: rgba(150, 174, 205, .38);
+  font: 650 5.7px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .45px;
+}
+.v2-object-interaction b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(191, 207, 227, .52);
+  font: 650 7px/1.15 'Inter', system-ui, sans-serif;
+}
+.v2-object-interaction em {
+  color: rgba(165, 188, 219, .45);
+  font: 700 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+}
+.v2-object-interaction.stage-hand_near {
+  border-color: rgba(118, 191, 222, .12);
+  background: rgba(22, 62, 82, .08);
+}
+.v2-object-interaction.stage-hand_near b {
+  color: rgba(169, 220, 239, .7);
+}
+.v2-object-interaction.stage-possible_manipulation,
+.v2-object-interaction.stage-possible_reposition {
+  border-color: rgba(255, 214, 126, .18);
+  background: rgba(70, 49, 9, .1);
+}
+.v2-object-interaction.stage-possible_manipulation b,
+.v2-object-interaction.stage-possible_reposition b,
+.v2-object-interaction.stage-possible_manipulation em,
+.v2-object-interaction.stage-possible_reposition em {
+  color: rgba(255, 232, 173, .82);
+}
+@media (max-width: 760px) {
+  .v2-object-interaction { padding: 4px 5px; }
+  .v2-object-interaction small { font-size: 5.1px; }
+  .v2-object-interaction b { font-size: 6.4px; }
+}

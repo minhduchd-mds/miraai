@@ -37,6 +37,7 @@ const environmentModel = await importTypeScript('src/core/vision/environment-mod
 const spatialSceneGraph = await importTypeScript('src/core/vision/spatial-scene-graph.ts');
 const deicticVision = await importTypeScript('src/intelligence/vision/deictic-vision.ts');
 const faceFrameGuard = await importTypeScript('src/core/vision/face-frame-guard.ts');
+const objectInteraction = await importTypeScript('src/core/vision/object-interaction.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -910,4 +911,100 @@ test('spatial memory calls a near same-label reappearance returned, not relocate
   }], { active: false, x: 0.5, y: 0.5, confidence: 0 }, 2600);
   assert.ok(graph.events.some((event) => event.type === 'object_returned' && event.label === 'cup'));
   assert.equal(graph.events.some((event) => event.type === 'object_relocated' && event.label === 'cup'), false);
+});
+
+
+test('object interaction proxy reports hand_near without escalating to manipulation', () => {
+  const tracker = new objectInteraction.ObjectInteractionTracker();
+  const graph = {
+    nodes: [{
+      id: 'laptop-1', label: 'laptop', score: 0.9,
+      box: { x: 0.3, y: 0.3, width: 0.28, height: 0.24 },
+      centerX: 0.44, centerY: 0.42, kind: 'object',
+    }],
+    relations: [], focus: null, pointerActive: false, peopleCount: 0, events: [], updatedAt: 1000,
+  };
+  const state = tracker.update(graph, [{
+    handedness: 'Right', x: 0.45, y: 0.43, pinching: false, gesture: 'None', score: 0,
+  }], 1000);
+  assert.equal(state.stage, 'hand_near');
+  assert.equal(state.objectLabel, 'laptop');
+  assert.equal(objectInteraction.objectInteractionPrompt(state, 1000), '');
+});
+
+test('object interaction proxy emits possible_manipulation only when hand proximity precedes object motion', () => {
+  const tracker = new objectInteraction.ObjectInteractionTracker();
+  const baseNode = {
+    id: 'book-1', label: 'book', score: 0.9,
+    box: { x: 0.35, y: 0.38, width: 0.2, height: 0.22 },
+    centerX: 0.45, centerY: 0.49, kind: 'object',
+  };
+  tracker.update({
+    nodes: [baseNode], relations: [], focus: null, pointerActive: false, peopleCount: 0, events: [], updatedAt: 1000,
+  }, [{
+    handedness: 'Right', x: 0.46, y: 0.5, pinching: true, gesture: 'None', score: 0.2,
+  }], 1000);
+
+  const state = tracker.update({
+    nodes: [baseNode], relations: [], focus: null, pointerActive: false, peopleCount: 0,
+    events: [{ id: 'scene-1', type: 'object_moved', label: 'book', distance: 0.16, at: 1500 }],
+    updatedAt: 1500,
+  }, [{
+    handedness: 'Right', x: 0.46, y: 0.5, pinching: true, gesture: 'None', score: 0.2,
+  }], 1500);
+
+  assert.equal(state.stage, 'possible_manipulation');
+  assert.equal(state.objectLabel, 'book');
+  assert.ok(state.confidence >= 0.52);
+  assert.match(objectInteraction.objectInteractionPrompt(state, 1500), /proxy 2D|không khẳng định/i);
+});
+
+test('object interaction proxy does not infer manipulation from object motion without a nearby hand', () => {
+  const tracker = new objectInteraction.ObjectInteractionTracker();
+  const state = tracker.update({
+    nodes: [{
+      id: 'cup-1', label: 'cup', score: 0.88,
+      box: { x: 0.3, y: 0.4, width: 0.12, height: 0.18 },
+      centerX: 0.36, centerY: 0.49, kind: 'object',
+    }],
+    relations: [], focus: null, pointerActive: false, peopleCount: 0,
+    events: [{ id: 'scene-2', type: 'object_moved', label: 'cup', distance: 0.2, at: 1200 }],
+    updatedAt: 1200,
+  }, [], 1200);
+  assert.equal(state.stage, 'none');
+  assert.equal(objectInteraction.objectInteractionPrompt(state, 1200), '');
+});
+
+test('object interaction proxy links hand-near disappearance to conservative possible_reposition', () => {
+  const tracker = new objectInteraction.ObjectInteractionTracker();
+  const node = {
+    id: 'phone-old', label: 'cell phone', score: 0.91,
+    box: { x: 0.44, y: 0.42, width: 0.16, height: 0.2 },
+    centerX: 0.52, centerY: 0.52, kind: 'object',
+  };
+  const hand = [{
+    handedness: 'Left', x: 0.52, y: 0.52, pinching: false, gesture: 'Open_Palm', score: 0.7,
+  }];
+  tracker.update({
+    nodes: [node], relations: [], focus: null, pointerActive: false, peopleCount: 0, events: [], updatedAt: 1000,
+  }, hand, 1000);
+  tracker.update({
+    nodes: [], relations: [], focus: null, pointerActive: false, peopleCount: 0,
+    events: [{ id: 'scene-3', type: 'object_left', label: 'cell phone', at: 1400 }],
+    updatedAt: 1400,
+  }, [], 1400);
+  const state = tracker.update({
+    nodes: [{
+      ...node, id: 'phone-new', centerX: 0.76, box: { ...node.box, x: 0.68 },
+    }],
+    relations: [], focus: null, pointerActive: false, peopleCount: 0,
+    events: [
+      { id: 'scene-3', type: 'object_left', label: 'cell phone', at: 1400 },
+      { id: 'scene-4', type: 'object_relocated', label: 'cell phone', distance: 0.24, at: 2400 },
+    ],
+    updatedAt: 2400,
+  }, [], 2400);
+  assert.equal(state.stage, 'possible_reposition');
+  assert.equal(state.objectLabel, 'cell phone');
+  assert.match(state.note, /không đủ bằng chứng/i);
 });
