@@ -72,6 +72,7 @@ const mustExist = [
   'src/host/index.ts',
   'src/core/useMira.ts',
   'src/ui/v2.css',
+  'src/ui/vision-v2.css',
   'api/tts.js',
 ];
 
@@ -91,7 +92,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'objectInteractionTelemetry', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'v2-object-interaction', 'actionSequenceTelemetry', 'ActionSequenceTracker', 'actionSequencePrompt', 'v2-action-sequence', 'causalActionGraphTelemetry', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'v2-causal-action', 'v2-spatial-scene', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'environmentPrompt', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -278,7 +279,7 @@ for (const token of ['faceRecoveryTimer', 'face.lastSeenAt > 0', 'startLegacyVis
   if (!faceRecoveryRuntime.includes(token)) failures.push(`face recovery watchdog missing: ${token}`);
 }
 const cameraSurfaceStart = v2.indexOf('<div className="v2-camera-frame">');
-const cameraSurfaceEnd = v2.indexOf('</div>\n          <div className="v2-face-panel">', cameraSurfaceStart);
+const cameraSurfaceEnd = v2.indexOf('\n          </div>\n        </div>\n      )}', cameraSurfaceStart);
 const cameraSurface = cameraSurfaceStart >= 0 && cameraSurfaceEnd > cameraSurfaceStart
   ? v2.slice(cameraSurfaceStart, cameraSurfaceEnd)
   : '';
@@ -333,8 +334,13 @@ for (const token of ['faceBounds', 'v2-face-lock', 'FACE LOCK']) {
   if (!faceOverlay.includes(token)) failures.push(`face recognition overlay missing: ${token}`);
 }
 const v2Css = readFileSync('src/ui/v2.css', 'utf8');
-for (const token of ['Camera recognition mode', '.v2-face-panel {', 'display: none !important', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
-  if (!v2Css.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
+const visionCss = readFileSync('src/ui/vision-v2.css', 'utf8');
+if (v2Css.includes('.v2-camera-frame') || v2Css.includes('.v2-air-layer')) failures.push('vision/air CSS leaked into initial v2.css');
+for (const token of ['Camera recognition mode', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
+  if (!visionCss.includes(token)) failures.push(`deferred camera recognition CSS missing: ${token}`);
+}
+for (const token of ['v2-face-panel', 'v2-affect-vector', 'v2-social-awareness', 'v2-environment-awareness', 'v2-spatial-scene']) {
+  if (v2.includes(token)) failures.push(`hidden telemetry DOM must not render: ${token}`);
 }
 const workerClient = readFileSync('src/core/vision/vision-worker-client.ts', 'utf8');
 for (const token of ['VisionPostprocessWorkerClient', "new Worker(new URL('./vision-postprocess-worker.ts', import.meta.url)", "type: 'module'", 'postMessage', 'terminate']) {
