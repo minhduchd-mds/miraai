@@ -284,12 +284,20 @@ for (const token of ['VisionPerformanceGovernor', 'detectVisionTier', 'baseInter
   if (!visionPerformance.includes(token)) failures.push(`vision performance governor missing: ${token}`);
 }
 const holisticTracker = readFileSync('src/core/vision/holistic-tracker.ts', 'utf8');
-for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'readFaceFrame', 'blendshapesReady', 'holisticFaceHealthSnapshot', 'updateFace', 'submitPostprocess', 'VisionPostprocessWorkerClient', 'VisionPerformanceGovernor']) {
+for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'readFaceFrame', 'blendshapesReady', 'holisticFaceHealthSnapshot', 'updateFace', 'submitPostprocess', 'VisionPostprocessWorkerClient', 'VisionPerformanceGovernor', 'video.readyState < 2', 'minFaceDetectionConfidence: 0.32', 'minFacePresenceConfidence: 0.32']) {
   if (!holisticTracker.includes(token)) failures.push(`holistic vision runtime missing: ${token}`);
 }
 const faceFrameGuard = readFileSync('src/core/vision/face-frame-guard.ts', 'utf8');
 for (const token of ['normalizeFaceLandmarks', 'blendshapeMap', 'readFaceFrame', 'Blendshapes are an optional enrichment', 'valid >= 100']) {
   if (!faceFrameGuard.includes(token)) failures.push(`face frame recovery guard missing: ${token}`);
+}
+const faceOverlay = readFileSync('src/presence/FaceMeshOverlay.tsx', 'utf8');
+for (const token of ['faceBounds', 'v2-face-lock', 'FACE LOCK']) {
+  if (!faceOverlay.includes(token)) failures.push(`face recognition overlay missing: ${token}`);
+}
+const v2Css = readFileSync('src/ui/v2.css', 'utf8');
+for (const token of ['Camera recognition mode', '.v2-face-panel {', 'display: none !important', '.v2-face-scan-hint']) {
+  if (!v2Css.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
 }
 const workerClient = readFileSync('src/core/vision/vision-worker-client.ts', 'utf8');
 for (const token of ['VisionPostprocessWorkerClient', "new Worker(new URL('./vision-postprocess-worker.ts', import.meta.url)", "type: 'module'", 'postMessage', 'terminate']) {

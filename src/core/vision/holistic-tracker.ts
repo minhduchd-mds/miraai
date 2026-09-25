@@ -479,6 +479,10 @@ function clearAllSignals(): void {
 
 function readFrame(): void {
   if (stopped || !landmarker || !video) return;
+  if (video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) {
+    raf = requestAnimationFrame(readFrame);
+    return;
+  }
   const now = performance.now();
   if (!governor.shouldProcess(now, typeof document !== 'undefined' && document.hidden)) {
     raf = requestAnimationFrame(readFrame);
@@ -513,8 +517,8 @@ async function createLandmarker(delegate: Delegate): Promise<any> {
   return HolisticLandmarker.createFromOptions(resolver, {
     baseOptions: { modelAssetPath: MODEL_URL, delegate },
     runningMode: 'VIDEO',
-    minFaceDetectionConfidence: 0.45,
-    minFacePresenceConfidence: 0.45,
+    minFaceDetectionConfidence: 0.32,
+    minFacePresenceConfidence: 0.32,
     minPoseDetectionConfidence: 0.45,
     minPosePresenceConfidence: 0.45,
     minHandLandmarksConfidence: 0.45,

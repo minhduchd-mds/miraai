@@ -1572,3 +1572,68 @@
   .v2-causal-action b { font-size: 6.4px; }
   .v2-causal-action em { font-size: 5.2px; }
 }
+
+
+/* Camera recognition mode — keep the primary surface visual and hide technical telemetry. */
+.v2-face-panel {
+  display: none !important;
+}
+.v2-camera-status.face-only {
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 10;
+}
+.v2-camera-status.face-only span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 7px;
+  font-size: 7px;
+  letter-spacing: .02em;
+}
+.v2-camera-status.face-only span.scanning {
+  color: rgba(236, 241, 255, .72);
+  border-color: rgba(176, 190, 232, .18);
+  background: rgba(3, 7, 22, .66);
+}
+.v2-camera-status.face-only span.detected {
+  color: rgba(233, 255, 246, .96);
+  border-color: rgba(111, 239, 196, .62);
+  background: rgba(14, 64, 48, .72);
+  box-shadow: 0 0 18px rgba(88, 222, 178, .14);
+}
+.v2-face-lock rect {
+  fill: none;
+  stroke: rgba(127, 242, 204, .92);
+  stroke-width: .006;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: .035 .018;
+  filter: drop-shadow(0 0 4px rgba(106, 237, 194, .72));
+}
+.v2-face-lock text {
+  fill: rgba(226, 255, 246, .94);
+  font: 700 .034px 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .003px;
+  paint-order: stroke;
+  stroke: rgba(2, 15, 13, .82);
+  stroke-width: .008;
+  vector-effect: non-scaling-stroke;
+}
+.v2-face-scan-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 9;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  padding: 6px 8px;
+  border: 1px solid rgba(173, 190, 255, .12);
+  border-radius: 9px;
+  background: rgba(3, 7, 22, .58);
+  color: rgba(226, 234, 255, .7);
+  text-align: center;
+  font: 600 7px/1.25 'Inter', system-ui, sans-serif;
+  backdrop-filter: blur(8px);
+}

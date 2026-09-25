@@ -41,8 +41,24 @@ function clamp(value: number): number {
   return Math.max(0, Math.min(1, Number(value) || 0));
 }
 
+function faceBounds(points: FaceLandmarkPoint[]) {
+  const xs = points.map((point) => clamp(point.x));
+  const ys = points.map((point) => clamp(point.y));
+  const minX = Math.max(0, Math.min(...xs) - 0.025);
+  const maxX = Math.min(1, Math.max(...xs) + 0.025);
+  const minY = Math.max(0, Math.min(...ys) - 0.035);
+  const maxY = Math.min(1, Math.max(...ys) + 0.04);
+  return {
+    x: 1 - maxX,
+    y: minY,
+    width: Math.max(0.06, maxX - minX),
+    height: Math.max(0.08, maxY - minY),
+  };
+}
+
 export default function FaceMeshOverlay({ points, active, muscles }: Props) {
   if (!active || points.length < 100) return null;
+  const bounds = faceBounds(points);
   const xy = (index: number) => {
     const point = points[index];
     return point ? String(1 - point.x) + ',' + String(point.y) : '';
@@ -50,6 +66,10 @@ export default function FaceMeshOverlay({ points, active, muscles }: Props) {
 
   return (
     <svg className="v2-face-mesh" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+      <g className="v2-face-lock">
+        <rect x={bounds.x} y={bounds.y} width={bounds.width} height={bounds.height} rx="0.035" />
+        <text x={bounds.x + 0.012} y={Math.max(0.045, bounds.y - 0.012)}>FACE LOCK</text>
+      </g>
       <g className="v2-face-lines">
         {PATHS.map((path, index) => (
           <polyline key={index} points={path.map(xy).filter(Boolean).join(' ')} />

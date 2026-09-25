@@ -1180,12 +1180,10 @@ export default function AppV2() {
         <div className="v2-vision-monitor" aria-live="polite">
           <div className="v2-camera-frame">
             <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
-            <div className="v2-camera-status">
-              <span className={faceSeen ? 'detected' : ''}>Face</span>
-              <span className={handSeen ? 'detected' : ''}>Hand</span>
-              <span className={faceSeen && faceAffect.mood !== 'neutral' ? 'detected' : ''}>{moodLabel}</span>
-              <span className={faceSeen && realPresencePose.confidence >= 0.55 ? 'detected' : ''}>REAL</span>
-              <span className={environmentTelemetry.environment.confidence >= 0.48 ? 'detected' : ''}>ENV</span>
+            <div className="v2-camera-status face-only" role="status" aria-live="polite">
+              <span className={faceSeen ? 'detected' : 'scanning'}>
+                {faceSeen ? 'Đã nhận diện khuôn mặt' : 'Đang quét khuôn mặt'}
+              </span>
             </div>
             {faceSeen && (
               <FaceMeshOverlay
@@ -1223,7 +1221,7 @@ export default function AppV2() {
                 </div>
               </>
             )}
-            {!handSeen && <div className="v2-gesture-hint">{faceSeen ? 'Đưa tay vào khung để điều khiển' : 'Đưa khuôn mặt vào khung'}</div>}
+            {!faceSeen && <div className="v2-face-scan-hint">Đưa khuôn mặt vào giữa khung hình</div>}
           </div>
           <div className="v2-face-panel">
             <div className="v2-face-panel-head">
