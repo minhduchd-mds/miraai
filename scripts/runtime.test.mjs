@@ -38,6 +38,7 @@ const spatialSceneGraph = await importTypeScript('src/core/vision/spatial-scene-
 const deicticVision = await importTypeScript('src/intelligence/vision/deictic-vision.ts');
 const faceFrameGuard = await importTypeScript('src/core/vision/face-frame-guard.ts');
 const objectInteraction = await importTypeScript('src/core/vision/object-interaction.ts');
+const actionSequence = await importTypeScript('src/core/vision/action-sequence.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -1007,4 +1008,141 @@ test('object interaction proxy links hand-near disappearance to conservative pos
   assert.equal(state.stage, 'possible_reposition');
   assert.equal(state.objectLabel, 'cell phone');
   assert.match(state.note, /không đủ bằng chứng/i);
+});
+
+
+function actionGraph(nodes, events, now) {
+  return {
+    nodes,
+    relations: [],
+    focus: null,
+    pointerActive: false,
+    peopleCount: 0,
+    events,
+    updatedAt: now,
+  };
+}
+
+function actionNode(id, label, x, y, score = 0.9) {
+  const box = { x, y, width: 0.16, height: 0.2 };
+  return {
+    id,
+    label,
+    score,
+    box,
+    centerX: x + 0.08,
+    centerY: y + 0.1,
+    kind: 'object',
+  };
+}
+
+test('action sequence v12 links approach, occlusion and stable reappearance elsewhere', () => {
+  const tracker = new actionSequence.ActionSequenceTracker();
+  const cup = actionNode('cup-1', 'cup', 0.4, 0.4);
+
+  tracker.update(actionGraph([cup], [], 1000), [{
+    handedness: 'Right', x: 0.18, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.72,
+  }], 1000);
+
+  let state = tracker.update(actionGraph([cup], [], 1400), [{
+    handedness: 'Right', x: 0.39, y: 0.5, pinching: true, gesture: 'None', score: 0.7,
+  }], 1400);
+  assert.equal(state.stage, 'hand_approach');
+
+  state = tracker.update(actionGraph([], [{
+    id: 'scene-v12-1', type: 'object_left', label: 'cup', at: 1700,
+  }], 1700), [], 1700);
+  assert.equal(state.stage, 'object_occluded');
+
+  const moved = actionNode('cup-2', 'cup', 0.7, 0.4, 0.92);
+  state = tracker.update(actionGraph([moved], [
+    { id: 'scene-v12-1', type: 'object_left', label: 'cup', at: 1700 },
+    { id: 'scene-v12-2', type: 'object_relocated', label: 'cup', distance: 0.3, at: 2400 },
+  ], 2400), [], 2400);
+  assert.equal(state.stage, 'object_reappeared');
+
+  state = tracker.update(actionGraph([moved], [
+    { id: 'scene-v12-1', type: 'object_left', label: 'cup', at: 1700 },
+    { id: 'scene-v12-2', type: 'object_relocated', label: 'cup', distance: 0.3, at: 2400 },
+  ], 2750), [], 2750);
+  assert.equal(state.stage, 'possible_reposition_sequence');
+  assert.deepEqual(state.steps, ['hand_approach', 'object_occluded', 'object_reappeared_elsewhere']);
+  assert.match(actionSequence.actionSequencePrompt(state, 2750), /possible temporal sequence|proxy 2D/i);
+});
+
+test('action sequence v12 rebinds detector ID near the old box instead of inventing occlusion', () => {
+  const tracker = new actionSequence.ActionSequenceTracker();
+  const oldCup = actionNode('cup-old', 'cup', 0.4, 0.4);
+
+  tracker.update(actionGraph([oldCup], [], 1000), [{
+    handedness: 'Right', x: 0.18, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7,
+  }], 1000);
+  tracker.update(actionGraph([oldCup], [], 1400), [{
+    handedness: 'Right', x: 0.39, y: 0.5, pinching: true, gesture: 'None', score: 0.7,
+  }], 1400);
+
+  const rebound = actionNode('cup-new-id', 'cup', 0.415, 0.405, 0.91);
+  const state = tracker.update(actionGraph([rebound], [
+    { id: 'scene-v12-id-1', type: 'object_left', label: 'cup', at: 1650 },
+    { id: 'scene-v12-id-2', type: 'object_returned', label: 'cup', distance: 0.02, at: 1650 },
+  ], 1650), [], 1650);
+
+  assert.equal(state.stage, 'hand_approach');
+  assert.equal(state.identityRebound, true);
+  assert.equal(state.objectId, 'cup-new-id');
+});
+
+test('action sequence v12 suppresses sequence advancement during coherent camera shake', () => {
+  const tracker = new actionSequence.ActionSequenceTracker();
+  const cupA = actionNode('cup-1', 'cup', 0.34, 0.4);
+  const bookA = actionNode('book-1', 'book', 0.62, 0.38);
+
+  tracker.update(actionGraph([cupA, bookA], [], 1000), [{
+    handedness: 'Right', x: 0.1, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7,
+  }], 1000);
+
+  const cupB = actionNode('cup-1', 'cup', 0.38, 0.4);
+  const bookB = actionNode('book-1', 'book', 0.66, 0.38);
+  const state = tracker.update(actionGraph([cupB, bookB], [{
+    id: 'scene-v12-shake', type: 'object_moved', label: 'cup', distance: 0.04, at: 1400,
+  }], 1400), [{
+    handedness: 'Right', x: 0.37, y: 0.5, pinching: true, gesture: 'None', score: 0.75,
+  }], 1400);
+
+  assert.equal(state.stage, 'idle');
+  assert.equal(state.cameraStable, false);
+  assert.ok(state.cameraMotion >= 0.028);
+});
+
+test('action sequence v12 confidence decays instead of staying latched', () => {
+  const tracker = new actionSequence.ActionSequenceTracker();
+  const phone = actionNode('phone-1', 'cell phone', 0.4, 0.4);
+
+  tracker.update(actionGraph([phone], [], 1000), [{
+    handedness: 'Left', x: 0.18, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.72,
+  }], 1000);
+  tracker.update(actionGraph([phone], [], 1400), [{
+    handedness: 'Left', x: 0.39, y: 0.5, pinching: true, gesture: 'None', score: 0.72,
+  }], 1400);
+  tracker.update(actionGraph([], [{
+    id: 'scene-v12-decay-1', type: 'object_left', label: 'cell phone', at: 1700,
+  }], 1700), [], 1700);
+
+  const moved = actionNode('phone-2', 'cell phone', 0.72, 0.4, 0.93);
+  tracker.update(actionGraph([moved], [
+    { id: 'scene-v12-decay-1', type: 'object_left', label: 'cell phone', at: 1700 },
+    { id: 'scene-v12-decay-2', type: 'object_relocated', label: 'cell phone', distance: 0.32, at: 2300 },
+  ], 2300), [], 2300);
+  const completed = tracker.update(actionGraph([moved], [
+    { id: 'scene-v12-decay-1', type: 'object_left', label: 'cell phone', at: 1700 },
+    { id: 'scene-v12-decay-2', type: 'object_relocated', label: 'cell phone', distance: 0.32, at: 2300 },
+  ], 2650), [], 2650);
+
+  const later = tracker.update(actionGraph([moved], [
+    { id: 'scene-v12-decay-1', type: 'object_left', label: 'cell phone', at: 1700 },
+    { id: 'scene-v12-decay-2', type: 'object_relocated', label: 'cell phone', distance: 0.32, at: 2300 },
+  ], 3850), [], 3850);
+
+  assert.equal(later.stage, 'possible_reposition_sequence');
+  assert.ok(later.confidence < completed.confidence);
 });

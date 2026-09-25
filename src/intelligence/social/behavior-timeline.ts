@@ -1,6 +1,6 @@
 import type { InteractionContext } from './interaction-engine';
 
-export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment' | 'spatial' | 'object_interaction';
+export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment' | 'spatial' | 'object_interaction' | 'action_sequence';
 
 export interface BehaviorEvent {
   id: string;
@@ -26,6 +26,9 @@ export interface BehaviorObservation {
   objectInteractionStage?: string;
   objectInteractionLabel?: string;
   objectInteractionConfidence?: number;
+  actionSequenceStage?: string;
+  actionSequenceLabel?: string;
+  actionSequenceConfidence?: number;
 }
 
 function clamp01(value: number): number {
@@ -111,6 +114,24 @@ export class BehaviorTimeline {
       );
     } else if (objectInteractionStage === 'none' || objectInteractionStage === 'hand_near') {
       this.lastKeys.delete('object_interaction');
+    }
+
+    const actionSequenceStage = String(observation.actionSequenceStage || 'idle');
+    const actionSequenceLabel = String(observation.actionSequenceLabel || '');
+    const actionSequenceConfidence = Number(observation.actionSequenceConfidence || 0);
+    if (
+      actionSequenceStage === 'possible_reposition_sequence' &&
+      actionSequenceLabel &&
+      actionSequenceConfidence >= 0.58
+    ) {
+      this.push(
+        'action_sequence',
+        'reposition_sequence:' + actionSequenceLabel,
+        actionSequenceConfidence,
+        now,
+      );
+    } else if (actionSequenceStage === 'idle') {
+      this.lastKeys.delete('action_sequence');
     }
 
     this.events = this.events.filter((event) => now - event.at <= 90_000);

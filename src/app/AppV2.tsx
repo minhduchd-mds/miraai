@@ -32,6 +32,12 @@ import {
   objectInteractionPrompt,
   type ObjectInteractionState,
 } from '../core/vision/object-interaction';
+import {
+  EMPTY_ACTION_SEQUENCE,
+  ActionSequenceTracker,
+  actionSequencePrompt,
+  type ActionSequenceState,
+} from '../core/vision/action-sequence';
 import AirControlOverlay from '../presence/AirControlOverlay';
 import RealPresenceOverlay from '../presence/RealPresenceOverlay';
 import { EMPTY_REAL_PRESENCE_POSE, type RealPresencePose } from '../core/vision/real-presence';
@@ -127,6 +133,8 @@ export default function AppV2() {
   const sceneGraphTrackerRef = useRef(new SpatialSceneGraphTracker());
   const [objectInteractionTelemetry, setObjectInteractionTelemetry] = useState<ObjectInteractionState>(() => ({ ...EMPTY_OBJECT_INTERACTION }));
   const objectInteractionTrackerRef = useRef(new ObjectInteractionTracker());
+  const [actionSequenceTelemetry, setActionSequenceTelemetry] = useState<ActionSequenceState>(() => ({ ...EMPTY_ACTION_SEQUENCE }));
+  const actionSequenceTrackerRef = useRef(new ActionSequenceTracker());
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
@@ -234,6 +242,8 @@ export default function AppV2() {
     setSceneGraphTelemetry({ ...EMPTY_SPATIAL_SCENE });
     objectInteractionTrackerRef.current.reset();
     setObjectInteractionTelemetry({ ...EMPTY_OBJECT_INTERACTION });
+    actionSequenceTrackerRef.current.reset();
+    setActionSequenceTelemetry({ ...EMPTY_ACTION_SEQUENCE });
     setCalibrationTelemetry(gazeHeadCalibratorRef.current.snapshot());
     gestureIntentTrackerRef.current.reset();
     setGestureIntentTelemetry({
@@ -473,6 +483,13 @@ export default function AppV2() {
       );
       setObjectInteractionTelemetry(objectInteraction);
 
+      const actionSequence = actionSequenceTrackerRef.current.update(
+        sceneGraph,
+        interactionHands,
+        now,
+      );
+      setActionSequenceTelemetry(actionSequence);
+
       const recentBehavior = behaviorTimelineRef.current.observe({
         interaction,
         microKind: String(micro.kind || 'none'),
@@ -489,6 +506,9 @@ export default function AppV2() {
         objectInteractionStage: objectInteraction.stage,
         objectInteractionLabel: objectInteraction.objectLabel,
         objectInteractionConfidence: objectInteraction.confidence,
+        actionSequenceStage: actionSequence.stage,
+        actionSequenceLabel: actionSequence.objectLabel,
+        actionSequenceConfidence: actionSequence.confidence,
       }, now);
       setBehaviorEvents(recentBehavior);
 
@@ -509,6 +529,7 @@ export default function AppV2() {
         environmentPrompt(environmentContext),
         spatialScenePrompt(sceneGraph, now),
         objectInteractionPrompt(objectInteraction, now),
+        actionSequencePrompt(actionSequence, now),
       ]
         .filter(Boolean)
         .join(' ');
@@ -1029,6 +1050,16 @@ export default function AppV2() {
         ? `Hand near · ${objectInteractionTelemetry.objectLabel}`
         : 'No interaction proxy';
 
+  const actionSequenceLabel = actionSequenceTelemetry.stage === 'possible_reposition_sequence'
+    ? `Sequence · ${actionSequenceTelemetry.objectLabel}`
+    : actionSequenceTelemetry.stage === 'object_reappeared'
+      ? `Reappeared · ${actionSequenceTelemetry.objectLabel}`
+      : actionSequenceTelemetry.stage === 'object_occluded'
+        ? `Occluded · ${actionSequenceTelemetry.objectLabel}`
+        : actionSequenceTelemetry.stage === 'hand_approach'
+          ? `Hand approach · ${actionSequenceTelemetry.objectLabel}`
+          : 'No action sequence';
+
   const interactionLabel = ({
     focused: 'Đang tập trung',
     engaged: 'Đang tương tác',
@@ -1042,6 +1073,7 @@ export default function AppV2() {
     if (event.label.startsWith('target:')) return 'Target ' + event.label.slice('target:'.length);
     if (event.label.startsWith('possible_manipulation:')) return 'Possible · ' + event.label.slice('possible_manipulation:'.length);
     if (event.label.startsWith('possible_reposition:')) return 'Reposition · ' + event.label.slice('possible_reposition:'.length);
+    if (event.label.startsWith('reposition_sequence:')) return 'Sequence · ' + event.label.slice('reposition_sequence:'.length);
     return ({
     focused: 'Focus',
     engaged: 'Engaged',
@@ -1136,7 +1168,7 @@ export default function AppV2() {
             <ObjectAwarenessOverlay
               objects={environmentTelemetry.objects}
               active={environmentTelemetry.active}
-              selectedId={sceneGraphTelemetry.focus?.id || objectInteractionTelemetry.objectId}
+              selectedId={sceneGraphTelemetry.focus?.id || actionSequenceTelemetry.objectId || objectInteractionTelemetry.objectId}
             />
             <SpatialSceneOverlay
               graph={sceneGraphTelemetry}
@@ -1241,7 +1273,18 @@ export default function AppV2() {
                 </span>
                 <em>{objectInteractionTelemetry.confidence > 0 ? Math.round(objectInteractionTelemetry.confidence * 100) + '%' : '—'}</em>
               </div>
-              <small className="v2-spatial-note">Quan hệ là hình học 2D trên camera; target và interaction đều là proxy, không khẳng định chạm/cầm/đặt vật.</small>
+              <div className={`v2-action-sequence stage-${actionSequenceTelemetry.stage}`}>
+                <span>
+                  <small>ACTION SEQUENCE V12</small>
+                  <b>{actionSequenceLabel}</b>
+                </span>
+                <em>
+                  {actionSequenceTelemetry.confidence > 0 ? Math.round(actionSequenceTelemetry.confidence * 100) + '%' : '—'}
+                  {actionSequenceTelemetry.cameraStable ? '' : ' · SHAKE'}
+                  {actionSequenceTelemetry.identityRebound ? ' · REBIND' : ''}
+                </em>
+              </div>
+              <small className="v2-spatial-note">Quan hệ, interaction và action sequence đều là proxy 2D; v12 có confidence decay, camera-motion guard và ID-switch rebind.</small>
             </div>
             <div className="v2-sensor-strip">
               <span className={microTelemetry.kind !== 'none' ? 'active' : ''}><small>MICRO</small><b>{microLabel}</b></span>
