@@ -432,7 +432,7 @@ for (const token of ['MicProsodySnapshot', 'micProsodySnapshot', 'estimatePitchH
   if (!audioLevelSource.includes(token)) failures.push(`mic prosody layer missing: ${token}`);
 }
 const proactiveEngine = readFileSync('src/intelligence/proactive/proactive-engine.ts', 'utf8');
-for (const token of ["interaction?.state === 'absent'", "interaction?.state === 'looking_away'", 'lastAwayMs >= 15_000']) {
+for (const token of ["interaction?.state === 'absent'", "interaction?.state === 'looking_away'", 'lastAwayMs >= 90_000']) {
   if (!proactiveEngine.includes(token)) failures.push(`social-aware proactive policy missing: ${token}`);
 }
 const visionRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
