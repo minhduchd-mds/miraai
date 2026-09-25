@@ -324,27 +324,12 @@ export default function AppV2() {
       const face = snapshot?.face;
       setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
       const micro = face?.microExpression || { kind: 'none', confidence: 0, durationMs: 0 };
-      setMicroTelemetry({
-        kind: String(micro.kind || 'none'),
-        confidence: Number(micro.confidence || 0),
-        durationMs: Number(micro.durationMs || 0),
-      });
       const posture = snapshot?.posture || {
         present: false, label: 'unknown', confidence: 0, upright: 0, slump: 0, lean: 0, motion: 0, landmarks: [],
       };
-      setPostureTelemetry({
-        present: Boolean(posture.present),
-        label: String(posture.label || 'unknown'),
-        confidence: Number(posture.confidence || 0),
-        upright: Number(posture.upright || 0),
-        slump: Number(posture.slump || 0),
-        lean: Number(posture.lean || 0),
-        motion: Number(posture.motion || 0),
-      });
       const pulse = snapshot?.rppg || {
         status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0,
       };
-      const perf = snapshot?.visionPerformance;
       const environmentSensor = snapshot?.environment;
       const environmentContext = environmentSensor?.environment || { ...EMPTY_ENVIRONMENT };
       const environmentObjects = Array.isArray(environmentSensor?.objects) ? environmentSensor.objects : [];
