@@ -8,6 +8,7 @@ import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
+import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import AirControlOverlay from '../presence/AirControlOverlay';
@@ -71,6 +72,7 @@ export default function AppV2() {
   const [faceSeen, setFaceSeen] = useState(false);
   const [realPresencePose, setRealPresencePose] = useState<RealPresencePose>(() => ({ ...EMPTY_REAL_PRESENCE_POSE }));
   const [faceLandmarks, setFaceLandmarks] = useState<FaceLandmarkPoint[]>([]);
+  const [faceActionUnits, setFaceActionUnits] = useState<Record<string, number>>({});
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [faceTelemetry, setFaceTelemetry] = useState({
@@ -137,6 +139,7 @@ export default function AppV2() {
     setFaceSeen(false);
     setRealPresencePose({ ...EMPTY_REAL_PRESENCE_POSE });
     setFaceLandmarks([]);
+    setFaceActionUnits({});
     const neutral = neutralAffect();
     setFaceAffect(neutral);
     affectTrackerRef.current = new AffectTracker();
@@ -225,8 +228,12 @@ export default function AppV2() {
       setFaceSeen(Boolean(snapshot?.faceSeen));
       const face = snapshot?.face;
       setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
+      setFaceActionUnits(face?.actionUnits || {});
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
-      const nextAffect = affectTrackerRef.current.update(face || { present: false }, performance.now());
+      const nextAffect = affectTrackerRef.current.update({
+        ...(face || { present: false }),
+        voice: micProsodySnapshot(),
+      }, performance.now());
       setFaceAffect(nextAffect);
       mira.observeAffect(nextAffect);
       setFaceTelemetry({
@@ -730,9 +737,16 @@ export default function AppV2() {
               <i style={{ '--level': faceTelemetry.muscles.mouth } as CSSProperties}><span>Mouth</span></i>
               <i style={{ '--level': faceTelemetry.muscles.jaw } as CSSProperties}><span>Jaw</span></i>
             </div>
+            <div className="v2-affect-vector" aria-label="Affect vector">
+              <span><small>VAL</small><b>{faceAffect.dimensions.valence >= 0 ? '+' : ''}{faceAffect.dimensions.valence.toFixed(2)}</b></span>
+              <span><small>ARO</small><b>{Math.round(faceAffect.dimensions.arousal * 100)}</b></span>
+              <span><small>ENG</small><b>{Math.round(faceAffect.dimensions.engagement * 100)}</b></span>
+              <span><small>FAT</small><b>{Math.round(faceAffect.dimensions.fatigue * 100)}</b></span>
+              <span><small>TEN</small><b>{Math.round(faceAffect.dimensions.tension * 100)}</b></span>
+            </div>
             <div className="v2-face-meta">
               <span>{facialGestureLabel} {faceTelemetry.faceGesture === 'none' ? '' : Math.round(faceTelemetry.faceGestureConfidence * 100) + '%'}</span>
-              <span>{faceTelemetry.headGesture === 'none' ? 'Head stable' : faceTelemetry.headGesture}</span>
+              <span>AU12 {Math.round(Number(faceActionUnits.AU12 || 0) * 100)} · AU4 {Math.round(Number(faceActionUnits.AU04 || 0) * 100)}</span>
               <span>{realPresencePose.present ? `Depth ~${realPresencePose.distanceM.toFixed(2)}m` : 'Depth —'}</span>
             </div>
           </div>

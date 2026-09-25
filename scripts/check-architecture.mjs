@@ -20,6 +20,7 @@ const mustExist = [
   'src/core/tts/piper-local-tts.ts',
   'src/core/brain/local-webllm-brain.ts',
   'src/core/face/facial-gesture.ts',
+  'src/core/face/facs-proxy.ts',
   'src/core/vision/real-presence.ts',
   'src/presence/RealPresenceOverlay.tsx',
   'src/presence/real-presence-overlay.css',
@@ -59,7 +60,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'RealPresenceOverlay', 'realPresencePose', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'RealPresenceOverlay', 'realPresencePose', 'micProsodySnapshot', 'v2-affect-vector', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -225,9 +226,21 @@ const realPresenceView = readFileSync('src/presence/RealPresenceOverlay.tsx', 'u
 for (const token of ['ImageSegmenter', 'selfie_segmenter_landscape', 'segmentForVideo', 'getAsFloat32Array', 'REAL SEAT · LOCKED']) {
   if (!realPresenceView.includes(token)) failures.push(`real presence compositor missing: ${token}`);
 }
+const facsProxy = readFileSync('src/core/face/facs-proxy.ts', 'utf8');
+for (const token of ['FACSProxy', 'AU01', 'AU04', 'AU06', 'AU12', 'AU23', 'AU45', 'not a validated FACS detector']) {
+  if (!facsProxy.includes(token)) failures.push(`FACS-like blendshape mapping missing: ${token}`);
+}
 const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
-for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'muscles', 'gazeX']) {
+for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'facsProxyFromBlendshapes', 'muscles', 'gazeX']) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
+}
+const affectEngine = readFileSync('src/intelligence/affect/mood-engine.ts', 'utf8');
+for (const token of ['AffectDimensions', 'valence', 'arousal', 'engagement', 'baselineReady', 'BASELINE_KEY', 'voicePitchVar']) {
+  if (!affectEngine.includes(token)) failures.push(`Affect Engine v2 missing: ${token}`);
+}
+const audioLevelSource = readFileSync('src/core/audio-level.ts', 'utf8');
+for (const token of ['MicProsodySnapshot', 'micProsodySnapshot', 'estimatePitchHz', 'pitchVariability', 'silenceRatio']) {
+  if (!audioLevelSource.includes(token)) failures.push(`mic prosody layer missing: ${token}`);
 }
 const prompt = readFileSync('src/core/brain/prompt.ts', 'utf8');
 if (/trợ lý[^\n]{0,80}sản phẩm\s+Soi/i.test(prompt)) failures.push('Mira core persona must not be hardcoded to Soi');

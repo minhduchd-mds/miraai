@@ -22,6 +22,7 @@ const spatial = await importTypeScript('src/presence/spatial-math.ts');
 const affect = await importTypeScript('src/intelligence/affect/mood-engine.ts');
 const proactive = await importTypeScript('src/intelligence/proactive/proactive-engine.ts');
 const facialGesture = await importTypeScript('src/core/face/facial-gesture.ts');
+const facs = await importTypeScript('src/core/face/facs-proxy.ts');
 const realPresence = await importTypeScript('src/core/vision/real-presence.ts');
 
 test('voice lifecycle follows the expected state path', () => {
@@ -310,4 +311,52 @@ test('real presence rejects incomplete landmark scans and keeps raw identity out
   assert.equal(pose.present, false);
   assert.equal(pose.proximity, 'unknown');
   assert.equal('embedding' in pose, false);
+});
+
+
+test('FACS proxy maps MediaPipe blendshapes into stable AU-like signals', () => {
+  const mapped = facs.facsProxyFromBlendshapes({
+    browInnerUp: 0.72,
+    browDownLeft: 0.1,
+    browDownRight: 0.2,
+    cheekSquintLeft: 0.62,
+    cheekSquintRight: 0.66,
+    mouthSmileLeft: 0.83,
+    mouthSmileRight: 0.79,
+    eyeBlinkLeft: 0.12,
+    eyeBlinkRight: 0.1,
+    jawOpen: 0.22,
+  });
+  assert.ok(mapped.AU01 > 0.7);
+  assert.ok(mapped.AU06 > 0.6);
+  assert.ok(mapped.AU12 > 0.78);
+  assert.ok(mapped.AU45 < 0.2);
+  assert.ok(mapped.symmetry > 0.9);
+});
+
+test('affect v2 exposes continuous valence/arousal/engagement and fuses acoustic arousal conservatively', () => {
+  const state = affect.inferAffect({
+    present: true,
+    smile: 0.82,
+    cheekSquint: 0.56,
+    eyeWide: 0.24,
+    gazeX: 0.05,
+    gazeY: 0.03,
+    actionUnits: { AU12: 0.85, AU06: 0.6, AU04: 0.04 },
+    voice: { energy: 0.62, activity: 0.8, pitchVariability: 0.35, confidence: 0.8 },
+  });
+  assert.equal(state.mood, 'happy');
+  assert.ok(state.dimensions.valence > 0.45);
+  assert.ok(state.dimensions.arousal > 0.2);
+  assert.ok(state.dimensions.engagement > 0.7);
+  assert.ok(state.channels.voice > 0.7);
+});
+
+test('affect tracker keeps temporal stability before adopting a new expression label', () => {
+  const tracker = new affect.AffectTracker();
+  let state = tracker.update({ present: true, smile: 0.02, frown: 0.03 }, 1000);
+  state = tracker.update({ present: true, smile: 0.9, cheekSquint: 0.6, actionUnits: { AU12: 0.9, AU06: 0.62 } }, 1200);
+  assert.equal(state.mood, 'neutral');
+  state = tracker.update({ present: true, smile: 0.9, cheekSquint: 0.6, actionUnits: { AU12: 0.9, AU06: 0.62 } }, 2000);
+  assert.equal(state.mood, 'happy');
 });

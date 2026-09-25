@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
 import { inferFacialGesture, type FacialGesture } from './facial-gesture';
+import { EMPTY_FACS_PROXY, facsProxyFromBlendshapes, type FACSProxy } from './facs-proxy';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
@@ -43,6 +44,7 @@ export interface FaceData {
   headGesture: 'nod' | 'shake' | 'none';
   faceGesture: FacialGesture;
   faceGestureConfidence: number;
+  actionUnits: FACSProxy;
   landmarks: FaceLandmark[];
   muscles: FaceMuscles;
 }
@@ -70,6 +72,7 @@ export const faceData: FaceData = {
   headGesture: 'none',
   faceGesture: 'none',
   faceGestureConfidence: 0,
+  actionUnits: { ...EMPTY_FACS_PROXY },
   landmarks: [],
   muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
 };
@@ -189,6 +192,7 @@ function readFrame(): void {
     faceData.present = true;
     const bs: Record<string, number> = {};
     for (const category of cats) bs[category.categoryName] = Number(category.score || 0);
+    faceData.actionUnits = facsProxyFromBlendshapes(bs);
 
     faceData.jaw += ((bs.jawOpen || 0) - faceData.jaw) * SMOOTH;
     faceData.blinkL += ((bs.eyeBlinkLeft || 0) - faceData.blinkL) * SMOOTH;
@@ -250,6 +254,7 @@ function readFrame(): void {
     faceData.headGesture = 'none';
     faceData.faceGesture = 'none';
     faceData.faceGestureConfidence = 0;
+    faceData.actionUnits = { ...EMPTY_FACS_PROXY };
     faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
     poseHistory.length = 0;
   }
@@ -313,6 +318,7 @@ export function stopFaceTracking(): void {
   faceData.headGesture = 'none';
   faceData.faceGesture = 'none';
   faceData.faceGestureConfidence = 0;
+  faceData.actionUnits = { ...EMPTY_FACS_PROXY };
   faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
   poseHistory.length = 0;
   lastInferenceAt = 0;

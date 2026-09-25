@@ -820,3 +820,36 @@
 .v2-face-meta span:last-child {
   color: rgba(151, 238, 213, .68);
 }
+
+
+/* Affect Engine v2 — continuous dimensions rather than a single emotion label */
+.v2-affect-vector {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.v2-affect-vector > span {
+  min-width: 0;
+  padding: 5px 4px;
+  display: grid;
+  gap: 2px;
+  text-align: center;
+  border: 1px solid rgba(150,170,235,.08);
+  border-radius: 7px;
+  background: rgba(6,10,31,.34);
+}
+.v2-affect-vector small {
+  color: rgba(160,181,232,.46);
+  font: 650 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .55px;
+}
+.v2-affect-vector b {
+  color: rgba(234,240,255,.78);
+  font: 700 8px/1 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (max-width: 760px) {
+  .v2-affect-vector { gap: 2px; }
+  .v2-affect-vector > span { padding: 4px 2px; }
+  .v2-affect-vector small { font-size: 5px; }
+  .v2-affect-vector b { font-size: 7px; }
+}

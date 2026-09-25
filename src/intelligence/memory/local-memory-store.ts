@@ -6,7 +6,17 @@ const DB_VERSION = 1;
 
 interface TurnRow { id?: number; role: BrainTurn['role']; text: string; ts: number; }
 interface EpisodeRow { id?: number; text: string; ts: number; }
-interface AffectRow { id?: number; mood: AffectState['mood']; confidence: number; ts: number; }
+interface AffectRow {
+  id?: number;
+  mood: AffectState['mood'];
+  confidence: number;
+  valence?: number;
+  arousal?: number;
+  engagement?: number;
+  fatigue?: number;
+  tension?: number;
+  ts: number;
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 let persistencePromise: Promise<boolean> | null = null;
@@ -144,6 +154,11 @@ export class LocalMemoryStore {
       tx.objectStore('affect').add({
         mood: affect.mood,
         confidence: affect.confidence,
+        valence: affect.dimensions.valence,
+        arousal: affect.dimensions.arousal,
+        engagement: affect.dimensions.engagement,
+        fatigue: affect.dimensions.fatigue,
+        tension: affect.dimensions.tension,
         ts: now,
       } satisfies AffectRow);
       await transactionDone(tx);
@@ -181,7 +196,10 @@ export class LocalMemoryStore {
         parts.push(
           'Tín hiệu biểu cảm gần đây: ' + recentAffect.mood +
           ' (độ tin cậy khoảng ' + Math.round(recentAffect.confidence * 100) +
-          '%). Đây chỉ là ước lượng từ camera, không phải kết luận về cảm xúc hay sức khỏe.',
+          '%; valence ' + Number(recentAffect.valence || 0).toFixed(2) +
+          '; arousal ' + Math.round(Number(recentAffect.arousal || 0) * 100) +
+          '%; engagement ' + Math.round(Number(recentAffect.engagement || 0) * 100) +
+          '%). Đây chỉ là tín hiệu hành vi quan sát được, không phải kết luận về cảm xúc hay sức khỏe.',
         );
       }
       return parts.join('\n\n');

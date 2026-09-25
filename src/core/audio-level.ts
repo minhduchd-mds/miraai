@@ -3,6 +3,45 @@
 // VRMAvatar đọc audioLevel mỗi frame: active=true → dùng amp thật, false → envelope giả lập (Web Speech).
 export const audioLevel = { value: 0, active: false };
 
+export interface MicProsodySnapshot {
+  energy: number;
+  activity: number;
+  silenceRatio: number;
+  pitchHz: number;
+  pitchVariability: number;
+  confidence: number;
+}
+
+const micProsody: MicProsodySnapshot = {
+  energy: 0, activity: 0, silenceRatio: 1, pitchHz: 0, pitchVariability: 0, confidence: 0,
+};
+
+export function micProsodySnapshot(): MicProsodySnapshot {
+  return { ...micProsody };
+}
+
+function estimatePitchHz(samples: Float32Array, sampleRate: number): number {
+  let rms = 0;
+  for (let i = 0; i < samples.length; i += 1) rms += samples[i] * samples[i];
+  rms = Math.sqrt(rms / samples.length);
+  if (rms < 0.012) return 0;
+
+  const minLag = Math.floor(sampleRate / 360);
+  const maxLag = Math.min(samples.length - 2, Math.floor(sampleRate / 75));
+  let bestLag = 0;
+  let bestScore = 0;
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    let score = 0, normA = 0, normB = 0;
+    for (let i = 0; i < samples.length - lag; i += 2) {
+      const a = samples[i], b = samples[i + lag];
+      score += a * b; normA += a * a; normB += b * b;
+    }
+    const normalized = score / Math.sqrt(Math.max(1e-9, normA * normB));
+    if (normalized > bestScore) { bestScore = normalized; bestLag = lag; }
+  }
+  return bestScore >= 0.48 && bestLag > 0 ? sampleRate / bestLag : 0;
+}
+
 let ctx: AudioContext | null = null;
 
 // Mồi AudioContext TRONG user-gesture (mở khoá autoplay) → attachAnalyser sau này route được + lipsync chạy.
@@ -85,10 +124,15 @@ export async function startMicLevel(): Promise<void> {
     void ctx.resume();
     const src = ctx.createMediaStreamSource(stream);
     const an = ctx.createAnalyser();
-    an.fftSize = 512;
+    an.fftSize = 1024;
     an.smoothingTimeConstant = 0.5;
     src.connect(an); // analyser cụt — không phát ra loa
     const buf = new Uint8Array(an.fftSize);
+    const floatBuf = new Float32Array(an.fftSize);
+    const pitchHistory: number[] = [];
+    let activityEma = 0;
+    let silenceEma = 1;
+    let lastPitchAt = 0;
     micStopped = false;
     audioLevel.active = true;
     const loop = () => {
@@ -118,6 +162,12 @@ export function stopMicLevel(): void {
   }
   audioLevel.value = 0;
   audioLevel.active = false;
+  micProsody.energy = 0;
+  micProsody.activity = 0;
+  micProsody.silenceRatio = 1;
+  micProsody.pitchHz = 0;
+  micProsody.pitchVariability = 0;
+  micProsody.confidence = 0;
 }
 
 if (import.meta.env.DEV) (window as any).__audioLevel = audioLevel; // debug trong dev
