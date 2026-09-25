@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
-import ContentPanel from '../ui/ContentPanel';
 import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
-import SettingsPanel from '../settings/SettingsPanel';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
@@ -53,6 +51,9 @@ import {
   smoothValue,
 } from '../presence/spatial-math';
 import '../ui/a11y.css';
+
+const ContentPanel = lazy(() => import('../ui/ContentPanel'));
+const SettingsPanel = lazy(() => import('../settings/SettingsPanel'));
 
 const STATE_COPY: Record<MiraState, string> = {
   idle: 'Sẵn sàng',
@@ -1524,7 +1525,9 @@ export default function AppV2() {
               '--surface-rotate': `${surfaceTransform.rotation.toFixed(2)}deg`,
             } as CSSProperties & Record<'--grab-x' | '--grab-y' | '--surface-scale' | '--surface-rotate', string>}
           >
-            <ContentPanel content={mira.content} onClose={mira.clearContent} />
+            <Suspense fallback={null}>
+              <ContentPanel content={mira.content} onClose={mira.clearContent} />
+            </Suspense>
           </aside>
         )}
       </main>
@@ -1544,17 +1547,21 @@ export default function AppV2() {
         </button>
       </div>
 
-      <SettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        theme={theme}
-        onTheme={setTheme}
-        voices={mira.voices}
-        voiceURI={mira.voiceURI}
-        onSelectVoice={mira.selectVoice}
-        onTestVoice={mira.testVoice}
-        onOpenLabs={openLabs}
-      />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsPanel
+            open
+            onClose={() => setSettingsOpen(false)}
+            theme={theme}
+            onTheme={setTheme}
+            voices={mira.voices}
+            voiceURI={mira.voiceURI}
+            onSelectVoice={mira.selectVoice}
+            onTestVoice={mira.testVoice}
+            onOpenLabs={openLabs}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

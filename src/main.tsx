@@ -1,11 +1,14 @@
 import { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import AppV2 from './app/AppV2';
-import './ui/styles.css';
+import './ui/base-v2.css';
 import './ui/v2.css';
 
-// Legacy/Labs được tách thành chunk riêng: camera/gesture/Splat/debug không nằm trên đường tải mặc định.
-const LegacyApp = lazy(() => import('./App'));
+// Legacy/Labs tải cả component và stylesheet cũ theo demand; production AppV2 không mang CSS legacy.
+const LegacyApp = lazy(async () => {
+  await import('./ui/styles.css');
+  return import('./App');
+});
 const legacy = new URLSearchParams(window.location.search).get('legacy') === '1';
 
 const app = legacy ? (

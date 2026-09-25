@@ -81,15 +81,17 @@ for (const path of mustExist) {
 
 const entry = readFileSync('src/main.tsx', 'utf8');
 if (!entry.includes("./app/AppV2")) failures.push('production entry does not import AppV2');
-if (!entry.includes('lazy(() => import(\'./App\'))') && !entry.includes('lazy(() => import("./App"))')) {
-  failures.push('Legacy/Labs shell must stay lazy-loaded');
+if (!entry.includes("const LegacyApp = lazy(async () =>") || !entry.includes("import('./ui/styles.css')") || !entry.includes("return import('./App')")) {
+  failures.push('Legacy/Labs shell and legacy stylesheet must stay lazy-loaded');
 }
+if (entry.includes("import './ui/styles.css';")) failures.push('legacy styles.css must not be in the initial AppV2 graph');
+if (!entry.includes("import './ui/base-v2.css';")) failures.push('AppV2 base stylesheet missing');
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'objectInteractionTelemetry', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'v2-object-interaction', 'actionSequenceTelemetry', 'ActionSequenceTracker', 'actionSequencePrompt', 'v2-action-sequence', 'causalActionGraphTelemetry', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'v2-causal-action', 'v2-spatial-scene', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'objectInteractionTelemetry', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'v2-object-interaction', 'actionSequenceTelemetry', 'ActionSequenceTracker', 'actionSequencePrompt', 'v2-action-sequence', 'causalActionGraphTelemetry', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'v2-causal-action', 'v2-spatial-scene', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
