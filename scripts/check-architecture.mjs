@@ -92,10 +92,13 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'environmentPrompt', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
+for (const token of ['resolveAirTarget', 'v2-air-layer', 'grabActive', 'spatialTransformActive', 'setGestureIntentTelemetry', 'setHandSeen', 'setSpatialHands', 'setAirPoint']) {
+  if (v2.includes(token)) failures.push(`dead Air Control UI leaked into AppV2: ${token}`);
+}
 
 const presence = readFileSync('src/presence/HolographicMira.tsx', 'utf8');
 for (const token of [
@@ -336,6 +339,7 @@ for (const token of ['faceBounds', 'v2-face-lock', 'FACE LOCK']) {
 const v2Css = readFileSync('src/ui/v2.css', 'utf8');
 const visionCss = readFileSync('src/ui/vision-v2.css', 'utf8');
 if (v2Css.includes('.v2-camera-frame') || v2Css.includes('.v2-air-layer')) failures.push('vision/air CSS leaked into initial v2.css');
+if (visionCss.includes('.v2-air-layer') || visionCss.includes('.v2-hand-skeleton') || visionCss.includes('.v2-gesture-overlay')) failures.push('dead Air/hand overlay CSS must not ship');
 for (const token of ['Camera recognition mode', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
   if (!visionCss.includes(token)) failures.push(`deferred camera recognition CSS missing: ${token}`);
 }

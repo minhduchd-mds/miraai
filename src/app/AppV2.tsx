@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
 import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
@@ -12,10 +12,9 @@ import { FaceSocialControlTracker, gazePresenceLabel, type FaceSocialCue } from 
 import { EMPTY_PRESENCE_CONTINUITY, PresenceContinuityTracker, presenceContinuityPrompt, type PresenceContinuityState } from '../intelligence/social/presence-continuity';
 import { BehaviorTimeline } from '../intelligence/social/behavior-timeline';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
-import { GestureIntentTracker, type GestureIntentState } from '../core/vision/gesture-intent';
+import { GestureIntentTracker } from '../core/vision/gesture-intent';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
-import type { HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import { EMPTY_ENVIRONMENT, environmentPrompt } from '../core/vision/environment-model';
 import {
   SpatialSceneGraphTracker,
@@ -34,12 +33,6 @@ import {
   causalActionGraphPrompt,
 } from '../core/vision/causal-action-graph';
 import { EMPTY_REAL_PRESENCE_POSE } from '../core/vision/real-presence';
-import {
-  measureTwoHands,
-  rotationFromAngles,
-  scaleFromDistance,
-  smoothValue,
-} from '../presence/spatial-math';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -57,15 +50,6 @@ const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
 const VOICE_HANDSHAKE_TEXT = 'Em nghe anh. Chế độ trò chuyện liên tục đã bật.';
 const VOICE_HANDSHAKE_TIMEOUT = 5000;
 
-interface SpatialHand {
-  handedness: string;
-  gesture: string;
-  score: number;
-  x: number;
-  y: number;
-  pinching: boolean;
-  landmarks: HandLandmarkPoint[];
-}
 
 function loadTheme(): Theme {
   try {
@@ -123,44 +107,10 @@ export default function AppV2() {
   const behaviorTimelineRef = useRef(new BehaviorTimeline());
   const gazeHeadCalibratorRef = useRef(new GazeHeadCalibrator());
   const gestureIntentTrackerRef = useRef(new GestureIntentTracker());
-  const [gestureIntentTelemetry, setGestureIntentTelemetry] = useState<GestureIntentState>({
-    eventId: 0, intent: 'none', gesture: 'None', confidence: 0, stableMs: 0, at: 0,
-  });
-  const lastGestureIntentIdRef = useRef(0);
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
     gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
     muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
-  });
-  const [handSeen, setHandSeen] = useState(false);
-  const [gestureName, setGestureName] = useState('None');
-  const [gestureScore, setGestureScore] = useState(0);
-  const [handPoint, setHandPoint] = useState({ x: 0.5, y: 0.5 });
-  const [waveSeen, setWaveSeen] = useState(false);
-  const [spatialHands, setSpatialHands] = useState<SpatialHand[]>([]);
-  const [airPoint, setAirPoint] = useState({ x: 0.5, y: 0.5 });
-  const smoothAirRef = useRef({ x: 0.5, y: 0.5 });
-  const [pinching, setPinching] = useState(false);
-  const [airTargetLabel, setAirTargetLabel] = useState('');
-  const [airFeedback, setAirFeedback] = useState('');
-  const pinchWasDownRef = useRef(false);
-  const palmHoldSinceRef = useRef(0);
-  const victoryLatchRef = useRef(false);
-  const lastAirActionRef = useRef(0);
-  const palmSwipeRef = useRef({ x: 0.5, at: 0 });
-  const [grabActive, setGrabActive] = useState(false);
-  const [grabOffset, setGrabOffset] = useState({ x: 0, y: 0 });
-  const grabStartRef = useRef({ pointerX: 0, pointerY: 0, offsetX: 0, offsetY: 0 });
-  const lastGrabPinchRef = useRef(0);
-  const [surfaceTransform, setSurfaceTransform] = useState({ scale: 1, rotation: 0 });
-  const [spatialTransformActive, setSpatialTransformActive] = useState(false);
-  const transformSessionRef = useRef({
-    active: false,
-    readySince: 0,
-    startDistance: 0,
-    startAngle: 0,
-    baseScale: 1,
-    baseRotation: 0,
   });
 
   useDialogFocus(settingsOpen, '.v2-settings');
@@ -230,10 +180,6 @@ export default function AppV2() {
     actionSequenceTrackerRef.current.reset();
     causalActionGraphTrackerRef.current.reset();
     gestureIntentTrackerRef.current.reset();
-    setGestureIntentTelemetry({
-      eventId: 0, intent: 'none', gesture: 'None', confidence: 0, stableMs: 0, at: 0,
-    });
-    lastGestureIntentIdRef.current = 0;
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
     behaviorTimelineRef.current.reset();
@@ -246,30 +192,7 @@ export default function AppV2() {
       gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
-    setHandSeen(false);
-    setGestureName('None');
-    setGestureScore(0);
-    setWaveSeen(false);
-    setSpatialHands([]);
-    smoothAirRef.current = { x: 0.5, y: 0.5 };
-    setPinching(false);
-    setAirTargetLabel('');
-    setAirFeedback('');
-    pinchWasDownRef.current = false;
-    palmHoldSinceRef.current = 0;
-    victoryLatchRef.current = false;
-    palmSwipeRef.current = { x: 0.5, at: 0 };
-    setGrabActive(false);
-    setSpatialTransformActive(false);
-    transformSessionRef.current = {
-      active: false,
-      readySince: 0,
-      startDistance: 0,
-      startAngle: 0,
-      baseScale: surfaceTransform.scale,
-      baseRotation: surfaceTransform.rotation,
-    };
-  }, [mira.observeAffect, surfaceTransform.rotation, surfaceTransform.scale]);
+  }, [mira.observeAffect]);
 
   const toggleVision = useCallback(async () => {
     if (visionBooting) return;
@@ -372,7 +295,6 @@ export default function AppV2() {
         pinching: Boolean(snapshot?.pinching),
         wave: Boolean(snapshot?.wave),
       }, now);
-      setGestureIntentTelemetry(intent);
 
       const gestureScoreNow = Number(snapshot?.gestureScore || 0);
       const rawPointerX = Math.max(0, Math.min(1, Number(snapshot?.pointerX ?? 0.5)));
@@ -539,27 +461,6 @@ export default function AppV2() {
         faceGestureConfidence: Number(face?.faceGestureConfidence || 0),
         muscles: face?.muscles || { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
       });
-      setHandSeen(Boolean(snapshot?.handSeen));
-      setGestureName(snapshot?.gesture || 'None');
-      setGestureScore(Number(snapshot?.gestureScore || 0));
-      setWaveSeen(Boolean(snapshot?.wave));
-      setSpatialHands(Array.isArray(snapshot?.hands) ? snapshot.hands as SpatialHand[] : []);
-      setPinching(Boolean(snapshot?.pinching));
-      if (snapshot?.handSeen) {
-        const rawX = Math.max(0.03, Math.min(0.97, Number(snapshot.pointerX ?? 0.5)));
-        const rawY = Math.max(0.04, Math.min(0.96, Number(snapshot.pointerY ?? 0.5)));
-        const alpha = window.innerWidth <= 760 ? 0.28 : 0.36;
-        const nextPoint = {
-          x: smoothValue(smoothAirRef.current.x, rawX, alpha),
-          y: smoothValue(smoothAirRef.current.y, rawY, alpha),
-        };
-        smoothAirRef.current = nextPoint;
-        setAirPoint(nextPoint);
-        setHandPoint({
-          x: Math.max(0, Math.min(1, Number(snapshot.handX ?? 0.5))),
-          y: Math.max(0, Math.min(1, Number(snapshot.handY ?? 0.5))),
-        });
-      }
     }, 120);
     return () => window.clearInterval(timer);
   }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, showFaceActionFeedback, visionOn, voiceReady]);
@@ -685,204 +586,6 @@ export default function AppV2() {
     mira.toggleLive();
   };
 
-  const resolveAirTarget = useCallback((x: number, y: number): HTMLElement | null => {
-    const candidates = Array.from(document.querySelectorAll<HTMLElement>('[data-air-action="safe"]'))
-      .filter((element) => !element.hasAttribute('disabled') && element.offsetParent !== null);
-    let winner: HTMLElement | null = null;
-    let bestDistance = 78;
-
-    for (const element of candidates) {
-      const rect = element.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const distance = Math.hypot(cx - x, cy - y);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        winner = element;
-      }
-    }
-    return winner;
-  }, []);
-
-  useEffect(() => {
-    const session = transformSessionRef.current;
-    const twoHands = spatialHands.slice(0, 2);
-    const bothOpen =
-      twoHands.length === 2 &&
-      twoHands.every((hand) => hand.gesture === 'Open_Palm' && hand.score >= 0.48);
-
-    if (!visionOn || settingsOpen || !mira.content || grabActive || !bothOpen) {
-      session.readySince = 0;
-      if (session.active) {
-        session.active = false;
-        setSpatialTransformActive(false);
-      }
-      return;
-    }
-
-    const geometry = measureTwoHands(twoHands[0], twoHands[1]);
-    const now = performance.now();
-
-    if (!session.readySince) session.readySince = now;
-    if (!session.active) {
-      if (now - session.readySince < 260 || geometry.distance < 0.12) return;
-      session.active = true;
-      session.startDistance = geometry.distance;
-      session.startAngle = geometry.angleDeg;
-      session.baseScale = surfaceTransform.scale;
-      session.baseRotation = surfaceTransform.rotation;
-      setSpatialTransformActive(true);
-      setAirFeedback('✦ Spatial Transform · 2 tay');
-      window.setTimeout(() => setAirFeedback(''), 850);
-      return;
-    }
-
-    const targetScale = scaleFromDistance(
-      session.baseScale,
-      session.startDistance,
-      geometry.distance,
-      0.72,
-      1.55,
-    );
-    const targetRotation = rotationFromAngles(
-      session.baseRotation,
-      session.startAngle,
-      geometry.angleDeg,
-      -24,
-      24,
-    );
-
-    setSurfaceTransform((previous) => ({
-      scale: smoothValue(previous.scale, targetScale, 0.24),
-      rotation: smoothValue(previous.rotation, targetRotation, 0.2),
-    }));
-  }, [
-    grabActive,
-    mira.content,
-    settingsOpen,
-    spatialHands,
-    surfaceTransform.rotation,
-    surfaceTransform.scale,
-    visionOn,
-  ]);
-
-  useEffect(() => {
-    if (!visionOn || !handSeen || settingsOpen || spatialTransformActive || spatialHands.length >= 2) {
-      setAirTargetLabel('');
-      pinchWasDownRef.current = false;
-      palmHoldSinceRef.current = 0;
-      victoryLatchRef.current = false;
-      palmSwipeRef.current = { x: airPoint.x, at: 0 };
-      return;
-    }
-
-    const x = airPoint.x * window.innerWidth;
-    const y = airPoint.y * window.innerHeight;
-    const target = resolveAirTarget(x, y);
-    const hit = document.elementFromPoint(x, y) as HTMLElement | null;
-    const grabTarget = hit?.closest<HTMLElement>('[data-air-grab]') || null;
-    setAirTargetLabel(grabActive ? 'Đang giữ Result Surface' : (grabTarget ? 'Nắm Result Surface' : (target?.dataset.airLabel || '')));
-
-    const now = Date.now();
-    const freshAction = now - lastAirActionRef.current > 900;
-    const intentIsNew = gestureIntentTelemetry.eventId > lastGestureIntentIdRef.current;
-    const currentIntent = intentIsNew ? gestureIntentTelemetry.intent : 'none';
-    if (intentIsNew) lastGestureIntentIdRef.current = gestureIntentTelemetry.eventId;
-    const pinchDown = currentIntent === 'pinch_down';
-    const pinchUp = currentIntent === 'pinch_up';
-
-    if (pinchDown && grabTarget) {
-      if (now - lastGrabPinchRef.current < 520) {
-        setGrabOffset({ x: 0, y: 0 });
-        setSurfaceTransform({ scale: 1, rotation: 0 });
-        setGrabActive(false);
-        setAirFeedback('↺ Result Surface · về vị trí cũ');
-        window.setTimeout(() => setAirFeedback(''), 900);
-        lastGrabPinchRef.current = 0;
-      } else {
-        lastGrabPinchRef.current = now;
-        grabStartRef.current = {
-          pointerX: x,
-          pointerY: y,
-          offsetX: grabOffset.x,
-          offsetY: grabOffset.y,
-        };
-        setGrabActive(true);
-        setAirFeedback('🤏 Đã nắm Result Surface');
-        window.setTimeout(() => setAirFeedback(''), 700);
-      }
-    } else if (pinchDown && target && freshAction && !grabActive) {
-      target.click();
-      lastAirActionRef.current = now;
-      setAirFeedback(`Pinch · ${target.dataset.airLabel || 'Đã chọn'}`);
-      window.setTimeout(() => setAirFeedback(''), 900);
-    }
-
-    if (pinching && grabActive) {
-      const dx = x - grabStartRef.current.pointerX;
-      const dy = y - grabStartRef.current.pointerY;
-      const limitX = window.innerWidth * 0.52;
-      const limitY = window.innerHeight * 0.46;
-      setGrabOffset({
-        x: Math.max(-limitX, Math.min(limitX, grabStartRef.current.offsetX + dx)),
-        y: Math.max(-limitY, Math.min(limitY, grabStartRef.current.offsetY + dy)),
-      });
-    }
-
-    if (pinchUp && grabActive) {
-      setGrabActive(false);
-      lastAirActionRef.current = now;
-      setAirFeedback('✦ Đã thả Result Surface');
-      window.setTimeout(() => setAirFeedback(''), 800);
-    }
-    pinchWasDownRef.current = pinching;
-
-    if (gestureName === 'Open_Palm' && gestureScore >= 0.58) {
-      if (!palmHoldSinceRef.current) {
-        palmHoldSinceRef.current = now;
-        palmSwipeRef.current = { x: airPoint.x, at: now };
-      }
-
-      const held = now - palmHoldSinceRef.current;
-      const swipeAge = now - palmSwipeRef.current.at;
-      const swipeDelta = airPoint.x - palmSwipeRef.current.x;
-
-      if (swipeAge <= 620 && Math.abs(swipeDelta) >= 0.22 && freshAction) {
-        cycleTheme();
-        lastAirActionRef.current = now;
-        palmHoldSinceRef.current = 0;
-        palmSwipeRef.current = { x: airPoint.x, at: now };
-        setAirFeedback(swipeDelta > 0 ? '→ Đổi theme' : '← Đổi theme');
-        window.setTimeout(() => setAirFeedback(''), 900);
-      } else if (currentIntent === 'open_palm_hold' && freshAction && (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking')) {
-        mira.interrupt();
-        lastAirActionRef.current = now;
-        palmHoldSinceRef.current = 0;
-        setAirFeedback('✋ Hold confirmed · Mira đã dừng');
-        window.setTimeout(() => setAirFeedback(''), 900);
-      }
-    } else {
-      palmHoldSinceRef.current = 0;
-      palmSwipeRef.current = { x: airPoint.x, at: 0 };
-    }
-
-    if (currentIntent === 'victory_hold' && freshAction) {
-      mira.unlockAudio();
-      setVoiceReady(true);
-      mira.toggleLive();
-      lastAirActionRef.current = now;
-      setAirFeedback(mira.live ? '✌ Hold confirmed · Live voice tắt' : '✌ Hold confirmed · Live voice bật');
-      window.setTimeout(() => setAirFeedback(''), 900);
-    }
-
-    if (currentIntent === 'fist_hold' && freshAction && mira.content && !grabActive) {
-      mira.clearContent();
-      lastAirActionRef.current = now;
-      setAirFeedback('✊ Hold confirmed · đóng Result Surface');
-      window.setTimeout(() => setAirFeedback(''), 900);
-    }
-  }, [airPoint, gestureIntentTelemetry, gestureName, gestureScore, grabActive, grabOffset.x, grabOffset.y, handSeen, mira.clearContent, mira.content, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, settingsOpen, spatialHands.length, spatialTransformActive, visionOn]);
-
   useEffect(() => {
     const resumeIfNeeded = () => {
       if (document.visibilityState !== 'visible' || !mira.live) return;
@@ -963,8 +666,8 @@ export default function AppV2() {
             {visionOn ? <IconCameraOff /> : <IconCamera />}
             <span className="sr-only">{visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}</span>
           </button>
-          <button type="button" data-air-action="safe" data-air-label="Đổi theme" onClick={cycleTheme} title="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
-          <button type="button" data-air-action="safe" data-air-label="Cài đặt" onClick={() => setSettingsOpen(true)} title="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
+          <button type="button" onClick={cycleTheme} title="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
+          <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
         </nav>
       </header>
 
@@ -1047,16 +750,7 @@ export default function AppV2() {
         </div>
 
         {mira.content && (
-          <aside
-            className={`v2-result${grabActive ? ' grabbing' : ''}${spatialTransformActive ? ' transforming' : ''}`}
-            aria-label="Kết quả trực quan"
-            style={{
-              '--grab-x': `${grabOffset.x}px`,
-              '--grab-y': `${grabOffset.y}px`,
-              '--surface-scale': surfaceTransform.scale.toFixed(3),
-              '--surface-rotate': `${surfaceTransform.rotation.toFixed(2)}deg`,
-            } as CSSProperties & Record<'--grab-x' | '--grab-y' | '--surface-scale' | '--surface-rotate', string>}
-          >
+          <aside className="v2-result" aria-label="Kết quả trực quan">
             <Suspense fallback={null}>
               <ContentPanel content={mira.content} onClose={mira.clearContent} />
             </Suspense>
@@ -1072,8 +766,6 @@ export default function AppV2() {
           aria-pressed={mira.live}
           aria-label={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
           title={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
-          data-air-action="safe"
-          data-air-label={mira.live ? 'Tắt live voice' : 'Bật live voice'}
         >
           <span aria-hidden="true" />
         </button>
