@@ -33,6 +33,9 @@ const mustExist = [
   'src/core/vision/vision-worker-client.ts',
   'src/core/vision/gesture-intent.ts',
   'src/intelligence/social/gaze-head-calibration.ts',
+  'src/core/vision/environment-model.ts',
+  'src/core/vision/object-awareness.ts',
+  'src/presence/ObjectAwarenessOverlay.tsx',
   'src/core/vision/rppg-signal.ts',
   'src/core/vision/rppg-monitor.ts',
   'src/presence/PoseSkeletonOverlay.tsx',
@@ -76,7 +79,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -236,6 +239,7 @@ const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-stor
 if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('local memory should request persistent browser storage');
 if (localMemoryStore.includes('bpmTrend') || localMemoryStore.includes('pulseTrace')) failures.push('experimental physiological estimates must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('BehaviorEvent') || localMemoryStore.includes('behaviorTimeline')) failures.push('social behavior timeline must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('TrackedObject') || localMemoryStore.includes('objectAwareness') || localMemoryStore.includes('EnvironmentContext')) failures.push('environment object tracks must remain ephemeral, not long-term memory');
 const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
 for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
@@ -284,6 +288,18 @@ const gestureIntent = readFileSync('src/core/vision/gesture-intent.ts', 'utf8');
 for (const token of ['GestureIntentTracker', 'victory_hold', 'open_palm_hold', 'pinch_down', 'pinch_up', 'stableMs', 'not human intention']) {
   if (!gestureIntent.includes(token)) failures.push(`temporal gesture intent missing: ${token}`);
 }
+const environmentModel = readFileSync('src/core/vision/environment-model.ts', 'utf8');
+for (const token of ['ObjectTemporalTracker', 'objectIoU', 'inferEnvironment', 'environmentPrompt', "'workspace'", "'rest_area'", "'dining_area'", 'session-local']) {
+  if (!environmentModel.includes(token)) failures.push(`environment context model missing: ${token}`);
+}
+const objectAwareness = readFileSync('src/core/vision/object-awareness.ts', 'utf8');
+for (const token of ['ObjectDetector', 'efficientdet_lite0', "acquireVisionCamera('object')", 'scoreThreshold', 'cadenceFromInference', 'ObjectTemporalTracker']) {
+  if (!objectAwareness.includes(token)) failures.push(`object awareness runtime missing: ${token}`);
+}
+const objectOverlay = readFileSync('src/presence/ObjectAwarenessOverlay.tsx', 'utf8');
+for (const token of ['TrackedObject', 'v2-object-overlay', 'v2-object-box', 'object.stable']) {
+  if (!objectOverlay.includes(token)) failures.push(`object awareness overlay missing: ${token}`);
+}
 const postureTracker = readFileSync('src/core/vision/posture-tracker.ts', 'utf8');
 for (const token of ['PoseLandmarker', 'pose_landmarker_lite', "acquireVisionCamera('pose')", 'motionEma']) {
   if (!postureTracker.includes(token)) failures.push(`posture runtime missing: ${token}`);
@@ -305,7 +321,7 @@ for (const token of ['InteractionTracker', 'Joint-attention proxy', 'looking_awa
   if (!interactionEngine.includes(token)) failures.push(`social interaction engine missing: ${token}`);
 }
 const behaviorTimeline = readFileSync('src/intelligence/social/behavior-timeline.ts', 'utf8');
-for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'promptSummary', '90_000']) {
+for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'environment', 'environmentConfidence', 'promptSummary', '90_000']) {
   if (!behaviorTimeline.includes(token)) failures.push(`behavior timeline missing: ${token}`);
 }
 const affectEngine = readFileSync('src/intelligence/affect/mood-engine.ts', 'utf8');
@@ -321,11 +337,12 @@ for (const token of ["interaction?.state === 'absent'", "interaction?.state === 
   if (!proactiveEngine.includes(token)) failures.push(`social-aware proactive policy missing: ${token}`);
 }
 const visionRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
-for (const token of ['startHolisticTracking', 'holisticTrackerActive', 'Backward-compatible fallback', 'visionPerformance', 'visionEngine']) {
+for (const token of ['startHolisticTracking', 'holisticTrackerActive', 'startObjectAwareness', 'stopObjectAwareness', 'objectAwarenessSnapshot', 'Backward-compatible fallback', 'visionPerformance', 'visionEngine']) {
   if (!visionRuntime.includes(token)) failures.push(`vision runtime holistic orchestration missing: ${token}`);
 }
 const cameraManager = readFileSync('src/core/vision/camera-manager.ts', 'utf8');
 if (!cameraManager.includes("'holistic'")) failures.push('shared camera manager must support holistic consumer');
+if (!cameraManager.includes("'object'")) failures.push('shared camera manager must support object-awareness consumer');
 const prompt = readFileSync('src/core/brain/prompt.ts', 'utf8');
 if (/trợ lý[^\n]{0,80}sản phẩm\s+Soi/i.test(prompt)) failures.push('Mira core persona must not be hardcoded to Soi');
 

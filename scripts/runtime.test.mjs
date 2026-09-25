@@ -33,6 +33,7 @@ const handGestureLite = await importTypeScript('src/core/vision/hand-gesture-lit
 const visionPerformance = await importTypeScript('src/core/vision/vision-performance.ts');
 const gazeCalibration = await importTypeScript('src/intelligence/social/gaze-head-calibration.ts');
 const gestureIntent = await importTypeScript('src/core/vision/gesture-intent.ts');
+const environmentModel = await importTypeScript('src/core/vision/environment-model.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -640,4 +641,56 @@ test('vision performance telemetry reports worker postprocess separately from mo
   assert.equal(snapshot.postprocess, 'worker');
   assert.ok(snapshot.postprocessMs > 0);
   assert.equal(snapshot.landmarkCount, 553);
+});
+
+
+test('environment object tracker keeps session-local IDs stable across overlapping detections', () => {
+  const tracker = new environmentModel.ObjectTemporalTracker();
+  const first = tracker.update([
+    { label: 'laptop', score: 0.88, box: { x: 0.2, y: 0.3, width: 0.35, height: 0.28 } },
+  ], 1000);
+  assert.equal(first.length, 1);
+  assert.equal(first[0].stable, false);
+  const id = first[0].id;
+
+  const second = tracker.update([
+    { label: 'laptop', score: 0.91, box: { x: 0.21, y: 0.31, width: 0.34, height: 0.27 } },
+  ], 1800);
+  assert.equal(second[0].id, id);
+  assert.equal(second[0].stable, true);
+  assert.ok(second[0].hits >= 2);
+});
+
+test('environment context classifies stable workspace-like objects without claiming a real room type', () => {
+  const objects = [
+    { id: 'a', label: 'laptop', score: 0.94, box: { x: 0.1, y: 0.2, width: 0.4, height: 0.3 }, hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000 },
+    { id: 'b', label: 'keyboard', score: 0.87, box: { x: 0.25, y: 0.6, width: 0.3, height: 0.12 }, hits: 3, stable: true, firstSeenAt: 0, lastSeenAt: 1000 },
+    { id: 'c', label: 'person', score: 0.93, box: { x: 0.55, y: 0.05, width: 0.4, height: 0.9 }, hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000 },
+  ];
+  const context = environmentModel.inferEnvironment(objects, 1200);
+  assert.equal(context.label, 'workspace');
+  assert.ok(context.confidence > 0.55);
+  assert.equal(context.peopleCount, 1);
+  assert.ok(context.evidence.includes('laptop'));
+  assert.match(environmentModel.environmentPrompt(context), /không khẳng định|suy luận từ vật thể/i);
+});
+
+test('environment context reports additional people only as a camera-frame proxy', () => {
+  const objects = [
+    { id: 'p1', label: 'person', score: 0.92, box: { x: 0.05, y: 0.05, width: 0.4, height: 0.9 }, hits: 3, stable: true, firstSeenAt: 0, lastSeenAt: 1000 },
+    { id: 'p2', label: 'person', score: 0.86, box: { x: 0.52, y: 0.08, width: 0.4, height: 0.86 }, hits: 3, stable: true, firstSeenAt: 0, lastSeenAt: 1000 },
+  ];
+  const context = environmentModel.inferEnvironment(objects, 1200);
+  assert.equal(context.label, 'person_nearby');
+  assert.equal(context.peopleCount, 2);
+  assert.ok(context.confidence >= 0.5);
+});
+
+test('behavior timeline can carry environment transitions without persisting raw object boxes', () => {
+  const timeline = new behaviorTimeline.BehaviorTimeline();
+  let events = timeline.observe({ environment: 'workspace', environmentConfidence: 0.78 }, 1000);
+  assert.ok(events.some((event) => event.type === 'environment' && event.label === 'workspace'));
+  const count = events.length;
+  events = timeline.observe({ environment: 'workspace', environmentConfidence: 0.8 }, 1300);
+  assert.equal(events.length, count);
 });

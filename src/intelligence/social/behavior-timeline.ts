@@ -1,6 +1,6 @@
 import type { InteractionContext } from './interaction-engine';
 
-export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity';
+export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment';
 
 export interface BehaviorEvent {
   id: string;
@@ -19,6 +19,8 @@ export interface BehaviorObservation {
   gesture?: string;
   gestureScore?: number;
   proximity?: string;
+  environment?: string;
+  environmentConfidence?: number;
 }
 
 function clamp01(value: number): number {
@@ -74,6 +76,11 @@ export class BehaviorTimeline {
     const proximity = String(observation.proximity || 'unknown');
     if (proximity !== 'unknown') {
       this.push('proximity', proximity, 0.7, now);
+    }
+
+    const environment = String(observation.environment || 'unknown');
+    if (environment !== 'unknown' && Number(observation.environmentConfidence || 0) >= 0.48) {
+      this.push('environment', environment, Number(observation.environmentConfidence || 0), now);
     }
 
     this.events = this.events.filter((event) => now - event.at <= 90_000);

@@ -16,6 +16,8 @@ import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import PoseSkeletonOverlay, { type PoseSkeletonPoint } from '../presence/PoseSkeletonOverlay';
+import ObjectAwarenessOverlay from '../presence/ObjectAwarenessOverlay';
+import { EMPTY_ENVIRONMENT, environmentPrompt, type TrackedObject } from '../core/vision/environment-model';
 import AirControlOverlay from '../presence/AirControlOverlay';
 import RealPresenceOverlay from '../presence/RealPresenceOverlay';
 import { EMPTY_REAL_PRESENCE_POSE, type RealPresencePose } from '../core/vision/real-presence';
@@ -90,6 +92,16 @@ export default function AppV2() {
     engine: 'legacy', delegate: 'unknown', tier: 'balanced', inferenceMs: 0, intervalMs: 60,
     fps: 0, landmarkCount: 0, processedFrames: 0, droppedFrames: 0,
     postprocess: 'main', postprocessMs: 0,
+  });
+  const [environmentTelemetry, setEnvironmentTelemetry] = useState({
+    active: false,
+    status: 'off',
+    delegate: 'unknown',
+    inferenceMs: 0,
+    intervalMs: 0,
+    processedFrames: 0,
+    objects: [] as TrackedObject[],
+    environment: { ...EMPTY_ENVIRONMENT },
   });
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
@@ -177,6 +189,16 @@ export default function AppV2() {
       engine: 'legacy', delegate: 'unknown', tier: 'balanced', inferenceMs: 0, intervalMs: 60,
       fps: 0, landmarkCount: 0, processedFrames: 0, droppedFrames: 0,
       postprocess: 'main', postprocessMs: 0,
+    });
+    setEnvironmentTelemetry({
+      active: false,
+      status: 'off',
+      delegate: 'unknown',
+      inferenceMs: 0,
+      intervalMs: 0,
+      processedFrames: 0,
+      objects: [],
+      environment: { ...EMPTY_ENVIRONMENT },
     });
     setCalibrationTelemetry(gazeHeadCalibratorRef.current.snapshot());
     gestureIntentTrackerRef.current.reset();
@@ -320,6 +342,19 @@ export default function AppV2() {
         postprocess: String(perf?.postprocess || 'main'),
         postprocessMs: Number(perf?.postprocessMs || 0),
       });
+      const environmentSensor = snapshot?.environment;
+      const environmentContext = environmentSensor?.environment || { ...EMPTY_ENVIRONMENT };
+      const environmentObjects = Array.isArray(environmentSensor?.objects) ? environmentSensor.objects : [];
+      setEnvironmentTelemetry({
+        active: Boolean(environmentSensor?.active),
+        status: String(environmentSensor?.status || 'off'),
+        delegate: String(environmentSensor?.delegate || 'unknown'),
+        inferenceMs: Number(environmentSensor?.inferenceMs || 0),
+        intervalMs: Number(environmentSensor?.intervalMs || 0),
+        processedFrames: Number(environmentSensor?.processedFrames || 0),
+        objects: environmentObjects,
+        environment: environmentContext,
+      });
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
       const now = performance.now();
       const spatial = face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE };
@@ -371,6 +406,8 @@ export default function AppV2() {
         gesture: String(snapshot?.gesture || 'None'),
         gestureScore: Number(snapshot?.gestureScore || 0),
         proximity: String(spatial.proximity || 'unknown'),
+        environment: String(environmentContext.label || 'unknown'),
+        environmentConfidence: Number(environmentContext.confidence || 0),
       }, now);
       setBehaviorEvents(recentBehavior);
 
@@ -385,7 +422,11 @@ export default function AppV2() {
         microExpression: micro,
       }, now);
       nextAffect.interaction = interaction;
-      const socialContext = [interactionPrompt(interaction), behaviorTimelineRef.current.promptSummary(now)]
+      const socialContext = [
+        interactionPrompt(interaction),
+        behaviorTimelineRef.current.promptSummary(now),
+        environmentPrompt(environmentContext),
+      ]
         .filter(Boolean)
         .join(' ');
       if (socialContext) nextAffect.promptContext = nextAffect.promptContext + ' ' + socialContext;
@@ -850,6 +891,26 @@ export default function AppV2() {
     ? 'Intent chờ'
     : gestureIntentTelemetry.intent.replaceAll('_', ' ');
 
+  const environmentLabel = ({
+    workspace: 'Khu vực làm việc',
+    rest_area: 'Khu vực nghỉ',
+    living_area: 'Khu vực sinh hoạt',
+    dining_area: 'Khu vực ăn/uống',
+    person_nearby: 'Có thêm người',
+    mixed: 'Không gian pha trộn',
+    unknown: 'Chưa xác định',
+  } as Record<string, string>)[environmentTelemetry.environment.label] || environmentTelemetry.environment.label;
+
+  const environmentStatusLabel = environmentTelemetry.status === 'loading'
+    ? 'Đang nạp model'
+    : environmentTelemetry.status === 'tracking'
+      ? `${environmentTelemetry.objects.filter((object) => object.stable).length} object · ${Math.round(environmentTelemetry.inferenceMs)} ms`
+      : environmentTelemetry.status === 'low_signal'
+        ? 'Đang quét'
+        : environmentTelemetry.status === 'error'
+          ? 'Object model lỗi'
+          : 'Chưa bật';
+
   const interactionLabel = ({
     focused: 'Đang tập trung',
     engaged: 'Đang tương tác',
@@ -873,6 +934,12 @@ export default function AppV2() {
     near: 'Near',
     conversation: 'Conversation',
     far: 'Far',
+    workspace: 'Workspace',
+    rest_area: 'Rest area',
+    living_area: 'Living',
+    dining_area: 'Dining',
+    person_nearby: 'People',
+    mixed: 'Mixed scene',
   } as Record<string, string>)[event.label] || event.label.replaceAll('_', ' ');
 
   const gestureLabel = waveSeen ? 'Wave' : ({
@@ -931,6 +998,7 @@ export default function AppV2() {
               <span className={handSeen ? 'detected' : ''}>Hand</span>
               <span className={faceSeen && faceAffect.mood !== 'neutral' ? 'detected' : ''}>{moodLabel}</span>
               <span className={faceSeen && realPresencePose.confidence >= 0.55 ? 'detected' : ''}>REAL</span>
+              <span className={environmentTelemetry.environment.confidence >= 0.48 ? 'detected' : ''}>ENV</span>
             </div>
             {faceSeen && (
               <FaceMeshOverlay
@@ -942,6 +1010,10 @@ export default function AppV2() {
             {postureTelemetry.present && (
               <PoseSkeletonOverlay points={poseLandmarks} active={postureTelemetry.present} />
             )}
+            <ObjectAwarenessOverlay
+              objects={environmentTelemetry.objects}
+              active={environmentTelemetry.active}
+            />
             {handSeen && (
               <>
                 {(spatialHands.length ? spatialHands : [{ landmarks: handLandmarks } as SpatialHand]).map((hand, index) => (
@@ -983,6 +1055,28 @@ export default function AppV2() {
               <span><small>VISION</small><b>{visionEngineLabel}</b></span>
               <em>{visionPerfLabel}</em>
               <i title="Landmark count">{Math.round(visionPerformanceTelemetry.landmarkCount)} pts · {visionPerformanceTelemetry.tier} · {visionPostprocessLabel}</i>
+            </div>
+            <div className={`v2-environment-awareness env-${environmentTelemetry.environment.label}`}>
+              <div className="v2-environment-head">
+                <span><small>ENVIRONMENT</small><b>{environmentLabel}</b></span>
+                <em>{environmentTelemetry.environment.confidence >= 0.01 ? Math.round(environmentTelemetry.environment.confidence * 100) + '%' : '—'}</em>
+              </div>
+              <div className="v2-environment-meta">
+                <span>{environmentStatusLabel}</span>
+                <span>{environmentTelemetry.delegate}</span>
+                <span>{environmentTelemetry.intervalMs ? Math.round(environmentTelemetry.intervalMs) + ' ms cadence' : 'cadence —'}</span>
+              </div>
+              {environmentTelemetry.objects.some((object) => object.stable && object.score >= 0.4) && (
+                <div className="v2-environment-objects">
+                  {environmentTelemetry.objects
+                    .filter((object) => object.stable && object.score >= 0.4)
+                    .slice(0, 6)
+                    .map((object) => (
+                      <span key={object.id}>{object.label} {Math.round(object.score * 100)}%</span>
+                    ))}
+                </div>
+              )}
+              <small className="v2-environment-note">Object/scene context chạy local, không nhận dạng danh tính và không lưu ảnh camera.</small>
             </div>
             <div className="v2-sensor-strip">
               <span className={microTelemetry.kind !== 'none' ? 'active' : ''}><small>MICRO</small><b>{microLabel}</b></span>

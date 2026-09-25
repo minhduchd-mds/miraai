@@ -22,6 +22,11 @@ import {
   stopHolisticTracking,
 } from '../core/vision/holistic-tracker';
 import { EMPTY_VISION_PERFORMANCE } from '../core/vision/vision-performance';
+import {
+  objectAwarenessSnapshot,
+  startObjectAwareness,
+  stopObjectAwareness,
+} from '../core/vision/object-awareness';
 
 let activeEngine: 'holistic' | 'legacy' = 'legacy';
 
@@ -30,6 +35,7 @@ export async function startVision(): Promise<{ ok: boolean; error: string }> {
   if (holisticOk) {
     activeEngine = 'holistic';
     await startRppgMonitoring();
+    void startObjectAwareness();
     return { ok: true, error: '' };
   }
 
@@ -41,8 +47,10 @@ export async function startVision(): Promise<{ ok: boolean; error: string }> {
     startPostureTracking(),
     startRppgMonitoring(),
   ]);
+  const ok = faceOk || handOk || postureOk || rppgOk;
+  if (ok) void startObjectAwareness();
   return {
-    ok: faceOk || handOk || postureOk || rppgOk,
+    ok,
     error: holisticTrackerError() || faceTrackerError() || gestureTrackerError() || postureTrackerError() || '',
   };
 }
@@ -53,6 +61,7 @@ export function stopVision(): void {
   stopGestureTracking();
   stopPostureTracking();
   stopRppgMonitoring();
+  stopObjectAwareness();
   activeEngine = 'legacy';
 }
 
@@ -115,6 +124,7 @@ export function visionSnapshot() {
       landmarks: postureData.landmarks.map((point) => ({ ...point })),
     },
     rppg: { ...rppgData },
+    environment: objectAwarenessSnapshot(),
     visionPerformance: holisticTrackerActive()
       ? holisticPerformanceSnapshot()
       : { ...EMPTY_VISION_PERFORMANCE, engine: activeEngine },
