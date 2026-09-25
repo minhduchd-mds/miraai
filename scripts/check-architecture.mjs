@@ -247,7 +247,7 @@ if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('loca
 if (localMemoryStore.includes('bpmTrend') || localMemoryStore.includes('pulseTrace')) failures.push('experimental physiological estimates must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('BehaviorEvent') || localMemoryStore.includes('behaviorTimeline')) failures.push('social behavior timeline must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('TrackedObject') || localMemoryStore.includes('objectAwareness') || localMemoryStore.includes('EnvironmentContext')) failures.push('environment object tracks must remain ephemeral, not long-term memory');
-if (localMemoryStore.includes('SpatialSceneGraph') || localMemoryStore.includes('SpatialFocus') || localMemoryStore.includes('spatialScene')) failures.push('spatial scene graph must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('SpatialSceneGraph') || localMemoryStore.includes('SpatialFocus') || localMemoryStore.includes('SpatialSceneEvent') || localMemoryStore.includes('spatialScene')) failures.push('spatial scene graph must remain ephemeral, not long-term memory');
 const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
 for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
@@ -314,7 +314,7 @@ for (const token of ['TrackedObject', 'v2-object-overlay', 'v2-object-box', 'obj
   if (!objectOverlay.includes(token)) failures.push(`object awareness overlay missing: ${token}`);
 }
 const spatialSceneGraph = readFileSync('src/core/vision/spatial-scene-graph.ts', 'utf8');
-for (const token of ['SpatialSceneGraphTracker', 'left_of', 'right_of', 'near', 'focus_changed', 'people_changed', 'spatialScenePrompt', 'MIRA_VISUAL_TARGET', 'MIRA_VISUAL_POINTER', '320', 'displayBox']) {
+for (const token of ['SpatialSceneGraphTracker', 'left_of', 'right_of', 'near', 'focus_changed', 'people_changed', 'object_moved', 'object_returned', 'object_relocated', 'departures', 'moveCooldown', 'spatialScenePrompt', 'MIRA_VISUAL_TARGET', 'MIRA_VISUAL_POINTER', 'không suy ra ai đã cầm', '320', 'displayBox']) {
   if (!spatialSceneGraph.includes(token)) failures.push(`spatial scene graph missing: ${token}`);
 }
 const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');

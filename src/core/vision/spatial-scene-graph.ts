@@ -37,6 +37,9 @@ export interface SpatialFocus {
 export type SpatialSceneEventType =
   | 'object_entered'
   | 'object_left'
+  | 'object_moved'
+  | 'object_returned'
+  | 'object_relocated'
   | 'focus_changed'
   | 'people_changed';
 
@@ -44,6 +47,7 @@ export interface SpatialSceneEvent {
   id: string;
   type: SpatialSceneEventType;
   label: string;
+  distance?: number;
   at: number;
 }
 
@@ -200,17 +204,20 @@ export class SpatialSceneGraphTracker {
   private candidateSince = 0;
   private focus: SpatialFocus | null = null;
   private focusLastSeenAt = 0;
-  private previousNodeIds = new Map<string, string>();
+  private previousNodes = new Map<string, SpatialNode>();
+  private departures: Array<{ label: string; centerX: number; centerY: number; leftAt: number }> = [];
+  private moveCooldown = new Map<string, number>();
   private previousPeopleCount = 0;
   private events: SpatialSceneEvent[] = [];
   private eventSeq = 0;
 
-  private pushEvent(type: SpatialSceneEventType, label: string, now: number): void {
+  private pushEvent(type: SpatialSceneEventType, label: string, now: number, distance = 0): void {
     this.eventSeq += 1;
     this.events.push({
       id: 'scene-' + this.eventSeq,
       type,
       label,
+      ...(distance > 0 ? { distance } : {}),
       at: now,
     });
     this.events = this.events.filter((event) => now - event.at <= 90_000).slice(-12);
@@ -238,14 +245,71 @@ export class SpatialSceneGraphTracker {
         };
       });
 
-    const currentIds = new Map(nodes.map((node) => [node.id, node.label]));
+    const currentIds = new Set(nodes.map((node) => node.id));
+
+    for (const [id, previous] of this.previousNodes) {
+      if (currentIds.has(id)) continue;
+      if (previous.kind === 'object') {
+        this.departures.push({
+          label: previous.label,
+          centerX: previous.centerX,
+          centerY: previous.centerY,
+          leftAt: now,
+        });
+      }
+      this.pushEvent('object_left', previous.label, now);
+      this.moveCooldown.delete(id);
+    }
+    this.departures = this.departures.filter((item) => now - item.leftAt <= 12_000).slice(-12);
+
     for (const node of nodes) {
-      if (!this.previousNodeIds.has(node.id)) this.pushEvent('object_entered', node.label, now);
+      const previous = this.previousNodes.get(node.id);
+      if (previous) {
+        if (node.kind === 'object') {
+          const distance = Math.hypot(node.centerX - previous.centerX, node.centerY - previous.centerY);
+          const lastMoveAt = this.moveCooldown.get(node.id) || -Infinity;
+          if (distance >= 0.065 && now - lastMoveAt >= 850) {
+            this.pushEvent('object_moved', node.label, now, distance);
+            this.moveCooldown.set(node.id, now);
+          }
+        }
+        continue;
+      }
+
+      if (node.kind !== 'object') {
+        this.pushEvent('object_entered', node.label, now);
+        continue;
+      }
+
+      let departureIndex = -1;
+      let departureDistance = Infinity;
+      for (let i = 0; i < this.departures.length; i += 1) {
+        const candidate = this.departures[i];
+        if (candidate.label !== node.label || now - candidate.leftAt > 12_000) continue;
+        const distance = Math.hypot(node.centerX - candidate.centerX, node.centerY - candidate.centerY);
+        if (distance < departureDistance) {
+          departureDistance = distance;
+          departureIndex = i;
+        }
+      }
+
+      if (departureIndex >= 0) {
+        this.departures.splice(departureIndex, 1);
+        this.pushEvent(
+          departureDistance >= 0.12 ? 'object_relocated' : 'object_returned',
+          node.label,
+          now,
+          departureDistance,
+        );
+      } else {
+        this.pushEvent('object_entered', node.label, now);
+      }
     }
-    for (const [id, label] of this.previousNodeIds) {
-      if (!currentIds.has(id)) this.pushEvent('object_left', label, now);
-    }
-    this.previousNodeIds = currentIds;
+
+    this.previousNodes = new Map(nodes.map((node) => [
+      node.id,
+      { ...node, box: { ...node.box } },
+    ]));
 
     const peopleCount = nodes.filter((node) => node.kind === 'person').length;
     if (peopleCount !== this.previousPeopleCount) {
@@ -331,7 +395,9 @@ export class SpatialSceneGraphTracker {
     this.candidateSince = 0;
     this.focus = null;
     this.focusLastSeenAt = 0;
-    this.previousNodeIds.clear();
+    this.previousNodes.clear();
+    this.departures = [];
+    this.moveCooldown.clear();
     this.previousPeopleCount = 0;
     this.events = [];
     this.eventSeq = 0;
@@ -383,6 +449,26 @@ export function spatialScenePrompt(graph: SpatialSceneGraph, now = performance.n
         '"' + nodeLabel(graph, relation.from) + '" ' + relationPhrase(relation.type) + ' vùng person chính trong khung',
       );
     if (useful.length) parts.push('Quan hệ không gian theo ảnh camera: ' + useful.join('; ') + '.');
+  }
+
+  const recentMovement = [...graph.events]
+    .reverse()
+    .find((event) =>
+      (event.type === 'object_moved' || event.type === 'object_relocated' || event.type === 'object_returned') &&
+      now - event.at <= 6_000
+    );
+  if (recentMovement) {
+    const distance = recentMovement.distance ? Math.round(recentMovement.distance * 100) : 0;
+    const movementText = recentMovement.type === 'object_relocated'
+      ? 'vừa xuất hiện lại ở vị trí khác'
+      : recentMovement.type === 'object_returned'
+        ? 'vừa xuất hiện lại gần vị trí cũ'
+        : 'vừa đổi vị trí trong khung';
+    parts.push(
+      '"' + recentMovement.label + '" ' + movementText +
+      (distance ? ' (dịch chuyển 2D khoảng ' + distance + '% khung)' : '') +
+      '. Đây chỉ là thay đổi box theo thời gian; không suy ra ai đã cầm, di chuyển hay đặt vật.',
+    );
   }
 
   const recentPeopleChange = [...graph.events]

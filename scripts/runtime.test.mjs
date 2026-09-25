@@ -857,3 +857,57 @@ test('face frame guard clamps blendshape scores but does not use them as a prese
   assert.equal(signal.blendshapes.jawOpen, 1);
   assert.equal(signal.blendshapes.eyeBlinkLeft, 0);
 });
+
+
+test('spatial memory emits object_moved for a stable tracked object that changes screen position', () => {
+  const tracker = new spatialSceneGraph.SpatialSceneGraphTracker();
+  const make = (x) => [{
+    id: 'laptop-1', label: 'laptop', score: 0.92,
+    box: { x, y: 0.42, width: 0.2, height: 0.2 },
+    hits: 5, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+  }];
+  tracker.update(make(0.68), { active: false, x: 0.5, y: 0.5, confidence: 0 }, 1000);
+  const graph = tracker.update(make(0.5), { active: false, x: 0.5, y: 0.5, confidence: 0 }, 2100);
+  const moved = graph.events.find((event) => event.type === 'object_moved' && event.label === 'laptop');
+  assert.ok(moved);
+  assert.ok((moved?.distance || 0) >= 0.065);
+});
+
+test('spatial memory matches a same-label object after disappearance and reports relocation conservatively', () => {
+  const tracker = new spatialSceneGraph.SpatialSceneGraphTracker();
+  const oldObject = [{
+    id: 'book-old', label: 'book', score: 0.9,
+    box: { x: 0.72, y: 0.42, width: 0.18, height: 0.22 },
+    hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+  }];
+  tracker.update(oldObject, { active: false, x: 0.5, y: 0.5, confidence: 0 }, 1000);
+  tracker.update([], { active: false, x: 0.5, y: 0.5, confidence: 0 }, 2200);
+
+  const reappeared = [{
+    id: 'book-new', label: 'book', score: 0.91,
+    box: { x: 0.18, y: 0.44, width: 0.18, height: 0.22 },
+    hits: 4, stable: true, firstSeenAt: 2600, lastSeenAt: 3000,
+  }];
+  const graph = tracker.update(reappeared, { active: false, x: 0.5, y: 0.5, confidence: 0 }, 3000);
+  const relocated = graph.events.find((event) => event.type === 'object_relocated' && event.label === 'book');
+  assert.ok(relocated);
+  assert.ok((relocated?.distance || 0) >= 0.12);
+  assert.match(spatialSceneGraph.spatialScenePrompt(graph, 3000), /không suy ra ai đã cầm|chỉ là thay đổi box/i);
+});
+
+test('spatial memory calls a near same-label reappearance returned, not relocated', () => {
+  const tracker = new spatialSceneGraph.SpatialSceneGraphTracker();
+  tracker.update([{
+    id: 'cup-a', label: 'cup', score: 0.88,
+    box: { x: 0.4, y: 0.4, width: 0.12, height: 0.18 },
+    hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+  }], { active: false, x: 0.5, y: 0.5, confidence: 0 }, 1000);
+  tracker.update([], { active: false, x: 0.5, y: 0.5, confidence: 0 }, 2000);
+  const graph = tracker.update([{
+    id: 'cup-b', label: 'cup', score: 0.9,
+    box: { x: 0.43, y: 0.41, width: 0.12, height: 0.18 },
+    hits: 4, stable: true, firstSeenAt: 2200, lastSeenAt: 2600,
+  }], { active: false, x: 0.5, y: 0.5, confidence: 0 }, 2600);
+  assert.ok(graph.events.some((event) => event.type === 'object_returned' && event.label === 'cup'));
+  assert.equal(graph.events.some((event) => event.type === 'object_relocated' && event.label === 'cup'), false);
+});

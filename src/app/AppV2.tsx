@@ -1187,7 +1187,10 @@ export default function AppV2() {
               {sceneGraphTelemetry.events.length > 0 && (
                 <div className="v2-spatial-events">
                   {sceneGraphTelemetry.events.slice(-3).map((event) => (
-                    <span key={event.id}>{event.type.replaceAll('_', ' ')} · {event.label}</span>
+                    <span key={event.id}>
+                      {event.type.replaceAll('_', ' ')} · {event.label}
+                      {event.distance ? ` · ${Math.round(event.distance * 100)}%` : ''}
+                    </span>
                   ))}
                 </div>
               )}
