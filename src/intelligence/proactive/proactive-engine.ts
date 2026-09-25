@@ -45,8 +45,8 @@ export class ProactiveEngine {
 
     const interaction = affect.interaction;
     if (interaction?.state === 'absent' || interaction?.state === 'looking_away') return null;
-    if (interaction?.state === 'returning' && interaction.lastAwayMs >= 15_000 && interaction.confidence >= 0.55) {
-      return this.commit('Anh quay lại rồi. Em tiếp tục ở đây nhé.', now);
+    if (interaction?.state === 'returning' && interaction.lastAwayMs >= 90_000 && interaction.confidence >= 0.6) {
+      return this.commit('Anh quay lại rồi. Em vẫn giữ mạch trước, mình tiếp tục nhé.', now);
     }
 
     if (affect.confidence >= 0.58 && now - this.moodSince >= 8_000) {

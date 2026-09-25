@@ -11,6 +11,7 @@ import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/
 import { describeAffectSignal, resolveFaceControlAction } from '../intelligence/affect/affect-control';
 import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
 import { FaceSocialControlTracker, gazePresenceLabel, type FaceSocialCue } from '../intelligence/social/face-social-control';
+import { EMPTY_PRESENCE_CONTINUITY, PresenceContinuityTracker, presenceContinuityPrompt, type PresenceContinuityState } from '../intelligence/social/presence-continuity';
 import { BehaviorTimeline, type BehaviorEvent } from '../intelligence/social/behavior-timeline';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
 import { GestureIntentTracker, type GestureIntentState } from '../core/vision/gesture-intent';
@@ -102,6 +103,8 @@ export default function AppV2() {
   const lastHeadGestureRef = useRef('none');
   const lastFaceActionAtRef = useRef(0);
   const faceSocialTrackerRef = useRef(new FaceSocialControlTracker());
+  const presenceContinuityRef = useRef(new PresenceContinuityTracker());
+  const [presenceContinuity, setPresenceContinuity] = useState<PresenceContinuityState>(() => ({ ...EMPTY_PRESENCE_CONTINUITY }));
   const [faceSocialCue, setFaceSocialCue] = useState<FaceSocialCue>('none');
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
@@ -261,6 +264,8 @@ export default function AppV2() {
     lastHeadGestureRef.current = 'none';
     lastFaceActionAtRef.current = 0;
     faceSocialTrackerRef.current.reset();
+    presenceContinuityRef.current.reset();
+    setPresenceContinuity({ ...EMPTY_PRESENCE_CONTINUITY });
     setFaceSocialCue('none');
     setGazeTelemetry({ x: 0, y: 0 });
     setRealPresencePose({ ...EMPTY_REAL_PRESENCE_POSE });
@@ -553,6 +558,37 @@ export default function AppV2() {
       );
       setCausalActionGraphTelemetry(causalActionGraph);
 
+      const socialEvent = faceSocialTrackerRef.current.update({
+        faceSeen: Boolean(face?.present),
+        faceConfidence,
+        gesture: String(face?.faceGesture || 'none'),
+        gestureConfidence: Number(face?.faceGestureConfidence || 0),
+      }, now);
+      if (socialEvent.eventId > 0 && socialEvent.cue !== 'none') {
+        setFaceSocialCue(socialEvent.cue);
+        if (faceSocialCueTimerRef.current != null) window.clearTimeout(faceSocialCueTimerRef.current);
+        faceSocialCueTimerRef.current = window.setTimeout(() => {
+          faceSocialCueTimerRef.current = null;
+          setFaceSocialCue('none');
+        }, 720);
+
+        if (socialEvent.action === 'toggle_affect') {
+          setAffectFollowing((previous) => !previous);
+          showFaceActionFeedback('Nháy mắt trái · đổi chế độ phản ứng');
+        } else if (socialEvent.action === 'cycle_theme') {
+          setTheme((current) => THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
+          showFaceActionFeedback('Nháy mắt phải · đổi màu');
+        }
+      }
+
+      const continuity = presenceContinuityRef.current.update({
+        faceSeen: Boolean(face?.present),
+        interactionState: interaction.state,
+        attention: interaction.attention,
+        socialCue: socialEvent.cue,
+      }, now);
+      setPresenceContinuity(continuity);
+
       const recentBehavior = behaviorTimelineRef.current.observe({
         interaction,
         microKind: String(micro.kind || 'none'),
@@ -591,6 +627,7 @@ export default function AppV2() {
       nextAffect.interaction = interaction;
       const socialContext = [
         interactionPrompt(interaction),
+        presenceContinuityPrompt(continuity),
         behaviorTimelineRef.current.promptSummary(now),
         environmentPrompt(environmentContext),
         spatialScenePrompt(sceneGraph, now),
@@ -603,29 +640,6 @@ export default function AppV2() {
       if (socialContext) nextAffect.promptContext = nextAffect.promptContext + ' ' + socialContext;
       setFaceAffect(nextAffect);
       mira.observeAffect(affectFollowing ? nextAffect : neutralAffect());
-
-      const socialEvent = faceSocialTrackerRef.current.update({
-        faceSeen: Boolean(face?.present),
-        faceConfidence,
-        gesture: String(face?.faceGesture || 'none'),
-        gestureConfidence: Number(face?.faceGestureConfidence || 0),
-      }, now);
-      if (socialEvent.eventId > 0 && socialEvent.cue !== 'none') {
-        setFaceSocialCue(socialEvent.cue);
-        if (faceSocialCueTimerRef.current != null) window.clearTimeout(faceSocialCueTimerRef.current);
-        faceSocialCueTimerRef.current = window.setTimeout(() => {
-          faceSocialCueTimerRef.current = null;
-          setFaceSocialCue('none');
-        }, 720);
-
-        if (socialEvent.action === 'toggle_affect') {
-          setAffectFollowing((previous) => !previous);
-          showFaceActionFeedback('Nháy mắt trái · đổi chế độ phản ứng');
-        } else if (socialEvent.action === 'cycle_theme') {
-          setTheme((current) => THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
-          showFaceActionFeedback('Nháy mắt phải · đổi màu');
-        }
-      }
 
       const headGesture = String(face?.headGesture || 'none');
       if (headGesture === 'none') {
@@ -1489,6 +1503,9 @@ export default function AppV2() {
             gazeX={gazeTelemetry.x}
             gazeY={gazeTelemetry.y}
             socialCue={faceSocialCue}
+            presenceMode={presenceContinuity.mode}
+            presenceCue={presenceContinuity.cue}
+            presenceContinuity={presenceContinuity.continuity}
           />
         </div>
 

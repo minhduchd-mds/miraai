@@ -30,6 +30,7 @@ const postureModel = await importTypeScript('src/core/vision/posture-model.ts');
 const rppgSignal = await importTypeScript('src/core/vision/rppg-signal.ts');
 const interaction = await importTypeScript('src/intelligence/social/interaction-engine.ts');
 const faceSocialControl = await importTypeScript('src/intelligence/social/face-social-control.ts');
+const presenceContinuity = await importTypeScript('src/intelligence/social/presence-continuity.ts');
 const behaviorTimeline = await importTypeScript('src/intelligence/social/behavior-timeline.ts');
 const handGestureLite = await importTypeScript('src/core/vision/hand-gesture-lite.ts');
 const visionPerformance = await importTypeScript('src/core/vision/vision-performance.ts');
@@ -1423,4 +1424,50 @@ test('smile and brow raise create social cues without destructive UI actions', (
 
   assert.equal(faceSocialControl.gazePresenceLabel('focused'), 'Ánh nhìn · Kết nối');
   assert.equal(faceSocialControl.gazePresenceLabel('looking_away'), 'Ánh nhìn · Lệch');
+});
+
+
+test('presence continuity treats short absence as a silent reconnect micro-response', () => {
+  const tracker = new presenceContinuity.PresenceContinuityTracker();
+  tracker.update({ faceSeen: true, interactionState: 'engaged', attention: 0.7 }, 1000);
+  tracker.update({ faceSeen: false, interactionState: 'absent', attention: 0 }, 2000);
+  tracker.update({ faceSeen: false, interactionState: 'absent', attention: 0 }, 5000);
+  const returned = tracker.update({ faceSeen: true, interactionState: 'returning', attention: 0.68 }, 5200);
+  assert.equal(returned.mode, 'reconnect');
+  assert.equal(returned.cue, 'return');
+  assert.ok(returned.lastAwayMs >= 3000);
+  assert.match(presenceContinuity.presenceContinuityPrompt(returned), /tiếp tục tự nhiên|không cần chào lại/i);
+});
+
+test('presence continuity emits one focus pulse after stable focused gaze', () => {
+  const tracker = new presenceContinuity.PresenceContinuityTracker();
+  tracker.update({ faceSeen: true, interactionState: 'focused', attention: 0.82 }, 1000);
+  tracker.update({ faceSeen: true, interactionState: 'focused', attention: 0.84 }, 2200);
+  const focused = tracker.update({ faceSeen: true, interactionState: 'focused', attention: 0.86 }, 2900);
+  assert.equal(focused.mode, 'attentive');
+  assert.equal(focused.cue, 'focus');
+  assert.ok(focused.focusedMs >= 1800);
+
+  const stillFocused = tracker.update({ faceSeen: true, interactionState: 'focused', attention: 0.86 }, 3200);
+  assert.equal(stillFocused.cueId, focused.cueId);
+});
+
+test('presence continuity maps smile and brow events to non-verbal micro cues only', () => {
+  const tracker = new presenceContinuity.PresenceContinuityTracker();
+  tracker.update({ faceSeen: true, interactionState: 'engaged', attention: 0.72, socialCue: 'none' }, 1000);
+  const smile = tracker.update({ faceSeen: true, interactionState: 'engaged', attention: 0.75, socialCue: 'smile' }, 1200);
+  assert.equal(smile.cue, 'smile');
+
+  tracker.update({ faceSeen: true, interactionState: 'engaged', attention: 0.75, socialCue: 'none' }, 2100);
+  const brow = tracker.update({ faceSeen: true, interactionState: 'engaged', attention: 0.75, socialCue: 'brow_raise' }, 2300);
+  assert.equal(brow.cue, 'brow');
+});
+
+test('presence continuity is quiet when the face remains absent and stores no durable profile', () => {
+  const tracker = new presenceContinuity.PresenceContinuityTracker();
+  tracker.update({ faceSeen: false, interactionState: 'absent', attention: 0 }, 1000);
+  const absent = tracker.update({ faceSeen: false, interactionState: 'absent', attention: 0 }, 2400);
+  assert.equal(absent.mode, 'quiet');
+  assert.equal(absent.presentMs, 0);
+  assert.match(presenceContinuity.presenceContinuityPrompt(absent), /không chủ động phát lời/i);
 });

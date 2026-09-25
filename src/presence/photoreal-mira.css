@@ -6,6 +6,7 @@
   --pm-eye-contact: 0;
   --pm-gaze-x: 0px;
   --pm-gaze-y: 0px;
+  --pm-continuity: 0;
   --pm-memory: 0;
   --pm-breathe: 1;
   --pm-look-x: 0px;
@@ -681,5 +682,52 @@
 @keyframes pmSocialCue {
   0% { transform: scale(.82); opacity: .48; }
   52% { transform: scale(1.16); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+
+/* Session-only presence continuity — micro responses stay non-verbal. */
+.bedroom-presence.presence-attentive .pm-bedroom-tint::after {
+  opacity: calc(.08 + var(--pm-eye-contact) * .2 + var(--pm-continuity) * .08);
+}
+.bedroom-presence.presence-quiet .pm-wave {
+  opacity: .16;
+  transition: opacity .7s ease;
+}
+.bedroom-presence.presence-quiet .pm-live-pill {
+  opacity: .68;
+  transition: opacity .7s ease;
+}
+.bedroom-presence.presence-reconnect .pm-bedroom-tint::after,
+.bedroom-presence.presence-cue-return .pm-bedroom-tint::after {
+  animation: pmReconnectGlow 1.05s ease-out;
+}
+.bedroom-presence.presence-cue-focus .pm-live-pill {
+  animation: pmPresenceFocus .72s ease-out;
+}
+.bedroom-presence.presence-cue-smile .pm-bedroom-tint::after {
+  animation: pmWarmAck .76s ease-out;
+}
+.bedroom-presence.presence-cue-brow .pm-state-orb {
+  animation: pmBrowAck .62s ease-out;
+}
+@keyframes pmReconnectGlow {
+  0% { opacity: .03; filter: blur(12px); transform: translate(var(--pm-gaze-x), var(--pm-gaze-y)) scale(.985); }
+  48% { opacity: .34; filter: blur(5px); }
+  100% { opacity: calc(.08 + var(--pm-eye-contact) * .2); transform: translate(var(--pm-gaze-x), var(--pm-gaze-y)) scale(1.01); }
+}
+@keyframes pmPresenceFocus {
+  0% { transform: translateX(-50%) scale(.96); opacity: .72; }
+  55% { transform: translateX(-50%) scale(1.025); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); }
+}
+@keyframes pmWarmAck {
+  0% { opacity: .08; }
+  45% { opacity: .32; }
+  100% { opacity: calc(.08 + var(--pm-eye-contact) * .2); }
+}
+@keyframes pmBrowAck {
+  0% { transform: scale(.9); }
+  45% { transform: scale(1.14); }
   100% { transform: scale(1); }
 }

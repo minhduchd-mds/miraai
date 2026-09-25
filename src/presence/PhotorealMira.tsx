@@ -25,6 +25,9 @@ interface Props {
   gazeX?: number;
   gazeY?: number;
   socialCue?: 'none' | 'wink_left' | 'wink_right' | 'brow_raise' | 'smile';
+  presenceMode?: 'ambient' | 'attentive' | 'quiet' | 'reconnect';
+  presenceCue?: 'none' | 'return' | 'focus' | 'smile' | 'brow';
+  presenceContinuity?: number;
 }
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
@@ -66,6 +69,9 @@ export default function PhotorealMira({
   gazeX = 0,
   gazeY = 0,
   socialCue = 'none',
+  presenceMode = 'ambient',
+  presenceCue = 'none',
+  presenceContinuity = 0,
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
@@ -81,12 +87,14 @@ export default function PhotorealMira({
     const eyeLevel = Math.max(0, Math.min(1, Number(eyeContact) || 0));
     const gazeShiftX = Math.max(-1, Math.min(1, Number(gazeX) || 0)) * 5;
     const gazeShiftY = Math.max(-1, Math.min(1, Number(gazeY) || 0)) * 3;
+    const continuity = Math.max(0, Math.min(1, Number(presenceContinuity) || 0));
     node.style.setProperty('--pm-affect', strength.toFixed(3));
     node.style.setProperty('--pm-attention', attentionLevel.toFixed(3));
     node.style.setProperty('--pm-eye-contact', eyeLevel.toFixed(3));
     node.style.setProperty('--pm-gaze-x', `${gazeShiftX.toFixed(2)}px`);
     node.style.setProperty('--pm-gaze-y', `${gazeShiftY.toFixed(2)}px`);
-  }, [affectActive, affectFollowing, attention, eyeContact, gazeX, gazeY, moodConfidence]);
+    node.style.setProperty('--pm-continuity', continuity.toFixed(3));
+  }, [affectActive, affectFollowing, attention, eyeContact, gazeX, gazeY, moodConfidence, presenceContinuity]);
 
   useEffect(() => {
     PRELOAD.forEach((src) => {
@@ -150,7 +158,7 @@ export default function PhotorealMira({
     <button
       ref={rootRef}
       type="button"
-      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}`}
+      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue} presence-${presenceMode} presence-cue-${presenceCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}`}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
       onPointerLeave={resetPointer}

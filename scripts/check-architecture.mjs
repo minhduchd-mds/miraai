@@ -35,6 +35,7 @@ const mustExist = [
   'src/core/vision/gesture-intent.ts',
   'src/intelligence/social/gaze-head-calibration.ts',
   'src/intelligence/social/face-social-control.ts',
+  'src/intelligence/social/presence-continuity.ts',
   'src/core/vision/environment-model.ts',
   'src/core/vision/object-awareness.ts',
   'src/core/vision/spatial-scene-graph.ts',
@@ -120,7 +121,7 @@ const photoreal = readFileSync('src/presence/PhotorealMira.tsx', 'utf8');
 for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_BEDROOM', 'SCENE_BY_STATE', 'mira-bedroom.webp', 'bedroom-presence', 'pm-wave', 'pm-state-orb']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved bedroom visual/voice behavior: ${token}`);
 }
-for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue']) {
+for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
 if (photoreal.includes('pm-runtime')) failures.push('PhotorealMira must not render the legacy Mira Core popup');
@@ -261,6 +262,7 @@ if (localMemoryStore.includes('SpatialSceneGraph') || localMemoryStore.includes(
 if (localMemoryStore.includes('ObjectInteractionState') || localMemoryStore.includes('objectInteraction')) failures.push('object interaction proxy must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('ActionSequenceState') || localMemoryStore.includes('actionSequence')) failures.push('action sequence must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('CausalActionGraphState') || localMemoryStore.includes('causalActionGraph')) failures.push('causal action graph must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('PresenceContinuityState') || localMemoryStore.includes('presenceContinuity')) failures.push('presence continuity must remain ephemeral, not long-term memory');
 const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
 for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
   if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
@@ -400,6 +402,11 @@ const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
 for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'microExpression', 'MicroExpressionTracker', 'facsProxyFromBlendshapes', 'muscles', 'gazeX']) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
 }
+const presenceContinuity = readFileSync('src/intelligence/social/presence-continuity.ts', 'utf8');
+for (const token of ['PresenceContinuityTracker', 'presenceContinuityPrompt', 'session-local', "'reconnect'", "'quiet'"]) {
+  if (!presenceContinuity.includes(token)) failures.push(`presence continuity missing: ${token}`);
+}
+if (/localStorage|indexedDB|sessionStorage/.test(presenceContinuity)) failures.push('presence continuity must remain RAM-only');
 const faceSocialControl = readFileSync('src/intelligence/social/face-social-control.ts', 'utf8');
 for (const token of ['FaceSocialControlTracker', 'toggle_affect', 'cycle_theme', 'gazePresenceLabel', 'release and cooldown']) {
   if (!faceSocialControl.includes(token)) failures.push(`face social control missing: ${token}`);
