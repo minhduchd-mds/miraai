@@ -34,6 +34,7 @@ const mustExist = [
   'src/core/vision/vision-worker-client.ts',
   'src/core/vision/gesture-intent.ts',
   'src/intelligence/social/gaze-head-calibration.ts',
+  'src/intelligence/social/face-social-control.ts',
   'src/core/vision/environment-model.ts',
   'src/core/vision/object-awareness.ts',
   'src/core/vision/spatial-scene-graph.ts',
@@ -119,7 +120,7 @@ const photoreal = readFileSync('src/presence/PhotorealMira.tsx', 'utf8');
 for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_BEDROOM', 'SCENE_BY_STATE', 'mira-bedroom.webp', 'bedroom-presence', 'pm-wave', 'pm-state-orb']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved bedroom visual/voice behavior: ${token}`);
 }
-for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow']) {
+for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
 if (photoreal.includes('pm-runtime')) failures.push('PhotorealMira must not render the legacy Mira Core popup');
@@ -280,7 +281,7 @@ const cameraSurface = cameraSurfaceStart >= 0 && cameraSurfaceEnd > cameraSurfac
 for (const token of ['PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'HandSkeletonOverlay', 'v2-gesture-overlay']) {
   if (cameraSurface.includes(token)) failures.push(`camera recognition surface must remain face-only: ${token}`);
 }
-for (const token of ['FaceMeshOverlay', 'v2-camera-status face-only', 'Đã nhận diện khuôn mặt', 'v2-affect-readout', 'v2-affect-follow', 'faceActionFeedback']) {
+for (const token of ['FaceMeshOverlay', 'v2-camera-status face-only', 'Đã nhận diện khuôn mặt', 'v2-affect-readout', 'v2-affect-follow', 'v2-gaze-readout', 'faceActionFeedback']) {
   if (!cameraSurface.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
 }
 if (v2.includes('<RealPresenceOverlay')) failures.push('primary surface must not render the secondary Real Presence popup');
@@ -328,7 +329,7 @@ for (const token of ['faceBounds', 'v2-face-lock', 'FACE LOCK']) {
   if (!faceOverlay.includes(token)) failures.push(`face recognition overlay missing: ${token}`);
 }
 const v2Css = readFileSync('src/ui/v2.css', 'utf8');
-for (const token of ['Camera recognition mode', '.v2-face-panel {', 'display: none !important', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-face-action-feedback']) {
+for (const token of ['Camera recognition mode', '.v2-face-panel {', 'display: none !important', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
   if (!v2Css.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
 }
 const workerClient = readFileSync('src/core/vision/vision-worker-client.ts', 'utf8');
@@ -398,6 +399,10 @@ for (const token of ['startRppgMonitoring', "acquireVisionCamera('rppg')", 'rela
 const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
 for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'microExpression', 'MicroExpressionTracker', 'facsProxyFromBlendshapes', 'muscles', 'gazeX']) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
+}
+const faceSocialControl = readFileSync('src/intelligence/social/face-social-control.ts', 'utf8');
+for (const token of ['FaceSocialControlTracker', 'toggle_affect', 'cycle_theme', 'gazePresenceLabel', 'release and cooldown']) {
+  if (!faceSocialControl.includes(token)) failures.push(`face social control missing: ${token}`);
 }
 const interactionEngine = readFileSync('src/intelligence/social/interaction-engine.ts', 'utf8');
 for (const token of ['InteractionTracker', 'Joint-attention proxy', 'looking_away', 'returning', 'eyeContact', 'headAlignment', 'interactionPrompt']) {

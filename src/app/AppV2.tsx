@@ -10,6 +10,7 @@ import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOve
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { describeAffectSignal, resolveFaceControlAction } from '../intelligence/affect/affect-control';
 import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
+import { FaceSocialControlTracker, gazePresenceLabel, type FaceSocialCue } from '../intelligence/social/face-social-control';
 import { BehaviorTimeline, type BehaviorEvent } from '../intelligence/social/behavior-timeline';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
 import { GestureIntentTracker, type GestureIntentState } from '../core/vision/gesture-intent';
@@ -100,6 +101,10 @@ export default function AppV2() {
   const faceActionTimerRef = useRef<number | null>(null);
   const lastHeadGestureRef = useRef('none');
   const lastFaceActionAtRef = useRef(0);
+  const faceSocialTrackerRef = useRef(new FaceSocialControlTracker());
+  const [faceSocialCue, setFaceSocialCue] = useState<FaceSocialCue>('none');
+  const faceSocialCueTimerRef = useRef<number | null>(null);
+  const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
@@ -219,6 +224,7 @@ export default function AppV2() {
 
   useEffect(() => () => {
     if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
+    if (faceSocialCueTimerRef.current != null) window.clearTimeout(faceSocialCueTimerRef.current);
   }, []);
 
   const showFaceActionFeedback = useCallback((message: string) => {
@@ -254,6 +260,9 @@ export default function AppV2() {
     setFaceActionFeedback('');
     lastHeadGestureRef.current = 'none';
     lastFaceActionAtRef.current = 0;
+    faceSocialTrackerRef.current.reset();
+    setFaceSocialCue('none');
+    setGazeTelemetry({ x: 0, y: 0 });
     setRealPresencePose({ ...EMPTY_REAL_PRESENCE_POSE });
     setFaceLandmarks([]);
     setFaceActionUnits({});
@@ -471,6 +480,7 @@ export default function AppV2() {
         yaw: Number(face?.yaw || 0),
         pitch: Number(face?.pitch || 0),
       });
+      setGazeTelemetry({ x: calibrated.gazeX, y: calibrated.gazeY });
       const interaction = interactionTrackerRef.current.update({
         facePresent: Boolean(face?.present),
         faceConfidence,
@@ -593,6 +603,29 @@ export default function AppV2() {
       if (socialContext) nextAffect.promptContext = nextAffect.promptContext + ' ' + socialContext;
       setFaceAffect(nextAffect);
       mira.observeAffect(affectFollowing ? nextAffect : neutralAffect());
+
+      const socialEvent = faceSocialTrackerRef.current.update({
+        faceSeen: Boolean(face?.present),
+        faceConfidence,
+        gesture: String(face?.faceGesture || 'none'),
+        gestureConfidence: Number(face?.faceGestureConfidence || 0),
+      }, now);
+      if (socialEvent.eventId > 0 && socialEvent.cue !== 'none') {
+        setFaceSocialCue(socialEvent.cue);
+        if (faceSocialCueTimerRef.current != null) window.clearTimeout(faceSocialCueTimerRef.current);
+        faceSocialCueTimerRef.current = window.setTimeout(() => {
+          faceSocialCueTimerRef.current = null;
+          setFaceSocialCue('none');
+        }, 720);
+
+        if (socialEvent.action === 'toggle_affect') {
+          setAffectFollowing((previous) => !previous);
+          showFaceActionFeedback('Nháy mắt trái · đổi chế độ phản ứng');
+        } else if (socialEvent.action === 'cycle_theme') {
+          setTheme((current) => THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
+          showFaceActionFeedback('Nháy mắt phải · đổi màu');
+        }
+      }
 
       const headGesture = String(face?.headGesture || 'none');
       if (headGesture === 'none') {
@@ -1025,6 +1058,7 @@ export default function AppV2() {
     confidence: faceAffect.confidence,
     faceChannel: faceAffect.channels.face,
   });
+  const gazeLabel = gazePresenceLabel(interactionTelemetry.state);
 
   const facialGestureLabel = ({
     smile: 'Cười',
@@ -1265,6 +1299,10 @@ export default function AppV2() {
                   <span>Biểu cảm</span>
                   <b>{affectSignal.label}</b>
                 </div>
+                <div className={`v2-gaze-readout state-${interactionTelemetry.state}`}>
+                  <i aria-hidden="true" />
+                  <span>{gazeLabel}</span>
+                </div>
                 <button
                   type="button"
                   className={`v2-affect-follow${affectFollowing ? ' active' : ''}`}
@@ -1445,6 +1483,12 @@ export default function AppV2() {
             moodConfidence={faceAffect.confidence}
             affectActive={visionOn && faceSeen}
             affectFollowing={affectFollowing}
+            interactionState={interactionTelemetry.state}
+            attention={interactionTelemetry.attention}
+            eyeContact={interactionTelemetry.eyeContact}
+            gazeX={gazeTelemetry.x}
+            gazeY={gazeTelemetry.y}
+            socialCue={faceSocialCue}
           />
         </div>
 

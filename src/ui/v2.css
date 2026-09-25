@@ -1728,3 +1728,45 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, .2);
   backdrop-filter: blur(10px);
 }
+
+
+/* Gaze presence chip — semantic state only, no raw eye coordinates. */
+.v2-gaze-readout {
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  z-index: 11;
+  max-width: calc(100% - 16px);
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(176, 191, 232, .14);
+  border-radius: 999px;
+  background: rgba(3, 7, 22, .58);
+  color: rgba(219, 228, 250, .62);
+  font: 600 6px/1 'Inter', system-ui, sans-serif;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.v2-gaze-readout i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(151, 167, 207, .48);
+}
+.v2-gaze-readout.state-focused {
+  border-color: rgba(111, 239, 196, .28);
+  color: rgba(230, 255, 247, .9);
+  background: rgba(9, 47, 38, .56);
+}
+.v2-gaze-readout.state-focused i,
+.v2-gaze-readout.state-engaged i,
+.v2-gaze-readout.state-returning i {
+  background: #75ecc4;
+  box-shadow: 0 0 7px rgba(117, 236, 196, .68);
+}
+.v2-gaze-readout.state-looking_away {
+  color: rgba(214, 221, 242, .48);
+  opacity: .78;
+}

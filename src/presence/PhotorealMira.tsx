@@ -19,6 +19,12 @@ interface Props {
   moodConfidence?: number;
   affectActive?: boolean;
   affectFollowing?: boolean;
+  interactionState?: 'engaged' | 'focused' | 'looking_away' | 'returning' | 'absent' | 'uncertain';
+  attention?: number;
+  eyeContact?: number;
+  gazeX?: number;
+  gazeY?: number;
+  socialCue?: 'none' | 'wink_left' | 'wink_right' | 'brow_raise' | 'smile';
 }
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
@@ -54,6 +60,12 @@ export default function PhotorealMira({
   moodConfidence = 0,
   affectActive = false,
   affectFollowing = true,
+  interactionState = 'uncertain',
+  attention = 0,
+  eyeContact = 0,
+  gazeX = 0,
+  gazeY = 0,
+  socialCue = 'none',
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
@@ -65,8 +77,16 @@ export default function PhotorealMira({
     const strength = affectActive && affectFollowing
       ? Math.max(0, Math.min(1, Number(moodConfidence) || 0))
       : 0;
+    const attentionLevel = Math.max(0, Math.min(1, Number(attention) || 0));
+    const eyeLevel = Math.max(0, Math.min(1, Number(eyeContact) || 0));
+    const gazeShiftX = Math.max(-1, Math.min(1, Number(gazeX) || 0)) * 5;
+    const gazeShiftY = Math.max(-1, Math.min(1, Number(gazeY) || 0)) * 3;
     node.style.setProperty('--pm-affect', strength.toFixed(3));
-  }, [affectActive, affectFollowing, moodConfidence]);
+    node.style.setProperty('--pm-attention', attentionLevel.toFixed(3));
+    node.style.setProperty('--pm-eye-contact', eyeLevel.toFixed(3));
+    node.style.setProperty('--pm-gaze-x', `${gazeShiftX.toFixed(2)}px`);
+    node.style.setProperty('--pm-gaze-y', `${gazeShiftY.toFixed(2)}px`);
+  }, [affectActive, affectFollowing, attention, eyeContact, gazeX, gazeY, moodConfidence]);
 
   useEffect(() => {
     PRELOAD.forEach((src) => {
@@ -130,7 +150,7 @@ export default function PhotorealMira({
     <button
       ref={rootRef}
       type="button"
-      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}`}
+      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}`}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
       onPointerLeave={resetPointer}

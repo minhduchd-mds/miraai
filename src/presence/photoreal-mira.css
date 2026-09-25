@@ -2,6 +2,10 @@
   --pm-level: 0;
   --pm-energy: 0;
   --pm-affect: 0;
+  --pm-attention: 0;
+  --pm-eye-contact: 0;
+  --pm-gaze-x: 0px;
+  --pm-gaze-y: 0px;
   --pm-memory: 0;
   --pm-breathe: 1;
   --pm-look-x: 0px;
@@ -623,4 +627,59 @@
   background:
     radial-gradient(circle at 54% 42%, rgba(207, 224, 255, .16), transparent 31%),
     radial-gradient(circle at 72% 58%, rgba(154, 194, 255, .08), transparent 30%);
+}
+
+
+/* Gaze-aware presence: subtle environmental response, not simulated eye animation. */
+.bedroom-presence .pm-bedroom-tint::after {
+  content: '';
+  position: absolute;
+  inset: -3%;
+  border-radius: 28%;
+  background:
+    radial-gradient(circle at 54% 44%, rgba(196, 221, 255, .17), transparent 31%),
+    radial-gradient(circle at 58% 51%, rgba(112, 240, 205, .08), transparent 38%);
+  opacity: calc(var(--pm-eye-contact) * .24);
+  transform: translate(var(--pm-gaze-x), var(--pm-gaze-y)) scale(calc(1.01 + var(--pm-attention) * .012));
+  filter: blur(calc(7px - var(--pm-attention) * 3px));
+  transition: opacity .45s ease, transform .55s ease, filter .55s ease;
+  pointer-events: none;
+}
+.bedroom-presence.gaze-focused .pm-live-pill {
+  border-color: rgba(126, 239, 204, .24);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .14), 0 0 20px rgba(104, 237, 194, .08);
+}
+.bedroom-presence.gaze-focused .pm-state-orb i {
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 72%, transparent);
+}
+.bedroom-presence.gaze-looking_away .pm-wave {
+  opacity: .28;
+}
+.bedroom-presence.gaze-looking_away .pm-bedroom-tint::after {
+  opacity: calc(var(--pm-eye-contact) * .1);
+}
+.bedroom-presence.gaze-returning .pm-bedroom-tint::after {
+  animation: pmPresenceReturn .8s ease-out;
+}
+.bedroom-presence.social-wink_left .pm-state-orb,
+.bedroom-presence.social-wink_right .pm-state-orb,
+.bedroom-presence.social-brow_raise .pm-state-orb,
+.bedroom-presence.social-smile .pm-state-orb {
+  animation: pmSocialCue .62s ease-out;
+}
+.bedroom-presence.social-smile .pm-bedroom-tint::after {
+  opacity: calc(.12 + var(--pm-eye-contact) * .24);
+}
+.bedroom-presence.social-brow_raise .pm-bedroom-tint::after {
+  filter: blur(3px);
+}
+@keyframes pmPresenceReturn {
+  0% { opacity: .04; transform: translate(var(--pm-gaze-x), var(--pm-gaze-y)) scale(.98); }
+  55% { opacity: .3; }
+  100% { transform: translate(var(--pm-gaze-x), var(--pm-gaze-y)) scale(calc(1.01 + var(--pm-attention) * .012)); }
+}
+@keyframes pmSocialCue {
+  0% { transform: scale(.82); opacity: .48; }
+  52% { transform: scale(1.16); opacity: 1; }
+  100% { transform: scale(1); }
 }

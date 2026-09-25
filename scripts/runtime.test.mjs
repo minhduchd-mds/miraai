@@ -29,6 +29,7 @@ const microExpression = await importTypeScript('src/core/face/micro-expression.t
 const postureModel = await importTypeScript('src/core/vision/posture-model.ts');
 const rppgSignal = await importTypeScript('src/core/vision/rppg-signal.ts');
 const interaction = await importTypeScript('src/intelligence/social/interaction-engine.ts');
+const faceSocialControl = await importTypeScript('src/intelligence/social/face-social-control.ts');
 const behaviorTimeline = await importTypeScript('src/intelligence/social/behavior-timeline.ts');
 const handGestureLite = await importTypeScript('src/core/vision/hand-gesture-lite.ts');
 const visionPerformance = await importTypeScript('src/core/vision/vision-performance.ts');
@@ -1351,4 +1352,75 @@ test('face control refuses low-confidence head movement', () => {
     state: 'thinking',
     voiceReady: true,
   }), 'none');
+});
+
+
+test('facial social control requires temporal confirmation before a wink action', () => {
+  const tracker = new faceSocialControl.FaceSocialControlTracker();
+  let event = tracker.update({
+    faceSeen: true, faceConfidence: 0.82, gesture: 'wink_left', gestureConfidence: 0.86,
+  }, 1000);
+  assert.equal(event.action, 'none');
+
+  event = tracker.update({
+    faceSeen: true, faceConfidence: 0.82, gesture: 'wink_left', gestureConfidence: 0.86,
+  }, 1120);
+  assert.equal(event.action, 'toggle_affect');
+  assert.equal(event.cue, 'wink_left');
+});
+
+test('facial social control rejects low-confidence wink classification', () => {
+  const tracker = new faceSocialControl.FaceSocialControlTracker();
+  tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'wink_right', gestureConfidence: 0.54,
+  }, 1000);
+  const event = tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'wink_right', gestureConfidence: 0.54,
+  }, 1200);
+  assert.equal(event.action, 'none');
+});
+
+test('facial social control requires release before the same gesture can fire again', () => {
+  const tracker = new faceSocialControl.FaceSocialControlTracker();
+  tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'wink_right', gestureConfidence: 0.9,
+  }, 1000);
+  let event = tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'wink_right', gestureConfidence: 0.9,
+  }, 1120);
+  assert.equal(event.action, 'cycle_theme');
+
+  event = tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'wink_right', gestureConfidence: 0.9,
+  }, 1300);
+  assert.equal(event.action, 'none');
+
+  tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'none', gestureConfidence: 0,
+  }, 1400);
+  tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'wink_right', gestureConfidence: 0.9,
+  }, 2800);
+  event = tracker.update({
+    faceSeen: true, faceConfidence: 0.8, gesture: 'wink_right', gestureConfidence: 0.9,
+  }, 2920);
+  assert.equal(event.action, 'cycle_theme');
+});
+
+test('smile and brow raise create social cues without destructive UI actions', () => {
+  const smileTracker = new faceSocialControl.FaceSocialControlTracker();
+  smileTracker.update({
+    faceSeen: true, faceConfidence: 0.82, gesture: 'smile', gestureConfidence: 0.78,
+  }, 1000);
+  smileTracker.update({
+    faceSeen: true, faceConfidence: 0.82, gesture: 'smile', gestureConfidence: 0.78,
+  }, 1220);
+  const smile = smileTracker.update({
+    faceSeen: true, faceConfidence: 0.82, gesture: 'smile', gestureConfidence: 0.78,
+  }, 1440);
+  assert.equal(smile.cue, 'smile');
+  assert.equal(smile.action, 'none');
+
+  assert.equal(faceSocialControl.gazePresenceLabel('focused'), 'Ánh nhìn · Kết nối');
+  assert.equal(faceSocialControl.gazePresenceLabel('looking_away'), 'Ánh nhìn · Lệch');
 });
