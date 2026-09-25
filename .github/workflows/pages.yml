@@ -30,12 +30,6 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Decode Mira photoreal asset
-        run: |
-          mkdir -p public/looks
-          cat             assets-source/mira-photoreal.part00             assets-source/mira-photoreal.part01             assets-source/mira-photoreal.part02             assets-source/mira-photoreal.part03             assets-source/mira-photoreal.part08             assets-source/mira-photoreal.part09             assets-source/mira-photoreal.part10             assets-source/mira-photoreal.part11             assets-source/mira-photoreal.part12             assets-source/mira-photoreal.part13             assets-source/mira-photoreal.part14             assets-source/mira-photoreal.part15             | base64 --decode > public/looks/mira-photoreal.webp
-          echo "a20d86a2156032fa98944311fd3049803702a025125ea31484c46e88dc8ba398  public/looks/mira-photoreal.webp" | sha256sum -c -
-
       - name: Decode Mira bedroom scene
         run: |
           mkdir -p public/scenes
@@ -56,6 +50,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Prune heavy Labs assets
+        run: npm run prune:pages
 
       - name: Prepare static fallback
         run: |

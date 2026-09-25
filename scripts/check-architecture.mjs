@@ -73,6 +73,7 @@ const mustExist = [
   'src/core/useMira.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
+  'scripts/prune-pages-assets.mjs',
   'api/tts.js',
 ];
 
@@ -87,6 +88,17 @@ if (!entry.includes("const LegacyApp = lazy(async () =>") || !entry.includes("im
 }
 if (entry.includes("import './ui/styles.css';")) failures.push('legacy styles.css must not be in the initial AppV2 graph');
 if (!entry.includes("import './ui/base-v2.css';")) failures.push('AppV2 base stylesheet missing');
+
+const pagesWorkflow = readFileSync('.github/workflows/pages.yml', 'utf8');
+if (!pagesWorkflow.includes('npm run prune:pages')) failures.push('Pages must prune heavy legacy assets after build');
+const pagesPrune = readFileSync('scripts/prune-pages-assets.mjs', 'utf8');
+for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", 'Pages artifact prune']) {
+  if (!pagesPrune.includes(token)) failures.push(`Pages asset prune missing: ${token}`);
+}
+const legacyApp = readFileSync('src/App.tsx', 'utf8');
+for (const token of ['GITHUB_PAGES_LITE', "hostname.endsWith('.github.io')", '!GITHUB_PAGES_LITE && !avatar2d']) {
+  if (!legacyApp.includes(token)) failures.push(`Pages Labs lightweight fallback missing: ${token}`);
+}
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {

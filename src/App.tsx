@@ -13,6 +13,7 @@ import SplatViewer from './avatar/SplatViewer';
 import { IconCamera, IconCameraOff, IconSettings, IconHand, IconCube } from './ui/icons';
 
 const N_BARS = 52;
+const GITHUB_PAGES_LITE = typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
 
 export default function App() {
   const mira = useMira();
@@ -26,6 +27,7 @@ export default function App() {
   const [avatarOpacity, setAvatarOpacity] = useState(1);
   // Ưu tiên ảnh 2D (PNG trong suốt) thay vì model 3D — bật/tắt bằng nút trên header, nhớ qua localStorage.
   const [avatar2d, setAvatar2d] = useState(() => {
+    if (GITHUB_PAGES_LITE) return true;
     try { return localStorage.getItem('mira.avatar2d') === '1'; } catch { return false; }
   });
   const toggle2d = () => setAvatar2d((v) => {
@@ -34,7 +36,7 @@ export default function App() {
     return n;
   });
   // Hiện 3D khi: không ưu tiên 2D & bộ có model 3D. Còn lại → avatarUrl=null để sân khấu hiện ảnh PNG (lookSrc).
-  const avatarUrl = !avatar2d && has3D(avatarSel) ? resolveAvatarUrl(avatarSel) : null;
+  const avatarUrl = !GITHUB_PAGES_LITE && !avatar2d && has3D(avatarSel) ? resolveAvatarUrl(avatarSel) : null;
   const lookSrc = lookImage(avatarSel);
   const onAvatarChange = (s: AvatarSel) => {
     setAvatarSel(s);
@@ -377,16 +379,18 @@ export default function App() {
             <span className={avatar2d ? 'on' : ''}>2D</span>
             <span className={!avatar2d ? 'on' : ''}>3D</span>
           </button>
-          <button
-            className="console"
-            onClick={() => setSplatOn((v) => !v)}
-            aria-pressed={splatOn}
-            title="Xem mô hình Gaussian Splat 3D (tĩnh, xoay bằng chuột)"
-            aria-label="Splat 3D"
-          >
-            <IconCube />
-            <span className="lbl">Splat</span>
-          </button>
+          {!GITHUB_PAGES_LITE && (
+            <button
+              className="console"
+              onClick={() => setSplatOn((v) => !v)}
+              aria-pressed={splatOn}
+              title="Xem mô hình Gaussian Splat 3D (tĩnh, xoay bằng chuột)"
+              aria-label="Splat 3D"
+            >
+              <IconCube />
+              <span className="lbl">Splat</span>
+            </button>
+          )}
           <button className="console" onClick={() => setShowConsole(true)} title="Cài đặt" aria-label="Cài đặt">
             <IconSettings />
             <span className="lbl">Cài đặt</span>
