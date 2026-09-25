@@ -332,7 +332,7 @@ for (const token of ['ActionSequenceTracker', 'hand_approach', 'object_occluded'
   if (!actionSequence.includes(token)) failures.push(`action sequence v12 missing: ${token}`);
 }
 const causalActionGraph = readFileSync('src/core/vision/causal-action-graph.ts', 'utf8');
-for (const token of ['CausalActionGraphTracker', 'competingCount', 'identity_rebind', 'detector_return', 'hand_withdraw', 'margin >= 0.08', 'Math.pow(0.5', 'causalActionGraphPrompt', 'MIRA_CAUSAL_ACTION_GRAPH', 'temporal order']) {
+for (const token of ['CausalActionGraphTracker', 'competingCount', 'identity_rebind', 'detector_return', 'hand_withdraw', 'margin >= 0.08', 'Math.pow(0.5', 'causalActionGraphPrompt', 'MIRA_CAUSAL_ACTION_GRAPH', 'Temporal order']) {
   if (!causalActionGraph.includes(token)) failures.push(`causal action graph v13 missing: ${token}`);
 }
 const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');
