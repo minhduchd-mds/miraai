@@ -34,6 +34,8 @@ const visionPerformance = await importTypeScript('src/core/vision/vision-perform
 const gazeCalibration = await importTypeScript('src/intelligence/social/gaze-head-calibration.ts');
 const gestureIntent = await importTypeScript('src/core/vision/gesture-intent.ts');
 const environmentModel = await importTypeScript('src/core/vision/environment-model.ts');
+const spatialSceneGraph = await importTypeScript('src/core/vision/spatial-scene-graph.ts');
+const deicticVision = await importTypeScript('src/intelligence/vision/deictic-vision.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -693,4 +695,121 @@ test('behavior timeline can carry environment transitions without persisting raw
   const count = events.length;
   events = timeline.observe({ environment: 'workspace', environmentConfidence: 0.8 }, 1300);
   assert.equal(events.length, count);
+});
+
+
+test('spatial scene graph mirrors camera geometry into the user-visible preview and derives person-relative relations', () => {
+  const tracker = new spatialSceneGraph.SpatialSceneGraphTracker();
+  const objects = [
+    {
+      id: 'person-1', label: 'person', score: 0.95,
+      box: { x: 0.08, y: 0.08, width: 0.34, height: 0.84 },
+      hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+    },
+    {
+      id: 'laptop-1', label: 'laptop', score: 0.9,
+      box: { x: 0.68, y: 0.54, width: 0.22, height: 0.18 },
+      hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+    },
+  ];
+  const graph = tracker.update(objects, { active: false, x: 0.5, y: 0.5, confidence: 0 }, 1000);
+  const laptop = graph.nodes.find((node) => node.label === 'laptop');
+  const person = graph.nodes.find((node) => node.label === 'person');
+  assert.ok(laptop && person);
+  assert.ok(laptop.centerX < person.centerX);
+  assert.ok(graph.relations.some((relation) =>
+    relation.from === laptop.id &&
+    relation.to === person.id &&
+    relation.type === 'left_of'
+  ));
+});
+
+test('spatial pointing focus requires a stable target before "cái này" context is exposed', () => {
+  const tracker = new spatialSceneGraph.SpatialSceneGraphTracker();
+  const objects = [
+    {
+      id: 'phone-1', label: 'cell phone', score: 0.9,
+      box: { x: 0.62, y: 0.42, width: 0.18, height: 0.24 },
+      hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+    },
+  ];
+  const pointer = { active: true, x: 0.29, y: 0.54, confidence: 0.88 };
+  let graph = tracker.update(objects, pointer, 1000);
+  assert.equal(graph.focus, null);
+  graph = tracker.update(objects, pointer, 1200);
+  assert.equal(graph.focus, null);
+  graph = tracker.update(objects, pointer, 1360);
+  assert.equal(graph.focus?.label, 'cell phone');
+  assert.ok((graph.focus?.confidence || 0) > 0.7);
+  assert.match(spatialSceneGraph.spatialScenePrompt(graph, 1360), /cái này\/vật này|cell phone/i);
+
+  graph = tracker.update(objects, { active: true, x: 0.9, y: 0.08, confidence: 0.9 }, 1850);
+  assert.equal(graph.focus, null);
+});
+
+test('spatial scene graph emits only camera-box people-count changes, not identity claims', () => {
+  const tracker = new spatialSceneGraph.SpatialSceneGraphTracker();
+  const onePerson = [{
+    id: 'p1', label: 'person', score: 0.91,
+    box: { x: 0.1, y: 0.05, width: 0.35, height: 0.9 },
+    hits: 3, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+  }];
+  tracker.update(onePerson, { active: false, x: 0.5, y: 0.5, confidence: 0 }, 1000);
+  const twoPeople = [
+    ...onePerson,
+    {
+      id: 'p2', label: 'person', score: 0.88,
+      box: { x: 0.56, y: 0.08, width: 0.34, height: 0.86 },
+      hits: 3, stable: true, firstSeenAt: 1200, lastSeenAt: 1500,
+    },
+  ];
+  const graph = tracker.update(twoPeople, { active: false, x: 0.5, y: 0.5, confidence: 0 }, 1600);
+  assert.equal(graph.peopleCount, 2);
+  assert.ok(graph.events.some((event) => event.type === 'people_changed' && event.label === '2'));
+  assert.match(spatialSceneGraph.spatialScenePrompt(graph, 1600), /box người|không phải nhận dạng danh tính/i);
+});
+
+test('behavior timeline records spatial target transitions as ephemeral context', () => {
+  const timeline = new behaviorTimeline.BehaviorTimeline();
+  let events = timeline.observe({ spatialTarget: 'laptop', spatialConfidence: 0.82 }, 1000);
+  assert.ok(events.some((event) => event.type === 'spatial' && event.label === 'target:laptop'));
+  const count = events.length;
+  events = timeline.observe({ spatialTarget: 'laptop', spatialConfidence: 0.86 }, 1300);
+  assert.equal(events.length, count);
+  events = timeline.observe({ spatialTarget: '', spatialConfidence: 0 }, 1500);
+  events = timeline.observe({ spatialTarget: 'phone', spatialConfidence: 0.79 }, 1800);
+  assert.ok(events.some((event) => event.type === 'spatial' && event.label === 'target:phone'));
+});
+
+
+test('deictic vision bridge answers "cái này là gì" from a locked visual target without calling the brain', () => {
+  const context = '[MIRA_VISUAL_TARGET label="cell phone" confidence="89"] Bàn tay đang trỏ ổn định.';
+  assert.equal(deicticVision.isDeicticObjectQuestion('Cái này là gì?'), true);
+  const target = deicticVision.extractVisualTarget(context);
+  assert.equal(target?.label, 'cell phone');
+  assert.equal(target?.confidence, 89);
+  const reply = deicticVision.deicticVisualReply('Cái này là gì?', context);
+  assert.match(reply || '', /điện thoại/i);
+  assert.match(reply || '', /89%/);
+});
+
+test('deictic vision bridge refuses to guess while pointer has no stable object', () => {
+  const context = '[MIRA_VISUAL_POINTER target="none"] Bàn tay đang chỉ nhưng chưa khóa object.';
+  const reply = deicticVision.deicticVisualReply('Đây là gì?', context);
+  assert.match(reply || '', /chưa khóa được vật thể|giữ tay thêm/i);
+});
+
+test('spatial scene prompt emits machine-readable target markers only after stable pointing focus', () => {
+  const tracker = new spatialSceneGraph.SpatialSceneGraphTracker();
+  const objects = [{
+    id: 'book-1', label: 'book', score: 0.92,
+    box: { x: 0.6, y: 0.42, width: 0.2, height: 0.26 },
+    hits: 4, stable: true, firstSeenAt: 0, lastSeenAt: 1000,
+  }];
+  const pointer = { active: true, x: 0.3, y: 0.55, confidence: 0.9 };
+  tracker.update(objects, pointer, 1000);
+  tracker.update(objects, pointer, 1200);
+  const graph = tracker.update(objects, pointer, 1360);
+  const prompt = spatialSceneGraph.spatialScenePrompt(graph, 1360);
+  assert.match(prompt, /\[MIRA_VISUAL_TARGET label="book" confidence="\d+"\]/);
 });

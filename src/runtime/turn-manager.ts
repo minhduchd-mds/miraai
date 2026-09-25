@@ -2,6 +2,7 @@ import type { Brain, BrainReply, BrainTurn } from '../core/types';
 import type { HostActionDescriptor, HostActionResult, HostBridge, HostContext } from '../host';
 import { assembleBrainContext } from '../intelligence/context/context-assembler';
 import { ownerIdentityReply } from '../intelligence/identity/owner-profile';
+import { deicticVisualReply } from '../intelligence/vision/deictic-vision';
 import { MemoryService } from '../intelligence/memory/memory-service';
 import type { SkillRegistry, SkillResult } from '../intelligence/skills';
 
@@ -81,6 +82,11 @@ export class TurnManager {
     const identity = ownerIdentityReply(input);
     if (identity) {
       return { reply: { text: identity, mood: 'happy' }, latencyMs: Math.round(now() - started) };
+    }
+
+    const visualReply = deicticVisualReply(input, runtimeContext);
+    if (visualReply) {
+      return { reply: { text: visualReply, mood: 'neutral' }, latencyMs: Math.round(now() - started) };
     }
 
     const hostPromise = Promise.resolve(this.host.getContext());

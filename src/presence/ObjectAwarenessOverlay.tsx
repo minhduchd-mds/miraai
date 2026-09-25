@@ -3,6 +3,7 @@ import type { TrackedObject } from '../core/vision/environment-model';
 interface Props {
   objects: TrackedObject[];
   active: boolean;
+  selectedId?: string | null;
 }
 
 function prettyLabel(label: string): string {
@@ -12,7 +13,7 @@ function prettyLabel(label: string): string {
     .join(' ');
 }
 
-export default function ObjectAwarenessOverlay({ objects, active }: Props) {
+export default function ObjectAwarenessOverlay({ objects, active, selectedId = null }: Props) {
   if (!active || !objects.length) return null;
 
   return (
@@ -28,7 +29,7 @@ export default function ObjectAwarenessOverlay({ objects, active }: Props) {
           return (
             <div
               key={object.id}
-              className="v2-object-box"
+              className={`v2-object-box${selectedId === object.id ? ' selected' : ''}`}
               style={{
                 left: `${left}%`,
                 top: `${top}%`,

@@ -1,6 +1,6 @@
 import type { InteractionContext } from './interaction-engine';
 
-export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment';
+export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment' | 'spatial';
 
 export interface BehaviorEvent {
   id: string;
@@ -21,6 +21,8 @@ export interface BehaviorObservation {
   proximity?: string;
   environment?: string;
   environmentConfidence?: number;
+  spatialTarget?: string;
+  spatialConfidence?: number;
 }
 
 function clamp01(value: number): number {
@@ -81,6 +83,13 @@ export class BehaviorTimeline {
     const environment = String(observation.environment || 'unknown');
     if (environment !== 'unknown' && Number(observation.environmentConfidence || 0) >= 0.48) {
       this.push('environment', environment, Number(observation.environmentConfidence || 0), now);
+    }
+
+    const spatialTarget = String(observation.spatialTarget || '');
+    if (spatialTarget && Number(observation.spatialConfidence || 0) >= 0.52) {
+      this.push('spatial', 'target:' + spatialTarget, Number(observation.spatialConfidence || 0), now);
+    } else if (!spatialTarget) {
+      this.lastKeys.delete('spatial');
     }
 
     this.events = this.events.filter((event) => now - event.at <= 90_000);

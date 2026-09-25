@@ -1244,3 +1244,133 @@
   .v2-environment-objects > span { font-size: 5.4px; }
   .v2-environment-note { font-size: 5.8px; }
 }
+
+
+/* Spatial Scene Graph v8 — screen-relative 2D relations and pointing target */
+.v2-object-box.selected {
+  border-color: rgba(255, 232, 156, .82);
+  box-shadow:
+    inset 0 0 22px rgba(255, 222, 122, .08),
+    0 0 0 1px rgba(255, 228, 146, .22),
+    0 0 18px rgba(255, 217, 115, .16);
+}
+.v2-object-box.selected > span {
+  background: rgba(45, 33, 9, .86);
+  color: rgba(255, 244, 205, .94);
+}
+.v2-spatial-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+.v2-spatial-overlay svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.v2-spatial-overlay line {
+  stroke: rgba(255, 231, 151, .62);
+  stroke-width: .34;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1.4 1.8;
+}
+.v2-spatial-overlay circle {
+  fill: rgba(255, 236, 170, .88);
+  stroke: rgba(19, 14, 4, .74);
+  stroke-width: .3;
+  vector-effect: non-scaling-stroke;
+}
+.v2-spatial-focus-label {
+  position: absolute;
+  transform: translate(7px, -18px);
+  max-width: 130px;
+  padding: 4px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 228, 144, .24);
+  background: rgba(31, 25, 8, .76);
+  color: rgba(255, 242, 196, .88);
+  font: 700 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .28px;
+  backdrop-filter: blur(5px);
+}
+.v2-spatial-scene {
+  display: grid;
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid rgba(137, 163, 220, .08);
+  border-radius: 10px;
+  background: rgba(7, 13, 31, .24);
+}
+.v2-spatial-scene.has-focus {
+  border-color: rgba(255, 224, 135, .16);
+  background: rgba(65, 47, 9, .08);
+}
+.v2-spatial-scene-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.v2-spatial-scene-head > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.v2-spatial-scene-head small {
+  color: rgba(170, 185, 225, .42);
+  font: 650 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .55px;
+}
+.v2-spatial-scene-head b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(236, 241, 255, .8);
+  font: 650 8px/1.15 'Inter', system-ui, sans-serif;
+}
+.v2-spatial-scene.has-focus .v2-spatial-scene-head b {
+  color: rgba(255, 239, 187, .9);
+}
+.v2-spatial-scene-head em {
+  color: rgba(153, 178, 225, .45);
+  font: 650 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  white-space: nowrap;
+}
+.v2-spatial-relations,
+.v2-spatial-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.v2-spatial-relations > span,
+.v2-spatial-events > span {
+  padding: 3px 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(142, 167, 219, .08);
+  background: rgba(13, 20, 43, .28);
+  color: rgba(190, 205, 237, .52);
+  font: 600 5.7px/1 'JetBrains Mono', ui-monospace, monospace;
+}
+.v2-spatial-events > span {
+  color: rgba(180, 213, 202, .46);
+  border-color: rgba(118, 204, 179, .07);
+}
+.v2-spatial-note {
+  color: rgba(150, 167, 199, .31);
+  font-size: 6.2px;
+  line-height: 1.25;
+}
+@media (max-width: 760px) {
+  .v2-spatial-focus-label { max-width: 95px; font-size: 5.4px; }
+  .v2-spatial-scene { padding: 5px; gap: 4px; }
+  .v2-spatial-relations > span,
+  .v2-spatial-events > span { font-size: 5.2px; }
+  .v2-spatial-note { font-size: 5.7px; }
+}

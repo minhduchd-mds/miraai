@@ -17,7 +17,15 @@ import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtim
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import PoseSkeletonOverlay, { type PoseSkeletonPoint } from '../presence/PoseSkeletonOverlay';
 import ObjectAwarenessOverlay from '../presence/ObjectAwarenessOverlay';
+import SpatialSceneOverlay from '../presence/SpatialSceneOverlay';
 import { EMPTY_ENVIRONMENT, environmentPrompt, type TrackedObject } from '../core/vision/environment-model';
+import {
+  EMPTY_SPATIAL_SCENE,
+  SpatialSceneGraphTracker,
+  spatialScenePrompt,
+  type SpatialRelation,
+  type SpatialSceneGraph,
+} from '../core/vision/spatial-scene-graph';
 import AirControlOverlay from '../presence/AirControlOverlay';
 import RealPresenceOverlay from '../presence/RealPresenceOverlay';
 import { EMPTY_REAL_PRESENCE_POSE, type RealPresencePose } from '../core/vision/real-presence';
@@ -103,6 +111,8 @@ export default function AppV2() {
     objects: [] as TrackedObject[],
     environment: { ...EMPTY_ENVIRONMENT },
   });
+  const [sceneGraphTelemetry, setSceneGraphTelemetry] = useState<SpatialSceneGraph>(() => ({ ...EMPTY_SPATIAL_SCENE }));
+  const sceneGraphTrackerRef = useRef(new SpatialSceneGraphTracker());
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
@@ -200,6 +210,8 @@ export default function AppV2() {
       objects: [],
       environment: { ...EMPTY_ENVIRONMENT },
     });
+    sceneGraphTrackerRef.current.reset();
+    setSceneGraphTelemetry({ ...EMPTY_SPATIAL_SCENE });
     setCalibrationTelemetry(gazeHeadCalibratorRef.current.snapshot());
     gestureIntentTrackerRef.current.reset();
     setGestureIntentTelemetry({
@@ -397,6 +409,25 @@ export default function AppV2() {
       }, now);
       setGestureIntentTelemetry(intent);
 
+      const gestureScoreNow = Number(snapshot?.gestureScore || 0);
+      const rawPointerX = Math.max(0, Math.min(1, Number(snapshot?.pointerX ?? 0.5)));
+      const rawPointerY = Math.max(0, Math.min(1, Number(snapshot?.pointerY ?? 0.5)));
+      const pointingActive = Boolean(snapshot?.handSeen) && (
+        (String(snapshot?.gesture || 'None') === 'Pointing_Up' && gestureScoreNow >= 0.48) ||
+        intent.intent === 'point_hold'
+      );
+      const sceneGraph = sceneGraphTrackerRef.current.update(
+        environmentObjects,
+        {
+          active: pointingActive,
+          x: rawPointerX,
+          y: rawPointerY,
+          confidence: pointingActive ? Math.max(gestureScoreNow, intent.confidence) : 0,
+        },
+        now,
+      );
+      setSceneGraphTelemetry(sceneGraph);
+
       const recentBehavior = behaviorTimelineRef.current.observe({
         interaction,
         microKind: String(micro.kind || 'none'),
@@ -408,6 +439,8 @@ export default function AppV2() {
         proximity: String(spatial.proximity || 'unknown'),
         environment: String(environmentContext.label || 'unknown'),
         environmentConfidence: Number(environmentContext.confidence || 0),
+        spatialTarget: sceneGraph.focus?.label || '',
+        spatialConfidence: Number(sceneGraph.focus?.confidence || 0),
       }, now);
       setBehaviorEvents(recentBehavior);
 
@@ -426,6 +459,7 @@ export default function AppV2() {
         interactionPrompt(interaction),
         behaviorTimelineRef.current.promptSummary(now),
         environmentPrompt(environmentContext),
+        spatialScenePrompt(sceneGraph, now),
       ]
         .filter(Boolean)
         .join(' ');
@@ -911,6 +945,27 @@ export default function AppV2() {
           ? 'Object model lỗi'
           : 'Chưa bật';
 
+  const spatialRelationText = (relation: SpatialRelation) => {
+    const from = sceneGraphTelemetry.nodes.find((node) => node.id === relation.from)?.label || 'object';
+    const toNode = sceneGraphTelemetry.nodes.find((node) => node.id === relation.to);
+    const to = toNode?.kind === 'person' ? 'person' : (toNode?.label || 'object');
+    const relationLabel = ({
+      left_of: 'trái',
+      right_of: 'phải',
+      above: 'trên',
+      below: 'dưới',
+      near: 'gần',
+      overlaps: 'chồng vùng',
+    } as Record<SpatialRelation['type'], string>)[relation.type];
+    return `${from} · ${relationLabel} · ${to}`;
+  };
+
+  const spatialFocusLabel = sceneGraphTelemetry.focus
+    ? `${sceneGraphTelemetry.focus.label} ${Math.round(sceneGraphTelemetry.focus.confidence * 100)}%`
+    : sceneGraphTelemetry.pointerActive
+      ? 'Đang tìm target'
+      : 'Chưa trỏ vật thể';
+
   const interactionLabel = ({
     focused: 'Đang tập trung',
     engaged: 'Đang tương tác',
@@ -920,7 +975,9 @@ export default function AppV2() {
     uncertain: 'Đang hiệu chỉnh',
   } as Record<string, string>)[interactionTelemetry.state] || interactionTelemetry.state;
 
-  const behaviorLabel = (event: BehaviorEvent) => ({
+  const behaviorLabel = (event: BehaviorEvent) => {
+    if (event.label.startsWith('target:')) return 'Target ' + event.label.slice('target:'.length);
+    return ({
     focused: 'Focus',
     engaged: 'Engaged',
     looking_away: 'Look away',
@@ -941,6 +998,7 @@ export default function AppV2() {
     person_nearby: 'People',
     mixed: 'Mixed scene',
   } as Record<string, string>)[event.label] || event.label.replaceAll('_', ' ');
+  };
 
   const gestureLabel = waveSeen ? 'Wave' : ({
     Open_Palm: 'Open Palm',
@@ -1013,6 +1071,12 @@ export default function AppV2() {
             <ObjectAwarenessOverlay
               objects={environmentTelemetry.objects}
               active={environmentTelemetry.active}
+              selectedId={sceneGraphTelemetry.focus?.id}
+            />
+            <SpatialSceneOverlay
+              graph={sceneGraphTelemetry}
+              pointer={airPoint}
+              active={visionOn && Boolean(sceneGraphTelemetry.focus)}
             />
             {handSeen && (
               <>
@@ -1077,6 +1141,29 @@ export default function AppV2() {
                 </div>
               )}
               <small className="v2-environment-note">Object/scene context chạy local, không nhận dạng danh tính và không lưu ảnh camera.</small>
+            </div>
+            <div className={`v2-spatial-scene${sceneGraphTelemetry.focus ? ' has-focus' : ''}`}>
+              <div className="v2-spatial-scene-head">
+                <span><small>SPATIAL GRAPH</small><b>{spatialFocusLabel}</b></span>
+                <em>{sceneGraphTelemetry.nodes.length}N · {sceneGraphTelemetry.relations.length}R</em>
+              </div>
+              {sceneGraphTelemetry.relations.length > 0 && (
+                <div className="v2-spatial-relations">
+                  {sceneGraphTelemetry.relations.slice(0, 4).map((relation, index) => (
+                    <span key={`${relation.from}-${relation.to}-${relation.type}-${index}`}>
+                      {spatialRelationText(relation)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {sceneGraphTelemetry.events.length > 0 && (
+                <div className="v2-spatial-events">
+                  {sceneGraphTelemetry.events.slice(-3).map((event) => (
+                    <span key={event.id}>{event.type.replaceAll('_', ' ')} · {event.label}</span>
+                  ))}
+                </div>
+              )}
+              <small className="v2-spatial-note">Quan hệ là hình học 2D trên camera; target chỉ được khóa sau khi trỏ ổn định.</small>
             </div>
             <div className="v2-sensor-strip">
               <span className={microTelemetry.kind !== 'none' ? 'active' : ''}><small>MICRO</small><b>{microLabel}</b></span>

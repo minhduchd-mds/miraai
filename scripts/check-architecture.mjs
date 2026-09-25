@@ -35,7 +35,10 @@ const mustExist = [
   'src/intelligence/social/gaze-head-calibration.ts',
   'src/core/vision/environment-model.ts',
   'src/core/vision/object-awareness.ts',
+  'src/core/vision/spatial-scene-graph.ts',
+  'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
+  'src/presence/SpatialSceneOverlay.tsx',
   'src/core/vision/rppg-signal.ts',
   'src/core/vision/rppg-monitor.ts',
   'src/presence/PoseSkeletonOverlay.tsx',
@@ -79,7 +82,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'v2-spatial-scene', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -220,6 +223,9 @@ for (const token of [
 
 const turnManager = readFileSync('src/runtime/turn-manager.ts', 'utf8');
 if (!turnManager.includes('ownerIdentityReply')) failures.push('TurnManager must preserve deterministic Mira owner identity');
+for (const token of ['deicticVisualReply', 'const visualReply =', 'runtimeContext']) {
+  if (!turnManager.includes(token)) failures.push(`TurnManager deictic visual bridge missing: ${token}`);
+}
 const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8');
 if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
 
@@ -240,6 +246,7 @@ if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('loca
 if (localMemoryStore.includes('bpmTrend') || localMemoryStore.includes('pulseTrace')) failures.push('experimental physiological estimates must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('BehaviorEvent') || localMemoryStore.includes('behaviorTimeline')) failures.push('social behavior timeline must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('TrackedObject') || localMemoryStore.includes('objectAwareness') || localMemoryStore.includes('EnvironmentContext')) failures.push('environment object tracks must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('SpatialSceneGraph') || localMemoryStore.includes('SpatialFocus') || localMemoryStore.includes('spatialScene')) failures.push('spatial scene graph must remain ephemeral, not long-term memory');
 const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
 for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
@@ -297,8 +304,20 @@ for (const token of ['ObjectDetector', 'efficientdet_lite0', "acquireVisionCamer
   if (!objectAwareness.includes(token)) failures.push(`object awareness runtime missing: ${token}`);
 }
 const objectOverlay = readFileSync('src/presence/ObjectAwarenessOverlay.tsx', 'utf8');
-for (const token of ['TrackedObject', 'v2-object-overlay', 'v2-object-box', 'object.stable']) {
+for (const token of ['TrackedObject', 'v2-object-overlay', 'v2-object-box', 'object.stable', 'selectedId']) {
   if (!objectOverlay.includes(token)) failures.push(`object awareness overlay missing: ${token}`);
+}
+const spatialSceneGraph = readFileSync('src/core/vision/spatial-scene-graph.ts', 'utf8');
+for (const token of ['SpatialSceneGraphTracker', 'left_of', 'right_of', 'near', 'focus_changed', 'people_changed', 'spatialScenePrompt', 'MIRA_VISUAL_TARGET', 'MIRA_VISUAL_POINTER', '320', 'displayBox']) {
+  if (!spatialSceneGraph.includes(token)) failures.push(`spatial scene graph missing: ${token}`);
+}
+const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');
+for (const token of ['SpatialSceneGraph', 'v2-spatial-overlay', 'v2-spatial-focus-label', 'TARGET']) {
+  if (!spatialOverlay.includes(token)) failures.push(`spatial scene overlay missing: ${token}`);
+}
+const deicticVision = readFileSync('src/intelligence/vision/deictic-vision.ts', 'utf8');
+for (const token of ['isDeicticObjectQuestion', 'extractVisualTarget', 'deicticVisualReply', 'MIRA_VISUAL_TARGET', 'MIRA_VISUAL_POINTER', 'chưa khóa được']) {
+  if (!deicticVision.includes(token)) failures.push(`deictic visual bridge missing: ${token}`);
 }
 const postureTracker = readFileSync('src/core/vision/posture-tracker.ts', 'utf8');
 for (const token of ['PoseLandmarker', 'pose_landmarker_lite', "acquireVisionCamera('pose')", 'motionEma']) {
@@ -321,7 +340,7 @@ for (const token of ['InteractionTracker', 'Joint-attention proxy', 'looking_awa
   if (!interactionEngine.includes(token)) failures.push(`social interaction engine missing: ${token}`);
 }
 const behaviorTimeline = readFileSync('src/intelligence/social/behavior-timeline.ts', 'utf8');
-for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'environment', 'environmentConfidence', 'promptSummary', '90_000']) {
+for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'environment', 'environmentConfidence', 'spatial', 'spatialTarget', 'promptSummary', '90_000']) {
   if (!behaviorTimeline.includes(token)) failures.push(`behavior timeline missing: ${token}`);
 }
 const affectEngine = readFileSync('src/intelligence/affect/mood-engine.ts', 'utf8');
