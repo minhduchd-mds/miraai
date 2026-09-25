@@ -36,6 +36,7 @@ const gestureIntent = await importTypeScript('src/core/vision/gesture-intent.ts'
 const environmentModel = await importTypeScript('src/core/vision/environment-model.ts');
 const spatialSceneGraph = await importTypeScript('src/core/vision/spatial-scene-graph.ts');
 const deicticVision = await importTypeScript('src/intelligence/vision/deictic-vision.ts');
+const faceFrameGuard = await importTypeScript('src/core/vision/face-frame-guard.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -812,4 +813,47 @@ test('spatial scene prompt emits machine-readable target markers only after stab
   const graph = tracker.update(objects, pointer, 1360);
   const prompt = spatialSceneGraph.spatialScenePrompt(graph, 1360);
   assert.match(prompt, /\[MIRA_VISUAL_TARGET label="book" confidence="\d+"\]/);
+});
+
+
+test('face frame guard keeps face presence alive when landmarks exist but blendshapes are temporarily missing', () => {
+  const landmarks = Array.from({ length: 478 }, (_, index) => ({
+    x: 0.25 + (index % 20) * 0.01,
+    y: 0.2 + (index % 25) * 0.01,
+    z: -0.02,
+  }));
+  const signal = faceFrameGuard.readFaceFrame({
+    faceLandmarks: [landmarks],
+    faceBlendshapes: [],
+  });
+  assert.equal(signal.usable, true);
+  assert.equal(signal.landmarks.length, 478);
+  assert.equal(signal.blendshapesReady, false);
+});
+
+test('face frame guard rejects malformed meshes instead of converting invalid points into valid zeros', () => {
+  const broken = Array.from({ length: 478 }, () => ({ x: Number.NaN, y: Number.NaN, z: 0 }));
+  const signal = faceFrameGuard.readFaceFrame({
+    faceLandmarks: [broken],
+    faceBlendshapes: [],
+  });
+  assert.equal(signal.usable, false);
+  assert.equal(signal.landmarks.length, 0);
+});
+
+test('face frame guard clamps blendshape scores but does not use them as a presence gate', () => {
+  const landmarks = Array.from({ length: 120 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
+  const signal = faceFrameGuard.readFaceFrame({
+    faceLandmarks: [landmarks],
+    faceBlendshapes: [{
+      categories: [
+        { categoryName: 'jawOpen', score: 1.4 },
+        { categoryName: 'eyeBlinkLeft', score: -0.2 },
+      ],
+    }],
+  });
+  assert.equal(signal.usable, true);
+  assert.equal(signal.blendshapesReady, true);
+  assert.equal(signal.blendshapes.jawOpen, 1);
+  assert.equal(signal.blendshapes.eyeBlinkLeft, 0);
 });

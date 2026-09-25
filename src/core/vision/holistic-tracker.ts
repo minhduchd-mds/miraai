@@ -3,6 +3,7 @@ import { faceData } from '../face/face-tracker';
 import { handData, type TrackedHand } from '../face/gesture-tracker';
 import { postureData } from './posture-tracker';
 import { facsProxyFromBlendshapes, EMPTY_FACS_PROXY } from '../face/facs-proxy';
+import { readFaceFrame } from './face-frame-guard';
 import { inferFacialGesture } from '../face/facial-gesture';
 import { MicroExpressionTracker } from '../face/micro-expression';
 import { derivePosture } from './posture-model';
@@ -26,6 +27,12 @@ export interface HolisticRuntimeData {
   delegate: Delegate | 'unknown';
   error: string | null;
   performance: VisionPerformanceState;
+  face: {
+    status: 'scanning' | 'mesh_only' | 'full';
+    landmarkCount: number;
+    blendshapesReady: boolean;
+    lastSeenAt: number;
+  };
 }
 
 export const holisticRuntimeData: HolisticRuntimeData = {
@@ -33,6 +40,12 @@ export const holisticRuntimeData: HolisticRuntimeData = {
   delegate: 'unknown',
   error: null,
   performance: { ...EMPTY_VISION_PERFORMANCE, engine: 'holistic' },
+  face: {
+    status: 'scanning',
+    landmarkCount: 0,
+    blendshapesReady: false,
+    lastSeenAt: 0,
+  },
 };
 
 let landmarker: { detectForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
@@ -68,17 +81,6 @@ function pointDistance(a: { x: number; y: number; z?: number }, b: { x: number; 
 
 function smooth(current: number, next: number, alpha = FACE_SMOOTH): number {
   return current + (next - current) * alpha;
-}
-
-function categoriesToMap(result: any): Record<string, number> {
-  const categories = result?.faceBlendshapes?.[0]?.categories;
-  if (!Array.isArray(categories)) return {};
-  const map: Record<string, number> = {};
-  for (const category of categories) {
-    const name = String(category?.categoryName || category?.displayName || '');
-    if (name) map[name] = Number(category?.score || 0);
-  }
-  return map;
 }
 
 function updateHeadPose(landmarks: any[], now: number): void {
@@ -128,21 +130,59 @@ function updateHeadPose(landmarks: any[], now: number): void {
 }
 
 function updateFace(result: any, now: number): number {
-  const landmarks = result?.faceLandmarks?.[0];
-  const bs = categoriesToMap(result);
-  if (!Array.isArray(landmarks) || landmarks.length < 100 || !Object.keys(bs).length) {
-    if (now - lastFaceSeenAt > 280) clearFace();
+  const frame = readFaceFrame(result);
+  if (!frame.usable) {
+    if (now - lastFaceSeenAt > 320) {
+      clearFace();
+      holisticRuntimeData.face = {
+        status: 'scanning',
+        landmarkCount: 0,
+        blendshapesReady: false,
+        lastSeenAt: lastFaceSeenAt,
+      };
+    }
     return 0;
   }
 
+  const landmarks = frame.landmarks;
+  const bs = frame.blendshapes;
   lastFaceSeenAt = now;
   faceData.active = true;
   faceData.present = true;
-  faceData.landmarks = landmarks.slice(0, 478).map((p: any) => ({
-    x: Number(p.x || 0),
-    y: Number(p.y || 0),
-    z: Number(p.z || 0),
-  }));
+  faceData.landmarks = landmarks;
+  holisticRuntimeData.face = {
+    status: frame.blendshapesReady ? 'full' : 'mesh_only',
+    landmarkCount: landmarks.length,
+    blendshapesReady: frame.blendshapesReady,
+    lastSeenAt: now,
+  };
+
+  if (!frame.blendshapesReady) {
+    // Keep face presence/head pose alive even when Holistic temporarily omits blendshape categories.
+    faceData.actionUnits = { ...EMPTY_FACS_PROXY };
+    faceData.microExpression = { kind: 'none', confidence: 0, durationMs: 0, at: now };
+    microExpressionTracker.reset();
+    faceData.jaw = smooth(faceData.jaw, 0, 0.18);
+    faceData.blinkL = smooth(faceData.blinkL, 0, 0.18);
+    faceData.blinkR = smooth(faceData.blinkR, 0, 0.18);
+    faceData.smile = smooth(faceData.smile, 0, 0.18);
+    faceData.browUp = smooth(faceData.browUp, 0, 0.18);
+    faceData.frown = smooth(faceData.frown, 0, 0.18);
+    faceData.browDown = smooth(faceData.browDown, 0, 0.18);
+    faceData.cheekSquint = smooth(faceData.cheekSquint, 0, 0.18);
+    faceData.eyeWide = smooth(faceData.eyeWide, 0, 0.18);
+    faceData.mouthPress = smooth(faceData.mouthPress, 0, 0.18);
+    faceData.gazeX = smooth(faceData.gazeX, 0, 0.18);
+    faceData.gazeY = smooth(faceData.gazeY, 0, 0.18);
+    faceData.emotion = 'neutral';
+    faceData.emotionConfidence = 0;
+    faceData.faceGesture = 'none';
+    faceData.faceGestureConfidence = 0;
+    faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
+    updateHeadPose(landmarks, now);
+    return landmarks.length;
+  }
+
   faceData.actionUnits = facsProxyFromBlendshapes(bs);
   faceData.microExpression = microExpressionTracker.update(faceData.actionUnits, now);
 
@@ -495,6 +535,10 @@ export function holisticPerformanceSnapshot(): VisionPerformanceState {
   return governor.snapshot();
 }
 
+export function holisticFaceHealthSnapshot() {
+  return { ...holisticRuntimeData.face };
+}
+
 export async function startHolisticTracking(): Promise<boolean> {
   if (!stopped) return true;
   if (busy) return false;
@@ -546,6 +590,12 @@ export function stopHolisticTracking(): void {
   landmarker = null;
   holisticRuntimeData.active = false;
   holisticRuntimeData.delegate = 'unknown';
+  holisticRuntimeData.face = {
+    status: 'scanning',
+    landmarkCount: 0,
+    blendshapesReady: false,
+    lastSeenAt: 0,
+  };
   postprocessWorker.stop();
   lastWorkerSeq = 0;
   clearAllSignals();

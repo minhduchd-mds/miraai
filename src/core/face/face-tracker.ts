@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
 import { inferFacialGesture, type FacialGesture } from './facial-gesture';
 import { EMPTY_FACS_PROXY, facsProxyFromBlendshapes, type FACSProxy } from './facs-proxy';
+import { blendshapeMap, normalizeFaceLandmarks } from '../vision/face-frame-guard';
 import { MicroExpressionTracker, type MicroExpressionState } from './micro-expression';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
@@ -190,12 +191,46 @@ function readFrame(): void {
     res = null;
   }
 
-  const cats = res?.faceBlendshapes?.[0]?.categories;
-  const landmarks = res?.faceLandmarks?.[0];
-  if (cats?.length && landmarks?.length) {
+  const landmarks = normalizeFaceLandmarks(res?.faceLandmarks?.[0]);
+  const bs = blendshapeMap(res?.faceBlendshapes?.[0]?.categories);
+  if (landmarks.length >= 100) {
     faceData.present = true;
-    const bs: Record<string, number> = {};
-    for (const category of cats) bs[category.categoryName] = Number(category.score || 0);
+    faceData.landmarks = landmarks;
+
+    if (!Object.keys(bs).length) {
+      faceData.actionUnits = { ...EMPTY_FACS_PROXY };
+      faceData.microExpression = { kind: 'none', confidence: 0, durationMs: 0, at: now };
+      microExpressionTracker.reset();
+      faceData.jaw += (0 - faceData.jaw) * 0.18;
+      faceData.blinkL += (0 - faceData.blinkL) * 0.18;
+      faceData.blinkR += (0 - faceData.blinkR) * 0.18;
+      faceData.smile += (0 - faceData.smile) * 0.18;
+      faceData.browUp += (0 - faceData.browUp) * 0.18;
+      faceData.frown += (0 - faceData.frown) * 0.18;
+      faceData.browDown += (0 - faceData.browDown) * 0.18;
+      faceData.cheekSquint += (0 - faceData.cheekSquint) * 0.18;
+      faceData.eyeWide += (0 - faceData.eyeWide) * 0.18;
+      faceData.mouthPress += (0 - faceData.mouthPress) * 0.18;
+      faceData.gazeX += (0 - faceData.gazeX) * 0.18;
+      faceData.gazeY += (0 - faceData.gazeY) * 0.18;
+      faceData.emotion = 'neutral';
+      faceData.emotionConfidence = 0;
+      faceData.faceGesture = 'none';
+      faceData.faceGestureConfidence = 0;
+      faceData.muscles = { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 };
+      const mtx = res?.facialTransformationMatrixes?.[0]?.data;
+      if (mtx?.length === 16) {
+        _m.fromArray(mtx);
+        _e.setFromRotationMatrix(_m, 'YXZ');
+        faceData.yaw += (_e.y - faceData.yaw) * SMOOTH;
+        faceData.pitch += (_e.x - faceData.pitch) * SMOOTH;
+        faceData.roll += (_e.z - faceData.roll) * SMOOTH;
+        updateHeadGesture(now);
+      }
+      raf = requestAnimationFrame(readFrame);
+      return;
+    }
+
     faceData.actionUnits = facsProxyFromBlendshapes(bs);
     faceData.microExpression = microExpressionTracker.update(faceData.actionUnits, now);
 
@@ -220,12 +255,6 @@ function readFrame(): void {
     );
     faceData.gazeX += (gazeXRaw - faceData.gazeX) * SMOOTH;
     faceData.gazeY += (gazeYRaw - faceData.gazeY) * SMOOTH;
-
-    faceData.landmarks = landmarks.slice(0, 478).map((point: any) => ({
-      x: Number(point.x || 0),
-      y: Number(point.y || 0),
-      z: Number(point.z || 0),
-    }));
 
     const facialGesture = inferFacialGesture({
       smile: faceData.smile,

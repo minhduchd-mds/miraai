@@ -28,6 +28,7 @@ const mustExist = [
   'src/core/vision/hand-gesture-lite.ts',
   'src/core/vision/vision-performance.ts',
   'src/core/vision/holistic-tracker.ts',
+  'src/core/vision/face-frame-guard.ts',
   'src/core/vision/vision-worker-protocol.ts',
   'src/core/vision/vision-postprocess-worker.ts',
   'src/core/vision/vision-worker-client.ts',
@@ -82,7 +83,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'v2-spatial-scene', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'v2-spatial-scene', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -252,9 +253,10 @@ for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'scene
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
 }
 const realPresenceView = readFileSync('src/presence/RealPresenceOverlay.tsx', 'utf8');
-for (const token of ['ImageSegmenter', 'selfie_segmenter_landscape', 'segmentForVideo', 'getAsFloat32Array', 'REAL SEAT · LOCKED']) {
+for (const token of ['ImageSegmenter', 'selfie_segmenter_landscape', 'segmentForVideo', 'getAsFloat32Array', 'REAL SEAT · LOCKED', 'faceSeenRef', 'const stableFace', '[active, stream]']) {
   if (!realPresenceView.includes(token)) failures.push(`real presence compositor missing: ${token}`);
 }
+if (realPresenceView.includes('[active, faceSeen, stream]')) failures.push('RealPresence must not recreate ImageSegmenter on face enter/leave');
 const facsProxy = readFileSync('src/core/face/facs-proxy.ts', 'utf8');
 for (const token of ['FACSProxy', 'AU01', 'AU04', 'AU06', 'AU12', 'AU23', 'AU45', 'not a validated FACS detector']) {
   if (!facsProxy.includes(token)) failures.push(`FACS-like blendshape mapping missing: ${token}`);
@@ -276,8 +278,12 @@ for (const token of ['VisionPerformanceGovernor', 'detectVisionTier', 'baseInter
   if (!visionPerformance.includes(token)) failures.push(`vision performance governor missing: ${token}`);
 }
 const holisticTracker = readFileSync('src/core/vision/holistic-tracker.ts', 'utf8');
-for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'updateFace', 'submitPostprocess', 'VisionPostprocessWorkerClient', 'VisionPerformanceGovernor']) {
+for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'readFaceFrame', 'blendshapesReady', 'holisticFaceHealthSnapshot', 'updateFace', 'submitPostprocess', 'VisionPostprocessWorkerClient', 'VisionPerformanceGovernor']) {
   if (!holisticTracker.includes(token)) failures.push(`holistic vision runtime missing: ${token}`);
+}
+const faceFrameGuard = readFileSync('src/core/vision/face-frame-guard.ts', 'utf8');
+for (const token of ['normalizeFaceLandmarks', 'blendshapeMap', 'readFaceFrame', 'Blendshapes are an optional enrichment', 'valid >= 100']) {
+  if (!faceFrameGuard.includes(token)) failures.push(`face frame recovery guard missing: ${token}`);
 }
 const workerClient = readFileSync('src/core/vision/vision-worker-client.ts', 'utf8');
 for (const token of ['VisionPostprocessWorkerClient', "new Worker(new URL('./vision-postprocess-worker.ts', import.meta.url)", "type: 'module'", 'postMessage', 'terminate']) {
@@ -356,7 +362,7 @@ for (const token of ["interaction?.state === 'absent'", "interaction?.state === 
   if (!proactiveEngine.includes(token)) failures.push(`social-aware proactive policy missing: ${token}`);
 }
 const visionRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
-for (const token of ['startHolisticTracking', 'holisticTrackerActive', 'startObjectAwareness', 'stopObjectAwareness', 'objectAwarenessSnapshot', 'Backward-compatible fallback', 'visionPerformance', 'visionEngine']) {
+for (const token of ['startHolisticTracking', 'holisticTrackerActive', 'holisticFaceHealthSnapshot', 'faceRuntime', 'startObjectAwareness', 'stopObjectAwareness', 'objectAwarenessSnapshot', 'Backward-compatible fallback', 'visionPerformance', 'visionEngine']) {
   if (!visionRuntime.includes(token)) failures.push(`vision runtime holistic orchestration missing: ${token}`);
 }
 const cameraManager = readFileSync('src/core/vision/camera-manager.ts', 'utf8');

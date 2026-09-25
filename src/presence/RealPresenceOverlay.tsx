@@ -41,6 +41,16 @@ export default function RealPresenceOverlay({
   const [segmentState, setSegmentState] = useState<'idle' | 'loading' | 'ready' | 'fallback'>('idle');
   const [seatLocked, setSeatLocked] = useState(false);
   const lockTimerRef = useRef<number | null>(null);
+  const faceSeenRef = useRef(faceSeen);
+
+  useEffect(() => {
+    faceSeenRef.current = faceSeen;
+    if (!faceSeen) {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, [faceSeen]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -55,10 +65,14 @@ export default function RealPresenceOverlay({
   }, [stream]);
 
   useEffect(() => {
-    if (!active || !faceSeen || pose.confidence < 0.55) {
+    const stableFace = active && faceSeen && pose.confidence >= 0.55;
+
+    if (!stableFace) {
       setSeatLocked(false);
-      if (lockTimerRef.current != null) window.clearTimeout(lockTimerRef.current);
-      lockTimerRef.current = null;
+      if (lockTimerRef.current != null) {
+        window.clearTimeout(lockTimerRef.current);
+        lockTimerRef.current = null;
+      }
       return;
     }
 
@@ -68,14 +82,14 @@ export default function RealPresenceOverlay({
         lockTimerRef.current = null;
       }, 720);
     }
-
-    return () => {
-      if (lockTimerRef.current != null) {
-        window.clearTimeout(lockTimerRef.current);
-        lockTimerRef.current = null;
-      }
-    };
   }, [active, faceSeen, pose.confidence, seatLocked]);
+
+  useEffect(() => () => {
+    if (lockTimerRef.current != null) {
+      window.clearTimeout(lockTimerRef.current);
+      lockTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!active || !stream) {
@@ -113,7 +127,7 @@ export default function RealPresenceOverlay({
     const frame = (now: number) => {
       const video = videoRef.current;
       if (disposed || !video || !segmenter) return;
-      if (!faceSeen || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      if (!faceSeenRef.current || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         schedule();
         return;
       }
@@ -133,7 +147,11 @@ export default function RealPresenceOverlay({
 
       try {
         segmenter.segmentForVideo(source, now, (result: any) => {
-          if (disposed) return;
+          if (disposed) {
+            for (const item of result?.confidenceMasks || []) item?.close?.();
+            result?.categoryMask?.close?.();
+            return;
+          }
           try {
             const maskObject = result?.confidenceMasks?.[0];
             const mask = maskObject?.getAsFloat32Array?.() as Float32Array | undefined;
@@ -203,7 +221,7 @@ export default function RealPresenceOverlay({
       cancelAnimationFrame(raf);
       try { segmenter?.close?.(); } catch { /* noop */ }
     };
-  }, [active, faceSeen, stream]);
+  }, [active, stream]);
 
   const style = useMemo(() => ({
     '--rp-x': `${pose.sceneOffsetX.toFixed(1)}px`,

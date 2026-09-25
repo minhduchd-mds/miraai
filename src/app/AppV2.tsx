@@ -111,6 +111,12 @@ export default function AppV2() {
     objects: [] as TrackedObject[],
     environment: { ...EMPTY_ENVIRONMENT },
   });
+  const [faceRuntimeTelemetry, setFaceRuntimeTelemetry] = useState({
+    status: 'scanning',
+    landmarkCount: 0,
+    blendshapesReady: false,
+    lastSeenAt: 0,
+  });
   const [sceneGraphTelemetry, setSceneGraphTelemetry] = useState<SpatialSceneGraph>(() => ({ ...EMPTY_SPATIAL_SCENE }));
   const sceneGraphTrackerRef = useRef(new SpatialSceneGraphTracker());
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
@@ -209,6 +215,12 @@ export default function AppV2() {
       processedFrames: 0,
       objects: [],
       environment: { ...EMPTY_ENVIRONMENT },
+    });
+    setFaceRuntimeTelemetry({
+      status: 'scanning',
+      landmarkCount: 0,
+      blendshapesReady: false,
+      lastSeenAt: 0,
     });
     sceneGraphTrackerRef.current.reset();
     setSceneGraphTelemetry({ ...EMPTY_SPATIAL_SCENE });
@@ -366,6 +378,13 @@ export default function AppV2() {
         processedFrames: Number(environmentSensor?.processedFrames || 0),
         objects: environmentObjects,
         environment: environmentContext,
+      });
+      const faceRuntime = snapshot?.faceRuntime;
+      setFaceRuntimeTelemetry({
+        status: String(faceRuntime?.status || 'scanning'),
+        landmarkCount: Number(faceRuntime?.landmarkCount || 0),
+        blendshapesReady: Boolean(faceRuntime?.blendshapesReady),
+        lastSeenAt: Number(faceRuntime?.lastSeenAt || 0),
       });
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
       const now = performance.now();
@@ -917,6 +936,12 @@ export default function AppV2() {
     ? `WORKER ${Math.round(visionPerformanceTelemetry.postprocessMs)}ms`
     : 'MAIN';
 
+  const faceRuntimeLabel = faceRuntimeTelemetry.status === 'full'
+    ? `FACE FULL · ${faceRuntimeTelemetry.landmarkCount}`
+    : faceRuntimeTelemetry.status === 'mesh_only'
+      ? `FACE MESH · ${faceRuntimeTelemetry.landmarkCount}`
+      : 'FACE SCAN';
+
   const calibrationLabel = calibrationTelemetry.ready
     ? 'CAL READY'
     : `CAL ${Math.round(calibrationTelemetry.progress * 100)}%`;
@@ -1119,6 +1144,9 @@ export default function AppV2() {
               <span><small>VISION</small><b>{visionEngineLabel}</b></span>
               <em>{visionPerfLabel}</em>
               <i title="Landmark count">{Math.round(visionPerformanceTelemetry.landmarkCount)} pts · {visionPerformanceTelemetry.tier} · {visionPostprocessLabel}</i>
+              <strong className={faceRuntimeTelemetry.status === 'full' ? 'face-full' : faceRuntimeTelemetry.status === 'mesh_only' ? 'face-mesh' : ''}>
+                {faceRuntimeLabel}
+              </strong>
             </div>
             <div className={`v2-environment-awareness env-${environmentTelemetry.environment.label}`}>
               <div className="v2-environment-head">

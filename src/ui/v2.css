@@ -1374,3 +1374,24 @@
   .v2-spatial-events > span { font-size: 5.2px; }
   .v2-spatial-note { font-size: 5.7px; }
 }
+
+
+/* Face Recovery v9 — runtime health inside the compact vision card */
+.v2-vision-engine > strong {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(129, 181, 203, .06);
+  color: rgba(154, 176, 203, .42);
+  font: 650 5.8px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .28px;
+}
+.v2-vision-engine > strong.face-full {
+  color: rgba(130, 232, 205, .66);
+}
+.v2-vision-engine > strong.face-mesh {
+  color: rgba(242, 205, 128, .65);
+}
+@media (max-width: 760px) {
+  .v2-vision-engine > strong { font-size: 5.2px; }
+}

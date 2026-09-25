@@ -16,6 +16,7 @@ import { postureData, postureTrackerError, startPostureTracking, stopPostureTrac
 import { rppgData, startRppgMonitoring, stopRppgMonitoring } from '../core/vision/rppg-monitor';
 import {
   holisticPerformanceSnapshot,
+  holisticFaceHealthSnapshot,
   holisticTrackerActive,
   holisticTrackerError,
   startHolisticTracking,
@@ -125,6 +126,14 @@ export function visionSnapshot() {
     },
     rppg: { ...rppgData },
     environment: objectAwarenessSnapshot(),
+    faceRuntime: holisticTrackerActive()
+      ? holisticFaceHealthSnapshot()
+      : {
+          status: faceData.present ? 'full' : 'scanning',
+          landmarkCount: faceData.landmarks.length,
+          blendshapesReady: Boolean(faceData.present),
+          lastSeenAt: 0,
+        },
     visionPerformance: holisticTrackerActive()
       ? holisticPerformanceSnapshot()
       : { ...EMPTY_VISION_PERFORMANCE, engine: activeEngine },
