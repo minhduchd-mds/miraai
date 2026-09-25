@@ -1,4 +1,11 @@
 import { legacyDeviceId } from '../../core/history-store';
+import { LocalMemoryStore } from './local-memory-store';
+
+const localMemory = new LocalMemoryStore();
+
+function isGitHubPagesRuntime(): boolean {
+  return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
+}
 
 export interface MemoryFact {
   id: number;
@@ -16,6 +23,9 @@ function seed(): string {
 }
 
 export async function loadMemoryProfile(): Promise<MemoryProfile> {
+  if (isGitHubPagesRuntime()) {
+    return { facts: [], messageCount: await localMemory.countTurns() };
+  }
   const response = await fetch(`/api/profile?device=${seed()}`, { credentials: 'same-origin' });
   if (!response.ok) throw new Error(`profile ${response.status}`);
   const json = await response.json();
@@ -32,6 +42,7 @@ export async function loadMemoryProfile(): Promise<MemoryProfile> {
 }
 
 export async function updateMemoryFact(id: number, fact: string): Promise<void> {
+  if (isGitHubPagesRuntime()) throw new Error('Structured facts are server-only; local Pages memory stores conversation history.');
   const response = await fetch('/api/profile', {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
@@ -42,6 +53,7 @@ export async function updateMemoryFact(id: number, fact: string): Promise<void> 
 }
 
 export async function forgetMemoryFact(id: number): Promise<void> {
+  if (isGitHubPagesRuntime()) throw new Error('Structured facts are server-only; local Pages memory stores conversation history.');
   const response = await fetch('/api/profile', {
     method: 'DELETE',
     headers: { 'content-type': 'application/json' },
@@ -52,6 +64,10 @@ export async function forgetMemoryFact(id: number): Promise<void> {
 }
 
 export async function forgetAllMemory(): Promise<void> {
+  if (isGitHubPagesRuntime()) {
+    await localMemory.clearAll();
+    return;
+  }
   const response = await fetch('/api/profile', {
     method: 'DELETE',
     headers: { 'content-type': 'application/json' },
@@ -62,9 +78,14 @@ export async function forgetAllMemory(): Promise<void> {
 }
 
 export async function exportMemory(): Promise<void> {
-  const response = await fetch(`/api/profile?device=${seed()}&export=1`, { credentials: 'same-origin' });
-  if (!response.ok) throw new Error(`profile ${response.status}`);
-  const blob = new Blob([JSON.stringify(await response.json(), null, 2)], { type: 'application/json' });
+  const value = isGitHubPagesRuntime()
+    ? await localMemory.exportSnapshot()
+    : await (async () => {
+        const response = await fetch(`/api/profile?device=${seed()}&export=1`, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error(`profile ${response.status}`);
+        return response.json();
+      })();
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

@@ -86,7 +86,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'objectInteractionTelemetry', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'v2-object-interaction', 'actionSequenceTelemetry', 'ActionSequenceTracker', 'actionSequencePrompt', 'v2-action-sequence', 'causalActionGraphTelemetry', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'v2-causal-action', 'v2-spatial-scene', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'objectInteractionTelemetry', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'v2-object-interaction', 'actionSequenceTelemetry', 'ActionSequenceTracker', 'actionSequencePrompt', 'v2-action-sequence', 'causalActionGraphTelemetry', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'v2-causal-action', 'v2-spatial-scene', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -246,7 +246,9 @@ if (brain.includes('VITE_LLM_API_KEY')) failures.push('production brain source m
 const localMemory = readFileSync('src/intelligence/memory/memory-service.ts', 'utf8');
 if (!localMemory.includes('LocalMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
 const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
-if (!localMemoryStore.includes('navigator.storage.persist')) failures.push('local memory should request persistent browser storage');
+for (const token of ['navigator.storage.persist', 'exportSnapshot', 'importTurns', 'clearAll', 'countTurns']) {
+  if (!localMemoryStore.includes(token)) failures.push(`local memory portability missing: ${token}`);
+}
 if (localMemoryStore.includes('bpmTrend') || localMemoryStore.includes('pulseTrace')) failures.push('experimental physiological estimates must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('BehaviorEvent') || localMemoryStore.includes('behaviorTimeline')) failures.push('social behavior timeline must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('TrackedObject') || localMemoryStore.includes('objectAwareness') || localMemoryStore.includes('EnvironmentContext')) failures.push('environment object tracks must remain ephemeral, not long-term memory');
@@ -254,6 +256,32 @@ if (localMemoryStore.includes('SpatialSceneGraph') || localMemoryStore.includes(
 if (localMemoryStore.includes('ObjectInteractionState') || localMemoryStore.includes('objectInteraction')) failures.push('object interaction proxy must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('ActionSequenceState') || localMemoryStore.includes('actionSequence')) failures.push('action sequence must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('CausalActionGraphState') || localMemoryStore.includes('causalActionGraph')) failures.push('causal action graph must remain ephemeral, not long-term memory');
+const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
+for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
+  if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
+}
+const capsuleClient = readFileSync('src/intelligence/identity/capsule-client.ts', 'utf8');
+for (const token of ['verifyLocalCapsule', 'localMemory.exportSnapshot', 'localMemory.importTurns', "crypto.subtle.digest('SHA-256'"]) {
+  if (!capsuleClient.includes(token)) failures.push(`GitHub Pages Identity Capsule fallback missing: ${token}`);
+}
+const visionRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
+for (const token of ['faceRecoveryTimer', 'face.lastSeenAt > 0', 'startLegacyVision(session)', '4_500']) {
+  if (!visionRuntime.includes(token)) failures.push(`face recovery watchdog missing: ${token}`);
+}
+const cameraSurfaceStart = v2.indexOf('<div className="v2-camera-frame">');
+const cameraSurfaceEnd = v2.indexOf('</div>\n          <div className="v2-face-panel">', cameraSurfaceStart);
+const cameraSurface = cameraSurfaceStart >= 0 && cameraSurfaceEnd > cameraSurfaceStart
+  ? v2.slice(cameraSurfaceStart, cameraSurfaceEnd)
+  : '';
+for (const token of ['PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'HandSkeletonOverlay', 'v2-gesture-overlay']) {
+  if (cameraSurface.includes(token)) failures.push(`camera recognition surface must remain face-only: ${token}`);
+}
+for (const token of ['FaceMeshOverlay', 'v2-camera-status face-only', 'Đã nhận diện khuôn mặt']) {
+  if (!cameraSurface.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
+}
+if (v2.includes('<RealPresenceOverlay')) failures.push('primary surface must not render the secondary Real Presence popup');
+if (v2.includes('<AirControlOverlay')) failures.push('primary surface must not render hand-control telemetry over camera mode');
+
 const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
 for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);

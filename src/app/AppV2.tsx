@@ -14,10 +14,8 @@ import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration
 import { GestureIntentTracker, type GestureIntentState } from '../core/vision/gesture-intent';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
-import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
-import PoseSkeletonOverlay, { type PoseSkeletonPoint } from '../presence/PoseSkeletonOverlay';
-import ObjectAwarenessOverlay from '../presence/ObjectAwarenessOverlay';
-import SpatialSceneOverlay from '../presence/SpatialSceneOverlay';
+import type { HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
+import type { PoseSkeletonPoint } from '../presence/PoseSkeletonOverlay';
 import { EMPTY_ENVIRONMENT, environmentPrompt, type TrackedObject } from '../core/vision/environment-model';
 import {
   EMPTY_SPATIAL_SCENE,
@@ -44,8 +42,6 @@ import {
   causalActionGraphPrompt,
   type CausalActionGraphState,
 } from '../core/vision/causal-action-graph';
-import AirControlOverlay from '../presence/AirControlOverlay';
-import RealPresenceOverlay from '../presence/RealPresenceOverlay';
 import { EMPTY_REAL_PRESENCE_POSE, type RealPresencePose } from '../core/vision/real-presence';
 import {
   measureTwoHands,
@@ -97,7 +93,6 @@ export default function AppV2() {
   const bootSawSpeakingRef = useRef(false);
   const bootTimerRef = useRef<number | null>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
-  const [visionMediaStream, setVisionMediaStream] = useState<MediaStream | null>(null);
   const visionModulesRef = useRef<typeof import('../presence/vision-runtime') | null>(null);
   const [visionOn, setVisionOn] = useState(false);
   const [visionBooting, setVisionBooting] = useState(false);
@@ -215,7 +210,6 @@ export default function AppV2() {
     const modules = visionModulesRef.current;
     modules?.stopVision();
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
-    setVisionMediaStream(null);
     setVisionOn(false);
     setFaceSeen(false);
     setRealPresencePose({ ...EMPTY_REAL_PRESENCE_POSE });
@@ -315,7 +309,6 @@ export default function AppV2() {
       setVisionOn(on);
 
       const stream = modules.visionStream();
-      setVisionMediaStream(on ? stream : null);
       if (on && stream && cameraPreviewRef.current) {
         cameraPreviewRef.current.srcObject = stream;
         cameraPreviewRef.current.muted = true;
@@ -1192,35 +1185,6 @@ export default function AppV2() {
                 muscles={faceTelemetry.muscles}
               />
             )}
-            {postureTelemetry.present && (
-              <PoseSkeletonOverlay points={poseLandmarks} active={postureTelemetry.present} />
-            )}
-            <ObjectAwarenessOverlay
-              objects={environmentTelemetry.objects}
-              active={environmentTelemetry.active}
-              selectedId={sceneGraphTelemetry.focus?.id || causalActionGraphTelemetry.leader?.objectId || actionSequenceTelemetry.objectId || objectInteractionTelemetry.objectId}
-            />
-            <SpatialSceneOverlay
-              graph={sceneGraphTelemetry}
-              pointer={airPoint}
-              active={visionOn && Boolean(sceneGraphTelemetry.focus)}
-            />
-            {handSeen && (
-              <>
-                {(spatialHands.length ? spatialHands : [{ landmarks: handLandmarks } as SpatialHand]).map((hand, index) => (
-                  <HandSkeletonOverlay key={`${hand.handedness || 'hand'}-${index}`} points={hand.landmarks} active={handSeen} />
-                ))}
-                <span
-                  className={`v2-hand-point${waveSeen ? ' wave' : ''}`}
-                  style={{ left: `${(1 - handPoint.x) * 100}%`, top: `${handPoint.y * 100}%` }}
-                  aria-hidden="true"
-                />
-                <div className={`v2-gesture-overlay${waveSeen ? ' wave' : ''}`}>
-                  <b>{gestureLabel}</b>
-                  <span>{Math.round(gestureScore * 100)}%</span>
-                </div>
-              </>
-            )}
             {!faceSeen && <div className="v2-face-scan-hint">Đưa khuôn mặt vào giữa khung hình</div>}
           </div>
           <div className="v2-face-panel">
@@ -1372,18 +1336,6 @@ export default function AppV2() {
         </div>
       )}
       {visionBooting && <div className="v2-vision-loading">Đang mở camera…</div>}
-      <AirControlOverlay
-        visible={visionOn && handSeen}
-        x={airPoint.x}
-        y={airPoint.y}
-        pinching={pinching}
-        targetLabel={airTargetLabel}
-        feedback={airFeedback}
-        mode={spatialTransformActive ? 'transform' : grabActive ? 'grab' : 'air'}
-        scale={surfaceTransform.scale}
-        rotation={surfaceTransform.rotation}
-      />
-
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage holographic-stage">
           <PhotorealMira
@@ -1397,14 +1349,6 @@ export default function AppV2() {
             brainName={mira.brainName}
             sttAvailable={mira.sttAvailable}
             observedMood={faceAffect.mood}
-            moodConfidence={faceAffect.confidence}
-          />
-          <RealPresenceOverlay
-            active={visionOn}
-            stream={visionMediaStream}
-            faceSeen={faceSeen}
-            pose={realPresencePose}
-            mood={faceAffect.mood}
             moodConfidence={faceAffect.confidence}
           />
         </div>

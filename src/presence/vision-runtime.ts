@@ -30,33 +30,75 @@ import {
 } from '../core/vision/object-awareness';
 
 let activeEngine: 'holistic' | 'legacy' = 'legacy';
+let visionSession = 0;
+let faceRecoveryTimer: number | null = null;
 
-export async function startVision(): Promise<{ ok: boolean; error: string }> {
-  const holisticOk = await startHolisticTracking();
-  if (holisticOk) {
-    activeEngine = 'holistic';
-    await startRppgMonitoring();
-    void startObjectAwareness();
-    return { ok: true, error: '' };
-  }
+function clearFaceRecoveryTimer(): void {
+  if (faceRecoveryTimer != null && typeof window !== 'undefined') window.clearTimeout(faceRecoveryTimer);
+  faceRecoveryTimer = null;
+}
 
-  // Backward-compatible fallback for browsers/devices that cannot load HolisticLandmarker.
-  activeEngine = 'legacy';
+async function startLegacyVision(session: number): Promise<{ ok: boolean; error: string }> {
   const [faceOk, handOk, postureOk, rppgOk] = await Promise.all([
     startFaceTracking(),
     startGestureTracking(),
     startPostureTracking(),
     startRppgMonitoring(),
   ]);
+  if (session !== visionSession) {
+    stopFaceTracking();
+    stopGestureTracking();
+    stopPostureTracking();
+    stopRppgMonitoring();
+    return { ok: false, error: 'Vision session changed.' };
+  }
+  activeEngine = 'legacy';
   const ok = faceOk || handOk || postureOk || rppgOk;
   if (ok) void startObjectAwareness();
   return {
     ok,
-    error: holisticTrackerError() || faceTrackerError() || gestureTrackerError() || postureTrackerError() || '',
+    error: faceOk ? '' : (faceTrackerError() || gestureTrackerError() || postureTrackerError() || 'Face detector unavailable.'),
+  };
+}
+
+export async function startVision(): Promise<{ ok: boolean; error: string }> {
+  const session = ++visionSession;
+  clearFaceRecoveryTimer();
+  const holisticOk = await startHolisticTracking();
+  if (session !== visionSession) return { ok: false, error: 'Vision session changed.' };
+
+  if (holisticOk) {
+    activeEngine = 'holistic';
+    await startRppgMonitoring();
+    void startObjectAwareness();
+
+    if (typeof window !== 'undefined') {
+      faceRecoveryTimer = window.setTimeout(() => {
+        faceRecoveryTimer = null;
+        if (session !== visionSession || !holisticTrackerActive()) return;
+        const face = holisticFaceHealthSnapshot();
+        if (face.lastSeenAt > 0 || face.landmarkCount >= 100) return;
+
+        // Holistic is alive but face output never became usable. Restart on the proven
+        // dedicated trackers instead of leaving the camera stuck on "Đang quét khuôn mặt".
+        stopHolisticTracking();
+        void startLegacyVision(session);
+      }, 4_500);
+    }
+    return { ok: true, error: '' };
+  }
+
+  // Backward-compatible fallback for browsers/devices that cannot load HolisticLandmarker.
+  const fallback = await startLegacyVision(session);
+  return {
+    ok: fallback.ok,
+    error: fallback.error || holisticTrackerError() || '',
   };
 }
 
 export function stopVision(): void {
+  visionSession += 1;
+  clearFaceRecoveryTimer();
   stopHolisticTracking();
   stopFaceTracking();
   stopGestureTracking();

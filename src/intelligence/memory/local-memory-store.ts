@@ -18,6 +18,13 @@ interface AffectRow {
   ts: number;
 }
 
+export interface LocalMemorySnapshot {
+  exportedAt: string;
+  turns: Array<{ role: BrainTurn['role']; text: string; ts: number }>;
+  episodes: Array<{ text: string; ts: number }>;
+  affects: Array<Omit<AffectRow, 'id'>>;
+}
+
 let dbPromise: Promise<IDBDatabase> | null = null;
 let persistencePromise: Promise<boolean> | null = null;
 
@@ -105,6 +112,71 @@ async function readAll<T>(storeName: 'turns' | 'episodes' | 'affect'): Promise<T
 export class LocalMemoryStore {
   private lastAffectWriteAt = 0;
   private lastAffectKey = '';
+
+  async countTurns(): Promise<number> {
+    try {
+      return (await readAll<TurnRow>('turns')).length;
+    } catch {
+      return 0;
+    }
+  }
+
+  async exportSnapshot(): Promise<LocalMemorySnapshot> {
+    const [turns, episodes, affects] = await Promise.all([
+      readAll<TurnRow>('turns').catch(() => []),
+      readAll<EpisodeRow>('episodes').catch(() => []),
+      readAll<AffectRow>('affect').catch(() => []),
+    ]);
+    return {
+      exportedAt: new Date().toISOString(),
+      turns: turns
+        .sort((a, b) => a.ts - b.ts)
+        .map(({ role, text, ts }) => ({ role, text, ts })),
+      episodes: episodes
+        .sort((a, b) => a.ts - b.ts)
+        .map(({ text, ts }) => ({ text, ts })),
+      affects: affects
+        .sort((a, b) => a.ts - b.ts)
+        .map(({ id: _id, ...row }) => row),
+    };
+  }
+
+  async importTurns(items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>): Promise<void> {
+    if (!Array.isArray(items) || !items.length) return;
+    try {
+      const db = await openDb();
+      const existing = await readAll<TurnRow>('turns');
+      const seen = new Set(existing.map((row) => row.role + ':' + row.text));
+      const tx = db.transaction('turns', 'readwrite');
+      const store = tx.objectStore('turns');
+      for (const item of items.slice(-500)) {
+        const role: BrainTurn['role'] = item?.role === 'mira' ? 'mira' : 'user';
+        const text = typeof item?.text === 'string' ? item.text.trim().slice(0, 6000) : '';
+        if (!text || seen.has(role + ':' + text)) continue;
+        seen.add(role + ':' + text);
+        const parsedDate = typeof item?.createdAt === 'string' ? Date.parse(item.createdAt) : NaN;
+        const rawTs = Number(item?.ts);
+        const ts = Number.isFinite(rawTs) && rawTs > 0
+          ? rawTs
+          : Number.isFinite(parsedDate) ? parsedDate : Date.now();
+        store.add({ role, text, ts } satisfies TurnRow);
+      }
+      await transactionDone(tx);
+    } catch { /* import is best-effort */ }
+  }
+
+  async clearAll(): Promise<void> {
+    try {
+      const db = await openDb();
+      const tx = db.transaction(['turns', 'episodes', 'affect'], 'readwrite');
+      tx.objectStore('turns').clear();
+      tx.objectStore('episodes').clear();
+      tx.objectStore('affect').clear();
+      await transactionDone(tx);
+      this.lastAffectWriteAt = 0;
+      this.lastAffectKey = '';
+    } catch { /* noop */ }
+  }
 
   async loadRecent(limit = 40): Promise<BrainTurn[]> {
     try {
