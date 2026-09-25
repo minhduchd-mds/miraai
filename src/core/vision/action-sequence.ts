@@ -336,7 +336,7 @@ export class ActionSequenceTracker {
         this.state.note = 'Camera motion guard đang chặn suy luận chuỗi vì nhiều vùng cùng dịch chuyển.';
       }
       this.rememberNodes(graph);
-      if (this.state.confidence < 0.18) this.resetSequence(now);
+      if (this.state.stage !== 'idle' && this.state.confidence < 0.18) this.resetSequence(now);
       return { ...this.state, steps: [...this.state.steps] };
     }
 
