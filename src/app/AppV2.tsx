@@ -289,17 +289,17 @@ export default function AppV2() {
         relativeActivation: Number(pulse.relativeActivation || 0),
         sampleCount: Number(pulse.sampleCount || 0),
       });
-      const perf = snapshot?.visionPerformance || {};
+      const perf = snapshot?.visionPerformance;
       setVisionPerformanceTelemetry({
-        engine: String(perf.engine || snapshot?.visionEngine || 'legacy'),
-        delegate: String(perf.delegate || 'unknown'),
-        tier: String(perf.tier || 'balanced'),
-        inferenceMs: Number(perf.inferenceMs || 0),
-        intervalMs: Number(perf.intervalMs || 0),
-        fps: Number(perf.fps || 0),
-        landmarkCount: Number(perf.landmarkCount || 0),
-        processedFrames: Number(perf.processedFrames || 0),
-        droppedFrames: Number(perf.droppedFrames || 0),
+        engine: String(perf?.engine || snapshot?.visionEngine || 'legacy'),
+        delegate: String(perf?.delegate || 'unknown'),
+        tier: String(perf?.tier || 'balanced'),
+        inferenceMs: Number(perf?.inferenceMs || 0),
+        intervalMs: Number(perf?.intervalMs || 0),
+        fps: Number(perf?.fps || 0),
+        landmarkCount: Number(perf?.landmarkCount || 0),
+        processedFrames: Number(perf?.processedFrames || 0),
+        droppedFrames: Number(perf?.droppedFrames || 0),
       });
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
       const now = performance.now();
