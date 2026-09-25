@@ -37,7 +37,7 @@ function clamp01(value: number): number {
 }
 
 /**
- * Session-local continuity model for subtle presence responses.
+ * session-local continuity model for subtle presence responses.
  * It stores no camera frames, biometric template, identity embedding or durable
  * emotion history. State disappears when the page/session is reset.
  */
