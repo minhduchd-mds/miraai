@@ -265,7 +265,7 @@ for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceG
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
 }
 const interactionEngine = readFileSync('src/intelligence/social/interaction-engine.ts', 'utf8');
-for (const token of ['InteractionTracker', 'joint-attention proxy', 'looking_away', 'returning', 'eyeContact', 'headAlignment', 'interactionPrompt']) {
+for (const token of ['InteractionTracker', 'Joint-attention proxy', 'looking_away', 'returning', 'eyeContact', 'headAlignment', 'interactionPrompt']) {
   if (!interactionEngine.includes(token)) failures.push(`social interaction engine missing: ${token}`);
 }
 const behaviorTimeline = readFileSync('src/intelligence/social/behavior-timeline.ts', 'utf8');
