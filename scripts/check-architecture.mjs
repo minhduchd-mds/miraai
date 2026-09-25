@@ -39,6 +39,7 @@ const mustExist = [
   'src/core/vision/spatial-scene-graph.ts',
   'src/core/vision/object-interaction.ts',
   'src/core/vision/action-sequence.ts',
+  'src/core/vision/causal-action-graph.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
@@ -85,7 +86,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'objectInteractionTelemetry', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'v2-object-interaction', 'actionSequenceTelemetry', 'ActionSequenceTracker', 'actionSequencePrompt', 'v2-action-sequence', 'v2-spatial-scene', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'sceneGraphTelemetry', 'objectInteractionTelemetry', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'v2-object-interaction', 'actionSequenceTelemetry', 'ActionSequenceTracker', 'actionSequencePrompt', 'v2-action-sequence', 'causalActionGraphTelemetry', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'v2-causal-action', 'v2-spatial-scene', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'faceRuntimeTelemetry', 'faceRuntimeLabel', 'environmentTelemetry', 'environmentPrompt', 'v2-environment-awareness', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -252,6 +253,7 @@ if (localMemoryStore.includes('TrackedObject') || localMemoryStore.includes('obj
 if (localMemoryStore.includes('SpatialSceneGraph') || localMemoryStore.includes('SpatialFocus') || localMemoryStore.includes('SpatialSceneEvent') || localMemoryStore.includes('spatialScene')) failures.push('spatial scene graph must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('ObjectInteractionState') || localMemoryStore.includes('objectInteraction')) failures.push('object interaction proxy must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('ActionSequenceState') || localMemoryStore.includes('actionSequence')) failures.push('action sequence must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('CausalActionGraphState') || localMemoryStore.includes('causalActionGraph')) failures.push('causal action graph must remain ephemeral, not long-term memory');
 const realPresence = readFileSync('src/core/vision/real-presence.ts', 'utf8');
 for (const token of ['estimateRealPresencePose', 'estimateFaceDistanceM', 'sceneOffsetX', 'sceneScale', 'privacy-preserving']) {
   if (!realPresence.includes(token)) failures.push(`real presence spatial estimator missing: ${token}`);
@@ -329,6 +331,10 @@ const actionSequence = readFileSync('src/core/vision/action-sequence.ts', 'utf8'
 for (const token of ['ActionSequenceTracker', 'hand_approach', 'object_occluded', 'object_reappeared', 'possible_reposition_sequence', 'estimateGlobalMotion', 'cameraMotionGuardUntil', 'identityRebound', 'Math.pow(0.5', 'actionSequencePrompt', 'MIRA_ACTION_SEQUENCE']) {
   if (!actionSequence.includes(token)) failures.push(`action sequence v12 missing: ${token}`);
 }
+const causalActionGraph = readFileSync('src/core/vision/causal-action-graph.ts', 'utf8');
+for (const token of ['CausalActionGraphTracker', 'competingCount', 'identity_rebind', 'detector_return', 'hand_withdraw', 'margin >= 0.08', 'Math.pow(0.5', 'causalActionGraphPrompt', 'MIRA_CAUSAL_ACTION_GRAPH', 'temporal order']) {
+  if (!causalActionGraph.includes(token)) failures.push(`causal action graph v13 missing: ${token}`);
+}
 const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');
 for (const token of ['SpatialSceneGraph', 'v2-spatial-overlay', 'v2-spatial-focus-label', 'TARGET']) {
   if (!spatialOverlay.includes(token)) failures.push(`spatial scene overlay missing: ${token}`);
@@ -358,7 +364,7 @@ for (const token of ['InteractionTracker', 'Joint-attention proxy', 'looking_awa
   if (!interactionEngine.includes(token)) failures.push(`social interaction engine missing: ${token}`);
 }
 const behaviorTimeline = readFileSync('src/intelligence/social/behavior-timeline.ts', 'utf8');
-for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'environment', 'environmentConfidence', 'spatial', 'spatialTarget', 'object_interaction', 'objectInteractionStage', 'action_sequence', 'actionSequenceStage', 'promptSummary', '90_000']) {
+for (const token of ['BehaviorTimeline', 'attention', 'micro', 'posture', 'gesture', 'proximity', 'environment', 'environmentConfidence', 'spatial', 'spatialTarget', 'object_interaction', 'objectInteractionStage', 'action_sequence', 'actionSequenceStage', 'causal_action', 'causalActionLabel', 'promptSummary', '90_000']) {
   if (!behaviorTimeline.includes(token)) failures.push(`behavior timeline missing: ${token}`);
 }
 const affectEngine = readFileSync('src/intelligence/affect/mood-engine.ts', 'utf8');

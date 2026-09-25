@@ -1,6 +1,6 @@
 import type { InteractionContext } from './interaction-engine';
 
-export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment' | 'spatial' | 'object_interaction' | 'action_sequence';
+export type BehaviorEventType = 'attention' | 'micro' | 'posture' | 'gesture' | 'proximity' | 'environment' | 'spatial' | 'object_interaction' | 'action_sequence' | 'causal_action';
 
 export interface BehaviorEvent {
   id: string;
@@ -29,6 +29,9 @@ export interface BehaviorObservation {
   actionSequenceStage?: string;
   actionSequenceLabel?: string;
   actionSequenceConfidence?: number;
+  causalActionLabel?: string;
+  causalActionConfidence?: number;
+  causalActionMargin?: number;
 }
 
 function clamp01(value: number): number {
@@ -132,6 +135,24 @@ export class BehaviorTimeline {
       );
     } else if (actionSequenceStage === 'idle') {
       this.lastKeys.delete('action_sequence');
+    }
+
+    const causalActionLabel = String(observation.causalActionLabel || '');
+    const causalActionConfidence = Number(observation.causalActionConfidence || 0);
+    const causalActionMargin = Number(observation.causalActionMargin || 0);
+    if (
+      causalActionLabel &&
+      causalActionConfidence >= 0.62 &&
+      causalActionMargin >= 0.08
+    ) {
+      this.push(
+        'causal_action',
+        'causal_reposition:' + causalActionLabel,
+        causalActionConfidence,
+        now,
+      );
+    } else if (!causalActionLabel) {
+      this.lastKeys.delete('causal_action');
     }
 
     this.events = this.events.filter((event) => now - event.at <= 90_000);

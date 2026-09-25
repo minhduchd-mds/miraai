@@ -39,6 +39,7 @@ const deicticVision = await importTypeScript('src/intelligence/vision/deictic-vi
 const faceFrameGuard = await importTypeScript('src/core/vision/face-frame-guard.ts');
 const objectInteraction = await importTypeScript('src/core/vision/object-interaction.ts');
 const actionSequence = await importTypeScript('src/core/vision/action-sequence.ts');
+const causalActionGraph = await importTypeScript('src/core/vision/causal-action-graph.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -1145,4 +1146,143 @@ test('action sequence v12 confidence decays instead of staying latched', () => {
 
   assert.equal(later.stage, 'possible_reposition_sequence');
   assert.ok(later.confidence < completed.confidence);
+});
+
+
+function v13Guard(cameraStable = true, cameraMotion = 0) {
+  return {
+    stage: 'idle',
+    sequenceId: 0,
+    objectId: '',
+    objectLabel: '',
+    handedness: '',
+    confidence: 0,
+    startedAt: 0,
+    updatedAt: 0,
+    cameraMotion,
+    cameraStable,
+    identityRebound: false,
+    steps: [],
+    note: '',
+  };
+}
+
+test('causal action graph v13 keeps multiple hypotheses in parallel', () => {
+  const tracker = new causalActionGraph.CausalActionGraphTracker();
+  const cup = actionNode('cup-v13', 'cup', 0.28, 0.4);
+  const book = actionNode('book-v13', 'book', 0.62, 0.4);
+
+  tracker.update(actionGraph([cup, book], [], 1000), [
+    { handedness: 'Left', x: 0.08, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7 },
+    { handedness: 'Right', x: 0.92, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7 },
+  ], v13Guard(), 1000);
+
+  const state = tracker.update(actionGraph([cup, book], [], 1400), [
+    { handedness: 'Left', x: 0.27, y: 0.5, pinching: true, gesture: 'None', score: 0.75 },
+    { handedness: 'Right', x: 0.79, y: 0.5, pinching: true, gesture: 'None', score: 0.75 },
+  ], v13Guard(), 1400);
+
+  assert.equal(state.competingCount, 2);
+  assert.equal(state.hypotheses.length, 2);
+  assert.equal(state.leader, null);
+});
+
+test('causal action graph v13 completes four-step evidence chain before exposing a leader', () => {
+  const tracker = new causalActionGraph.CausalActionGraphTracker();
+  const cup = actionNode('cup-v13-a', 'cup', 0.4, 0.4);
+
+  tracker.update(actionGraph([cup], [], 1000), [{
+    handedness: 'Right', x: 0.18, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.72,
+  }], v13Guard(), 1000);
+  tracker.update(actionGraph([cup], [], 1400), [{
+    handedness: 'Right', x: 0.39, y: 0.5, pinching: true, gesture: 'None', score: 0.76,
+  }], v13Guard(), 1400);
+
+  let state = tracker.update(actionGraph([], [{
+    id: 'scene-v13-left', type: 'object_left', label: 'cup', at: 1700,
+  }], 1700), [], v13Guard(), 1700);
+  assert.equal(state.hypotheses[0]?.stage, 'occluded');
+
+  const moved = actionNode('cup-v13-b', 'cup', 0.66, 0.4, 0.94);
+  state = tracker.update(actionGraph([moved], [
+    { id: 'scene-v13-left', type: 'object_left', label: 'cup', at: 1700 },
+    { id: 'scene-v13-relocated', type: 'object_relocated', label: 'cup', distance: 0.32, at: 2300 },
+  ], 2300), [{
+    handedness: 'Right', x: 0.75, y: 0.5, pinching: true, gesture: 'None', score: 0.75,
+  }], v13Guard(), 2300);
+  assert.equal(state.hypotheses[0]?.stage, 'reappeared');
+  assert.equal(state.leader, null);
+
+  state = tracker.update(actionGraph([moved], [
+    { id: 'scene-v13-left', type: 'object_left', label: 'cup', at: 1700 },
+    { id: 'scene-v13-relocated', type: 'object_relocated', label: 'cup', distance: 0.32, at: 2300 },
+  ], 2700), [{
+    handedness: 'Right', x: 0.99, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7,
+  }], v13Guard(), 2700);
+
+  assert.equal(state.leader?.stage, 'supported');
+  assert.equal(state.leader?.objectLabel, 'cup');
+  assert.ok((state.leader?.evidence.length || 0) >= 4);
+  assert.match(causalActionGraph.causalActionGraphPrompt(state, 2700), /leading hypothesis|không chứng minh nguyên nhân/i);
+});
+
+test('causal action graph v13 rebinds near ID switch instead of creating disappearance evidence', () => {
+  const tracker = new causalActionGraph.CausalActionGraphTracker();
+  const cup = actionNode('cup-v13-old', 'cup', 0.4, 0.4);
+
+  tracker.update(actionGraph([cup], [], 1000), [{
+    handedness: 'Left', x: 0.18, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7,
+  }], v13Guard(), 1000);
+  tracker.update(actionGraph([cup], [], 1400), [{
+    handedness: 'Left', x: 0.39, y: 0.5, pinching: true, gesture: 'None', score: 0.75,
+  }], v13Guard(), 1400);
+
+  const rebound = actionNode('cup-v13-new', 'cup', 0.415, 0.405, 0.91);
+  const state = tracker.update(actionGraph([rebound], [{
+    id: 'scene-v13-id-left', type: 'object_left', label: 'cup', at: 1650,
+  }], 1650), [], v13Guard(), 1650);
+
+  assert.equal(state.hypotheses[0]?.stage, 'approach');
+  assert.equal(state.hypotheses[0]?.identityRebound, true);
+  assert.ok(state.hypotheses[0]?.evidence.some((item) => item.kind === 'identity_rebind'));
+});
+
+test('causal action graph v13 suppresses near-position detector return alternative', () => {
+  const tracker = new causalActionGraph.CausalActionGraphTracker();
+  const cup = actionNode('cup-v13-return-a', 'cup', 0.4, 0.4);
+
+  tracker.update(actionGraph([cup], [], 1000), [{
+    handedness: 'Right', x: 0.18, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7,
+  }], v13Guard(), 1000);
+  tracker.update(actionGraph([cup], [], 1400), [{
+    handedness: 'Right', x: 0.39, y: 0.5, pinching: true, gesture: 'None', score: 0.75,
+  }], v13Guard(), 1400);
+  tracker.update(actionGraph([], [{
+    id: 'scene-v13-return-left', type: 'object_left', label: 'cup', at: 1700,
+  }], 1700), [], v13Guard(), 1700);
+
+  const returned = actionNode('cup-v13-return-b', 'cup', 0.42, 0.405, 0.9);
+  const state = tracker.update(actionGraph([returned], [
+    { id: 'scene-v13-return-left', type: 'object_left', label: 'cup', at: 1700 },
+    { id: 'scene-v13-return', type: 'object_returned', label: 'cup', distance: 0.02, at: 2200 },
+  ], 2200), [], v13Guard(), 2200);
+
+  assert.equal(state.competingCount, 0);
+  assert.equal(state.leader, null);
+});
+
+test('causal action graph v13 does not advance evidence while camera motion guard is active', () => {
+  const tracker = new causalActionGraph.CausalActionGraphTracker();
+  const cup = actionNode('cup-v13-shake', 'cup', 0.4, 0.4);
+
+  tracker.update(actionGraph([cup], [], 1000), [{
+    handedness: 'Right', x: 0.18, y: 0.5, pinching: false, gesture: 'Open_Palm', score: 0.7,
+  }], v13Guard(false, 0.05), 1000);
+
+  const state = tracker.update(actionGraph([cup], [], 1400), [{
+    handedness: 'Right', x: 0.39, y: 0.5, pinching: true, gesture: 'None', score: 0.75,
+  }], v13Guard(false, 0.05), 1400);
+
+  assert.equal(state.hypotheses.length, 0);
+  assert.equal(state.cameraStable, false);
 });

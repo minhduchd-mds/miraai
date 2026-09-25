@@ -1514,3 +1514,61 @@
   .v2-action-sequence b { font-size: 6.4px; }
   .v2-action-sequence em { font-size: 5.2px; }
 }
+
+
+/* Causal Action Graph v13 — competing evidence hypotheses, never proof of causality */
+.v2-causal-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(136, 166, 205, .08);
+  background: rgba(8, 15, 27, .2);
+}
+.v2-causal-action > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.v2-causal-action small {
+  color: rgba(157, 177, 207, .42);
+  font: 650 5.7px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .45px;
+}
+.v2-causal-action b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(195, 210, 232, .58);
+  font: 650 7px/1.15 'Inter', system-ui, sans-serif;
+}
+.v2-causal-action em {
+  color: rgba(170, 192, 221, .48);
+  font: 700 5.8px/1 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  white-space: nowrap;
+}
+.v2-causal-action.ambiguous {
+  border-color: rgba(245, 197, 113, .18);
+  background: rgba(75, 51, 12, .1);
+}
+.v2-causal-action.ambiguous b,
+.v2-causal-action.ambiguous em {
+  color: rgba(245, 218, 161, .78);
+}
+.v2-causal-action.has-leader {
+  border-color: rgba(142, 226, 180, .22);
+  background: rgba(17, 77, 48, .12);
+}
+.v2-causal-action.has-leader b,
+.v2-causal-action.has-leader em {
+  color: rgba(189, 246, 212, .86);
+}
+@media (max-width: 760px) {
+  .v2-causal-action { padding: 4px 5px; }
+  .v2-causal-action small { font-size: 5.1px; }
+  .v2-causal-action b { font-size: 6.4px; }
+  .v2-causal-action em { font-size: 5.2px; }
+}

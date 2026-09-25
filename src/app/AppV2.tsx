@@ -38,6 +38,12 @@ import {
   actionSequencePrompt,
   type ActionSequenceState,
 } from '../core/vision/action-sequence';
+import {
+  EMPTY_CAUSAL_ACTION_GRAPH,
+  CausalActionGraphTracker,
+  causalActionGraphPrompt,
+  type CausalActionGraphState,
+} from '../core/vision/causal-action-graph';
 import AirControlOverlay from '../presence/AirControlOverlay';
 import RealPresenceOverlay from '../presence/RealPresenceOverlay';
 import { EMPTY_REAL_PRESENCE_POSE, type RealPresencePose } from '../core/vision/real-presence';
@@ -135,6 +141,8 @@ export default function AppV2() {
   const objectInteractionTrackerRef = useRef(new ObjectInteractionTracker());
   const [actionSequenceTelemetry, setActionSequenceTelemetry] = useState<ActionSequenceState>(() => ({ ...EMPTY_ACTION_SEQUENCE }));
   const actionSequenceTrackerRef = useRef(new ActionSequenceTracker());
+  const [causalActionGraphTelemetry, setCausalActionGraphTelemetry] = useState<CausalActionGraphState>(() => ({ ...EMPTY_CAUSAL_ACTION_GRAPH }));
+  const causalActionGraphTrackerRef = useRef(new CausalActionGraphTracker());
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
@@ -244,6 +252,8 @@ export default function AppV2() {
     setObjectInteractionTelemetry({ ...EMPTY_OBJECT_INTERACTION });
     actionSequenceTrackerRef.current.reset();
     setActionSequenceTelemetry({ ...EMPTY_ACTION_SEQUENCE });
+    causalActionGraphTrackerRef.current.reset();
+    setCausalActionGraphTelemetry({ ...EMPTY_CAUSAL_ACTION_GRAPH });
     setCalibrationTelemetry(gazeHeadCalibratorRef.current.snapshot());
     gestureIntentTrackerRef.current.reset();
     setGestureIntentTelemetry({
@@ -490,6 +500,14 @@ export default function AppV2() {
       );
       setActionSequenceTelemetry(actionSequence);
 
+      const causalActionGraph = causalActionGraphTrackerRef.current.update(
+        sceneGraph,
+        interactionHands,
+        actionSequence,
+        now,
+      );
+      setCausalActionGraphTelemetry(causalActionGraph);
+
       const recentBehavior = behaviorTimelineRef.current.observe({
         interaction,
         microKind: String(micro.kind || 'none'),
@@ -509,6 +527,9 @@ export default function AppV2() {
         actionSequenceStage: actionSequence.stage,
         actionSequenceLabel: actionSequence.objectLabel,
         actionSequenceConfidence: actionSequence.confidence,
+        causalActionLabel: causalActionGraph.leader?.objectLabel || '',
+        causalActionConfidence: Number(causalActionGraph.leader?.confidence || 0),
+        causalActionMargin: causalActionGraph.margin,
       }, now);
       setBehaviorEvents(recentBehavior);
 
@@ -530,6 +551,7 @@ export default function AppV2() {
         spatialScenePrompt(sceneGraph, now),
         objectInteractionPrompt(objectInteraction, now),
         actionSequencePrompt(actionSequence, now),
+        causalActionGraphPrompt(causalActionGraph, now),
       ]
         .filter(Boolean)
         .join(' ');
@@ -1060,6 +1082,15 @@ export default function AppV2() {
           ? `Hand approach · ${actionSequenceTelemetry.objectLabel}`
           : 'No action sequence';
 
+  const causalLeader = causalActionGraphTelemetry.leader;
+  const causalGraphLabel = causalLeader
+    ? `Leading · ${causalLeader.objectLabel}`
+    : causalActionGraphTelemetry.competingCount > 1
+      ? `Ambiguous · ${causalActionGraphTelemetry.competingCount} hypotheses`
+      : causalActionGraphTelemetry.competingCount === 1
+        ? `${causalActionGraphTelemetry.hypotheses[0]?.stage || 'candidate'} · ${causalActionGraphTelemetry.hypotheses[0]?.objectLabel || 'object'}`
+        : 'No causal hypothesis';
+
   const interactionLabel = ({
     focused: 'Đang tập trung',
     engaged: 'Đang tương tác',
@@ -1074,6 +1105,7 @@ export default function AppV2() {
     if (event.label.startsWith('possible_manipulation:')) return 'Possible · ' + event.label.slice('possible_manipulation:'.length);
     if (event.label.startsWith('possible_reposition:')) return 'Reposition · ' + event.label.slice('possible_reposition:'.length);
     if (event.label.startsWith('reposition_sequence:')) return 'Sequence · ' + event.label.slice('reposition_sequence:'.length);
+    if (event.label.startsWith('causal_reposition:')) return 'Causal proxy · ' + event.label.slice('causal_reposition:'.length);
     return ({
     focused: 'Focus',
     engaged: 'Engaged',
@@ -1168,7 +1200,7 @@ export default function AppV2() {
             <ObjectAwarenessOverlay
               objects={environmentTelemetry.objects}
               active={environmentTelemetry.active}
-              selectedId={sceneGraphTelemetry.focus?.id || actionSequenceTelemetry.objectId || objectInteractionTelemetry.objectId}
+              selectedId={sceneGraphTelemetry.focus?.id || causalActionGraphTelemetry.leader?.objectId || actionSequenceTelemetry.objectId || objectInteractionTelemetry.objectId}
             />
             <SpatialSceneOverlay
               graph={sceneGraphTelemetry}
@@ -1284,7 +1316,18 @@ export default function AppV2() {
                   {actionSequenceTelemetry.identityRebound ? ' · REBIND' : ''}
                 </em>
               </div>
-              <small className="v2-spatial-note">Quan hệ, interaction và action sequence đều là proxy 2D; v12 có confidence decay, camera-motion guard và ID-switch rebind.</small>
+              <div className={`v2-causal-action${causalLeader ? ' has-leader' : causalActionGraphTelemetry.competingCount > 1 ? ' ambiguous' : ''}`}>
+                <span>
+                  <small>CAUSAL GRAPH V13</small>
+                  <b>{causalGraphLabel}</b>
+                </span>
+                <em>
+                  {causalLeader ? Math.round(causalLeader.confidence * 100) + '%' : causalActionGraphTelemetry.competingCount + 'H'}
+                  {causalLeader ? ' · Δ' + Math.round(causalActionGraphTelemetry.margin * 100) : ''}
+                  {causalActionGraphTelemetry.cameraStable ? '' : ' · SHAKE'}
+                </em>
+              </div>
+              <small className="v2-spatial-note">v13 giữ nhiều evidence hypothesis song song; chỉ có leader khi confidence + margin đủ lớn. Temporal order không được coi là bằng chứng nhân quả.</small>
             </div>
             <div className="v2-sensor-strip">
               <span className={microTelemetry.kind !== 'none' ? 'active' : ''}><small>MICRO</small><b>{microLabel}</b></span>
