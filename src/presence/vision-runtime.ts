@@ -14,8 +14,27 @@ import { getVisionCameraStream } from '../core/vision/camera-manager';
 import { estimateRealPresencePose } from '../core/vision/real-presence';
 import { postureData, postureTrackerError, startPostureTracking, stopPostureTracking } from '../core/vision/posture-tracker';
 import { rppgData, startRppgMonitoring, stopRppgMonitoring } from '../core/vision/rppg-monitor';
+import {
+  holisticPerformanceSnapshot,
+  holisticTrackerActive,
+  holisticTrackerError,
+  startHolisticTracking,
+  stopHolisticTracking,
+} from '../core/vision/holistic-tracker';
+import { EMPTY_VISION_PERFORMANCE } from '../core/vision/vision-performance';
+
+let activeEngine: 'holistic' | 'legacy' = 'legacy';
 
 export async function startVision(): Promise<{ ok: boolean; error: string }> {
+  const holisticOk = await startHolisticTracking();
+  if (holisticOk) {
+    activeEngine = 'holistic';
+    await startRppgMonitoring();
+    return { ok: true, error: '' };
+  }
+
+  // Backward-compatible fallback for browsers/devices that cannot load HolisticLandmarker.
+  activeEngine = 'legacy';
   const [faceOk, handOk, postureOk, rppgOk] = await Promise.all([
     startFaceTracking(),
     startGestureTracking(),
@@ -24,15 +43,17 @@ export async function startVision(): Promise<{ ok: boolean; error: string }> {
   ]);
   return {
     ok: faceOk || handOk || postureOk || rppgOk,
-    error: faceTrackerError() || gestureTrackerError() || postureTrackerError() || '',
+    error: holisticTrackerError() || faceTrackerError() || gestureTrackerError() || postureTrackerError() || '',
   };
 }
 
 export function stopVision(): void {
+  stopHolisticTracking();
   stopFaceTracking();
   stopGestureTracking();
   stopPostureTracking();
   stopRppgMonitoring();
+  activeEngine = 'legacy';
 }
 
 export function visionSnapshot() {
@@ -94,6 +115,10 @@ export function visionSnapshot() {
       landmarks: postureData.landmarks.map((point) => ({ ...point })),
     },
     rppg: { ...rppgData },
+    visionPerformance: holisticTrackerActive()
+      ? holisticPerformanceSnapshot()
+      : { ...EMPTY_VISION_PERFORMANCE, engine: activeEngine },
+    visionEngine: activeEngine,
     handSeen: Boolean(handData.active && handData.present),
     handCount: hands.length,
     hands,

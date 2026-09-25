@@ -84,6 +84,10 @@ export default function AppV2() {
   const [pulseTelemetry, setPulseTelemetry] = useState({
     status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0,
   });
+  const [visionPerformanceTelemetry, setVisionPerformanceTelemetry] = useState({
+    engine: 'legacy', delegate: 'unknown', tier: 'balanced', inferenceMs: 0, intervalMs: 60,
+    fps: 0, landmarkCount: 0, processedFrames: 0, droppedFrames: 0,
+  });
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
@@ -159,6 +163,10 @@ export default function AppV2() {
     setPostureTelemetry({ present: false, label: 'unknown', confidence: 0, upright: 0, slump: 0, lean: 0, motion: 0 });
     setPoseLandmarks([]);
     setPulseTelemetry({ status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0 });
+    setVisionPerformanceTelemetry({
+      engine: 'legacy', delegate: 'unknown', tier: 'balanced', inferenceMs: 0, intervalMs: 60,
+      fps: 0, landmarkCount: 0, processedFrames: 0, droppedFrames: 0,
+    });
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
     setBehaviorEvents([]);
@@ -280,6 +288,18 @@ export default function AppV2() {
         quality: Number(pulse.quality || 0),
         relativeActivation: Number(pulse.relativeActivation || 0),
         sampleCount: Number(pulse.sampleCount || 0),
+      });
+      const perf = snapshot?.visionPerformance || {};
+      setVisionPerformanceTelemetry({
+        engine: String(perf.engine || snapshot?.visionEngine || 'legacy'),
+        delegate: String(perf.delegate || 'unknown'),
+        tier: String(perf.tier || 'balanced'),
+        inferenceMs: Number(perf.inferenceMs || 0),
+        intervalMs: Number(perf.intervalMs || 0),
+        fps: Number(perf.fps || 0),
+        landmarkCount: Number(perf.landmarkCount || 0),
+        processedFrames: Number(perf.processedFrames || 0),
+        droppedFrames: Number(perf.droppedFrames || 0),
       });
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
       const now = performance.now();
@@ -761,6 +781,14 @@ export default function AppV2() {
         ? 'Tín hiệu thấp'
         : 'Chờ tín hiệu';
 
+  const visionEngineLabel = visionPerformanceTelemetry.engine === 'holistic'
+    ? 'HOLISTIC · 553'
+    : 'LEGACY VISION';
+
+  const visionPerfLabel = visionPerformanceTelemetry.processedFrames > 0
+    ? `${Math.round(visionPerformanceTelemetry.fps)} fps · ${Math.round(visionPerformanceTelemetry.inferenceMs)} ms · ${visionPerformanceTelemetry.delegate}`
+    : 'Đang khởi động';
+
   const interactionLabel = ({
     focused: 'Đang tập trung',
     engaged: 'Đang tương tác',
@@ -889,6 +917,11 @@ export default function AppV2() {
               <span><small>ENG</small><b>{Math.round(faceAffect.dimensions.engagement * 100)}</b></span>
               <span><small>FAT</small><b>{Math.round(faceAffect.dimensions.fatigue * 100)}</b></span>
               <span><small>TEN</small><b>{Math.round(faceAffect.dimensions.tension * 100)}</b></span>
+            </div>
+            <div className="v2-vision-engine">
+              <span><small>VISION</small><b>{visionEngineLabel}</b></span>
+              <em>{visionPerfLabel}</em>
+              <i title="Landmark count">{Math.round(visionPerformanceTelemetry.landmarkCount)} pts · {visionPerformanceTelemetry.tier}</i>
             </div>
             <div className="v2-sensor-strip">
               <span className={microTelemetry.kind !== 'none' ? 'active' : ''}><small>MICRO</small><b>{microLabel}</b></span>

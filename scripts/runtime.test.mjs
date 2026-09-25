@@ -29,6 +29,8 @@ const postureModel = await importTypeScript('src/core/vision/posture-model.ts');
 const rppgSignal = await importTypeScript('src/core/vision/rppg-signal.ts');
 const interaction = await importTypeScript('src/intelligence/social/interaction-engine.ts');
 const behaviorTimeline = await importTypeScript('src/intelligence/social/behavior-timeline.ts');
+const handGestureLite = await importTypeScript('src/core/vision/hand-gesture-lite.ts');
+const visionPerformance = await importTypeScript('src/core/vision/vision-performance.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -505,4 +507,54 @@ test('proactive engine stays quiet when social geometry says user is away', () =
   };
   engine.observeAffect(state, 1000);
   assert.equal(engine.nextForSilence(state, 20_000), null);
+});
+
+
+test('holistic lite gesture geometry preserves Mira open-palm and fist controls without a second ML model', () => {
+  const open = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.72, z: 0 }));
+  open[0] = { x: 0.5, y: 0.92, z: 0 };
+  const fingers = [
+    [5,6,8,0.38], [9,10,12,0.46], [13,14,16,0.54], [17,18,20,0.62],
+  ];
+  for (const [mcp,pip,tip,x] of fingers) {
+    open[mcp] = { x, y: 0.68, z: 0 };
+    open[pip] = { x, y: 0.49, z: 0 };
+    open[tip] = { x, y: 0.24, z: 0 };
+  }
+  open[2] = { x: 0.43, y: 0.72, z: 0 };
+  open[3] = { x: 0.34, y: 0.62, z: 0 };
+  open[4] = { x: 0.23, y: 0.51, z: 0 };
+
+  const openResult = handGestureLite.inferLiteGesture(open);
+  assert.equal(openResult.gesture, 'Open_Palm');
+  assert.ok(openResult.score > 0.7);
+
+  const fist = open.map((point) => ({ ...point }));
+  for (const [mcp,pip,tip,x] of fingers) {
+    fist[mcp] = { x, y: 0.68, z: 0 };
+    fist[pip] = { x, y: 0.57, z: 0 };
+    fist[tip] = { x: x + 0.01, y: 0.68, z: 0 };
+  }
+  fist[2] = { x: 0.45, y: 0.72, z: 0 };
+  fist[3] = { x: 0.43, y: 0.69, z: 0 };
+  fist[4] = { x: 0.45, y: 0.66, z: 0 };
+  const fistResult = handGestureLite.inferLiteGesture(fist);
+  assert.equal(fistResult.gesture, 'Closed_Fist');
+  assert.ok(fistResult.score > 0.55);
+});
+
+test('vision performance governor backs off under heavy holistic inference and keeps hidden-tab cadence low', () => {
+  const governor = new visionPerformance.VisionPerformanceGovernor('holistic', 'GPU', 'high');
+  assert.equal(governor.state.intervalMs, 38);
+  assert.equal(governor.shouldProcess(100, false), true);
+  governor.noteFrame(100, 82, 553);
+  const loaded = governor.snapshot();
+  assert.ok(loaded.intervalMs > 38);
+  assert.equal(loaded.landmarkCount, 553);
+  assert.equal(loaded.delegate, 'GPU');
+
+  assert.equal(governor.shouldProcess(110, false), false);
+  governor.noteFrame(240, 20, 520);
+  assert.ok(governor.snapshot().fps > 0);
+  assert.equal(governor.shouldProcess(300, true), false);
 });

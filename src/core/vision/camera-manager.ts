@@ -2,7 +2,7 @@
 // Multiple consumers (face, gesture, later pose/object detection) reuse one MediaStream
 // so enabling a second sensor does not tear down or reopen the webcam.
 
-export type VisionCameraConsumer = 'face' | 'gesture' | 'pose' | 'rppg' | 'object';
+export type VisionCameraConsumer = 'holistic' | 'face' | 'gesture' | 'pose' | 'rppg' | 'object';
 
 const consumers = new Set<VisionCameraConsumer>();
 let stream: MediaStream | null = null;

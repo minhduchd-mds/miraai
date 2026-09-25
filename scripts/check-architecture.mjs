@@ -25,6 +25,9 @@ const mustExist = [
   'src/core/vision/real-presence.ts',
   'src/core/vision/posture-model.ts',
   'src/core/vision/posture-tracker.ts',
+  'src/core/vision/hand-gesture-lite.ts',
+  'src/core/vision/vision-performance.ts',
+  'src/core/vision/holistic-tracker.ts',
   'src/core/vision/rppg-signal.ts',
   'src/core/vision/rppg-monitor.ts',
   'src/presence/PoseSkeletonOverlay.tsx',
@@ -68,7 +71,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'HOLISTIC · 553', 'v2-vision-engine', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -248,6 +251,18 @@ const postureModel = readFileSync('src/core/vision/posture-model.ts', 'utf8');
 for (const token of ['derivePosture', 'slouched', 'upright', 'shoulderSlope', 'not a health assessment']) {
   if (!postureModel.includes(token)) failures.push(`posture model missing: ${token}`);
 }
+const handGestureLite = readFileSync('src/core/vision/hand-gesture-lite.ts', 'utf8');
+for (const token of ['inferLiteGesture', 'Open_Palm', 'Closed_Fist', 'Victory', 'Pointing_Up', 'ILoveYou']) {
+  if (!handGestureLite.includes(token)) failures.push(`holistic hand gesture adapter missing: ${token}`);
+}
+const visionPerformance = readFileSync('src/core/vision/vision-performance.ts', 'utf8');
+for (const token of ['VisionPerformanceGovernor', 'detectVisionTier', 'baseIntervalForTier', 'hidden', 'inferenceMs', 'landmarkCount']) {
+  if (!visionPerformance.includes(token)) failures.push(`vision performance governor missing: ${token}`);
+}
+const holisticTracker = readFileSync('src/core/vision/holistic-tracker.ts', 'utf8');
+for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'updateFace', 'updatePose', 'updateHands', 'VisionPerformanceGovernor']) {
+  if (!holisticTracker.includes(token)) failures.push(`holistic vision runtime missing: ${token}`);
+}
 const postureTracker = readFileSync('src/core/vision/posture-tracker.ts', 'utf8');
 for (const token of ['PoseLandmarker', 'pose_landmarker_lite', "acquireVisionCamera('pose')", 'motionEma']) {
   if (!postureTracker.includes(token)) failures.push(`posture runtime missing: ${token}`);
@@ -284,6 +299,12 @@ const proactiveEngine = readFileSync('src/intelligence/proactive/proactive-engin
 for (const token of ["interaction?.state === 'absent'", "interaction?.state === 'looking_away'", 'lastAwayMs >= 15_000']) {
   if (!proactiveEngine.includes(token)) failures.push(`social-aware proactive policy missing: ${token}`);
 }
+const visionRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
+for (const token of ['startHolisticTracking', 'holisticTrackerActive', 'Backward-compatible fallback', 'visionPerformance', 'visionEngine']) {
+  if (!visionRuntime.includes(token)) failures.push(`vision runtime holistic orchestration missing: ${token}`);
+}
+const cameraManager = readFileSync('src/core/vision/camera-manager.ts', 'utf8');
+if (!cameraManager.includes("'holistic'")) failures.push('shared camera manager must support holistic consumer');
 const prompt = readFileSync('src/core/brain/prompt.ts', 'utf8');
 if (/trợ lý[^\n]{0,80}sản phẩm\s+Soi/i.test(prompt)) failures.push('Mira core persona must not be hardcoded to Soi');
 

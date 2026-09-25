@@ -1034,3 +1034,56 @@
   .v2-behavior-timeline > span { font-size: 5.5px; }
   .v2-social-note { font-size: 6px; }
 }
+
+
+/* Holistic Vision v5 — unified 553-point runtime telemetry */
+.v2-vision-engine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name perf"
+    "name meta";
+  gap: 2px 8px;
+  align-items: center;
+  padding: 6px 7px;
+  border: 1px solid rgba(105, 239, 205, .13);
+  border-radius: 9px;
+  background: rgba(13, 56, 51, .08);
+}
+.v2-vision-engine > span {
+  grid-area: name;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.v2-vision-engine small {
+  color: rgba(137, 222, 205, .5);
+  font: 650 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .55px;
+}
+.v2-vision-engine b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(220, 250, 241, .82);
+  font: 700 8px/1.1 'Inter', system-ui, sans-serif;
+}
+.v2-vision-engine em {
+  grid-area: perf;
+  color: rgba(175, 206, 238, .56);
+  font: 650 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  white-space: nowrap;
+}
+.v2-vision-engine i {
+  grid-area: meta;
+  color: rgba(146, 168, 211, .36);
+  font: 600 5.5px/1 'JetBrains Mono', ui-monospace, monospace;
+  font-style: normal;
+  text-align: right;
+}
+@media (max-width: 760px) {
+  .v2-vision-engine { padding: 5px; gap: 2px 5px; }
+  .v2-vision-engine em { font-size: 5.5px; }
+  .v2-vision-engine i { font-size: 5px; }
+}
