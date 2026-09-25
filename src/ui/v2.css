@@ -1087,3 +1087,24 @@
   .v2-vision-engine em { font-size: 5.5px; }
   .v2-vision-engine i { font-size: 5px; }
 }
+
+
+/* Vision v6 calibration + temporal gesture intent telemetry */
+.v2-social-calibration {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.v2-social-calibration > span {
+  padding: 3px 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(121, 221, 202, .1);
+  background: rgba(17, 68, 61, .09);
+  color: rgba(170, 227, 214, .58);
+  font: 650 6px/1 'JetBrains Mono', ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: .28px;
+}
+@media (max-width: 760px) {
+  .v2-social-calibration > span { font-size: 5.5px; }
+}

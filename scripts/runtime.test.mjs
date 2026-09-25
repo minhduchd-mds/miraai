@@ -31,6 +31,8 @@ const interaction = await importTypeScript('src/intelligence/social/interaction-
 const behaviorTimeline = await importTypeScript('src/intelligence/social/behavior-timeline.ts');
 const handGestureLite = await importTypeScript('src/core/vision/hand-gesture-lite.ts');
 const visionPerformance = await importTypeScript('src/core/vision/vision-performance.ts');
+const gazeCalibration = await importTypeScript('src/intelligence/social/gaze-head-calibration.ts');
+const gestureIntent = await importTypeScript('src/core/vision/gesture-intent.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -557,4 +559,85 @@ test('vision performance governor backs off under heavy holistic inference and k
   governor.noteFrame(240, 20, 520);
   assert.ok(governor.snapshot().fps > 0);
   assert.equal(governor.shouldProcess(300, true), false);
+});
+
+
+test('gaze/head calibration learns a local camera-facing center without storing images', () => {
+  const calibrator = new gazeCalibration.GazeHeadCalibrator();
+  for (let i = 0; i < 95; i += 1) {
+    calibrator.observe({
+      facePresent: true,
+      confidence: 0.9,
+      gazeX: 0.16,
+      gazeY: -0.08,
+      yaw: 0.12,
+      pitch: -0.06,
+      motion: 0.03,
+    });
+  }
+  const profile = calibrator.snapshot();
+  assert.equal(profile.ready, true);
+  assert.equal(profile.progress, 1);
+  const calibrated = calibrator.apply({ gazeX: 0.16, gazeY: -0.08, yaw: 0.12, pitch: -0.06 });
+  assert.ok(Math.abs(calibrated.gazeX) < 0.03);
+  assert.ok(Math.abs(calibrated.gazeY) < 0.03);
+  assert.ok(Math.abs(calibrated.yaw) < 0.03);
+  assert.ok(Math.abs(calibrated.pitch) < 0.03);
+});
+
+test('gaze/head calibration ignores unstable or low-confidence frames', () => {
+  const calibrator = new gazeCalibration.GazeHeadCalibrator();
+  calibrator.reset();
+  for (let i = 0; i < 30; i += 1) {
+    calibrator.observe({
+      facePresent: true,
+      confidence: 0.3,
+      gazeX: 0.1,
+      gazeY: 0.1,
+      yaw: 0.1,
+      pitch: 0.1,
+      motion: 0.7,
+    });
+  }
+  assert.equal(calibrator.snapshot().samples, 0);
+});
+
+test('temporal gesture intent requires a stable hold before triggering UI commands', () => {
+  const tracker = new gestureIntent.GestureIntentTracker();
+  let state = tracker.update({ gesture: 'Victory', score: 0.9, pinching: false }, 1000);
+  assert.equal(state.intent, 'none');
+  state = tracker.update({ gesture: 'Victory', score: 0.9, pinching: false }, 1250);
+  assert.equal(state.intent, 'none');
+  state = tracker.update({ gesture: 'Victory', score: 0.9, pinching: false }, 1460);
+  assert.equal(state.intent, 'victory_hold');
+  const victoryEventId = state.eventId;
+
+  state = tracker.update({ gesture: 'Victory', score: 0.92, pinching: false }, 1600);
+  assert.equal(state.intent, 'none');
+  assert.equal(state.eventId, victoryEventId);
+});
+
+test('temporal gesture intent emits pinch down/up edges once', () => {
+  const tracker = new gestureIntent.GestureIntentTracker();
+  let state = tracker.update({ gesture: 'Pointing_Up', score: 0.8, pinching: false }, 1000);
+  assert.equal(state.intent, 'none');
+  state = tracker.update({ gesture: 'Pointing_Up', score: 0.8, pinching: true }, 1300);
+  assert.equal(state.intent, 'pinch_down');
+  const downId = state.eventId;
+  state = tracker.update({ gesture: 'Pointing_Up', score: 0.8, pinching: true }, 1400);
+  assert.equal(state.intent, 'none');
+  assert.equal(state.eventId, downId);
+  state = tracker.update({ gesture: 'Pointing_Up', score: 0.8, pinching: false }, 1550);
+  assert.equal(state.intent, 'pinch_up');
+  assert.ok(state.eventId > downId);
+});
+
+test('vision performance telemetry reports worker postprocess separately from model inference', () => {
+  const governor = new visionPerformance.VisionPerformanceGovernor('holistic', 'GPU', 'balanced');
+  governor.setPostprocess('worker', 6);
+  governor.noteFrame(1000, 25, 553);
+  const snapshot = governor.snapshot();
+  assert.equal(snapshot.postprocess, 'worker');
+  assert.ok(snapshot.postprocessMs > 0);
+  assert.equal(snapshot.landmarkCount, 553);
 });

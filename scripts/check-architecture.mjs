@@ -28,6 +28,11 @@ const mustExist = [
   'src/core/vision/hand-gesture-lite.ts',
   'src/core/vision/vision-performance.ts',
   'src/core/vision/holistic-tracker.ts',
+  'src/core/vision/vision-worker-protocol.ts',
+  'src/core/vision/vision-postprocess-worker.ts',
+  'src/core/vision/vision-worker-client.ts',
+  'src/core/vision/gesture-intent.ts',
+  'src/intelligence/social/gaze-head-calibration.ts',
   'src/core/vision/rppg-signal.ts',
   'src/core/vision/rppg-monitor.ts',
   'src/presence/PoseSkeletonOverlay.tsx',
@@ -71,7 +76,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'HOLISTIC · 553', 'v2-vision-engine', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', 'SettingsPanel', 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'PoseSkeletonOverlay', 'RealPresenceOverlay', 'realPresencePose', 'microTelemetry', 'postureTelemetry', 'pulseTelemetry', 'visionPerformanceTelemetry', 'visionPostprocessLabel', 'calibrationTelemetry', 'gestureIntentTelemetry', 'GazeHeadCalibrator', 'GestureIntentTracker', 'HOLISTIC · 553', 'v2-vision-engine', 'v2-social-calibration', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'v2-social-awareness', 'v2-behavior-timeline', 'micProsodySnapshot', 'v2-affect-vector', 'v2-sensor-strip', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -256,12 +261,28 @@ for (const token of ['inferLiteGesture', 'Open_Palm', 'Closed_Fist', 'Victory', 
   if (!handGestureLite.includes(token)) failures.push(`holistic hand gesture adapter missing: ${token}`);
 }
 const visionPerformance = readFileSync('src/core/vision/vision-performance.ts', 'utf8');
-for (const token of ['VisionPerformanceGovernor', 'detectVisionTier', 'baseIntervalForTier', 'hidden', 'inferenceMs', 'landmarkCount']) {
+for (const token of ['VisionPerformanceGovernor', 'detectVisionTier', 'baseIntervalForTier', 'hidden', 'inferenceMs', 'landmarkCount', 'postprocess', 'postprocessMs', 'setPostprocess']) {
   if (!visionPerformance.includes(token)) failures.push(`vision performance governor missing: ${token}`);
 }
 const holisticTracker = readFileSync('src/core/vision/holistic-tracker.ts', 'utf8');
-for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'updateFace', 'updatePose', 'updateHands', 'VisionPerformanceGovernor']) {
+for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'updateFace', 'submitPostprocess', 'VisionPostprocessWorkerClient', 'VisionPerformanceGovernor']) {
   if (!holisticTracker.includes(token)) failures.push(`holistic vision runtime missing: ${token}`);
+}
+const workerClient = readFileSync('src/core/vision/vision-worker-client.ts', 'utf8');
+for (const token of ['VisionPostprocessWorkerClient', "new Worker(new URL('./vision-postprocess-worker.ts', import.meta.url)", "type: 'module'", 'postMessage', 'terminate']) {
+  if (!workerClient.includes(token)) failures.push(`vision postprocess worker client missing: ${token}`);
+}
+const workerRuntime = readFileSync('src/core/vision/vision-postprocess-worker.ts', 'utf8');
+for (const token of ['VisionWorkerScope', 'derivePosture', 'inferLiteGesture', 'postMessage']) {
+  if (!workerRuntime.includes(token)) failures.push(`vision postprocess worker missing: ${token}`);
+}
+const gazeCalibration = readFileSync('src/intelligence/social/gaze-head-calibration.ts', 'utf8');
+for (const token of ['GazeHeadCalibrator', 'READY_SAMPLES = 90', 'gazeXCenter', 'yawCenter', 'localStorage', 'never images or identity embeddings']) {
+  if (!gazeCalibration.includes(token)) failures.push(`gaze/head personal calibration missing: ${token}`);
+}
+const gestureIntent = readFileSync('src/core/vision/gesture-intent.ts', 'utf8');
+for (const token of ['GestureIntentTracker', 'victory_hold', 'open_palm_hold', 'pinch_down', 'pinch_up', 'stableMs', 'not human intention']) {
+  if (!gestureIntent.includes(token)) failures.push(`temporal gesture intent missing: ${token}`);
 }
 const postureTracker = readFileSync('src/core/vision/posture-tracker.ts', 'utf8');
 for (const token of ['PoseLandmarker', 'pose_landmarker_lite', "acquireVisionCamera('pose')", 'motionEma']) {

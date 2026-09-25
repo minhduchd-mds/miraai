@@ -10,6 +10,8 @@ import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOve
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
 import { BehaviorTimeline, type BehaviorEvent } from '../intelligence/social/behavior-timeline';
+import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
+import { GestureIntentTracker, type GestureIntentState } from '../core/vision/gesture-intent';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
@@ -87,6 +89,7 @@ export default function AppV2() {
   const [visionPerformanceTelemetry, setVisionPerformanceTelemetry] = useState({
     engine: 'legacy', delegate: 'unknown', tier: 'balanced', inferenceMs: 0, intervalMs: 60,
     fps: 0, landmarkCount: 0, processedFrames: 0, droppedFrames: 0,
+    postprocess: 'main', postprocessMs: 0,
   });
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
@@ -94,6 +97,13 @@ export default function AppV2() {
   const interactionTrackerRef = useRef(new InteractionTracker());
   const [behaviorEvents, setBehaviorEvents] = useState<BehaviorEvent[]>([]);
   const behaviorTimelineRef = useRef(new BehaviorTimeline());
+  const gazeHeadCalibratorRef = useRef(new GazeHeadCalibrator());
+  const [calibrationTelemetry, setCalibrationTelemetry] = useState(() => gazeHeadCalibratorRef.current.snapshot());
+  const gestureIntentTrackerRef = useRef(new GestureIntentTracker());
+  const [gestureIntentTelemetry, setGestureIntentTelemetry] = useState<GestureIntentState>({
+    eventId: 0, intent: 'none', gesture: 'None', confidence: 0, stableMs: 0, at: 0,
+  });
+  const lastGestureIntentIdRef = useRef(0);
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
     gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
@@ -166,7 +176,14 @@ export default function AppV2() {
     setVisionPerformanceTelemetry({
       engine: 'legacy', delegate: 'unknown', tier: 'balanced', inferenceMs: 0, intervalMs: 60,
       fps: 0, landmarkCount: 0, processedFrames: 0, droppedFrames: 0,
+      postprocess: 'main', postprocessMs: 0,
     });
+    setCalibrationTelemetry(gazeHeadCalibratorRef.current.snapshot());
+    gestureIntentTrackerRef.current.reset();
+    setGestureIntentTelemetry({
+      eventId: 0, intent: 'none', gesture: 'None', confidence: 0, stableMs: 0, at: 0,
+    });
+    lastGestureIntentIdRef.current = 0;
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
     setBehaviorEvents([]);
@@ -300,23 +317,50 @@ export default function AppV2() {
         landmarkCount: Number(perf?.landmarkCount || 0),
         processedFrames: Number(perf?.processedFrames || 0),
         droppedFrames: Number(perf?.droppedFrames || 0),
+        postprocess: String(perf?.postprocess || 'main'),
+        postprocessMs: Number(perf?.postprocessMs || 0),
       });
       setRealPresencePose(face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE });
       const now = performance.now();
       const spatial = face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE };
-      const interaction = interactionTrackerRef.current.update({
+      const faceConfidence = Math.max(Number(spatial.confidence || 0), face?.present ? 0.65 : 0);
+      const calibration = gazeHeadCalibratorRef.current.observe({
         facePresent: Boolean(face?.present),
-        faceConfidence: Math.max(Number(spatial.confidence || 0), face?.present ? 0.65 : 0),
-        yaw: Number(face?.yaw || 0),
-        pitch: Number(face?.pitch || 0),
+        confidence: faceConfidence,
         gazeX: Number(face?.gazeX || 0),
         gazeY: Number(face?.gazeY || 0),
+        yaw: Number(face?.yaw || 0),
+        pitch: Number(face?.pitch || 0),
+        motion: Number(posture.motion || 0),
+      });
+      setCalibrationTelemetry(calibration);
+      const calibrated = gazeHeadCalibratorRef.current.apply({
+        gazeX: Number(face?.gazeX || 0),
+        gazeY: Number(face?.gazeY || 0),
+        yaw: Number(face?.yaw || 0),
+        pitch: Number(face?.pitch || 0),
+      });
+      const interaction = interactionTrackerRef.current.update({
+        facePresent: Boolean(face?.present),
+        faceConfidence,
+        yaw: calibrated.yaw,
+        pitch: calibrated.pitch,
+        gazeX: calibrated.gazeX,
+        gazeY: calibrated.gazeY,
         posturePresent: Boolean(posture.present),
         postureConfidence: Number(posture.confidence || 0),
         postureMotion: Number(posture.motion || 0),
         distanceM: Number(spatial.distanceM || 0),
       }, now);
       setInteractionTelemetry(interaction);
+
+      const intent = gestureIntentTrackerRef.current.update({
+        gesture: String(snapshot?.gesture || 'None'),
+        score: Number(snapshot?.gestureScore || 0),
+        pinching: Boolean(snapshot?.pinching),
+        wave: Boolean(snapshot?.wave),
+      }, now);
+      setGestureIntentTelemetry(intent);
 
       const recentBehavior = behaviorTimelineRef.current.observe({
         interaction,
@@ -607,8 +651,11 @@ export default function AppV2() {
 
     const now = Date.now();
     const freshAction = now - lastAirActionRef.current > 900;
-    const pinchDown = pinching && !pinchWasDownRef.current;
-    const pinchUp = !pinching && pinchWasDownRef.current;
+    const intentIsNew = gestureIntentTelemetry.eventId > lastGestureIntentIdRef.current;
+    const currentIntent = intentIsNew ? gestureIntentTelemetry.intent : 'none';
+    if (intentIsNew) lastGestureIntentIdRef.current = gestureIntentTelemetry.eventId;
+    const pinchDown = currentIntent === 'pinch_down';
+    const pinchUp = currentIntent === 'pinch_up';
 
     if (pinchDown && grabTarget) {
       if (now - lastGrabPinchRef.current < 520) {
@@ -673,11 +720,11 @@ export default function AppV2() {
         palmSwipeRef.current = { x: airPoint.x, at: now };
         setAirFeedback(swipeDelta > 0 ? '→ Đổi theme' : '← Đổi theme');
         window.setTimeout(() => setAirFeedback(''), 900);
-      } else if (held >= 720 && freshAction && (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking')) {
+      } else if (currentIntent === 'open_palm_hold' && freshAction && (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking')) {
         mira.interrupt();
         lastAirActionRef.current = now;
         palmHoldSinceRef.current = 0;
-        setAirFeedback('✋ Mira đã dừng');
+        setAirFeedback('✋ Hold confirmed · Mira đã dừng');
         window.setTimeout(() => setAirFeedback(''), 900);
       }
     } else {
@@ -685,20 +732,22 @@ export default function AppV2() {
       palmSwipeRef.current = { x: airPoint.x, at: 0 };
     }
 
-    if (gestureName === 'Victory' && gestureScore >= 0.62) {
-      if (!victoryLatchRef.current && freshAction) {
-        victoryLatchRef.current = true;
-        mira.unlockAudio();
-        setVoiceReady(true);
-        mira.toggleLive();
-        lastAirActionRef.current = now;
-        setAirFeedback(mira.live ? '✌ Live voice · tắt' : '✌ Live voice · bật');
-        window.setTimeout(() => setAirFeedback(''), 900);
-      }
-    } else {
-      victoryLatchRef.current = false;
+    if (currentIntent === 'victory_hold' && freshAction) {
+      mira.unlockAudio();
+      setVoiceReady(true);
+      mira.toggleLive();
+      lastAirActionRef.current = now;
+      setAirFeedback(mira.live ? '✌ Hold confirmed · Live voice tắt' : '✌ Hold confirmed · Live voice bật');
+      window.setTimeout(() => setAirFeedback(''), 900);
     }
-  }, [airPoint, gestureName, gestureScore, grabActive, grabOffset.x, grabOffset.y, handSeen, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, settingsOpen, spatialHands.length, spatialTransformActive, visionOn]);
+
+    if (currentIntent === 'fist_hold' && freshAction && mira.content && !grabActive) {
+      mira.clearContent();
+      lastAirActionRef.current = now;
+      setAirFeedback('✊ Hold confirmed · đóng Result Surface');
+      window.setTimeout(() => setAirFeedback(''), 900);
+    }
+  }, [airPoint, gestureIntentTelemetry, gestureName, gestureScore, grabActive, grabOffset.x, grabOffset.y, handSeen, mira.clearContent, mira.content, mira.interrupt, mira.live, mira.stateRef, mira.toggleLive, mira.unlockAudio, pinching, resolveAirTarget, settingsOpen, spatialHands.length, spatialTransformActive, visionOn]);
 
   useEffect(() => {
     const resumeIfNeeded = () => {
@@ -788,6 +837,18 @@ export default function AppV2() {
   const visionPerfLabel = visionPerformanceTelemetry.processedFrames > 0
     ? `${Math.round(visionPerformanceTelemetry.fps)} fps · ${Math.round(visionPerformanceTelemetry.inferenceMs)} ms · ${visionPerformanceTelemetry.delegate}`
     : 'Đang khởi động';
+
+  const visionPostprocessLabel = visionPerformanceTelemetry.postprocess === 'worker'
+    ? `WORKER ${Math.round(visionPerformanceTelemetry.postprocessMs)}ms`
+    : 'MAIN';
+
+  const calibrationLabel = calibrationTelemetry.ready
+    ? 'CAL READY'
+    : `CAL ${Math.round(calibrationTelemetry.progress * 100)}%`;
+
+  const intentLabel = gestureIntentTelemetry.intent === 'none'
+    ? 'Intent chờ'
+    : gestureIntentTelemetry.intent.replaceAll('_', ' ');
 
   const interactionLabel = ({
     focused: 'Đang tập trung',
@@ -921,7 +982,7 @@ export default function AppV2() {
             <div className="v2-vision-engine">
               <span><small>VISION</small><b>{visionEngineLabel}</b></span>
               <em>{visionPerfLabel}</em>
-              <i title="Landmark count">{Math.round(visionPerformanceTelemetry.landmarkCount)} pts · {visionPerformanceTelemetry.tier}</i>
+              <i title="Landmark count">{Math.round(visionPerformanceTelemetry.landmarkCount)} pts · {visionPerformanceTelemetry.tier} · {visionPostprocessLabel}</i>
             </div>
             <div className="v2-sensor-strip">
               <span className={microTelemetry.kind !== 'none' ? 'active' : ''}><small>MICRO</small><b>{microLabel}</b></span>
@@ -951,7 +1012,11 @@ export default function AppV2() {
                   ))}
                 </div>
               )}
-              <small className="v2-social-note">* Eye contact là gaze proxy từ camera, không phải xác nhận chú ý hay ý định.</small>
+              <div className="v2-social-calibration">
+                <span>{calibrationLabel}</span>
+                <span>{intentLabel}</span>
+              </div>
+              <small className="v2-social-note">* Eye contact là gaze proxy đã hiệu chỉnh theo baseline local, không phải xác nhận chú ý hay ý định.</small>
             </div>
             <div className="v2-face-meta">
               <span>{facialGestureLabel} {faceTelemetry.faceGesture === 'none' ? '' : Math.round(faceTelemetry.faceGestureConfidence * 100) + '%'}</span>

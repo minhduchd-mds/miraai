@@ -7,6 +7,8 @@ import { inferFacialGesture } from '../face/facial-gesture';
 import { MicroExpressionTracker } from '../face/micro-expression';
 import { derivePosture } from './posture-model';
 import { inferLiteGesture, type HandPoint } from './hand-gesture-lite';
+import { VisionPostprocessWorkerClient } from './vision-worker-client';
+import type { VisionWorkerResult, WorkerHandResult } from './vision-worker-protocol';
 import {
   VisionPerformanceGovernor,
   EMPTY_VISION_PERFORMANCE,
@@ -47,6 +49,8 @@ const handXHistory: number[] = [];
 const headHistory: Array<{ at: number; yaw: number; pitch: number }> = [];
 let headGestureUntil = 0;
 let governor = new VisionPerformanceGovernor('holistic');
+const postprocessWorker = new VisionPostprocessWorkerClient();
+let lastWorkerSeq = 0;
 
 const FACE_SMOOTH = 0.4;
 
@@ -243,6 +247,23 @@ function posturePoints(raw: any[]): Array<{ x: number; y: number; z?: number; vi
   }));
 }
 
+function applyPosture(
+  estimate: ReturnType<typeof derivePosture>,
+  points: ReturnType<typeof posturePoints>,
+): number {
+  const displacement = Math.hypot(estimate.centerX - lastPoseCenter.x, estimate.centerY - lastPoseCenter.y);
+  lastPoseCenter = { x: estimate.centerX, y: estimate.centerY };
+  postureMotionEma += (Math.min(1, displacement * 16) - postureMotionEma) * 0.3;
+
+  Object.assign(postureData, estimate, {
+    active: true,
+    label: estimate.present && postureMotionEma > 0.48 ? 'moving' : estimate.label,
+    motion: postureMotionEma,
+    landmarks: points,
+  });
+  return points.length;
+}
+
 function updatePose(result: any): number {
   const raw = result?.poseLandmarks?.[0];
   if (!Array.isArray(raw) || raw.length < 25) {
@@ -255,18 +276,7 @@ function updatePose(result: any): number {
   }
 
   const points = posturePoints(raw);
-  const estimate = derivePosture(points);
-  const displacement = Math.hypot(estimate.centerX - lastPoseCenter.x, estimate.centerY - lastPoseCenter.y);
-  lastPoseCenter = { x: estimate.centerX, y: estimate.centerY };
-  postureMotionEma += (Math.min(1, displacement * 16) - postureMotionEma) * 0.3;
-
-  Object.assign(postureData, estimate, {
-    active: true,
-    label: estimate.present && postureMotionEma > 0.48 ? 'moving' : estimate.label,
-    motion: postureMotionEma,
-    landmarks: points,
-  });
-  return Math.min(33, raw.length);
+  return applyPosture(derivePosture(points), points);
 }
 
 function waveDetected(): boolean {
@@ -286,13 +296,20 @@ function waveDetected(): boolean {
   return reversals >= 3 && max - min > 0.1;
 }
 
-function mapHand(raw: any[], handedness: string): TrackedHand | null {
+function normalizeHand(raw: any[]): HandPoint[] | null {
   if (!Array.isArray(raw) || raw.length < 21) return null;
-  const landmarks = raw.slice(0, 21).map((p: any) => ({
+  return raw.slice(0, 21).map((p: any) => ({
     x: Number(p.x || 0),
     y: Number(p.y || 0),
+    z: Number(p.z || 0),
   }));
-  const gestureResult = inferLiteGesture(landmarks as HandPoint[]);
+}
+
+function trackedHandFromGeometry(
+  landmarks: HandPoint[],
+  handedness: string,
+  gestureResult = inferLiteGesture(landmarks),
+): TrackedHand {
   const palm = landmarks[9] || landmarks[0];
   const indexTip = landmarks[8] || landmarks[0];
   const thumbTip = landmarks[4] || indexTip;
@@ -303,19 +320,11 @@ function mapHand(raw: any[], handedness: string): TrackedHand | null {
     x: Number(palm.x),
     y: Number(palm.y),
     pinching: pointDistance(indexTip, thumbTip) < 0.055,
-    landmarks,
+    landmarks: landmarks.map((point) => ({ x: point.x, y: point.y })),
   };
 }
 
-function updateHands(result: any): number {
-  const hands: TrackedHand[] = [];
-  const left = result?.leftHandLandmarks?.[0];
-  const right = result?.rightHandLandmarks?.[0];
-  const leftHand = mapHand(left, 'Left');
-  const rightHand = mapHand(right, 'Right');
-  if (leftHand) hands.push(leftHand);
-  if (rightHand) hands.push(rightHand);
-
+function applyHands(hands: TrackedHand[]): number {
   handData.active = true;
   handData.hands = hands;
   const primary = hands.find((hand) => hand.handedness === 'Right') || hands[0];
@@ -341,6 +350,68 @@ function updateHands(result: any): number {
   handData.wave = handData.gesture === 'Open_Palm' && waveDetected();
 
   return hands.reduce((sum, hand) => sum + hand.landmarks.length, 0);
+}
+
+function updateHands(result: any): number {
+  const hands: TrackedHand[] = [];
+  const left = normalizeHand(result?.leftHandLandmarks?.[0]);
+  const right = normalizeHand(result?.rightHandLandmarks?.[0]);
+  if (left) hands.push(trackedHandFromGeometry(left, 'Left'));
+  if (right) hands.push(trackedHandFromGeometry(right, 'Right'));
+  return applyHands(hands);
+}
+
+function workerHandToTracked(hand: WorkerHandResult): TrackedHand {
+  return trackedHandFromGeometry(hand.landmarks, hand.handedness, hand.gesture);
+}
+
+function applyWorkerResult(result: VisionWorkerResult): number {
+  let count = 0;
+  if (result.posture) {
+    count += applyPosture(result.posture.estimate, result.posture.landmarks);
+  } else {
+    postureData.present = false;
+    postureData.label = 'unknown';
+    postureData.confidence = 0;
+    postureData.motion = 0;
+    postureData.landmarks = [];
+  }
+
+  const hands = result.hands.map(workerHandToTracked);
+  count += applyHands(hands);
+  return count;
+}
+
+function submitPostprocess(result: any, now: number): number {
+  const workerStatus = postprocessWorker.status();
+  if (!workerStatus.active) {
+    governor.setPostprocess('main', 0);
+    return updatePose(result) + updateHands(result);
+  }
+
+  const rawPose = result?.poseLandmarks?.[0];
+  const pose = Array.isArray(rawPose) && rawPose.length >= 25 ? posturePoints(rawPose) : null;
+  const leftHand = normalizeHand(result?.leftHandLandmarks?.[0]);
+  const rightHand = normalizeHand(result?.rightHandLandmarks?.[0]);
+  postprocessWorker.submit({ at: now, pose, leftHand, rightHand });
+
+  const latest = postprocessWorker.latest();
+  if (latest && latest.seq !== lastWorkerSeq && now - latest.at <= 700) {
+    lastWorkerSeq = latest.seq;
+    governor.setPostprocess('worker', latest.processingMs);
+    return applyWorkerResult(latest);
+  }
+
+  if (!latest) {
+    // Only the first frame falls back to synchronous geometry while the worker warms up.
+    governor.setPostprocess('main', 0);
+    return updatePose(result) + updateHands(result);
+  }
+
+  governor.setPostprocess('worker', workerStatus.processingMs);
+  const postureCount = postureData.present ? postureData.landmarks.length : 0;
+  const handCount = handData.hands.reduce((sum, hand) => sum + hand.landmarks.length, 0);
+  return postureCount + handCount;
 }
 
 function clearAllSignals(): void {
@@ -385,8 +456,7 @@ function readFrame(): void {
   let landmarkCount = 0;
   if (result) {
     landmarkCount += updateFace(result, now);
-    landmarkCount += updatePose(result);
-    landmarkCount += updateHands(result);
+    landmarkCount += submitPostprocess(result, now);
   }
   const inferenceMs = performance.now() - started;
   governor.noteFrame(now, inferenceMs, landmarkCount);
@@ -443,6 +513,9 @@ export async function startHolisticTracking(): Promise<boolean> {
     }
 
     governor = new VisionPerformanceGovernor('holistic', delegate);
+    const workerActive = postprocessWorker.start();
+    governor.setPostprocess(workerActive ? 'worker' : 'main', 0);
+    lastWorkerSeq = 0;
     video = await acquireVisionCamera('holistic');
     stopped = false;
     holisticRuntimeData.active = true;
@@ -473,5 +546,7 @@ export function stopHolisticTracking(): void {
   landmarker = null;
   holisticRuntimeData.active = false;
   holisticRuntimeData.delegate = 'unknown';
+  postprocessWorker.stop();
+  lastWorkerSeq = 0;
   clearAllSignals();
 }

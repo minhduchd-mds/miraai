@@ -10,6 +10,8 @@ export interface VisionPerformanceState {
   landmarkCount: number;
   processedFrames: number;
   droppedFrames: number;
+  postprocess: 'worker' | 'main';
+  postprocessMs: number;
 }
 
 export const EMPTY_VISION_PERFORMANCE: VisionPerformanceState = {
@@ -22,6 +24,8 @@ export const EMPTY_VISION_PERFORMANCE: VisionPerformanceState = {
   landmarkCount: 0,
   processedFrames: 0,
   droppedFrames: 0,
+  postprocess: 'main',
+  postprocessMs: 0,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -105,6 +109,11 @@ export class VisionPerformanceGovernor {
 
   setDelegate(delegate: VisionPerformanceState['delegate']): void {
     this.state.delegate = delegate;
+  }
+
+  setPostprocess(mode: VisionPerformanceState['postprocess'], processingMs = 0): void {
+    this.state.postprocess = mode;
+    this.state.postprocessMs += (Math.max(0, processingMs) - this.state.postprocessMs) * 0.22;
   }
 
   snapshot(): VisionPerformanceState {
