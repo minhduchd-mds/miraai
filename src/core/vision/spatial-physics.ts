@@ -307,6 +307,22 @@ export class SpatialPhysicsRuntime {
     return this.snapshot(objectId);
   }
 
+  applyImpulse(
+    objectId: string,
+    impulse: SpatialVelocity3,
+    now = performance.now(),
+  ): SpatialPhysicsState {
+    const body = this.ensureBody(objectId, now);
+    body.velocity = limitVelocity({
+      x: body.velocity.x + Number(impulse.x || 0),
+      y: body.velocity.y + Number(impulse.y || 0),
+      z: body.velocity.z + Number(impulse.z || 0),
+    }, 1.85);
+    if (magnitude(body.velocity) >= SETTLE_SPEED) body.mode = 'inertia';
+    body.lastUpdateAt = now;
+    return this.snapshot(objectId);
+  }
+
   stop(objectId: string, now = performance.now()): SpatialPhysicsState {
     const body = this.ensureBody(objectId, now);
     body.mode = 'idle';
