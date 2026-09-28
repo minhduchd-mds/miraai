@@ -8,10 +8,11 @@ interface Props {
   content: ResultView;
   onClose: () => void;
   spatialStyle?: CSSProperties;
+  spatialDepth?: number;
 }
 
 /** Generic Result Surface: skills choose a view model; UI owns the presentation. */
-export default function ContentPanel({ content, onClose, spatialStyle }: Props) {
+export default function ContentPanel({ content, onClose, spatialStyle, spatialDepth = 0 }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
@@ -26,6 +27,8 @@ export default function ContentPanel({ content, onClose, spatialStyle }: Props) 
         className="cp-spatial-bar"
         data-spatial-grab-handle="result"
         data-spatial-label="Di chuyển kết quả"
+        data-spatial-depth={spatialDepth}
+        data-spatial-depth-radius="0.035"
         aria-hidden="true"
       ><i /></div>
       <button
