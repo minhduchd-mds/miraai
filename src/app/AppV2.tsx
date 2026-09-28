@@ -94,6 +94,10 @@ import {
   projectMetricPointAcrossViews,
 } from '../core/vision/spatial-xr-projection';
 import {
+  SpatialXRSurfaceRuntime,
+  type XRSurfaceProbe,
+} from '../core/vision/spatial-xr-surface';
+import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
   type SpatialPlacementPreview,
@@ -602,6 +606,8 @@ export default function AppV2() {
   const xrProjectionRef = useRef(new SpatialXRProjectionRuntime());
   const xrGestureIntentRef = useRef(new GestureIntentTracker());
   const xrHandKinematicsRef = useRef(new SpatialHandKinematicsTracker());
+  const xrSurfaceRef = useRef(new SpatialXRSurfaceRuntime());
+  const [xrSurfaceProbe, setXrSurfaceProbe] = useState<XRSurfaceProbe | null>(null);
   const xrAutoCalibratedRef = useRef(false);
   const [webXRAvailable, setWebXRAvailable] = useState(false);
   const [webXRSnapshot, setWebXRSnapshot] = useState<WebXRSessionSnapshot>(() =>
@@ -822,6 +828,8 @@ export default function AppV2() {
       xrProjectionRef.current.reset();
       xrGestureIntentRef.current.reset();
       xrHandKinematicsRef.current.reset();
+      xrSurfaceRef.current.reset();
+      setXrSurfaceProbe(null);
       handContactRef.current.reset();
       handIntentRef.current.reset();
       xrAutoCalibratedRef.current = false;
@@ -843,6 +851,8 @@ export default function AppV2() {
     xrProjectionRef.current.reset();
     xrGestureIntentRef.current.reset();
     xrHandKinematicsRef.current.reset();
+    xrSurfaceRef.current.reset();
+    setXrSurfaceProbe(null);
     handContactRef.current.reset();
     handIntentRef.current.reset();
     xrAutoCalibratedRef.current = false;
@@ -921,6 +931,14 @@ export default function AppV2() {
       setHandSeen(false);
       return;
     }
+
+    xrSurfaceRef.current.update(webXRSnapshot.depth);
+    const surfaceProbe = xrSurfaceRef.current.probe(
+      projected.x,
+      projected.y,
+      Math.max(0, -projected.depth),
+    );
+    setXrSurfaceProbe(surfaceProbe);
 
     const bridged = bridgeXRHandTo21(primaryHand);
     const wristWorld = bridged.worldLandmarks[0] || { x: 0, y: 0, z: 0 };
@@ -1003,6 +1021,47 @@ export default function AppV2() {
     setHandSeen(projected.visible);
     setSpatialFrame(nextFrame);
 
+    if (surfaceProbe?.touchingSurface && surfaceProbe.confidence >= 0.5) {
+      showSpatialFeedback('XR · surface contact');
+    }
+
+    for (const anchor of webXRSnapshot.anchors) {
+      if (!anchor.tracked || !anchor.id.startsWith('object.')) continue;
+      const objectId = anchor.id.slice('object.'.length);
+      const object = spatialObjectRuntimeRef.current.get(objectId);
+      if (!object) continue;
+
+      const anchorProjection = projectMetricPointAcrossViews(anchor, webXRSnapshot.views);
+      if (!anchorProjection?.visible) continue;
+
+      const element = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-object]'))
+        .find((node) => node.dataset.spatialObject === objectId && node.offsetParent !== null);
+      if (!element) continue;
+      const rect = element.getBoundingClientRect();
+      const screenX = (rect.left + rect.right) / 2 / Math.max(1, window.innerWidth);
+      const screenY = (rect.top + rect.bottom) / 2 / Math.max(1, window.innerHeight);
+      const pose = {
+        ...object.pose,
+        position: {
+          ...object.pose.position,
+          x: clampSpatial(object.pose.position.x + (anchorProjection.x - screenX), -0.48, 0.48),
+          y: clampSpatial(object.pose.position.y + (anchorProjection.y - screenY), -0.48, 0.48),
+        },
+      };
+      spatialObjectRuntimeRef.current.setPose(objectId, pose);
+
+      const objectSurface = xrSurfaceRef.current.probe(
+        anchorProjection.x,
+        anchorProjection.y,
+        Math.max(0, -anchorProjection.depth),
+      );
+      if (objectSurface?.occluded) element.setAttribute('data-xr-occluded', 'true');
+      else element.removeAttribute('data-xr-occluded');
+    }
+    if (webXRSnapshot.anchors.some((anchor) => anchor.tracked)) {
+      setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+    }
+
     for (const event of nextFrame.events) {
       if (event.type === 'activate' && event.targetKind === 'action') {
         const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action]'))
@@ -1044,6 +1103,7 @@ export default function AppV2() {
 
       if (event.targetKind === 'object') {
         if (event.type === 'grab_start' && spatialObjectAvailable(event.targetId)) {
+          webXRRuntimeRef.current.removeAnchor(`object.${event.targetId}`);
           spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
           spatialJointBeforeGrabRef.current = spatialJointRuntimeRef.current.removeForChild(event.targetId);
           spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
@@ -1065,10 +1125,25 @@ export default function AppV2() {
 
         if (event.type === 'grab_end') {
           const placed = spatialObjectRuntimeRef.current.endGrab();
+          const canRealAnchor = Boolean(
+            placed &&
+            surfaceProbe?.nearSurface &&
+            surfaceProbe.confidence >= 0.45 &&
+            webXRSnapshot.hit &&
+            webXRSnapshot.enabledFeatures.includes('anchors')
+          );
+          const queuedRealAnchor = canRealAnchor
+            ? webXRRuntimeRef.current.requestAnchorAtCurrentHit(
+                `object.${event.targetId}`,
+                event.targetId,
+                false,
+              )
+            : false;
+
           spatialWorldRuntimeRef.current.setAnchors(
             collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
           );
-          const snapped = placed
+          const snapped = !queuedRealAnchor && placed
             ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
             : null;
           if (snapped) spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
@@ -1076,7 +1151,13 @@ export default function AppV2() {
           setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
           spatialObjectAttachmentBeforeGrabRef.current = null;
           spatialJointBeforeGrabRef.current = null;
-          showSpatialFeedback(snapped ? `XR · neo ${snapped.anchorLabel}` : 'XR · đã đặt vật thể');
+          showSpatialFeedback(
+            queuedRealAnchor
+              ? 'XR · đang neo vào bề mặt thật'
+              : snapped
+                ? `XR · neo ${snapped.anchorLabel}`
+                : 'XR · đã đặt vật thể'
+          );
         }
       }
     }
@@ -2438,6 +2519,8 @@ export default function AppV2() {
       className={`mira-v2 voice-only holographic-ui user-mood-${faceAffect.mood}${voiceBooting ? ' voice-booting' : ''}${webXRSnapshot.active ? ' xr-active' : ''}${mira.content ? ' has-result' : ''}`}
       data-xr-hands={webXRSnapshot.hands.length}
       data-xr-hit={webXRSnapshot.hit ? 'true' : 'false'}
+      data-xr-depth={webXRSnapshot.depth.available ? 'true' : 'false'}
+      data-xr-surface={xrSurfaceProbe?.occluded ? 'occluded' : xrSurfaceProbe?.touchingSurface ? 'touch' : xrSurfaceProbe?.nearSurface ? 'near' : 'clear'}
     >
       <a className="v2-skip" href="#main-content">Chuyển tới nội dung chính</a>
 
