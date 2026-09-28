@@ -148,6 +148,21 @@ export class SpatialObjectRuntime {
     return this.get(object.id);
   }
 
+  setPose(id: string, pose: SpatialObjectPose): SpatialObjectState | null {
+    const object = this.objects.get(id);
+    if (!object) return null;
+    object.pose = {
+      position: {
+        x: clamp(Number(pose.position.x || 0), -0.48, 0.48),
+        y: clamp(Number(pose.position.y || 0), -0.48, 0.48),
+        z: clamp(Number(pose.position.z || 0), -0.7, 0.7),
+      },
+      scale: clamp(Number(pose.scale || 1), object.minScale, object.maxScale),
+      rotation: normalizeRotation(Number(pose.rotation || 0)),
+    };
+    return this.get(id);
+  }
+
   applyTransform(
     id: string,
     input: { scale?: number; scaleRatio?: number; rotation?: number; rotationDelta?: number },
