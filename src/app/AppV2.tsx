@@ -32,6 +32,10 @@ import {
   CausalActionGraphTracker,
   causalActionGraphPrompt,
 } from '../core/vision/causal-action-graph';
+import {
+  ShortTermWorldModelTracker,
+  worldModelPrompt,
+} from '../core/vision/world-model';
 import { EMPTY_REAL_PRESENCE_POSE } from '../core/vision/real-presence';
 import '../ui/a11y.css';
 
@@ -100,6 +104,7 @@ export default function AppV2() {
   const objectInteractionTrackerRef = useRef(new ObjectInteractionTracker());
   const actionSequenceTrackerRef = useRef(new ActionSequenceTracker());
   const causalActionGraphTrackerRef = useRef(new CausalActionGraphTracker());
+  const worldModelTrackerRef = useRef(new ShortTermWorldModelTracker());
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
@@ -179,6 +184,7 @@ export default function AppV2() {
     objectInteractionTrackerRef.current.reset();
     actionSequenceTrackerRef.current.reset();
     causalActionGraphTrackerRef.current.reset();
+    worldModelTrackerRef.current.reset();
     gestureIntentTrackerRef.current.reset();
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
@@ -342,6 +348,12 @@ export default function AppV2() {
         now,
       );
 
+      const worldState = worldModelTrackerRef.current.update(
+        sceneGraph,
+        causalActionGraph,
+        now,
+      );
+
       const socialEvent = faceSocialTrackerRef.current.update({
         faceSeen: Boolean(face?.present),
         faceConfidence,
@@ -417,6 +429,7 @@ export default function AppV2() {
         objectInteractionPrompt(objectInteraction, now),
         actionSequencePrompt(actionSequence, now),
         causalActionGraphPrompt(causalActionGraph, now),
+        worldModelPrompt(worldState, now),
       ]
         .filter(Boolean)
         .join(' ');
