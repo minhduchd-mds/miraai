@@ -1,4 +1,4 @@
-export type SpatialAnchorKind = 'action' | 'window';
+export type SpatialAnchorKind = 'action' | 'window' | 'object';
 
 export interface SpatialPoint3 {
   x: number;
