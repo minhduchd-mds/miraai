@@ -3787,3 +3787,124 @@ test('human hand runtime remains finite across 600 jittered frames', () => {
   }
   assert.ok(last);
 });
+
+
+test('boundary jitter never escalates to press or grab without entering contact radius', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const contact = new spatialHandContact.SpatialHandContactRuntime();
+  const volume = [{
+    id: 'edge',
+    label: 'Edge',
+    kind: 'object',
+    center: { x: 0.47, y: 0.22, z: 0 },
+    halfExtents: { x: 0.012, y: 0.012, z: 0.018 },
+  }];
+
+  for (let frame = 0; frame < 420; frame += 1) {
+    const points = syntheticHand();
+    points[8] = {
+      ...points[8],
+      x: 0.43 + Math.sin(frame * 0.41) * 0.0025,
+      y: 0.22 + Math.cos(frame * 0.29) * 0.002,
+      z: Math.sin(frame * 0.17) * 0.002,
+    };
+    const now = 1000 + frame * 16.67;
+    const state = tracker.update({
+      handedness: 'Right',
+      landmarks: points,
+      confidence: 0.9,
+    }, now);
+    const touch = contact.update(state, volume, now);
+    assert.notEqual(touch.phase, 'press');
+    assert.notEqual(touch.phase, 'grab');
+    assert.equal(touch.grabCandidate, false);
+  }
+});
+
+test('two fingertips on one target cannot become grab without adaptive pinch', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const contact = new spatialHandContact.SpatialHandContactRuntime();
+  const points = syntheticHand();
+  const center = {
+    x: (points[8].x + points[4].x) / 2,
+    y: (points[8].y + points[4].y) / 2,
+    z: 0,
+  };
+  const volume = [{
+    id: 'wide-target',
+    label: 'Wide target',
+    kind: 'object',
+    center,
+    halfExtents: { x: 0.06, y: 0.16, z: 0.04 },
+  }];
+
+  let result = spatialHandContact.EMPTY_HAND_CONTACT;
+  for (const now of [1000, 1070, 1140, 1210]) {
+    const state = tracker.update({
+      handedness: 'Right',
+      landmarks: points,
+      confidence: 0.95,
+    }, now);
+    assert.equal(state.pinching, false);
+    result = contact.update(state, volume, now);
+  }
+
+  assert.equal(result.grabCandidate, false);
+  assert.notEqual(result.phase, 'grab');
+});
+
+test('XR hand bridge preserves metric values instead of clamping them into webcam coordinates', () => {
+  const joints = [
+    { name: 'wrist', x: 1.2, y: -0.4, z: -1.8, radius: 0.01 },
+    { name: 'thumb-tip', x: 1.25, y: -0.3, z: -1.75, radius: 0.008 },
+    { name: 'index-finger-tip', x: 1.32, y: -0.22, z: -1.7, radius: 0.008 },
+  ];
+  const result = spatialXRHandBridge.bridgeXRHandTo21({
+    handedness: 'right',
+    joints,
+    wrist: joints[0],
+    thumbTip: joints[1],
+    indexTip: joints[2],
+    pinching: false,
+    pinchDistanceM: 0.09,
+  });
+
+  assert.equal(result.worldLandmarks[0].x, 1.2);
+  assert.equal(result.worldLandmarks[4].x, 1.25);
+  assert.equal(result.worldLandmarks[8].x, 1.32);
+  assert.ok(result.worldLandmarks.some((point) => Math.abs(point.z) > 1));
+});
+
+test('hand contact releases cleanly after target exit and grace window', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const contact = new spatialHandContact.SpatialHandContactRuntime();
+  const points = syntheticHand();
+  const volume = [{
+    id: 'touch',
+    label: 'Touch',
+    kind: 'object',
+    center: { x: points[8].x, y: points[8].y, z: 0 },
+    halfExtents: { x: 0.04, y: 0.04, z: 0.03 },
+  }];
+
+  contact.update(
+    tracker.update({ handedness: 'Right', landmarks: points, confidence: 0.9 }, 1000),
+    volume,
+    1000,
+  );
+  const stable = contact.update(
+    tracker.update({ handedness: 'Right', landmarks: points, confidence: 0.9 }, 1070),
+    volume,
+    1070,
+  );
+  assert.equal(stable.active, true);
+
+  const far = syntheticHand(1, -0.35, 0.25);
+  const released = contact.update(
+    tracker.update({ handedness: 'Right', landmarks: far, confidence: 0.9 }, 1180),
+    volume,
+    1180,
+  );
+  assert.equal(released.active, false);
+  assert.equal(released.phase, 'away');
+});
