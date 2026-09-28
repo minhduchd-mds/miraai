@@ -43,6 +43,7 @@ const faceFrameGuard = await importTypeScript('src/core/vision/face-frame-guard.
 const objectInteraction = await importTypeScript('src/core/vision/object-interaction.ts');
 const actionSequence = await importTypeScript('src/core/vision/action-sequence.ts');
 const causalActionGraph = await importTypeScript('src/core/vision/causal-action-graph.ts');
+const worldModel = await importTypeScript('src/core/vision/world-model.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -1470,4 +1471,122 @@ test('presence continuity is quiet when the face remains absent and stores no du
   assert.equal(absent.mode, 'quiet');
   assert.equal(absent.presentMs, 0);
   assert.match(presenceContinuity.presenceContinuityPrompt(absent), /không chủ động phát lời/i);
+});
+
+
+test('world model v14 preserves short-term object permanence with confidence decay', () => {
+  const tracker = new worldModel.ShortTermWorldModelTracker();
+  const cup = actionNode('world-cup-a', 'cup', 0.4, 0.4, 0.92);
+
+  let state = tracker.update(actionGraph([cup], [], 1000), null, 1000);
+  assert.equal(state.version, 14);
+  assert.equal(state.objects.length, 1);
+  assert.equal(state.objects[0].status, 'visible');
+  const worldId = state.objects[0].id;
+
+  state = tracker.update(actionGraph([], [
+    { id: 'world-scene-left', type: 'object_left', label: 'cup', at: 2200 },
+  ], 2200), null, 2200);
+  assert.equal(state.objects[0].id, worldId);
+  assert.equal(state.objects[0].status, 'temporarily_missing');
+  const missingConfidence = state.objects[0].confidence;
+
+  state = tracker.update(actionGraph([], [], 9000), null, 9000);
+  assert.equal(state.objects[0].id, worldId);
+  assert.equal(state.objects[0].status, 'temporarily_missing');
+  assert.ok(state.objects[0].confidence < missingConfidence);
+  assert.ok(state.objects[0].confidence > 0.12);
+});
+
+test('world model v14 conservatively rebinds one missing same-label object after relocation', () => {
+  const tracker = new worldModel.ShortTermWorldModelTracker();
+  const before = actionNode('world-book-a', 'book', 0.25, 0.4, 0.91);
+
+  let state = tracker.update(actionGraph([before], [], 1000), null, 1000);
+  const worldId = state.objects[0].id;
+
+  state = tracker.update(actionGraph([], [
+    { id: 'world-book-left', type: 'object_left', label: 'book', at: 2200 },
+  ], 2200), null, 2200);
+  assert.equal(state.objects[0].status, 'temporarily_missing');
+
+  const after = actionNode('world-book-b', 'book', 0.7, 0.4, 0.93);
+  state = tracker.update(actionGraph([after], [
+    { id: 'world-book-left', type: 'object_left', label: 'book', at: 2200 },
+    { id: 'world-book-relocated', type: 'object_relocated', label: 'book', distance: 0.45, at: 3000 },
+  ], 3000), null, 3000);
+
+  assert.equal(state.objects.length, 1);
+  assert.equal(state.objects[0].id, worldId);
+  assert.equal(state.objects[0].sourceObjectId, 'world-book-b');
+  assert.equal(state.objects[0].status, 'relocated');
+  assert.ok(state.objects[0].relocationDistance >= 0.12);
+  assert.ok(state.events.some((event) => event.type === 'identity_rebind'));
+  assert.ok(state.events.some((event) => event.type === 'relocated'));
+
+  const prompt = worldModel.worldModelPrompt(state, 3000);
+  assert.match(prompt, /MIRA_WORLD_MODEL version="14"/);
+  assert.match(prompt, /không xác nhận danh tính vật thể|không suy ra ai/i);
+});
+
+test('world model v14 uses causal v13 only as supporting evidence, never proof', () => {
+  const tracker = new worldModel.ShortTermWorldModelTracker();
+  const phone = actionNode('world-phone-a', 'cell phone', 0.35, 0.4, 0.9);
+  tracker.update(actionGraph([phone], [], 1000), null, 1000);
+  tracker.update(actionGraph([], [
+    { id: 'world-phone-left', type: 'object_left', label: 'cell phone', at: 2200 },
+  ], 2200), null, 2200);
+
+  const causal = {
+    hypotheses: [],
+    leader: {
+      id: 'cause-world',
+      objectId: 'world-phone-a',
+      objectLabel: 'cell phone',
+      handedness: 'Right',
+      stage: 'supported',
+      confidence: 0.82,
+      startedAt: 1000,
+      updatedAt: 2700,
+      lastEvidenceAt: 2700,
+      identityRebound: false,
+      evidence: [],
+      edges: [],
+      note: 'support only',
+    },
+    competingCount: 1,
+    margin: 0.2,
+    cameraStable: true,
+    updatedAt: 2700,
+    note: '',
+  };
+
+  const moved = actionNode('world-phone-b', 'cell phone', 0.7, 0.4, 0.93);
+  const state = tracker.update(actionGraph([moved], [
+    { id: 'world-phone-left', type: 'object_left', label: 'cell phone', at: 2200 },
+    { id: 'world-phone-relocated', type: 'object_relocated', label: 'cell phone', distance: 0.35, at: 2800 },
+  ], 2800), causal, 2800);
+
+  assert.equal(state.objects[0].supportedByActionHypothesis, true);
+  assert.match(worldModel.worldModelPrompt(state, 2800), /không suy ra ai hoặc điều gì đã gây ra thay đổi/i);
+});
+
+test('world model v14 expires unresolved object memories instead of keeping them indefinitely', () => {
+  const tracker = new worldModel.ShortTermWorldModelTracker();
+  const bottle = actionNode('world-bottle-a', 'bottle', 0.4, 0.4, 0.9);
+  tracker.update(actionGraph([bottle], [], 1000), null, 1000);
+  tracker.update(actionGraph([], [], 2200), null, 2200);
+  const state = tracker.update(actionGraph([], [], 32_500), null, 32_500);
+  assert.equal(state.objects.length, 0);
+  assert.ok(state.events.some((event) => event.type === 'expired'));
+});
+
+test('world model snapshot is read-only and reset clears session state', () => {
+  const tracker = new worldModel.ShortTermWorldModelTracker();
+  const laptop = actionNode('world-laptop-a', 'laptop', 0.4, 0.4, 0.92);
+  tracker.update(actionGraph([laptop], [], 1000), null, 1000);
+  const snapshot = tracker.snapshot(1500);
+  assert.equal(snapshot.objects[0].status, 'visible');
+  tracker.reset();
+  assert.equal(tracker.snapshot(1600).objects.length, 0);
 });
