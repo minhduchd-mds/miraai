@@ -52,6 +52,9 @@ const spatialWorld = await importTypeScript('src/core/vision/spatial-world.ts');
 const spatialPhysics = await importTypeScript('src/core/vision/spatial-physics.ts');
 const spatialCollision = await importTypeScript('src/core/vision/spatial-collision.ts');
 const spatialJoint = await importTypeScript('src/core/vision/spatial-joint.ts');
+const spatialLayout = await importTypeScript('src/core/vision/spatial-layout.ts');
+const spatialGroup = await importTypeScript('src/core/vision/spatial-group.ts');
+const spatialDevice = await importTypeScript('src/core/vision/spatial-device-adapter.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -3120,4 +3123,168 @@ test('collision solver skips contacts between members of the same cluster', () =
   assert.equal(result.contacts.length, 0);
   assert.equal(result.poses.core.position.x, 0);
   assert.equal(result.poses.node.position.x, 0.04);
+});
+
+
+test('session spatial layout survives runtime remount without browser storage', () => {
+  const runtime = new spatialLayout.SpatialSessionLayoutRuntime();
+  const snapshot = runtime.capture({
+    objects: [{
+      id: 'core',
+      label: 'Core',
+      pose: { position: { x: 0.1, y: -0.1, z: 0.05 }, scale: 1.1, rotation: 12 },
+      minScale: 0.7,
+      maxScale: 1.6,
+      collisionRadius: 0.05,
+      mass: 1.4,
+      grabbed: true,
+    }],
+    attachments: [],
+    joints: [],
+    selectedClusterRoots: ['core'],
+  }, 1000);
+
+  assert.equal(snapshot.version, 1);
+  assert.equal(snapshot.objects[0].grabbed, false);
+  const restored = runtime.restore();
+  assert.deepEqual(restored?.selectedClusterRoots, ['core']);
+  restored.objects[0].pose.position.x = 0.4;
+  assert.equal(runtime.restore().objects[0].pose.position.x, 0.1);
+});
+
+test('session spatial layout enforces bounded snapshot budgets', () => {
+  const runtime = new spatialLayout.SpatialSessionLayoutRuntime();
+  const objects = Array.from({ length: 40 }, (_, index) => ({
+    id: 'obj-' + index,
+    label: 'Object ' + index,
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    minScale: 0.5,
+    maxScale: 2,
+    collisionRadius: 0.03,
+    mass: 1,
+    grabbed: false,
+  }));
+  const snapshot = runtime.capture({
+    objects,
+    attachments: [],
+    joints: [],
+    selectedClusterRoots: objects.map((item) => item.id),
+  }, 1000);
+  assert.equal(snapshot.objects.length, 32);
+  assert.equal(snapshot.selectedClusterRoots.length, 16);
+});
+
+test('spatial selection toggles and clears cluster roots deterministically', () => {
+  const selection = new spatialLayout.SpatialSelectionRuntime();
+  assert.deepEqual(selection.toggle('core'), ['core']);
+  assert.deepEqual(selection.toggle('node'), ['core', 'node']);
+  assert.equal(selection.has('core'), true);
+  assert.deepEqual(selection.toggle('core'), ['node']);
+  assert.deepEqual(selection.clear(), []);
+});
+
+test('multi cluster group transform moves scale and rotates around centroid', () => {
+  const objects = [{
+    id: 'a',
+    label: 'A',
+    pose: { position: { x: -0.1, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    minScale: 0.5,
+    maxScale: 2,
+    collisionRadius: 0.03,
+    mass: 1,
+    grabbed: false,
+  }, {
+    id: 'b',
+    label: 'B',
+    pose: { position: { x: 0.1, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    minScale: 0.5,
+    maxScale: 2,
+    collisionRadius: 0.03,
+    mass: 1,
+    grabbed: false,
+  }];
+
+  const session = spatialGroup.beginSpatialGroupTransform(objects, ['a', 'b']);
+  assert.ok(session);
+  const transformed = spatialGroup.applySpatialGroupTransform(session, {
+    translateX: 0.05,
+    translateY: 0.02,
+    scaleRatio: 1.5,
+    rotationDelta: 90,
+  });
+
+  assert.ok(Math.abs(transformed.a.position.x - 0.05) < 1e-6);
+  assert.ok(transformed.a.position.y < -0.12);
+  assert.ok(transformed.b.position.y > 0.16);
+  assert.ok(Math.abs(transformed.a.scale - 1.5) < 1e-6);
+  assert.equal(transformed.a.rotation, 90);
+});
+
+test('spatial device adapter keeps webcam input relative and gates metric points', () => {
+  const adapter = new spatialDevice.SpatialDeviceAdapterRuntime();
+  const point = adapter.webcamPoint({ x: 2, y: -1, z: 2, confidence: 0.8 });
+  assert.deepEqual(point, { x: 1, y: 0, z: 1, confidence: 0.8, space: 'relative' });
+  assert.equal(adapter.metricPoint({ x: 1, y: 2, z: 3 }), null);
+  assert.equal(adapter.snapshot().mode, 'webcam-relative');
+});
+
+test('spatial device adapter can switch to WebXR metric capability contract', async () => {
+  const adapter = new spatialDevice.SpatialDeviceAdapterRuntime();
+  const capabilities = await adapter.detectWebXR({
+    navigator: {
+      xr: {
+        isSessionSupported: async (mode) => mode === 'immersive-ar',
+      },
+    },
+  });
+  assert.equal(capabilities.mode, 'webxr-metric');
+  assert.equal(capabilities.metric, true);
+  assert.equal(capabilities.worldSpace, true);
+  assert.equal(adapter.metricPoint({ x: 1, y: 2, z: 3 })?.space, 'metric');
+});
+
+test('spatial world rejects object attachment cycles', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'object.a',
+    label: 'A',
+    kind: 'object',
+    ownerObjectId: 'a',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.2,
+  }, {
+    id: 'object.b',
+    label: 'B',
+    kind: 'object',
+    ownerObjectId: 'b',
+    pose: { position: { x: 0.1, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.2,
+  }]);
+
+  assert.ok(world.attachObject('b', 'object.a', {
+    position: { x: 0.1, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  }, 1000));
+  assert.equal(world.wouldCreateAttachmentCycle('a', 'object.b'), true);
+  assert.equal(world.attachObject('a', 'object.b', {
+    position: { x: 0, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  }, 1100), null);
+});
+
+test('world model keeps a bounded number of visual memories', () => {
+  const tracker = new worldModel.ShortTermWorldModelTracker();
+  const nodes = Array.from({ length: 40 }, (_, index) =>
+    actionNode(
+      'budget-' + index,
+      'object-' + index,
+      (index % 8) * 0.1,
+      Math.floor(index / 8) * 0.1,
+      0.9,
+    )
+  );
+  const state = tracker.update(actionGraph(nodes, [], 1000), null, 1000);
+  assert.ok(state.objects.length <= 32);
 });
