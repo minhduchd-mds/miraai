@@ -294,11 +294,15 @@ function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorld
       kind: 'dock',
       parentId: `object.${object.id}`,
       pose: {
-        position: { x: 0, y: -0.082, z: 0.045 },
+        position: {
+          x: 0,
+          y: -(object.collisionRadius * 2.05),
+          z: object.collisionRadius * 0.55,
+        },
         scale: 1,
         rotation: 0,
       },
-      snapRadius: 0.13,
+      snapRadius: Math.max(0.08, object.collisionRadius * 2.35),
       priority: 0.58,
       ownerObjectId: object.id,
     });
@@ -427,6 +431,7 @@ export default function AppV2() {
   }));
   const [spatialFeedback, setSpatialFeedback] = useState('');
   const spatialFeedbackTimerRef = useRef<number | null>(null);
+  const spatialCollisionFeedbackAtRef = useRef(0);
   const spatialHeadConsumedAtRef = useRef(0);
   const [spatialWindows, setSpatialWindows] = useState<Record<SpatialWindowId, SpatialWindowTransform>>(() => ({
     result: { ...DEFAULT_SPATIAL_WINDOWS.result },
@@ -598,6 +603,7 @@ export default function AppV2() {
     setSpatialPhysicsState(spatialPhysicsRef.current.snapshot('mira.core'));
     setSpatialObjects(spatialObjectRuntimeRef.current.reset());
     setSpatialFeedback('');
+    spatialCollisionFeedbackAtRef.current = 0;
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
     behaviorTimelineRef.current.reset();
@@ -812,6 +818,45 @@ export default function AppV2() {
           const impulse = collision.velocityDeltas[object.id];
           if (impulse && Math.hypot(impulse.x, impulse.y, impulse.z) > 0.012) {
             setSpatialPhysicsState(spatialPhysicsRef.current.addVelocity(object.id, impulse, now));
+          }
+        }
+
+        spatialWorldRuntimeRef.current.setAnchors(
+          collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+        );
+
+        for (const contact of collision.contacts) {
+          const a = spatialObjectRuntimeRef.current.get(contact.aId);
+          const b = spatialObjectRuntimeRef.current.get(contact.bId);
+          if (!a || !b) continue;
+
+          const aAttached = Boolean(spatialWorldRuntimeRef.current.attachment(a.id));
+          const bAttached = Boolean(spatialWorldRuntimeRef.current.attachment(b.id));
+          if (contact.stackCandidate && !a.grabbed && !b.grabbed && !aAttached && !bAttached) {
+            const child = a.pose.position.y <= b.pose.position.y ? a : b;
+            const parent = child.id === a.id ? b : a;
+            const attachment = spatialWorldRuntimeRef.current.attachObject(
+              child.id,
+              `stack.${parent.id}`,
+              child.pose,
+              now,
+            );
+            if (attachment) {
+              const resolved = spatialWorldRuntimeRef.current.resolveObjectPose(child.id);
+              if (resolved) spatialObjectRuntimeRef.current.setPose(child.id, resolved);
+              setSpatialPhysicsState(spatialPhysicsRef.current.stop(child.id, now));
+              if (now - spatialCollisionFeedbackAtRef.current >= 650) {
+                spatialCollisionFeedbackAtRef.current = now;
+                showSpatialFeedback(`Đã xếp · ${child.label} trên ${parent.label}`);
+              }
+              spatialObjectsChanged = true;
+              continue;
+            }
+          }
+
+          if (contact.impulse > 0.01 && now - spatialCollisionFeedbackAtRef.current >= 650) {
+            spatialCollisionFeedbackAtRef.current = now;
+            showSpatialFeedback('Va chạm · truyền lực');
           }
         }
         spatialObjectsChanged = true;
@@ -1369,7 +1414,7 @@ export default function AppV2() {
     previouslyTouched.forEach((element) => element.removeAttribute('data-spatial-contacted'));
     if (!spatialTouch.ready || !spatialTouch.targetId) return;
 
-    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle]'))
+    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle], [data-spatial-object]'))
       .find((element) =>
         element.dataset.spatialAction === spatialTouch.targetId ||
         element.dataset.spatialGrabHandle === spatialTouch.targetId ||
