@@ -250,3 +250,34 @@ Magnetic placement now uses `applySpatialSpringConstraint()`. The object approac
 During inertia, a slow object entering a strong magnetic target can be captured and snapped to that anchor.
 
 Physics state is session-only and is never persisted to long-term memory.
+
+
+## Spatial v8: multi-object physics and stacking
+
+Mira now runs more than one production spatial object. `mira.core` and `mira.node` share one world graph and physics space.
+
+### Object-object collision
+
+Each object carries a bounded interaction-space collision radius and mass. `resolveSpatialObjectCollisions()` uses conservative sphere proxies to:
+
+- separate overlap;
+- preserve anchored/grabbed objects as static when required;
+- calculate a low-restitution collision impulse;
+- transfer part of the moving object's velocity into a free object.
+
+A lighter node therefore reacts more strongly when pushed by the heavier core.
+
+### Stack anchors
+
+Every object exposes both:
+
+- `object.<id>` — general parent anchor;
+- `stack.<id>` — an offset dock above the parent object.
+
+When a child snaps to a stack anchor it becomes attached through the normal world hierarchy and follows the parent as a spatial cluster.
+
+### Anchor eligibility
+
+Home anchors can now declare `acceptsObjectId`. This prevents Core and Node from competing for each other's home positions while keeping shared surfaces and stack anchors available.
+
+Collision, velocity, stack and attachment state remain session-only. Radius and mass are interaction tuning values rather than physical measurements.
