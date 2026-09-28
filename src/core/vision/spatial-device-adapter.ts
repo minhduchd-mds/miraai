@@ -53,17 +53,31 @@ export class SpatialDeviceAdapterRuntime {
 
       this.capabilities = {
         mode: 'webxr-metric',
-        handTracking: true,
+        handTracking: false,
         worldSpace: true,
-        hitTest: true,
-        anchors: true,
-        depth: true,
+        hitTest: false,
+        anchors: false,
+        depth: false,
         metric: true,
       };
       return this.snapshot();
     } catch {
       return this.useWebcamFallback();
     }
+  }
+
+  useWebXRSessionFeatures(enabledFeatures: Iterable<string>): SpatialDeviceCapabilities {
+    const features = new Set(Array.from(enabledFeatures || []));
+    this.capabilities = {
+      mode: 'webxr-metric',
+      handTracking: features.has('hand-tracking'),
+      worldSpace: true,
+      hitTest: features.has('hit-test'),
+      anchors: features.has('anchors'),
+      depth: features.has('depth-sensing'),
+      metric: true,
+    };
+    return this.snapshot();
   }
 
   webcamPoint(input: { x: number; y: number; z?: number; confidence?: number }): SpatialDevicePoint {
