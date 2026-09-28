@@ -7,11 +7,14 @@ export interface VisionWorkerPayload {
   pose: PosePoint[] | null;
   leftHand: HandPoint[] | null;
   rightHand: HandPoint[] | null;
+  leftHandWorld: HandPoint[] | null;
+  rightHandWorld: HandPoint[] | null;
 }
 
 export interface WorkerHandResult {
   handedness: 'Left' | 'Right';
   landmarks: HandPoint[];
+  worldLandmarks: HandPoint[];
   gesture: LiteGestureResult;
 }
 
