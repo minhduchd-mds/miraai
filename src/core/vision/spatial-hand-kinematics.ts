@@ -317,3 +317,38 @@ function structuredCloneLike(value: SpatialHandKinematicsState): SpatialHandKine
     thumb: { ...value.thumb, tip: { ...value.thumb.tip }, velocity: { ...value.thumb.velocity } },
   };
 }
+
+
+export function mirrorSpatialHandKinematicsX(
+  value: SpatialHandKinematicsState,
+): SpatialHandKinematicsState {
+  const mirrorPoint = (point: SpatialHandPoint): SpatialHandPoint => ({
+    x: 1 - point.x,
+    y: point.y,
+    z: point.z,
+  });
+  const mirrorVelocity = (point: SpatialHandPoint): SpatialHandPoint => ({
+    x: -point.x,
+    y: point.y,
+    z: point.z,
+  });
+  const mirrorFinger = (finger: SpatialFingerState): SpatialFingerState => ({
+    ...finger,
+    tip: mirrorPoint(finger.tip),
+    velocity: mirrorVelocity(finger.velocity),
+  });
+  return {
+    ...value,
+    palmCenter: mirrorPoint(value.palmCenter),
+    palmNormal: {
+      x: -value.palmNormal.x,
+      y: value.palmNormal.y,
+      z: value.palmNormal.z,
+    },
+    index: mirrorFinger(value.index),
+    middle: mirrorFinger(value.middle),
+    ring: mirrorFinger(value.ring),
+    pinky: mirrorFinger(value.pinky),
+    thumb: mirrorFinger(value.thumb),
+  };
+}
