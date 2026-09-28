@@ -230,6 +230,10 @@ See `docs/SPATIAL-INTERACTION.md`.
 
 The production spatial layer now contains `mira.core` and `mira.node`. Objects carry interaction-space collision radius and mass. `resolveSpatialObjectCollisions()` separates sphere-proxy overlaps and returns velocity impulses, while anchored/grabbed bodies can remain static. Per-object stack anchors build clusters through the existing parent/child world graph. Home anchors use `acceptsObjectId` to avoid cross-object snap conflicts. All collision/stack state remains ephemeral.
 
+### Spatial v9 cluster constraints
+
+`SpatialWorldRuntime` now exposes cluster roots/members and mutable attachment-local poses. `SpatialJointRuntime` layers fixed, hinge and slider constraints on those attachments. Fixed children move with the cluster root; hinge/slider children can be manipulated with two-hand input while remaining attached. Collision bodies carry cluster IDs so internal members do not collide with one another. All joint and cluster state remains session-only.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
