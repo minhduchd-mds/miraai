@@ -45,14 +45,16 @@ SpatialPoint3D.z
 grab session
 ```
 
-The current production UI keeps window z unchanged during one-hand drag. Monocular webcam z is relative and noisy, so it is not treated as metric world depth.
+Production now uses a guarded relative-depth mode during one-hand pinch-drag. The depth anchor requires six low-jitter samples, applies a dead zone, clamps travel, and falls back to x/y-only movement when confidence is insufficient. Monocular webcam z remains relative and is not treated as metric world depth.
 
-A future metric-depth/WebXR/device adapter can map the same `SpatialPoint3D` contract to:
+The direct-hand pipeline also derives an index-finger `SpatialRay3D`. Ray hit-testing is enabled only for targets that explicitly declare a depth plane; ordinary UI keeps the safer 2D focus path.
 
-- a camera ray;
+A future metric-depth/WebXR/device adapter can replace the sensing source while keeping the same `SpatialPoint3D` / `SpatialRay3D` contracts for:
+
+- a metric camera/hand ray;
 - a world-space hit point;
 - direct 3D touch/proximity;
-- translate-z;
+- metric translate-z;
 - real volumetric object manipulation.
 
 This keeps the control state machine stable while swapping only the spatial sensing adapter.
