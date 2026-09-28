@@ -239,6 +239,10 @@ export class SpatialUIController {
     const facePoint = faceSpatialPoint(input.face);
     const handPoint = handSpatialPoint(input.hand);
 
+    const rayHit = input.hand.direct
+      ? hitTestSpatialRay(input.hand.ray || null, depthAwareTargets(input.targets))
+      : null;
+
     // visionOS-style indirect input: look chooses target, pinch commits.
     // Direct hand pointing takes over only when explicitly stable or face focus is unavailable.
     const nextRaw = input.face.present && facePoint.confidence >= MIN_FACE_CONFIDENCE && !input.hand.direct
