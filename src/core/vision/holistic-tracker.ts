@@ -360,7 +360,7 @@ function trackedHandFromGeometry(
     x: Number(palm.x),
     y: Number(palm.y),
     pinching: pointDistance(indexTip, thumbTip) < 0.055,
-    landmarks: landmarks.map((point) => ({ x: point.x, y: point.y })),
+    landmarks: landmarks.map((point) => ({ x: point.x, y: point.y, z: point.z })),
   };
 }
 
