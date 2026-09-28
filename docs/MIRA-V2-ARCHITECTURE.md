@@ -234,6 +234,17 @@ The production spatial layer now contains `mira.core` and `mira.node`. Objects c
 
 `SpatialWorldRuntime` now exposes cluster roots/members and mutable attachment-local poses. `SpatialJointRuntime` layers fixed, hinge and slider constraints on those attachments. Fixed children move with the cluster root; hinge/slider children can be manipulated with two-hand input while remaining attached. Collision bodies carry cluster IDs so internal members do not collide with one another. All joint and cluster state remains session-only.
 
+### Spatial v10-v13 final browser stack
+
+The spatial browser architecture is now closed through four final layers:
+
+- `SpatialSessionLayoutRuntime` and `SpatialSelectionRuntime` provide bounded RAM-only layout restoration and multi-cluster selection.
+- `beginSpatialGroupTransform()` / `applySpatialGroupTransform()` provide centroid-based multi-cluster translation, scale and rotation.
+- `SpatialDeviceAdapterRuntime` separates webcam-relative input from a future WebXR metric input source without auto-claiming metric tracking.
+- long-session hardening caps world-model memories/event IDs, caps layout snapshots, and rejects cyclic object attachments.
+
+The active production sensor remains webcam-relative unless a real XR/device adapter supplies metric poses. Browser-spatial state remains ephemeral.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
