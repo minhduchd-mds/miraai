@@ -613,7 +613,7 @@ export default function AppV2() {
     const timer = window.setInterval(() => {
       const snapshot = webXRRuntimeRef.current.snapshot();
       setWebXRSnapshot(snapshot);
-      if (!snapshot.active) setWebXRAvailable(false);
+      if (!snapshot.active) setWebXRAvailable(true);
     }, 100);
     return () => window.clearInterval(timer);
   }, [webXRSnapshot.active]);
@@ -777,8 +777,16 @@ export default function AppV2() {
         : 'XR · session đã mở',
     );
 
-    if (visionOn) await stopVision();
-  }, [showSpatialFeedback, stopVision, visionOn, webXRSnapshot.active]);
+    if (visionOn) {
+      const modules = visionModulesRef.current;
+      modules?.stopVision();
+      if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
+      setVisionOn(false);
+      setFaceSeen(false);
+      setHandSeen(false);
+      setFaceLandmarks([]);
+    }
+  }, [showSpatialFeedback, visionOn, webXRSnapshot.active]);
 
   const toggleVision = useCallback(async () => {
     if (visionBooting) return;
@@ -1914,6 +1922,7 @@ export default function AppV2() {
   useEffect(() => () => {
     const modules = visionModulesRef.current;
     modules?.stopVision();
+    void webXRRuntimeRef.current.stop();
   }, []);
 
   useEffect(() => {
