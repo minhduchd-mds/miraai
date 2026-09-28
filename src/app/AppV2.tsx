@@ -1,10 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
 import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
+import SpatialControlOverlay from '../presence/SpatialControlOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { describeAffectSignal, resolveFaceControlAction } from '../intelligence/affect/affect-control';
 import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
@@ -13,6 +14,12 @@ import { EMPTY_PRESENCE_CONTINUITY, PresenceContinuityTracker, presenceContinuit
 import { BehaviorTimeline } from '../intelligence/social/behavior-timeline';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
 import { GestureIntentTracker } from '../core/vision/gesture-intent';
+import {
+  EMPTY_SPATIAL_CONTROL_FRAME,
+  SpatialUIController,
+  type SpatialTargetGeometry,
+} from '../core/vision/spatial-ui-control';
+import { measureTwoHands, rotationFromAngles, scaleFromDistance, smoothValue } from '../presence/spatial-math';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import { EMPTY_ENVIRONMENT, environmentPrompt } from '../core/vision/environment-model';
@@ -53,6 +60,111 @@ const STATE_COPY: Record<MiraState, string> = {
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
 const VOICE_HANDSHAKE_TEXT = 'Em nghe anh. Chế độ trò chuyện liên tục đã bật.';
 const VOICE_HANDSHAKE_TIMEOUT = 5000;
+
+
+type SpatialWindowId = 'result' | 'camera';
+
+interface SpatialWindowTransform {
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
+  rotation: number;
+}
+
+interface SpatialGrabSession {
+  id: SpatialWindowId;
+  start: { x: number; y: number; z: number };
+  base: SpatialWindowTransform;
+}
+
+interface TwoHandSpatialSession {
+  id: SpatialWindowId;
+  since: number;
+  active: boolean;
+  startDistance: number;
+  startAngle: number;
+  baseScale: number;
+  baseRotation: number;
+}
+
+const DEFAULT_SPATIAL_WINDOWS: Record<SpatialWindowId, SpatialWindowTransform> = {
+  result: { x: 0, y: 0, z: 0, scale: 1, rotation: 0 },
+  camera: { x: 0, y: 0, z: 0, scale: 1, rotation: 0 },
+};
+
+function clampSpatial(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : 0));
+}
+
+function spatialWindowStyle(transform: SpatialWindowTransform): CSSProperties {
+  return {
+    '--spatial-x': `${transform.x}px`,
+    '--spatial-y': `${transform.y}px`,
+    '--spatial-z': `${transform.z}px`,
+    '--spatial-scale': String(transform.scale),
+    '--spatial-rotation': `${transform.rotation}deg`,
+  } as CSSProperties;
+}
+
+function collectSpatialTargets(): SpatialTargetGeometry[] {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return [];
+  const width = Math.max(1, window.innerWidth);
+  const height = Math.max(1, window.innerHeight);
+  const targets: SpatialTargetGeometry[] = [];
+
+  const push = (element: HTMLElement, id: string, label: string, kind: 'action' | 'window', priority: number) => {
+    if (!id || !label || element.offsetParent === null) return;
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return;
+    targets.push({
+      id,
+      label,
+      kind,
+      left: clampSpatial(rect.left / width, 0, 1),
+      top: clampSpatial(rect.top / height, 0, 1),
+      right: clampSpatial(rect.right / width, 0, 1),
+      bottom: clampSpatial(rect.bottom / height, 0, 1),
+      priority,
+    });
+  };
+
+  document.querySelectorAll<HTMLElement>('[data-spatial-action]').forEach((element) => {
+    if (element.hasAttribute('disabled')) return;
+    push(
+      element,
+      String(element.dataset.spatialAction || ''),
+      String(element.dataset.spatialLabel || element.getAttribute('aria-label') || element.title || 'Điều khiển'),
+      'action',
+      0.14,
+    );
+  });
+
+  document.querySelectorAll<HTMLElement>('[data-spatial-grab-handle]').forEach((element) => {
+    push(
+      element,
+      String(element.dataset.spatialGrabHandle || ''),
+      String(element.dataset.spatialLabel || 'Di chuyển cửa sổ'),
+      'window',
+      0.08,
+    );
+  });
+
+  return targets;
+}
+
+function spatialActionElement(id: string): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action]'))
+    .find((element) => element.dataset.spatialAction === id) || null;
+}
+
+function spatialWindowAvailable(id: string): id is SpatialWindowId {
+  if (id !== 'result' && id !== 'camera') return false;
+  return typeof document !== 'undefined' &&
+    Boolean(Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-grab-handle]'))
+      .find((element) => element.dataset.spatialGrabHandle === id && element.offsetParent !== null));
+}
 
 
 function loadTheme(): Theme {
@@ -99,6 +211,7 @@ export default function AppV2() {
   const [visionBooting, setVisionBooting] = useState(false);
   const [visionError, setVisionError] = useState('');
   const [faceSeen, setFaceSeen] = useState(false);
+  const [handSeen, setHandSeen] = useState(false);
   const [faceLandmarks, setFaceLandmarks] = useState<FaceLandmarkPoint[]>([]);
   const sceneGraphTrackerRef = useRef(new SpatialSceneGraphTracker());
   const objectInteractionTrackerRef = useRef(new ObjectInteractionTracker());
@@ -112,6 +225,25 @@ export default function AppV2() {
   const behaviorTimelineRef = useRef(new BehaviorTimeline());
   const gazeHeadCalibratorRef = useRef(new GazeHeadCalibrator());
   const gestureIntentTrackerRef = useRef(new GestureIntentTracker());
+  const spatialUiRef = useRef(new SpatialUIController());
+  const [spatialFrame, setSpatialFrame] = useState(() => ({
+    ...EMPTY_SPATIAL_CONTROL_FRAME,
+    pointer: { ...EMPTY_SPATIAL_CONTROL_FRAME.pointer },
+  }));
+  const [spatialFeedback, setSpatialFeedback] = useState('');
+  const spatialFeedbackTimerRef = useRef<number | null>(null);
+  const spatialHeadConsumedAtRef = useRef(0);
+  const [spatialWindows, setSpatialWindows] = useState<Record<SpatialWindowId, SpatialWindowTransform>>(() => ({
+    result: { ...DEFAULT_SPATIAL_WINDOWS.result },
+    camera: { ...DEFAULT_SPATIAL_WINDOWS.camera },
+  }));
+  const spatialWindowsRef = useRef<Record<SpatialWindowId, SpatialWindowTransform>>({
+    result: { ...DEFAULT_SPATIAL_WINDOWS.result },
+    camera: { ...DEFAULT_SPATIAL_WINDOWS.camera },
+  });
+  const spatialGrabSessionRef = useRef<SpatialGrabSession | null>(null);
+  const twoHandSpatialSessionRef = useRef<TwoHandSpatialSession | null>(null);
+  const lastSpatialWindowRef = useRef<SpatialWindowId>('camera');
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
     gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
@@ -136,6 +268,7 @@ export default function AppV2() {
   useEffect(() => () => {
     if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
     if (faceSocialCueTimerRef.current != null) window.clearTimeout(faceSocialCueTimerRef.current);
+    if (spatialFeedbackTimerRef.current != null) window.clearTimeout(spatialFeedbackTimerRef.current);
   }, []);
 
   const showFaceActionFeedback = useCallback((message: string) => {
@@ -145,6 +278,29 @@ export default function AppV2() {
       faceActionTimerRef.current = null;
       setFaceActionFeedback('');
     }, 1100);
+  }, []);
+
+  const showSpatialFeedback = useCallback((message: string) => {
+    if (spatialFeedbackTimerRef.current != null) window.clearTimeout(spatialFeedbackTimerRef.current);
+    setSpatialFeedback(message);
+    spatialFeedbackTimerRef.current = window.setTimeout(() => {
+      spatialFeedbackTimerRef.current = null;
+      setSpatialFeedback('');
+    }, 900);
+  }, []);
+
+  const updateSpatialWindow = useCallback((
+    id: SpatialWindowId,
+    updater: (current: SpatialWindowTransform) => SpatialWindowTransform,
+  ) => {
+    const current = spatialWindowsRef.current[id];
+    const nextValue = updater(current);
+    const next = {
+      ...spatialWindowsRef.current,
+      [id]: nextValue,
+    };
+    spatialWindowsRef.current = next;
+    setSpatialWindows(next);
   }, []);
 
   const toggleAffectFollowing = useCallback(() => {
@@ -171,6 +327,7 @@ export default function AppV2() {
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
     setVisionOn(false);
     setFaceSeen(false);
+    setHandSeen(false);
     setFaceActionFeedback('');
     lastHeadGestureRef.current = 'none';
     lastFaceActionAtRef.current = 0;
@@ -186,6 +343,10 @@ export default function AppV2() {
     causalActionGraphTrackerRef.current.reset();
     worldModelTrackerRef.current.reset();
     gestureIntentTrackerRef.current.reset();
+    setSpatialFrame(spatialUiRef.current.reset());
+    spatialGrabSessionRef.current = null;
+    twoHandSpatialSessionRef.current = null;
+    setSpatialFeedback('');
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
     behaviorTimelineRef.current.reset();
@@ -250,6 +411,7 @@ export default function AppV2() {
       const current = visionModulesRef.current;
       const snapshot = current?.visionSnapshot();
       setFaceSeen(Boolean(snapshot?.faceSeen));
+      setHandSeen(Boolean(snapshot?.handSeen));
       const face = snapshot?.face;
       setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
       const micro = face?.microExpression || { kind: 'none', confidence: 0, durationMs: 0 };
@@ -302,6 +464,164 @@ export default function AppV2() {
         wave: Boolean(snapshot?.wave),
       }, now);
 
+      const rawHands = (Array.isArray(snapshot?.hands) ? snapshot.hands : []) as any[];
+      const primaryHand = rawHands.find((hand) => String(hand?.handedness || '') === 'Right') || rawHands[0] || null;
+      const primaryGesture = String(primaryHand?.gesture || snapshot?.gesture || 'None');
+      const primaryScore = Number(primaryHand?.score ?? snapshot?.gestureScore ?? 0);
+      const primaryPinching = Boolean(primaryHand?.pinching ?? snapshot?.pinching);
+      const primaryPointerX = clampSpatial(Number(primaryHand?.pointerX ?? snapshot?.pointerX ?? 0.5), 0, 1);
+      const primaryPointerY = clampSpatial(Number(primaryHand?.pointerY ?? snapshot?.pointerY ?? 0.5), 0, 1);
+      const primaryPointerZ = clampSpatial(Number(primaryHand?.z ?? snapshot?.pointerZ ?? 0), -0.45, 0.45);
+      const directHand = Boolean(snapshot?.handSeen) && (
+        (primaryGesture === 'Pointing_Up' && primaryScore >= 0.55) ||
+        intent.intent === 'point_hold'
+      );
+      const handConfidence = primaryPinching
+        ? Math.max(0.78, primaryScore)
+        : directHand
+          ? Math.max(0.62, primaryScore)
+          : Math.max(0.5, primaryScore);
+
+      const spatialFrameNext = spatialUiRef.current.update({
+        face: {
+          present: Boolean(face?.present),
+          confidence: faceConfidence,
+          gazeX: calibrated.gazeX,
+          gazeY: calibrated.gazeY,
+          yaw: calibrated.yaw,
+          pitch: calibrated.pitch,
+          calibrationProgress: calibrated.calibration.progress,
+        },
+        hand: {
+          present: Boolean(snapshot?.handSeen && primaryHand),
+          confidence: handConfidence,
+          x: primaryPointerX,
+          y: primaryPointerY,
+          z: primaryPointerZ,
+          pinching: primaryPinching,
+          direct: directHand,
+        },
+        gestureIntent: intent,
+        headGesture: String(face?.headGesture || 'none'),
+        targets: settingsOpen ? [] : collectSpatialTargets(),
+      }, now);
+      setSpatialFrame(spatialFrameNext);
+
+      const pinchedHands = rawHands.filter((hand) => Boolean(hand?.pinching));
+      const twoHandsActive = pinchedHands.length >= 2;
+
+      for (const event of spatialFrameNext.events) {
+        if (event.type === 'activate') {
+          const target = spatialActionElement(event.targetId);
+          if (target) {
+            target.click();
+            showSpatialFeedback(`${event.source === 'face' ? 'Gật đầu' : 'Pinch'} · ${target.dataset.spatialLabel || 'Đã chọn'}`);
+            if (event.source === 'face') spatialHeadConsumedAtRef.current = now;
+          }
+          continue;
+        }
+
+        if (event.type === 'grab_start' && spatialWindowAvailable(event.targetId)) {
+          const id = event.targetId;
+          spatialGrabSessionRef.current = {
+            id,
+            start: { x: event.point.x, y: event.point.y, z: event.point.z },
+            base: { ...spatialWindowsRef.current[id] },
+          };
+          lastSpatialWindowRef.current = id;
+          showSpatialFeedback('Pinch giữ · di chuyển cửa sổ');
+          continue;
+        }
+
+        if (event.type === 'grab_move' && spatialGrabSessionRef.current && !twoHandsActive) {
+          const session = spatialGrabSessionRef.current;
+          if (session.id !== event.targetId) continue;
+          const dx = (event.point.x - session.start.x) * window.innerWidth * 1.42;
+          const dy = (event.point.y - session.start.y) * window.innerHeight * 1.3;
+          const limitX = window.innerWidth * 0.56;
+          const limitY = window.innerHeight * 0.48;
+          updateSpatialWindow(session.id, () => ({
+            ...session.base,
+            x: clampSpatial(session.base.x + dx, -limitX, limitX),
+            y: clampSpatial(session.base.y + dy, -limitY, limitY),
+            // z is deliberately preserved for now. The input model already carries
+            // depth so a later metric-depth/WebXR adapter can activate true 3D motion.
+            z: session.base.z,
+          }));
+          continue;
+        }
+
+        if (event.type === 'grab_end') {
+          spatialGrabSessionRef.current = null;
+          showSpatialFeedback('Đã thả cửa sổ');
+          continue;
+        }
+
+        if (event.type === 'cancel') {
+          spatialGrabSessionRef.current = null;
+          twoHandSpatialSessionRef.current = null;
+          spatialHeadConsumedAtRef.current = now;
+          showSpatialFeedback('Đã hủy thao tác');
+        }
+      }
+
+      const transformTarget = spatialFrameNext.focus?.kind === 'window'
+        ? spatialFrameNext.focus.id
+        : lastSpatialWindowRef.current;
+      if (twoHandsActive && spatialWindowAvailable(transformTarget)) {
+        const a = pinchedHands[0];
+        const b = pinchedHands[1];
+        const geometry = measureTwoHands(
+          {
+            x: clampSpatial(Number(a?.pointerX ?? a?.x ?? 0.5), 0, 1),
+            y: clampSpatial(Number(a?.pointerY ?? a?.y ?? 0.5), 0, 1),
+          },
+          {
+            x: clampSpatial(Number(b?.pointerX ?? b?.x ?? 0.5), 0, 1),
+            y: clampSpatial(Number(b?.pointerY ?? b?.y ?? 0.5), 0, 1),
+          },
+        );
+        let session = twoHandSpatialSessionRef.current;
+        if (!session || session.id !== transformTarget) {
+          const base = spatialWindowsRef.current[transformTarget];
+          session = {
+            id: transformTarget,
+            since: now,
+            active: false,
+            startDistance: geometry.distance,
+            startAngle: geometry.angleDeg,
+            baseScale: base.scale,
+            baseRotation: base.rotation,
+          };
+          twoHandSpatialSessionRef.current = session;
+        } else if (!session.active && now - session.since >= 240 && geometry.distance >= 0.08) {
+          session.active = true;
+          showSpatialFeedback('Hai tay · scale / rotate');
+        } else if (session.active) {
+          const targetScale = scaleFromDistance(
+            session.baseScale,
+            session.startDistance,
+            geometry.distance,
+            0.82,
+            1.28,
+          );
+          const targetRotation = rotationFromAngles(
+            session.baseRotation,
+            session.startAngle,
+            geometry.angleDeg,
+            -12,
+            12,
+          );
+          updateSpatialWindow(session.id, (current) => ({
+            ...current,
+            scale: smoothValue(current.scale, targetScale, 0.26),
+            rotation: smoothValue(current.rotation, targetRotation, 0.22),
+          }));
+        }
+      } else {
+        twoHandSpatialSessionRef.current = null;
+      }
+
       const gestureScoreNow = Number(snapshot?.gestureScore || 0);
       const rawPointerX = Math.max(0, Math.min(1, Number(snapshot?.pointerX ?? 0.5)));
       const rawPointerY = Math.max(0, Math.min(1, Number(snapshot?.pointerY ?? 0.5)));
@@ -320,7 +640,7 @@ export default function AppV2() {
         now,
       );
 
-      const interactionHands = (Array.isArray(snapshot?.hands) ? snapshot.hands : [])
+      const interactionHands = rawHands
         .map((hand: any) => ({
           handedness: String(hand?.handedness || 'Unknown'),
           x: Number(hand?.x ?? 0.5),
@@ -442,6 +762,9 @@ export default function AppV2() {
         lastHeadGestureRef.current = 'none';
       } else if (headGesture !== lastHeadGestureRef.current) {
         lastHeadGestureRef.current = headGesture;
+        if (now - spatialHeadConsumedAtRef.current < 520) {
+          // This nod/shake was consumed by spatial UI control.
+        } else {
         const faceAction = resolveFaceControlAction({
           faceSeen: Boolean(face?.present),
           faceConfidence,
@@ -458,6 +781,7 @@ export default function AppV2() {
             mira.startListening();
             showFaceActionFeedback('Gật đầu · Mira đang nghe');
           }
+        }
         }
       }
 
@@ -476,7 +800,22 @@ export default function AppV2() {
       });
     }, 120);
     return () => window.clearInterval(timer);
-  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, showFaceActionFeedback, visionOn, voiceReady]);
+  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateSpatialWindow, visionOn, voiceReady]);
+
+  useEffect(() => {
+    const previouslyFocused = document.querySelectorAll<HTMLElement>('[data-spatial-focused="true"]');
+    previouslyFocused.forEach((element) => element.removeAttribute('data-spatial-focused'));
+    const focusId = spatialFrame.focus?.id;
+    if (!focusId) return;
+
+    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle]'))
+      .find((element) =>
+        element.dataset.spatialAction === focusId ||
+        element.dataset.spatialGrabHandle === focusId
+      );
+    target?.setAttribute('data-spatial-focused', 'true');
+    return () => target?.removeAttribute('data-spatial-focused');
+  }, [spatialFrame.focus?.id]);
 
   useEffect(() => () => {
     const modules = visionModulesRef.current;
@@ -675,19 +1014,21 @@ export default function AppV2() {
             onClick={() => void toggleVision()}
             aria-pressed={visionOn}
             title={visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}
+            data-spatial-action="camera.toggle"
+            data-spatial-label={visionOn ? 'Tắt camera' : 'Bật camera'}
           >
             {visionOn ? <IconCameraOff /> : <IconCamera />}
             <span className="sr-only">{visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}</span>
           </button>
-          <button type="button" onClick={cycleTheme} title="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
-          <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
+          <button type="button" onClick={cycleTheme} title="Đổi màu" data-spatial-action="theme.cycle" data-spatial-label="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
+          <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt" data-spatial-action="settings.open" data-spatial-label="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
         </nav>
       </header>
 
       {(mira.error || visionError) && <div className="v2-error" role="alert">{visionError || mira.error}</div>}
 
       {visionOn && (
-        <div className="v2-vision-monitor" aria-live="polite">
+        <div className="v2-vision-monitor" aria-live="polite" style={spatialWindowStyle(spatialWindows.camera)} data-spatial-window="camera">
           <div className="v2-camera-frame">
             <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
             <div className="v2-camera-status face-only" role="status" aria-live="polite">
@@ -718,6 +1059,8 @@ export default function AppV2() {
                   aria-pressed={affectFollowing}
                   onClick={toggleAffectFollowing}
                   title={affectFollowing ? 'Tắt phản ứng theo biểu cảm' : 'Bật phản ứng theo biểu cảm'}
+                  data-spatial-action="affect.toggle"
+                  data-spatial-label={affectFollowing ? 'Tắt phản ứng' : 'Bật phản ứng'}
                 >
                   <i aria-hidden="true" />
                   <span>{affectFollowing ? 'Phản ứng · Bật' : 'Chỉ quan sát'}</span>
@@ -727,6 +1070,12 @@ export default function AppV2() {
             )}
             {!faceSeen && <div className="v2-face-scan-hint">Đưa khuôn mặt vào giữa khung hình</div>}
           </div>
+          <div
+            className="v2-spatial-window-bar"
+            data-spatial-grab-handle="camera"
+            data-spatial-label="Di chuyển camera"
+            aria-hidden="true"
+          ><i /></div>
         </div>
       )}
       {visionBooting && <div className="v2-vision-loading">Đang mở camera…</div>}
@@ -765,11 +1114,21 @@ export default function AppV2() {
         {mira.content && (
           <aside className="v2-result" aria-label="Kết quả trực quan">
             <Suspense fallback={null}>
-              <ContentPanel content={mira.content} onClose={mira.clearContent} />
+              <ContentPanel
+                content={mira.content}
+                onClose={mira.clearContent}
+                spatialStyle={spatialWindowStyle(spatialWindows.result)}
+              />
             </Suspense>
           </aside>
         )}
       </main>
+
+      <SpatialControlOverlay
+        frame={spatialFrame}
+        visible={visionOn && !settingsOpen && (faceSeen || handSeen)}
+        feedback={spatialFeedback}
+      />
 
       <div className="voice-footer">
         <button
@@ -779,6 +1138,8 @@ export default function AppV2() {
           aria-pressed={mira.live}
           aria-label={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
           title={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
+          data-spatial-action="voice.live"
+          data-spatial-label={mira.live ? 'Tắt live voice' : 'Bật live voice'}
         >
           <span aria-hidden="true" />
         </button>
