@@ -4127,3 +4127,59 @@ test('XR depth request is CPU optimized because frame sampling uses getDepthInfo
   assert.deepEqual(requestedOptions.depthSensing.usagePreference, ['cpu-optimized']);
   await runtime.stop();
 });
+
+
+test('late XR anchor creation is discarded after session stop', async () => {
+  let frameCallback = null;
+  let resolveAnchor = null;
+  let deleted = false;
+  const anchor = {
+    anchorSpace: {},
+    delete: () => { deleted = true; },
+  };
+  const session = {
+    enabledFeatures: ['hit-test', 'anchors'],
+    inputSources: [],
+    requestReferenceSpace: async (type) => ({ type }),
+    requestHitTestSource: async () => ({ cancel: () => {} }),
+    requestAnimationFrame: (callback) => {
+      frameCallback = callback;
+      return 1;
+    },
+    cancelAnimationFrame: () => {},
+    addEventListener: () => {},
+    end: async () => {},
+  };
+
+  const runtime = new spatialWebXR.SpatialWebXRSessionRuntime();
+  await runtime.start({
+    navigator: {
+      xr: {
+        requestSession: async () => session,
+      },
+    },
+  });
+  assert.equal(runtime.requestAnchorAtCurrentHit('object.late', 'Late', false), true);
+
+  const hitResult = {
+    getPose: () => ({
+      transform: { position: { x: 0, y: 0, z: -1 } },
+    }),
+    createAnchor: () => new Promise((resolve) => {
+      resolveAnchor = resolve;
+    }),
+  };
+  frameCallback(1000, {
+    getViewerPose: () => ({ views: [] }),
+    getHitTestResults: () => [hitResult],
+    trackedAnchors: new Set(),
+  });
+
+  await runtime.stop();
+  resolveAnchor(anchor);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(runtime.snapshot().anchors.length, 0);
+  assert.equal(deleted, true);
+});
