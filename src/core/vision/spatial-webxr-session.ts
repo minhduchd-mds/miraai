@@ -29,12 +29,47 @@ export interface WebXRViewSample {
   viewMatrix: number[];
 }
 
+export interface WebXRDepthSample {
+  x: number;
+  y: number;
+  depthM: number;
+  valid: boolean;
+}
+
+export interface WebXRDepthViewSample {
+  eye: string;
+  width: number;
+  height: number;
+  samples: WebXRDepthSample[];
+}
+
+export interface WebXRDepthSnapshot {
+  available: boolean;
+  usage: string;
+  dataFormat: string;
+  views: WebXRDepthViewSample[];
+  frameAt: number;
+}
+
+export interface WebXRAnchorSample {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  z: number;
+  tracked: boolean;
+  persistentHandle: string;
+  createdAt: number;
+}
+
 export interface WebXRSessionSnapshot {
   active: boolean;
   mode: 'inactive' | 'immersive-ar';
   enabledFeatures: string[];
   hands: WebXRHandSample[];
   views: WebXRViewSample[];
+  depth: WebXRDepthSnapshot;
+  anchors: WebXRAnchorSample[];
   hit: WebXRHitSample | null;
   frameAt: number;
   error: string;
@@ -46,6 +81,14 @@ const EMPTY: WebXRSessionSnapshot = {
   enabledFeatures: [],
   hands: [],
   views: [],
+  depth: {
+    available: false,
+    usage: '',
+    dataFormat: '',
+    views: [],
+    frameAt: 0,
+  },
+  anchors: [],
   hit: null,
   frameAt: 0,
   error: '',
@@ -54,6 +97,21 @@ const EMPTY: WebXRSessionSnapshot = {
 const PINCH_DISTANCE_M = 0.028;
 const MAX_HANDS = 2;
 const MAX_JOINTS = 25;
+const DEPTH_GRID = [0.1, 0.3, 0.5, 0.7, 0.9];
+
+interface InternalXRAnchor {
+  id: string;
+  label: string;
+  anchor: any;
+  persistentHandle: string;
+  createdAt: number;
+}
+
+interface PendingAnchorRequest {
+  id: string;
+  label: string;
+  requestPersistentHandle: boolean;
+}
 
 function finite(value: unknown, fallback = 0): number {
   const numeric = Number(value);
@@ -81,6 +139,14 @@ function cloneSnapshot(snapshot: WebXRSessionSnapshot): WebXRSessionSnapshot {
       projectionMatrix: [...view.projectionMatrix],
       viewMatrix: [...view.viewMatrix],
     })),
+    depth: {
+      ...snapshot.depth,
+      views: snapshot.depth.views.map((view) => ({
+        ...view,
+        samples: view.samples.map((sample) => ({ ...sample })),
+      })),
+    },
+    anchors: snapshot.anchors.map((anchor) => ({ ...anchor })),
     hit: snapshot.hit ? { ...snapshot.hit } : null,
   };
 }
@@ -111,6 +177,9 @@ export class SpatialWebXRSessionRuntime {
   private frameHandle = 0;
   private current: WebXRSessionSnapshot = cloneSnapshot(EMPTY);
   private ended = false;
+  private anchors = new Map<string, InternalXRAnchor>();
+  private pendingAnchor: PendingAnchorRequest | null = null;
+  private anchorCreationPending = false;
 
   snapshot(): WebXRSessionSnapshot {
     return cloneSnapshot(this.current);
@@ -168,6 +237,14 @@ export class SpatialWebXRSessionRuntime {
         enabledFeatures,
         hands: [],
         views: [],
+        depth: {
+          available: false,
+          usage: String(session.depthUsage || ''),
+          dataFormat: String(session.depthDataFormat || ''),
+          views: [],
+          frameAt: performance.now(),
+        },
+        anchors: [],
         hit: null,
         frameAt: performance.now(),
         error: '',
@@ -188,6 +265,28 @@ export class SpatialWebXRSessionRuntime {
       };
       return this.snapshot();
     }
+  }
+
+  requestAnchorAtCurrentHit(
+    id: string,
+    label: string,
+    requestPersistentHandle = false,
+  ): boolean {
+    if (!id || !this.session || !this.current.enabledFeatures.includes('anchors')) return false;
+    this.pendingAnchor = {
+      id,
+      label: label || id,
+      requestPersistentHandle,
+    };
+    return true;
+  }
+
+  removeAnchor(id: string): boolean {
+    const entry = this.anchors.get(id);
+    if (!entry) return false;
+    try { entry.anchor?.delete?.(); } catch { /* noop */ }
+    this.anchors.delete(id);
+    return true;
   }
 
   async stop(): Promise<WebXRSessionSnapshot> {
@@ -260,6 +359,41 @@ export class SpatialWebXRSessionRuntime {
       }))
       .filter((view) => view.projectionMatrix.length === 16 && view.viewMatrix.length === 16);
 
+    const depthViews: WebXRDepthViewSample[] = [];
+    if (
+      this.current.enabledFeatures.includes('depth-sensing') &&
+      typeof frame?.getDepthInformation === 'function'
+    ) {
+      const xrViews = Array.from(viewerPose?.views || []).slice(0, 2) as any[];
+      for (const view of xrViews) {
+        try {
+          const info = frame.getDepthInformation(view);
+          if (!info || typeof info.getDepthInMeters !== 'function') continue;
+          const samples: WebXRDepthSample[] = [];
+          for (const y of DEPTH_GRID) {
+            for (const x of DEPTH_GRID) {
+              let depthM = 0;
+              try { depthM = finite(info.getDepthInMeters(x, y)); } catch { depthM = 0; }
+              samples.push({
+                x,
+                y,
+                depthM,
+                valid: Number.isFinite(depthM) && depthM > 0,
+              });
+            }
+          }
+          depthViews.push({
+            eye: String(view?.eye || 'none'),
+            width: Math.max(0, finite(info.width)),
+            height: Math.max(0, finite(info.height)),
+            samples,
+          });
+        } catch {
+          // Depth can be temporarily unavailable on an otherwise valid XR frame.
+        }
+      }
+    }
+
     let hit: WebXRHitSample | null = null;
     if (this.hitTestSource && typeof frame?.getHitTestResults === 'function') {
       try {
@@ -274,9 +408,77 @@ export class SpatialWebXRSessionRuntime {
             confidence: 1,
           };
         }
+
+        if (
+          result &&
+          this.pendingAnchor &&
+          !this.anchorCreationPending &&
+          typeof result.createAnchor === 'function'
+        ) {
+          const request = this.pendingAnchor;
+          this.pendingAnchor = null;
+          this.anchorCreationPending = true;
+          Promise.resolve(result.createAnchor())
+            .then(async (anchor: any) => {
+              let persistentHandle = '';
+              if (request.requestPersistentHandle && typeof anchor?.requestPersistentHandle === 'function') {
+                try {
+                  persistentHandle = String(await anchor.requestPersistentHandle());
+                } catch {
+                  persistentHandle = '';
+                }
+              }
+              this.anchors.set(request.id, {
+                id: request.id,
+                label: request.label,
+                anchor,
+                persistentHandle,
+                createdAt: performance.now(),
+              });
+            })
+            .catch(() => {})
+            .finally(() => {
+              this.anchorCreationPending = false;
+            });
+        }
       } catch {
         hit = null;
       }
+    }
+
+    const trackedAnchors = frame?.trackedAnchors;
+    const anchors: WebXRAnchorSample[] = [];
+    for (const entry of this.anchors.values()) {
+      let tracked = false;
+      let x = 0;
+      let y = 0;
+      let z = 0;
+      try {
+        tracked = trackedAnchors?.has?.(entry.anchor) ?? true;
+        const pose = tracked && entry.anchor?.anchorSpace && typeof frame?.getPose === 'function'
+          ? frame.getPose(entry.anchor.anchorSpace, referenceSpace)
+          : null;
+        const position = pose?.transform?.position;
+        if (position) {
+          x = finite(position.x);
+          y = finite(position.y);
+          z = finite(position.z);
+        } else {
+          tracked = false;
+        }
+      } catch {
+        tracked = false;
+      }
+      anchors.push({
+        id: entry.id,
+        label: entry.label,
+        x,
+        y,
+        z,
+        tracked,
+        persistentHandle: entry.persistentHandle,
+        createdAt: entry.createdAt,
+      });
     }
 
     this.current = {
@@ -285,6 +487,14 @@ export class SpatialWebXRSessionRuntime {
       mode: 'immersive-ar',
       hands,
       views,
+      depth: {
+        available: depthViews.some((view) => view.samples.some((sample) => sample.valid)),
+        usage: String(session.depthUsage || ''),
+        dataFormat: String(session.depthDataFormat || ''),
+        views: depthViews,
+        frameAt: finite(time, performance.now()),
+      },
+      anchors,
       hit,
       frameAt: finite(time, performance.now()),
       error: '',
@@ -302,6 +512,12 @@ export class SpatialWebXRSessionRuntime {
     this.referenceSpace = null;
     this.viewerSpace = null;
     this.frameHandle = 0;
+    for (const entry of this.anchors.values()) {
+      try { entry.anchor?.delete?.(); } catch { /* noop */ }
+    }
+    this.anchors.clear();
+    this.pendingAnchor = null;
+    this.anchorCreationPending = false;
     this.current = cloneSnapshot(EMPTY);
   }
 }
