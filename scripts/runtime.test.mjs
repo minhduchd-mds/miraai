@@ -49,6 +49,7 @@ const spatialRay = await importTypeScript('src/core/vision/spatial-ray.ts');
 const spatialAnchor = await importTypeScript('src/core/vision/spatial-anchor.ts');
 const spatialObject = await importTypeScript('src/core/vision/spatial-object.ts');
 const spatialWorld = await importTypeScript('src/core/vision/spatial-world.ts');
+const spatialPhysics = await importTypeScript('src/core/vision/spatial-physics.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -2560,4 +2561,97 @@ test('object anchor never snaps an object to itself', () => {
     scale: 1,
     rotation: 0,
   }), null);
+});
+
+
+test('spatial physics classifies slow release as place', () => {
+  const physics = new spatialPhysics.SpatialPhysicsRuntime();
+  physics.beginGrab('mira.core', { x: 0.5, y: 0.5, z: 0 }, 1000);
+  physics.sampleGrab('mira.core', { x: 0.51, y: 0.5, z: 0 }, 1100);
+  const release = physics.release('mira.core', 0, 1120);
+  assert.equal(release.mode, 'place');
+  assert.equal(physics.snapshot('mira.core').mode, 'idle');
+});
+
+test('spatial physics classifies a fast release as throw', () => {
+  const physics = new spatialPhysics.SpatialPhysicsRuntime();
+  physics.beginGrab('mira.core', { x: 0.4, y: 0.5, z: 0 }, 1000);
+  physics.sampleGrab('mira.core', { x: 0.55, y: 0.5, z: 0 }, 1050);
+  const release = physics.release('mira.core', 0, 1060);
+  assert.equal(release.mode, 'throw');
+  assert.equal(physics.snapshot('mira.core').mode, 'inertia');
+  assert.ok(release.speed >= 0.72);
+});
+
+test('strong magnetic placement overrides a fast throw', () => {
+  const physics = new spatialPhysics.SpatialPhysicsRuntime();
+  physics.beginGrab('mira.core', { x: 0.4, y: 0.5, z: 0 }, 1000);
+  physics.sampleGrab('mira.core', { x: 0.58, y: 0.5, z: 0 }, 1050);
+  const release = physics.release('mira.core', 0.8, 1060);
+  assert.equal(release.mode, 'place');
+  assert.equal(physics.snapshot('mira.core').mode, 'idle');
+});
+
+test('spatial inertia moves the object and damps velocity over time', () => {
+  const physics = new spatialPhysics.SpatialPhysicsRuntime();
+  physics.beginGrab('mira.core', { x: 0.4, y: 0.5, z: 0 }, 1000);
+  physics.sampleGrab('mira.core', { x: 0.56, y: 0.5, z: 0 }, 1050);
+  physics.release('mira.core', 0, 1060);
+
+  const pose = {
+    position: { x: 0, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  };
+  const first = physics.step('mira.core', pose, 1110);
+  const second = physics.step('mira.core', first.pose, 1160);
+
+  assert.ok(first.pose.position.x > 0);
+  assert.ok(second.pose.position.x > first.pose.position.x);
+  assert.ok(second.state.speed < first.state.speed);
+});
+
+test('spatial physics uses soft collision and bounded bounce at world edges', () => {
+  const physics = new spatialPhysics.SpatialPhysicsRuntime();
+  physics.beginGrab('mira.core', { x: 0.4, y: 0.5, z: 0 }, 1000);
+  physics.sampleGrab('mira.core', { x: 0.58, y: 0.5, z: 0 }, 1050);
+  physics.release('mira.core', 0, 1060);
+
+  const step = physics.step('mira.core', {
+    position: { x: 0.475, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  }, 1110);
+
+  assert.equal(step.collided, true);
+  assert.ok(step.pose.position.x <= 0.48);
+  assert.ok(step.state.velocity.x < 0);
+});
+
+test('spatial spring constraint approaches an anchor without teleporting', () => {
+  const current = {
+    position: { x: 0, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  };
+  const target = {
+    position: { x: 0.3, y: -0.2, z: 0.1 },
+    scale: 1,
+    rotation: 0,
+  };
+  const sprung = spatialPhysics.applySpatialSpringConstraint(current, target, 0.8, 0.05);
+
+  assert.ok(sprung.position.x > 0 && sprung.position.x < 0.3);
+  assert.ok(sprung.position.y < 0 && sprung.position.y > -0.2);
+  assert.ok(sprung.position.z > 0 && sprung.position.z < 0.1);
+});
+
+test('spatial physics reset clears inertia state', () => {
+  const physics = new spatialPhysics.SpatialPhysicsRuntime();
+  physics.beginGrab('mira.core', { x: 0.4, y: 0.5, z: 0 }, 1000);
+  physics.sampleGrab('mira.core', { x: 0.58, y: 0.5, z: 0 }, 1050);
+  physics.release('mira.core', 0, 1060);
+  assert.equal(physics.isActive('mira.core'), true);
+  physics.reset();
+  assert.equal(physics.snapshot('mira.core').mode, 'idle');
 });
