@@ -838,6 +838,16 @@ export default function AppV2() {
             if (snapped) {
               spatialObjectRuntimeRef.current.setPose(object.id, snapped.worldPose);
               setSpatialPhysicsState(spatialPhysicsRef.current.stop(object.id, now));
+
+              const parentObjectId = spatialWorldRuntimeRef.current.parentObjectId(object.id);
+              const jointDefinition = spatialJointForAttachment(
+                object.id,
+                parentObjectId,
+                snapped.anchorId,
+              );
+              if (jointDefinition) spatialJointRuntimeRef.current.setJoint(jointDefinition);
+              else spatialJointRuntimeRef.current.removeForChild(object.id);
+
               spatialObjectsChanged = true;
               showSpatialFeedback(`Đã bắt neo · ${snapped.anchorLabel}`);
             }
@@ -847,6 +857,12 @@ export default function AppV2() {
 
       currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
       spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentSpatialObjects));
+
+      for (const joint of spatialJointRuntimeRef.current.snapshot()) {
+        if (!spatialWorldRuntimeRef.current.attachment(joint.childObjectId)) {
+          spatialJointRuntimeRef.current.removeForChild(joint.childObjectId);
+        }
+      }
 
       for (const object of currentSpatialObjects) {
         const attachment = spatialWorldRuntimeRef.current.attachment(object.id);
