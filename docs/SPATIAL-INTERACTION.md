@@ -527,3 +527,121 @@ Current XR interaction therefore supports:
 Metric XR depth is retained in projection output, but v15 deliberately does not reinterpret it as the webcam's monocular depth heuristic. Full Z manipulation remains isolated until a dedicated metric-depth object-control path is enabled.
 
 The active perspective transform uses the XR device's matrices rather than hard-coded field-of-view approximations.
+
+
+## Human Hand Interaction milestone
+
+The spatial controller now treats the hand as an articulated temporal input source instead of a single pointer plus gesture label.
+
+### Sensor pipeline
+
+```text
+Webcam / MediaPipe                 WebXR
+        │                            │
+normalized landmarks          metric XRHand joints
+world-shape landmarks              │
+        │                    21-joint topology bridge
+        └──────────────┬─────────────┘
+                       ↓
+             adaptive hand kinematics
+                       ↓
+          multi-finger contact volumes
+                       ↓
+            temporal hand intent layer
+                       ↓
+              SpatialUIController
+                       ↓
+       objects / windows / spatial actions
+```
+
+The two sensor paths intentionally keep different coordinate semantics:
+
+- webcam landmarks drive screen position and relative hand-depth/shape cues;
+- MediaPipe world landmarks may improve skeletal geometry and relative depth but are not treated as absolute room coordinates;
+- WebXR joints remain metric local-space values from the XR device;
+- XR metric depth is never silently relabelled as webcam-relative depth.
+
+### Adaptive hand kinematics
+
+`SpatialHandKinematicsTracker` derives, per hand:
+
+- palm center and palm normal;
+- palm span and hand length;
+- scale-normalized pinch ratio and pinch confidence;
+- extension/curl for thumb, index, middle, ring and pinky;
+- pointing confidence;
+- palm-facing confidence;
+- fingertip velocity;
+- hand speed and stability;
+- approach velocity;
+- adaptive fingertip/contact radius.
+
+Pinch detection now scales with the detected hand instead of using one fixed normalized pixel distance. The tracker can use world landmarks for skeletal shape when available while keeping normalized landmarks as the screen-space source.
+
+### Multi-finger contact
+
+`SpatialHandContactRuntime` tests all five fingertips against target volumes and progresses conservatively through:
+
+```text
+away → approach → hover → contact → press → grab
+```
+
+Contact requires dwell. A grab requires a stable target plus index/thumb contact and a confirmed adaptive pinch. Passing over a target, boundary jitter or simply placing two fingers over the same target is insufficient.
+
+The exposed `pressure` value is an interaction/visual proxy derived from penetration, approach velocity and dwell. It is **not physical force** and webcam contact is **not proof of real-world touch**.
+
+### Temporal hand intents
+
+`SpatialHandIntentRuntime` recognizes temporal motion semantics:
+
+- point;
+- hover / touch / press;
+- grab / drag / release;
+- push / pull;
+- directional swipe;
+- clockwise / counter-clockwise palm rotation.
+
+Recognition and action mapping remain separate. Swipe/rotation detection does not automatically trigger arbitrary or destructive UI actions. Pinch remains the primary commit/grab signal.
+
+For grabbed browser-spatial objects:
+
+- push/pull can contribute bounded relative Z motion;
+- palm rotation can contribute bounded object rotation;
+- normal X/Y dragging continues through the existing grab state machine.
+
+### Human-like depth presentation
+
+The camera overlay now renders a depth-aware hand presence layer instead of a flat skeleton:
+
+- palm surface;
+- bone brightness/width by relative Z;
+- joint size/opacity by relative Z;
+- fingertip halos;
+- contact ring;
+- press/grab intensity;
+- target contact/pressure response;
+- a soft depth field under the tracked hand.
+
+These cues visualize relative depth and interaction state; they do not claim a reconstructed physical hand surface.
+
+### WebXR parity
+
+`bridgeXRHandTo21()` maps named WebXR hand joints into Mira's common 21-point topology. XR joints retain their metric local-space coordinates for hand geometry. Projected screen coordinates are used only for DOM contact/focus.
+
+This lets webcam and XR share one kinematics/contact/intent stack without mixing their depth units.
+
+### Reliability / false-positive policy
+
+The human-hand path is intentionally conservative:
+
+- scale-normalized pinch;
+- temporal dwell before contact/press;
+- release grace;
+- confidence gates;
+- stability contribution;
+- no press-to-click shortcut;
+- index + thumb on one target without pinch does not become grab;
+- jitter near a target boundary must not escalate to press/grab;
+- all hand contact/intent state stays RAM/session-only.
+
+Stress tests exercise hundreds of jittered frames to guard against NaN propagation, pressure overflow and latched interaction state.
