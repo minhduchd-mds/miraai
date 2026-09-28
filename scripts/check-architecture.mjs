@@ -75,6 +75,7 @@ const mustExist = [
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-pages-assets.mjs',
+  'scripts/check-deploy-artifact.mjs',
   'api/tts.js',
 ];
 
@@ -90,8 +91,11 @@ if (!entry.includes("const LegacyApp = lazy(async () =>") || !entry.includes("im
 if (entry.includes("import './ui/styles.css';")) failures.push('legacy styles.css must not be in the initial AppV2 graph');
 if (!entry.includes("import './ui/base-v2.css';")) failures.push('AppV2 base stylesheet missing');
 
+const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+if (!ciWorkflow.includes('npm run check:artifact')) failures.push('CI must run deploy artifact smoke after build');
 const pagesWorkflow = readFileSync('.github/workflows/pages.yml', 'utf8');
 if (!pagesWorkflow.includes('npm run prune:pages')) failures.push('Pages must prune heavy legacy assets after build');
+if (!pagesWorkflow.includes('npm run check:pages')) failures.push('Pages must run deploy artifact smoke before publish');
 const pagesPrune = readFileSync('scripts/prune-pages-assets.mjs', 'utf8');
 for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", 'Pages artifact prune']) {
   if (!pagesPrune.includes(token)) failures.push(`Pages asset prune missing: ${token}`);
