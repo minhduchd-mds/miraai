@@ -47,6 +47,7 @@ const worldModel = await importTypeScript('src/core/vision/world-model.ts');
 const spatialUiControl = await importTypeScript('src/core/vision/spatial-ui-control.ts');
 const spatialRay = await importTypeScript('src/core/vision/spatial-ray.ts');
 const spatialAnchor = await importTypeScript('src/core/vision/spatial-anchor.ts');
+const spatialObject = await importTypeScript('src/core/vision/spatial-object.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -2095,4 +2096,139 @@ test('direct spatial touch rejects weak confidence and passing hands', () => {
   }, 1250);
   assert.equal(state.phase, 'idle');
   assert.equal(state.targetId, '');
+});
+
+
+test('spatial object runtime supports grab move depth and release', () => {
+  const runtime = new spatialObject.SpatialObjectRuntime([{
+    id: 'mira.core',
+    label: 'Mira Core',
+  }]);
+
+  let object = runtime.beginGrab('mira.core', { x: 0.5, y: 0.5, z: -0.08 });
+  assert.equal(object?.grabbed, true);
+
+  object = runtime.moveGrab(
+    { x: 0.62, y: 0.42, z: -0.12 },
+    { depthDelta: 0.4, xyGain: 1, depthGain: 0.5 },
+  );
+  assert.ok(object);
+  assert.ok(object.pose.position.x > 0.1);
+  assert.ok(object.pose.position.y < -0.05);
+  assert.ok(object.pose.position.z > 0.15);
+
+  object = runtime.endGrab();
+  assert.equal(object?.grabbed, false);
+});
+
+test('spatial object runtime clamps pose and transform boundaries', () => {
+  const runtime = new spatialObject.SpatialObjectRuntime([{
+    id: 'mira.core',
+    label: 'Mira Core',
+    minScale: 0.72,
+    maxScale: 1.65,
+  }]);
+  runtime.beginGrab('mira.core', { x: 0.5, y: 0.5, z: 0 });
+  let object = runtime.moveGrab(
+    { x: 2, y: -2, z: 2 },
+    { xyGain: 3, depthGain: 2 },
+  );
+  assert.equal(object?.pose.position.x, 0.48);
+  assert.equal(object?.pose.position.y, -0.48);
+  assert.equal(object?.pose.position.z, 0.7);
+
+  object = runtime.applyTransform('mira.core', { scale: 9, rotation: 420 });
+  assert.equal(object?.pose.scale, 1.65);
+  assert.equal(object?.pose.rotation, 60);
+});
+
+test('spatial object cancel restores the pre-grab pose', () => {
+  const runtime = new spatialObject.SpatialObjectRuntime([{
+    id: 'mira.core',
+    label: 'Mira Core',
+    pose: { position: { x: 0.08, y: -0.06, z: 0.1 }, scale: 1.1, rotation: 8 },
+  }]);
+  const before = runtime.get('mira.core');
+  runtime.beginGrab('mira.core', { x: 0.4, y: 0.4, z: 0 });
+  runtime.moveGrab({ x: 0.7, y: 0.7, z: 0.2 });
+  const restored = runtime.cancelGrab();
+
+  assert.deepEqual(restored?.pose, before?.pose);
+  assert.equal(restored?.grabbed, false);
+});
+
+test('spatial object transform supports two-hand scale and rotation updates', () => {
+  const runtime = new spatialObject.SpatialObjectRuntime([{
+    id: 'mira.core',
+    label: 'Mira Core',
+  }]);
+  const object = runtime.applyTransform('mira.core', {
+    scale: 1,
+    scaleRatio: 1.3,
+    rotation: 10,
+    rotationDelta: 22,
+  });
+  assert.ok(object);
+  assert.ok(Math.abs(object.pose.scale - 1.3) < 1e-6);
+  assert.equal(object.pose.rotation, 32);
+});
+
+test('spatial UI emits object grab lifecycle without auto-activating it', () => {
+  const controller = new spatialUiControl.SpatialUIController();
+  const objectTarget = [{
+    id: 'mira.core',
+    label: 'Mira Core',
+    kind: 'object',
+    left: 0.42,
+    top: 0.42,
+    right: 0.58,
+    bottom: 0.58,
+  }];
+
+  controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.5, y: 0.5, direct: true }),
+    gestureIntent: spatialIntent('none', 1000),
+    headGesture: 'none',
+    targets: objectTarget,
+  }, 1000);
+  controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.5, y: 0.5, direct: true }),
+    gestureIntent: spatialIntent('none', 1140),
+    headGesture: 'none',
+    targets: objectTarget,
+  }, 1140);
+
+  let frame = controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.5, y: 0.5, pinching: true, direct: true }),
+    gestureIntent: spatialIntent('pinch_down', 1220),
+    headGesture: 'none',
+    targets: objectTarget,
+  }, 1220);
+  assert.ok(frame.events.some((event) =>
+    event.type === 'grab_start' &&
+    event.targetId === 'mira.core' &&
+    event.targetKind === 'object'
+  ));
+  assert.equal(frame.events.some((event) => event.type === 'activate'), false);
+
+  frame = controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.6, y: 0.52, pinching: true, direct: true }),
+    gestureIntent: spatialIntent('none', 1300),
+    headGesture: 'none',
+    targets: objectTarget,
+  }, 1300);
+  assert.ok(frame.events.some((event) => event.type === 'grab_move' && event.targetKind === 'object'));
+
+  frame = controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.6, y: 0.52, pinching: false, direct: true }),
+    gestureIntent: spatialIntent('pinch_up', 1420),
+    headGesture: 'none',
+    targets: objectTarget,
+  }, 1420);
+  assert.ok(frame.events.some((event) => event.type === 'grab_end' && event.targetKind === 'object'));
 });
