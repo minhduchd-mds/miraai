@@ -57,6 +57,7 @@ const spatialGroup = await importTypeScript('src/core/vision/spatial-group.ts');
 const spatialDevice = await importTypeScript('src/core/vision/spatial-device-adapter.ts');
 const spatialWebXR = await importTypeScript('src/core/vision/spatial-webxr-session.ts');
 const spatialXRProjection = await importTypeScript('src/core/vision/spatial-xr-projection.ts');
+const spatialXRSurface = await importTypeScript('src/core/vision/spatial-xr-surface.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -3907,4 +3908,222 @@ test('hand contact releases cleanly after target exit and grace window', () => {
   );
   assert.equal(released.active, false);
   assert.equal(released.phase, 'away');
+});
+
+
+test('XR surface probe distinguishes front touch and occluded depth', () => {
+  const depth = {
+    available: true,
+    usage: 'cpu-optimized',
+    dataFormat: 'float32',
+    frameAt: 1000,
+    views: [{
+      eye: 'none',
+      width: 5,
+      height: 5,
+      samples: [
+        { x: 0.3, y: 0.3, depthM: 1.0, valid: true },
+        { x: 0.5, y: 0.3, depthM: 1.0, valid: true },
+        { x: 0.7, y: 0.3, depthM: 1.0, valid: true },
+        { x: 0.3, y: 0.5, depthM: 1.0, valid: true },
+        { x: 0.5, y: 0.5, depthM: 1.0, valid: true },
+        { x: 0.7, y: 0.5, depthM: 1.0, valid: true },
+        { x: 0.3, y: 0.7, depthM: 1.0, valid: true },
+        { x: 0.5, y: 0.7, depthM: 1.0, valid: true },
+        { x: 0.7, y: 0.7, depthM: 1.0, valid: true },
+      ],
+    }],
+  };
+
+  const front = spatialXRSurface.probeXRSurface(depth, 0.5, 0.5, 0.9);
+  assert.ok(front);
+  assert.equal(front.nearSurface, false);
+  assert.equal(front.occluded, false);
+
+  const touch = spatialXRSurface.probeXRSurface(depth, 0.5, 0.5, 0.98);
+  assert.ok(touch);
+  assert.equal(touch.nearSurface, true);
+  assert.equal(touch.touchingSurface, true);
+  assert.equal(touch.occluded, false);
+
+  const behind = spatialXRSurface.probeXRSurface(depth, 0.5, 0.5, 1.06);
+  assert.ok(behind);
+  assert.equal(behind.behindSurface, true);
+  assert.equal(behind.occluded, true);
+});
+
+test('XR sparse depth reconstruction creates finite interaction surface patches', () => {
+  const samples = [];
+  for (const y of [0.2, 0.5, 0.8]) {
+    for (const x of [0.2, 0.5, 0.8]) {
+      samples.push({
+        x,
+        y,
+        depthM: 1 + x * 0.08 + y * 0.04,
+        valid: true,
+      });
+    }
+  }
+  const patches = spatialXRSurface.reconstructXRSurfacePatches({
+    available: true,
+    usage: 'cpu-optimized',
+    dataFormat: 'float32',
+    views: [{ eye: 'none', width: 3, height: 3, samples }],
+    frameAt: 1000,
+  });
+
+  assert.equal(patches.length, 9);
+  for (const patch of patches) {
+    assert.equal(Number.isFinite(patch.depthM), true);
+    assert.equal(Number.isFinite(patch.normalX), true);
+    assert.equal(Number.isFinite(patch.normalY), true);
+    assert.equal(Number.isFinite(patch.normalZ), true);
+    assert.ok(patch.confidence >= 0 && patch.confidence <= 1);
+  }
+});
+
+test('XR surface runtime tolerates invalid depth samples without fabricating contact', () => {
+  const runtime = new spatialXRSurface.SpatialXRSurfaceRuntime();
+  runtime.update({
+    available: false,
+    usage: 'cpu-optimized',
+    dataFormat: 'float32',
+    views: [{
+      eye: 'none',
+      width: 3,
+      height: 3,
+      samples: [
+        { x: 0.5, y: 0.5, depthM: 0, valid: false },
+        { x: 0.7, y: 0.5, depthM: Number.NaN, valid: false },
+      ],
+    }],
+    frameAt: 1000,
+  });
+  assert.equal(runtime.probe(0.5, 0.5, 1), null);
+  assert.deepEqual(runtime.snapshotPatches(), []);
+});
+
+test('WebXR session samples CPU depth and tracks a hit-test-created anchor', async () => {
+  let frameCallback = null;
+  const tracked = new Set();
+  const anchor = {
+    anchorSpace: { kind: 'anchor-space' },
+    delete: () => {},
+    requestPersistentHandle: async () => 'persistent-test-handle',
+  };
+  const hitResult = {
+    getPose: () => ({
+      transform: { position: { x: 0.15, y: -0.1, z: -1.0 } },
+    }),
+    createAnchor: async () => anchor,
+  };
+  const session = {
+    enabledFeatures: ['hit-test', 'anchors', 'depth-sensing'],
+    depthUsage: 'cpu-optimized',
+    depthDataFormat: 'float32',
+    inputSources: [],
+    requestReferenceSpace: async (type) => ({ type }),
+    requestHitTestSource: async () => ({ cancel: () => {} }),
+    requestAnimationFrame: (callback) => {
+      frameCallback = callback;
+      return 1;
+    },
+    cancelAnimationFrame: () => {},
+    addEventListener: () => {},
+    end: async () => {},
+  };
+
+  const runtime = new spatialWebXR.SpatialWebXRSessionRuntime();
+  const started = await runtime.start({
+    navigator: {
+      xr: {
+        requestSession: async () => session,
+      },
+    },
+  });
+  assert.equal(started.active, true);
+  assert.equal(runtime.requestAnchorAtCurrentHit('object.mira.core', 'Mira Core', true), true);
+
+  const identity = [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1,
+  ];
+  const view = {
+    eye: 'none',
+    projectionMatrix: identity,
+    transform: { inverse: { matrix: identity } },
+  };
+  const firstFrame = {
+    trackedAnchors: tracked,
+    getViewerPose: () => ({ views: [view] }),
+    getHitTestResults: () => [hitResult],
+    getDepthInformation: () => ({
+      width: 5,
+      height: 5,
+      getDepthInMeters: (x, y) => 0.9 + x * 0.1 + y * 0.05,
+    }),
+    getPose: () => null,
+  };
+
+  frameCallback(1000, firstFrame);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  let snapshot = runtime.snapshot();
+  assert.equal(snapshot.depth.available, true);
+  assert.equal(snapshot.depth.usage, 'cpu-optimized');
+  assert.equal(snapshot.depth.views.length, 1);
+  assert.equal(snapshot.depth.views[0].samples.length, 25);
+
+  tracked.add(anchor);
+  const secondFrame = {
+    ...firstFrame,
+    trackedAnchors: tracked,
+    getPose: (space) => space === anchor.anchorSpace
+      ? {
+          transform: {
+            position: { x: 0.16, y: -0.09, z: -1.01 },
+          },
+        }
+      : null,
+  };
+  frameCallback(1016, secondFrame);
+  await Promise.resolve();
+
+  snapshot = runtime.snapshot();
+  assert.equal(snapshot.anchors.length, 1);
+  assert.equal(snapshot.anchors[0].id, 'object.mira.core');
+  assert.equal(snapshot.anchors[0].tracked, true);
+  assert.equal(snapshot.anchors[0].persistentHandle, 'persistent-test-handle');
+  assert.ok(Math.abs(snapshot.anchors[0].z + 1.01) < 1e-6);
+
+  await runtime.stop();
+});
+
+test('XR depth request is CPU optimized because frame sampling uses getDepthInformation', async () => {
+  let requestedOptions = null;
+  const session = {
+    enabledFeatures: [],
+    inputSources: [],
+    requestReferenceSpace: async () => ({}),
+    requestAnimationFrame: () => 1,
+    cancelAnimationFrame: () => {},
+    addEventListener: () => {},
+    end: async () => {},
+  };
+  const runtime = new spatialWebXR.SpatialWebXRSessionRuntime();
+  await runtime.start({
+    navigator: {
+      xr: {
+        requestSession: async (_mode, options) => {
+          requestedOptions = options;
+          return session;
+        },
+      },
+    },
+  });
+  assert.deepEqual(requestedOptions.depthSensing.usagePreference, ['cpu-optimized']);
+  await runtime.stop();
 });
