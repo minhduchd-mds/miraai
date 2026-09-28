@@ -19,7 +19,7 @@
   display: grid;
   gap: 6px;
   pointer-events: none;
-  transform: translate3d(var(--spatial-x), var(--spatial-y), var(--spatial-z)) rotate(var(--spatial-rotation)) scale(var(--spatial-scale));
+  transform: perspective(900px) translate3d(var(--spatial-x), var(--spatial-y), var(--spatial-z)) rotate(var(--spatial-rotation)) scale(var(--spatial-scale));
   transform-origin: center;
   will-change: transform;
 }
