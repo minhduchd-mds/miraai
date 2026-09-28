@@ -10,7 +10,13 @@ export interface SpatialWorldPose {
   rotation: number;
 }
 
-export type SpatialWorldAnchorKind = 'workspace' | 'surface' | 'dock';
+export type SpatialWorldAnchorKind = 'workspace' | 'surface' | 'dock' | 'object';
+
+export interface SpatialSurfaceConstraint {
+  axis: 'xy' | 'xz' | 'yz';
+  halfExtents: SpatialWorldPoint;
+  offset?: number;
+}
 
 export interface SpatialWorldAnchor {
   id: string;
@@ -21,6 +27,8 @@ export interface SpatialWorldAnchor {
   snapRadius: number;
   enabled?: boolean;
   priority?: number;
+  constraint?: SpatialSurfaceConstraint | null;
+  ownerObjectId?: string | null;
 }
 
 export interface SpatialObjectAttachment {
@@ -37,6 +45,17 @@ export interface SpatialSnapResult {
   distance: number;
   worldPose: SpatialWorldPose;
   attachment: SpatialObjectAttachment;
+}
+
+export interface SpatialPlacementPreview {
+  objectId: string;
+  anchorId: string;
+  anchorLabel: string;
+  anchorKind: SpatialWorldAnchorKind;
+  distance: number;
+  strength: number;
+  worldPose: SpatialWorldPose;
+  constrained: boolean;
 }
 
 const MAX_PARENT_DEPTH = 8;
@@ -124,6 +143,63 @@ function distance3(a: SpatialWorldPoint, b: SpatialWorldPoint): number {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
+function nearestConstrainedPoint(
+  anchorPose: SpatialWorldPose,
+  point: SpatialWorldPoint,
+  constraint: SpatialSurfaceConstraint | null | undefined,
+): { point: SpatialWorldPoint; constrained: boolean } {
+  if (!constraint) return { point: { ...anchorPose.position }, constrained: false };
+
+  const inverseRotation = -anchorPose.rotation;
+  const deltaWorld = {
+    x: point.x - anchorPose.position.x,
+    y: point.y - anchorPose.position.y,
+    z: point.z - anchorPose.position.z,
+  };
+  const local = rotate2D(deltaWorld, inverseRotation);
+  const scale = Math.max(0.0001, anchorPose.scale);
+  local.x /= scale;
+  local.y /= scale;
+  local.z /= scale;
+
+  const half = constraint.halfExtents;
+  const offset = Number(constraint.offset || 0);
+  if (constraint.axis === 'xy') {
+    local.x = clamp(local.x, -Math.abs(half.x), Math.abs(half.x));
+    local.y = clamp(local.y, -Math.abs(half.y), Math.abs(half.y));
+    local.z = offset;
+  } else if (constraint.axis === 'xz') {
+    local.x = clamp(local.x, -Math.abs(half.x), Math.abs(half.x));
+    local.y = offset;
+    local.z = clamp(local.z, -Math.abs(half.z), Math.abs(half.z));
+  } else {
+    local.x = offset;
+    local.y = clamp(local.y, -Math.abs(half.y), Math.abs(half.y));
+    local.z = clamp(local.z, -Math.abs(half.z), Math.abs(half.z));
+  }
+
+  const scaled = {
+    x: local.x * scale,
+    y: local.y * scale,
+    z: local.z * scale,
+  };
+  const rotated = rotate2D(scaled, anchorPose.rotation);
+  return {
+    point: {
+      x: anchorPose.position.x + rotated.x,
+      y: anchorPose.position.y + rotated.y,
+      z: anchorPose.position.z + rotated.z,
+    },
+    constrained: true,
+  };
+}
+
+function magneticStrength(distance: number, radius: number): number {
+  if (radius <= 0 || distance >= radius) return 0;
+  const proximity = 1 - distance / radius;
+  return clamp(proximity * proximity * (3 - 2 * proximity), 0, 1);
+}
+
 /**
  * Session-only world-coordinate and parent/child anchor graph.
  *
@@ -146,6 +222,14 @@ export class SpatialWorldRuntime {
         snapRadius: clamp(Number(anchor.snapRadius || 0.12), 0.025, 0.8),
         enabled: anchor.enabled !== false,
         priority: Number(anchor.priority || 0),
+        constraint: anchor.constraint
+          ? {
+              ...anchor.constraint,
+              halfExtents: { ...anchor.constraint.halfExtents },
+              offset: Number(anchor.constraint.offset || 0),
+            }
+          : null,
+        ownerObjectId: anchor.ownerObjectId || null,
       });
     }
     this.anchors = next;
@@ -164,11 +248,69 @@ export class SpatialWorldRuntime {
       snapRadius: clamp(Number(anchor.snapRadius || 0.12), 0.025, 0.8),
       enabled: anchor.enabled !== false,
       priority: Number(anchor.priority || 0),
+      constraint: anchor.constraint
+        ? {
+            ...anchor.constraint,
+            halfExtents: { ...anchor.constraint.halfExtents },
+            offset: Number(anchor.constraint.offset || 0),
+          }
+        : null,
+      ownerObjectId: anchor.ownerObjectId || null,
     });
   }
 
   resolveAnchorPose(id: string): SpatialWorldPose | null {
     return this.resolveAnchorPoseInternal(id, new Set<string>(), 0);
+  }
+
+  upsertObjectAnchor(
+    objectId: string,
+    label: string,
+    pose: SpatialWorldPose,
+    snapRadius = 0.14,
+    parentId: string | null = 'workspace.root',
+  ): void {
+    const id = `object.${objectId}`;
+    this.upsertAnchor({
+      id,
+      label,
+      kind: 'object',
+      parentId,
+      pose: normalizePose(pose),
+      snapRadius,
+      priority: 0.45,
+      ownerObjectId: objectId,
+    });
+  }
+
+  previewSnapObject(
+    objectId: string,
+    objectPose: SpatialWorldPose,
+  ): SpatialPlacementPreview | null {
+    const worldObjectPose = normalizePose(objectPose);
+    const candidates = this.snapCandidates(objectId, worldObjectPose);
+    const best = candidates[0];
+    if (!best) return null;
+
+    const strength = magneticStrength(best.distance, best.anchor.snapRadius);
+    return {
+      objectId,
+      anchorId: best.anchor.id,
+      anchorLabel: best.anchor.label,
+      anchorKind: best.anchor.kind,
+      distance: best.distance,
+      strength,
+      worldPose: normalizePose({
+        position: {
+          x: worldObjectPose.position.x + (best.point.x - worldObjectPose.position.x) * strength,
+          y: worldObjectPose.position.y + (best.point.y - worldObjectPose.position.y) * strength,
+          z: worldObjectPose.position.z + (best.point.z - worldObjectPose.position.z) * strength,
+        },
+        scale: worldObjectPose.scale,
+        rotation: worldObjectPose.rotation,
+      }),
+      constrained: best.constrained,
+    };
   }
 
   snapObject(
@@ -177,24 +319,7 @@ export class SpatialWorldRuntime {
     now = performance.now(),
   ): SpatialSnapResult | null {
     const worldObjectPose = normalizePose(objectPose);
-    const candidates = Array.from(this.anchors.values())
-      .filter((anchor) => anchor.enabled !== false)
-      .map((anchor) => {
-        const worldAnchorPose = this.resolveAnchorPose(anchor.id);
-        if (!worldAnchorPose) return null;
-        const distance = distance3(worldObjectPose.position, worldAnchorPose.position);
-        if (distance > anchor.snapRadius) return null;
-        const score = distance - Number(anchor.priority || 0) * 0.02;
-        return { anchor, worldAnchorPose, distance, score };
-      })
-      .filter(Boolean)
-      .sort((a: any, b: any) => a.score - b.score) as Array<{
-        anchor: SpatialWorldAnchor;
-        worldAnchorPose: SpatialWorldPose;
-        distance: number;
-        score: number;
-      }>;
-
+    const candidates = this.snapCandidates(objectId, worldObjectPose);
     const best = candidates[0];
     if (!best) {
       this.attachments.delete(objectId);
@@ -204,7 +329,7 @@ export class SpatialWorldRuntime {
     // Snap position to the anchor origin while preserving object scale/rotation
     // as a local child transform.
     const snappedWorldPose = normalizePose({
-      position: { ...best.worldAnchorPose.position },
+      position: { ...best.point },
       scale: worldObjectPose.scale,
       rotation: worldObjectPose.rotation,
     });
@@ -279,6 +404,43 @@ export class SpatialWorldRuntime {
   reset(): void {
     this.anchors.clear();
     this.attachments.clear();
+  }
+
+  private snapCandidates(objectId: string, worldObjectPose: SpatialWorldPose) {
+    return Array.from(this.anchors.values())
+      .filter((anchor) =>
+        anchor.enabled !== false &&
+        anchor.ownerObjectId !== objectId
+      )
+      .map((anchor) => {
+        const worldAnchorPose = this.resolveAnchorPose(anchor.id);
+        if (!worldAnchorPose) return null;
+        const constrained = nearestConstrainedPoint(
+          worldAnchorPose,
+          worldObjectPose.position,
+          anchor.constraint,
+        );
+        const distance = distance3(worldObjectPose.position, constrained.point);
+        if (distance > anchor.snapRadius) return null;
+        const score = distance - Number(anchor.priority || 0) * 0.02;
+        return {
+          anchor,
+          worldAnchorPose,
+          point: constrained.point,
+          constrained: constrained.constrained,
+          distance,
+          score,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => a.score - b.score) as Array<{
+        anchor: SpatialWorldAnchor;
+        worldAnchorPose: SpatialWorldPose;
+        point: SpatialWorldPoint;
+        constrained: boolean;
+        distance: number;
+        score: number;
+      }>;
   }
 
   private resolveAnchorPoseInternal(
