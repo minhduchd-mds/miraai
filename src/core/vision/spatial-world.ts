@@ -411,6 +411,67 @@ export class SpatialWorldRuntime {
       : null;
   }
 
+  attachmentSnapshot(): SpatialObjectAttachment[] {
+    return Array.from(this.attachments.values()).map((attachment) => ({
+      ...attachment,
+      localPose: clonePose(attachment.localPose),
+    }));
+  }
+
+  updateAttachmentLocalPose(
+    objectId: string,
+    localPose: SpatialWorldPose,
+  ): SpatialObjectAttachment | null {
+    const attachment = this.attachments.get(objectId);
+    if (!attachment) return null;
+    attachment.localPose = normalizePose(localPose);
+    return {
+      ...attachment,
+      localPose: clonePose(attachment.localPose),
+    };
+  }
+
+  parentObjectId(objectId: string): string | null {
+    const attachment = this.attachments.get(objectId);
+    if (!attachment) return null;
+    const anchor = this.anchors.get(attachment.anchorId);
+    return anchor?.ownerObjectId || null;
+  }
+
+  clusterRootObjectId(objectId: string): string {
+    let current = objectId;
+    const visited = new Set<string>();
+    while (!visited.has(current)) {
+      visited.add(current);
+      const parent = this.parentObjectId(current);
+      if (!parent) return current;
+      current = parent;
+    }
+    return objectId;
+  }
+
+  clusterObjectIds(rootObjectId: string): string[] {
+    const result: string[] = [];
+    const queue = [rootObjectId];
+    const seen = new Set<string>();
+
+    while (queue.length) {
+      const current = queue.shift()!;
+      if (seen.has(current)) continue;
+      seen.add(current);
+      result.push(current);
+
+      for (const [childId, attachment] of this.attachments) {
+        const anchor = this.anchors.get(attachment.anchorId);
+        if (anchor?.ownerObjectId === current && !seen.has(childId)) {
+          queue.push(childId);
+        }
+      }
+    }
+
+    return result;
+  }
+
   reset(): void {
     this.anchors.clear();
     this.attachments.clear();
