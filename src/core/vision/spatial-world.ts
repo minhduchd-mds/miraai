@@ -55,6 +55,7 @@ export interface SpatialPlacementPreview {
   distance: number;
   strength: number;
   worldPose: SpatialWorldPose;
+  targetPose: SpatialWorldPose;
   constrained: boolean;
 }
 
@@ -293,6 +294,11 @@ export class SpatialWorldRuntime {
     if (!best) return null;
 
     const strength = magneticStrength(best.distance, best.anchor.snapRadius);
+    const targetPose = normalizePose({
+      position: { ...best.point },
+      scale: worldObjectPose.scale,
+      rotation: worldObjectPose.rotation,
+    });
     return {
       objectId,
       anchorId: best.anchor.id,
@@ -309,6 +315,7 @@ export class SpatialWorldRuntime {
         scale: worldObjectPose.scale,
         rotation: worldObjectPose.rotation,
       }),
+      targetPose,
       constrained: best.constrained,
     };
   }
