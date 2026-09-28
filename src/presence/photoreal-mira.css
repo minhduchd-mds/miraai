@@ -773,3 +773,14 @@
 .pm-state-orb-preview i{
   opacity:.5;
 }
+
+
+.pm-state-orb.physics-inertia{
+  transition:border-color .14s ease,box-shadow .14s ease,background .14s ease;
+  box-shadow:
+    0 0 0 5px color-mix(in srgb,var(--accent) 5%,transparent),
+    0 10px 28px rgba(0,0,0,.18);
+}
+.pm-state-orb.physics-grabbed{
+  transition:none;
+}
