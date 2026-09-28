@@ -111,3 +111,37 @@ Current rules:
 - direct touch state is RAM/session-only.
 
 The current coordinate space is normalized camera-relative space. A future WebXR/depth-device adapter can supply metric world-space points and anchors while preserving the same `SpatialDirectTouchTracker` state machine.
+
+
+## Spatial v4: manipulable objects
+
+Mira now has a generic session-only `SpatialObjectRuntime`. The first production object is `mira.core`, rendered by the existing Mira Core orb rather than a separate demo surface.
+
+Object interaction flow:
+
+```text
+gaze / hand ray / fingertip contact
+    ↓
+object focus
+    ↓
+pinch
+    ↓
+beginGrab
+    ↓
+one hand: move x / y / guarded z
+two hands: scale / rotate
+    ↓
+release → place object
+shake → cancel and restore pre-grab pose
+```
+
+Object poses use normalized interaction-space coordinates today. They are not physical meters. The runtime deliberately separates manipulation semantics from sensing, so a future WebXR/depth-device adapter can provide metric world-space poses without rewriting the grab/transform state machine.
+
+The object runtime is bounded and ephemeral:
+
+- x/y position is clamped to the interaction viewport;
+- z is clamped to the supported relative-depth range;
+- scale respects per-object min/max limits;
+- rotation is normalized;
+- cancel restores the exact pre-grab pose;
+- object pose is not written to long-term personal memory.
