@@ -245,6 +245,12 @@ The spatial browser architecture is now closed through four final layers:
 
 The active production sensor remains webcam-relative unless a real XR/device adapter supplies metric poses. Browser-spatial state remains ephemeral.
 
+### Spatial v14 real WebXR session bridge
+
+`SpatialWebXRSessionRuntime` owns the explicit user-activated `immersive-ar` lifecycle. It negotiates optional hand-tracking, hit-test, anchors, depth sensing, local-floor and DOM overlay features, reads metric XRHand joints with `XRFrame.getJointPose()`, and exposes real-world hit-test poses when enabled. `SpatialDeviceAdapterRuntime` updates its feature flags only from `XRSession.enabledFeatures`; mode support alone does not imply optional XR capabilities. Webcam tracking remains the non-XR fallback.
+
+Metric XR coordinates are intentionally not mixed with normalized DOM interaction coordinates until a dedicated projection/calibration layer is present.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
