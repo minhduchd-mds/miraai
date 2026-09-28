@@ -322,3 +322,114 @@ Two-hand input controls the active joint without detaching the child. Hinge inpu
 Every collision body now carries a `clusterId`. Members of the same cluster do not collide with each other, preventing attached children from pushing their own parent. Different clusters continue to use v8 impulse and stack behavior.
 
 Joint, cluster and attachment state remain ephemeral and are never written to long-term memory.
+
+
+## Spatial v10: session layout and multi-selection
+
+Spatial layout now survives React/vision surface teardown inside the same browser page session without using `localStorage`, `sessionStorage` or IndexedDB.
+
+`SpatialSessionLayoutRuntime` captures a bounded snapshot of:
+
+- object poses;
+- object attachments;
+- joint states;
+- selected cluster roots.
+
+The snapshot is restored when the spatial surface is rebuilt in the same page session. Layout data is RAM-only and disappears when the page session ends.
+
+### Multi-selection
+
+`SpatialSelectionRuntime` keeps at most 16 selected cluster roots.
+
+Production gestures:
+
+- hold **Victory** on the focused object → toggle that cluster root;
+- hold **Open Palm** → clear the group selection.
+
+Selected cluster members receive a subtle spatial outline; no extra telemetry panel is added.
+
+## Spatial v11: multi-cluster group gestures
+
+Two-hand manipulation now works across multiple selected cluster roots.
+
+When two or more selected cluster roots are active and the user starts a two-hand transform on one selected object:
+
+1. selected roots detach from non-object docks/surfaces;
+2. the runtime captures a centroid-based group transform session;
+3. hand-center movement translates the group;
+4. hand separation scales the group;
+5. hand angle rotates the group;
+6. attached descendants resolve from each transformed root afterward.
+
+The transform is bounded in normalized interaction space and preserves each cluster's child hierarchy.
+
+## Spatial v12: device/WebXR adapter contract
+
+`SpatialDeviceAdapterRuntime` separates the spatial controller from the current webcam coordinate source.
+
+Current browser production input continues through:
+
+```text
+webcam hand tracking
+→ webcam-relative adapter
+→ Spatial UI / contact / world runtime
+```
+
+The adapter can also expose a `webxr-metric` capability contract when the browser reports `immersive-ar` support.
+
+Important: capability detection does **not** auto-start an XR session and does not claim metric tracking when the active sensor is still the webcam. A future device integration can supply metric joint/world poses through the same adapter boundary.
+
+## Spatial v13: reliability and long-session hardening
+
+The final browser-spatial hardening pass adds explicit budgets and graph validation.
+
+### World model budgets
+
+`ShortTermWorldModelTracker` now bounds:
+
+- visual object memories to 32;
+- processed scene-event IDs to 128.
+
+This removes an unbounded 24/7 growth path while preserving recent short-term visual context.
+
+### Attachment-cycle protection
+
+`SpatialWorldRuntime` rejects cyclic object graphs such as:
+
+```text
+A → B → A
+```
+
+Cycle candidates are filtered both during snap discovery and direct attachment.
+
+### Session budgets
+
+Session layout snapshots are bounded to:
+
+- 32 objects;
+- 32 attachments;
+- 32 joints;
+- 16 selected clusters.
+
+These limits keep the browser spatial runtime deterministic and small for long-running sessions.
+
+## Current browser-spatial milestone
+
+The planned browser spatial stack is now complete from v1 through v13:
+
+```text
+gaze / hand
+→ ray + contact
+→ object manipulation
+→ world anchors
+→ magnetic placement
+→ inertia / physics
+→ multi-object collision
+→ clusters / joints
+→ session layout
+→ multi-selection / group gestures
+→ device adapter boundary
+→ reliability hardening
+```
+
+Further work is device-specific rather than another required browser architecture phase: real WebXR/AR hardware sessions, metric depth calibration, and real-device UX tuning.
