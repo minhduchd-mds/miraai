@@ -481,3 +481,49 @@ Actual feature flags are derived from `XRSession.enabledFeatures` after the user
 After an XR session opens successfully, Mira stops the webcam vision stream without resetting the spatial object/world layout. The XR session therefore owns the immersive sensor path while the existing session layout remains intact.
 
 The current v14 boundary deliberately does not project metric XR joints back onto DOM coordinates yet. That next layer requires viewer/view projection calibration rather than an arbitrary meter-to-screen mapping.
+
+
+## Spatial v15: XR projection and DOM interaction mapping
+
+WebXR metric hand joints now drive the existing browser spatial UI through the headset view matrices.
+
+Each XR frame captures the current `XRViewerPose.views` and stores, per view:
+
+- `XRView.projectionMatrix`;
+- `XRView.transform.inverse.matrix` as the view matrix;
+- the eye identifier.
+
+The projection runtime applies the standard view → projection transform, converts clip coordinates to NDC, then maps NDC into DOM-normalized coordinates:
+
+```text
+metric XR joint
+→ inverse view matrix
+→ projection matrix
+→ perspective divide
+→ NDC [-1, 1]
+→ DOM [0, 1]
+→ SpatialUIController
+```
+
+Stereo views are averaged when both produce valid projected points. This is intentionally a DOM-overlay interaction mapping, not a replacement for per-eye XR rendering.
+
+### Session calibration
+
+`SpatialXRProjectionRuntime` keeps a RAM-only offset/scale calibration. When real-world hit-test is available, the first valid viewer-ray hit is projected back into the headset view and used as the DOM-center calibration reference. No calibration is persisted between page sessions.
+
+### XR hand interaction
+
+The projected index fingertip feeds the same `SpatialUIController` used by webcam input.
+
+Current XR interaction therefore supports:
+
+- hand focus over DOM spatial targets;
+- metric-pinch → pinch down/up;
+- activation of spatial actions;
+- X/Y window dragging;
+- X/Y object dragging;
+- release + existing anchor snapping.
+
+Metric XR depth is retained in projection output, but v15 deliberately does not reinterpret it as the webcam's monocular depth heuristic. Full Z manipulation remains isolated until a dedicated metric-depth object-control path is enabled.
+
+The active perspective transform uses the XR device's matrices rather than hard-coded field-of-view approximations.
