@@ -43,9 +43,11 @@ const mustExist = [
   'src/core/vision/action-sequence.ts',
   'src/core/vision/causal-action-graph.ts',
   'src/core/vision/world-model.ts',
+  'src/core/vision/spatial-ui-control.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
+  'src/presence/SpatialControlOverlay.tsx',
   'src/core/vision/rppg-signal.ts',
   'src/core/vision/rppg-monitor.ts',
   'src/presence/PoseSkeletonOverlay.tsx',
@@ -109,11 +111,11 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'data-spatial-action', 'data-spatial-grab-handle', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
-for (const token of ['resolveAirTarget', 'v2-air-layer', 'grabActive', 'spatialTransformActive', 'setGestureIntentTelemetry', 'setHandSeen', 'setSpatialHands', 'setAirPoint']) {
+for (const token of ['resolveAirTarget', 'v2-air-layer', 'grabActive', 'spatialTransformActive', 'setGestureIntentTelemetry', 'setSpatialHands', 'setAirPoint']) {
   if (v2.includes(token)) failures.push(`dead Air Control UI leaked into AppV2: ${token}`);
 }
 
@@ -300,7 +302,7 @@ for (const token of ['faceRecoveryTimer', 'face.lastSeenAt > 0', 'startLegacyVis
   if (!faceRecoveryRuntime.includes(token)) failures.push(`face recovery watchdog missing: ${token}`);
 }
 const cameraSurfaceStart = v2.indexOf('<div className="v2-camera-frame">');
-const cameraSurfaceEnd = v2.indexOf('\n          </div>\n        </div>\n      )}', cameraSurfaceStart);
+const cameraSurfaceEnd = v2.indexOf('\n          <div\n            className="v2-spatial-window-bar"', cameraSurfaceStart);
 const cameraSurface = cameraSurfaceStart >= 0 && cameraSurfaceEnd > cameraSurfaceStart
   ? v2.slice(cameraSurfaceStart, cameraSurfaceEnd)
   : '';
@@ -361,6 +363,9 @@ if (visionCss.includes('.v2-air-layer') || visionCss.includes('.v2-hand-skeleton
 for (const token of ['Camera recognition mode', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
   if (!visionCss.includes(token)) failures.push(`deferred camera recognition CSS missing: ${token}`);
 }
+for (const token of ['.v2-spatial-input-layer', '.v2-spatial-pointer', '.v2-spatial-window-bar', '[data-spatial-action][data-spatial-focused="true"]']) {
+  if (!visionCss.includes(token)) failures.push(`spatial input CSS missing: ${token}`);
+}
 for (const token of ['v2-face-panel', 'v2-affect-vector', 'v2-social-awareness', 'v2-environment-awareness', 'v2-spatial-scene']) {
   if (v2.includes(token)) failures.push(`hidden telemetry DOM must not render: ${token}`);
 }
@@ -411,6 +416,15 @@ for (const token of ['CausalActionGraphTracker', 'competingCount', 'identity_reb
 const worldModel = readFileSync('src/core/vision/world-model.ts', 'utf8');
 for (const token of ['ShortTermWorldModelTracker', 'version: 14', "'temporarily_missing'", 'MISSING_TTL_MS = 30_000', 'CONFIDENCE_HALF_LIFE_MS = 9_000', 'Math.pow(0.5', 'worldModelPrompt', 'MIRA_WORLD_MODEL', 'conservative same-label hypothesis', 'RAM-only']) {
   if (!worldModel.includes(token)) failures.push(`world model v14 missing: ${token}`);
+}
+const spatialUiControl = readFileSync('src/core/vision/spatial-ui-control.ts', 'utf8');
+for (const token of ['SpatialUIController', 'faceSpatialPoint', 'handSpatialPoint', "'grab_start'", "'grab_move'", "'grab_end'", 'visionOS-style indirect input', 'Direct hand pointing']) {
+  if (!spatialUiControl.includes(token)) failures.push(`spatial UI control missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialUiControl)) failures.push('spatial UI control state must remain session-only');
+const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
+for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing']) {
+  if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
 }
 const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');
 for (const token of ['SpatialSceneGraph', 'v2-spatial-overlay', 'v2-spatial-focus-label', 'TARGET']) {
