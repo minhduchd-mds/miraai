@@ -112,9 +112,15 @@ export class SpatialWebXRSessionRuntime {
     }
 
     try {
-      const optionalFeatures = ['hand-tracking', 'hit-test', 'anchors', 'local-floor'];
+      const optionalFeatures = ['hand-tracking', 'hit-test', 'anchors', 'depth-sensing', 'local-floor'];
       if (domOverlayRoot) optionalFeatures.push('dom-overlay');
-      const options: any = { optionalFeatures };
+      const options: any = {
+        optionalFeatures,
+        depthSensing: {
+          usagePreference: ['cpu-optimized', 'gpu-optimized'],
+          dataFormatPreference: ['float32', 'luminance-alpha'],
+        },
+      };
       if (domOverlayRoot) options.domOverlay = { root: domOverlayRoot };
 
       const session = await xr.requestSession('immersive-ar', options);
