@@ -6,6 +6,11 @@
 }
 
 .v2-vision-monitor {
+  --spatial-x: 0px;
+  --spatial-y: 0px;
+  --spatial-z: 0px;
+  --spatial-scale: 1;
+  --spatial-rotation: 0deg;
   position: fixed;
   z-index: 84;
   right: max(18px, env(safe-area-inset-right));
@@ -14,6 +19,9 @@
   display: grid;
   gap: 6px;
   pointer-events: none;
+  transform: translate3d(var(--spatial-x), var(--spatial-y), var(--spatial-z)) rotate(var(--spatial-rotation)) scale(var(--spatial-scale));
+  transform-origin: center;
+  will-change: transform;
 }
 .v2-camera-frame {
   position: relative;
@@ -319,4 +327,111 @@
 .v2-gaze-readout.state-looking_away {
   color: rgba(214, 221, 242, .48);
   opacity: .78;
+}
+
+
+/* Spatial Interaction — visionOS-inspired indirect focus + pinch commit. */
+.v2-spatial-input-layer{
+  position:fixed;
+  inset:0;
+  z-index:96;
+  pointer-events:none;
+}
+.v2-spatial-pointer{
+  position:absolute;
+  width:26px;
+  height:26px;
+  transform:translate(-50%,-50%);
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  border:1px solid rgba(225,234,255,.48);
+  background:rgba(224,234,255,.045);
+  box-shadow:0 0 0 5px rgba(210,224,255,.025),0 6px 22px rgba(0,0,0,.18);
+  backdrop-filter:blur(5px);
+  transition:width .14s ease,height .14s ease,border-color .14s ease,background .14s ease;
+}
+.v2-spatial-pointer i{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:rgba(238,244,255,.9);
+  box-shadow:0 0 9px rgba(221,231,255,.55);
+}
+.v2-spatial-pointer.source-face{opacity:.78}
+.v2-spatial-pointer.source-hand{opacity:.94}
+.v2-spatial-pointer.locked{
+  width:32px;
+  height:32px;
+  border-color:color-mix(in srgb,var(--accent) 70%,white 30%);
+  background:color-mix(in srgb,var(--accent) 8%,rgba(224,234,255,.04));
+  box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 5%,transparent),0 8px 24px rgba(0,0,0,.2);
+}
+.v2-spatial-pointer.grabbing{
+  width:22px;
+  height:22px;
+  border-color:rgba(245,248,255,.9);
+  background:rgba(235,242,255,.12);
+}
+.v2-spatial-pointer span{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:50%;
+  transform:translateX(-50%);
+  max-width:150px;
+  padding:5px 8px;
+  border:1px solid rgba(177,193,236,.16);
+  border-radius:999px;
+  background:rgba(4,8,24,.72);
+  color:rgba(237,242,255,.88);
+  font:600 8px/1.15 'Inter',system-ui,sans-serif;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  backdrop-filter:blur(10px);
+}
+.v2-spatial-feedback{
+  position:absolute;
+  left:50%;
+  bottom:max(54px,calc(env(safe-area-inset-bottom) + 42px));
+  transform:translateX(-50%);
+  padding:6px 10px;
+  border:1px solid rgba(185,200,241,.16);
+  border-radius:999px;
+  background:rgba(4,8,24,.72);
+  color:rgba(236,242,255,.8);
+  font:600 9px/1 'Inter',system-ui,sans-serif;
+  backdrop-filter:blur(10px);
+}
+[data-spatial-action][data-spatial-focused="true"]{
+  border-color:color-mix(in srgb,var(--accent) 58%,rgba(255,255,255,.2)) !important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 8%,transparent),0 0 18px color-mix(in srgb,var(--accent) 18%,transparent) !important;
+  color:var(--text) !important;
+}
+.v2-spatial-window-bar{
+  width:72px;
+  height:18px;
+  margin:0 auto -18px;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+}
+.v2-spatial-window-bar i{
+  width:46px;
+  height:5px;
+  border-radius:999px;
+  background:rgba(218,228,255,.28);
+  box-shadow:0 1px 8px rgba(0,0,0,.18);
+  transition:width .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.v2-spatial-window-bar[data-spatial-focused="true"] i{
+  width:56px;
+  background:color-mix(in srgb,var(--accent) 72%,white 28%);
+  box-shadow:0 0 14px color-mix(in srgb,var(--accent) 34%,transparent);
+}
+
+@media(max-width:760px){
+  .v2-spatial-pointer{width:30px;height:30px}
+  .v2-spatial-pointer.locked{width:36px;height:36px}
+  .v2-spatial-feedback{bottom:max(48px,calc(env(safe-area-inset-bottom) + 38px))}
 }
