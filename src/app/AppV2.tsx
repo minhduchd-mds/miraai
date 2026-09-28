@@ -551,6 +551,7 @@ export default function AppV2() {
   const spatialJointRuntimeRef = useRef(new SpatialJointRuntime());
   const spatialSelectionRef = useRef(new SpatialSelectionRuntime());
   const spatialLayoutRef = useRef(spatialSessionLayoutRuntime());
+  const spatialLayoutSkipCaptureRef = useRef(false);
   const spatialDeviceAdapterRef = useRef(new SpatialDeviceAdapterRuntime());
   const [selectedClusterRoots, setSelectedClusterRoots] = useState<string[]>([]);
   const spatialJointBeforeGrabRef = useRef<SpatialJointState | null>(null);
@@ -766,6 +767,7 @@ export default function AppV2() {
     if (!visionOn) return;
     const saved = spatialLayoutRef.current.restore();
     if (!saved) return;
+    spatialLayoutSkipCaptureRef.current = true;
 
     for (const savedObject of saved.objects) {
       spatialObjectRuntimeRef.current.setPose(savedObject.id, savedObject.pose);
@@ -809,6 +811,10 @@ export default function AppV2() {
 
   useEffect(() => {
     if (!visionOn) return;
+    if (spatialLayoutSkipCaptureRef.current) {
+      spatialLayoutSkipCaptureRef.current = false;
+      return;
+    }
     spatialLayoutRef.current.capture({
       objects: spatialObjects,
       attachments: spatialWorldRuntimeRef.current.attachmentSnapshot(),
@@ -1458,6 +1464,15 @@ export default function AppV2() {
           let groupSession = spatialGroupTransformRef.current;
 
           if (!groupSession || groupSession.key !== key) {
+            for (const rootId of selectedRoots) {
+              spatialWorldRuntimeRef.current.detachObject(rootId);
+              spatialJointRuntimeRef.current.removeForChild(rootId);
+              setSpatialPhysicsState(spatialPhysicsRef.current.stop(rootId, now));
+            }
+            spatialWorldRuntimeRef.current.setAnchors(
+              collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+            );
+
             const runtimeSession = beginSpatialGroupTransform(
               spatialObjectRuntimeRef.current.snapshot(),
               selectedRoots,
