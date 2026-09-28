@@ -6,6 +6,7 @@ export interface SpatialCollisionBody {
   radius: number;
   mass?: number;
   dynamic?: boolean;
+  clusterId?: string | null;
 }
 
 export interface SpatialCollisionContact {
@@ -75,6 +76,7 @@ export function resolveSpatialObjectCollisions(
     for (let j = i + 1; j < bodies.length; j += 1) {
       const a = bodies[i];
       const b = bodies[j];
+      if (a.clusterId && b.clusterId && a.clusterId === b.clusterId) continue;
       const pa = poses[a.id].position;
       const pb = poses[b.id].position;
       const dx = pb.x - pa.x;
