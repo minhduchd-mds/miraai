@@ -73,6 +73,10 @@ import {
   type WebXRSessionSnapshot,
 } from '../core/vision/spatial-webxr-session';
 import {
+  SpatialXRProjectionRuntime,
+  projectMetricPointAcrossViews,
+} from '../core/vision/spatial-xr-projection';
+import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
   type SpatialPlacementPreview,
@@ -558,6 +562,9 @@ export default function AppV2() {
   const spatialLayoutSkipCaptureRef = useRef(false);
   const spatialDeviceAdapterRef = useRef(new SpatialDeviceAdapterRuntime());
   const webXRRuntimeRef = useRef(new SpatialWebXRSessionRuntime());
+  const xrProjectionRef = useRef(new SpatialXRProjectionRuntime());
+  const xrGestureIntentRef = useRef(new GestureIntentTracker());
+  const xrAutoCalibratedRef = useRef(false);
   const [webXRAvailable, setWebXRAvailable] = useState(false);
   const [webXRSnapshot, setWebXRSnapshot] = useState<WebXRSessionSnapshot>(() =>
     webXRRuntimeRef.current.snapshot()
@@ -757,6 +764,11 @@ export default function AppV2() {
       const snapshot = await webXRRuntimeRef.current.stop();
       setWebXRSnapshot(snapshot);
       setWebXRAvailable(true);
+      spatialDeviceAdapterRef.current.useWebcamFallback();
+      xrProjectionRef.current.reset();
+      xrGestureIntentRef.current.reset();
+      xrAutoCalibratedRef.current = false;
+      setSpatialFrame(spatialUiRef.current.reset());
       showSpatialFeedback('Đã thoát XR');
       return;
     }
@@ -771,6 +783,10 @@ export default function AppV2() {
 
     const enabled = snapshot.enabledFeatures;
     spatialDeviceAdapterRef.current.useWebXRSessionFeatures(enabled);
+    xrProjectionRef.current.reset();
+    xrGestureIntentRef.current.reset();
+    xrAutoCalibratedRef.current = false;
+    setSpatialFrame(spatialUiRef.current.reset());
     setWebXRAvailable(true);
     showSpatialFeedback(
       enabled.includes('hand-tracking')
@@ -822,6 +838,142 @@ export default function AppV2() {
       setVisionBooting(false);
     }
   }, [loadVisionModules, stopVision, visionBooting, visionOn]);
+
+  useEffect(() => {
+    if (!webXRSnapshot.active) return;
+    const primaryHand = webXRSnapshot.hands.find((hand) => hand.indexTip) || null;
+    if (!primaryHand?.indexTip || !webXRSnapshot.views.length) {
+      setHandSeen(false);
+      return;
+    }
+
+    if (!xrAutoCalibratedRef.current && webXRSnapshot.hit) {
+      const rawHit = projectMetricPointAcrossViews(webXRSnapshot.hit, webXRSnapshot.views);
+      if (rawHit?.visible) {
+        xrProjectionRef.current.calibrateCenter(rawHit);
+        xrAutoCalibratedRef.current = true;
+        showSpatialFeedback('XR · đã căn tâm DOM');
+      }
+    }
+
+    const projected = xrProjectionRef.current.project(primaryHand.indexTip, webXRSnapshot.views);
+    if (!projected) {
+      setHandSeen(false);
+      return;
+    }
+
+    const now = performance.now();
+    const intent = xrGestureIntentRef.current.update({
+      gesture: 'Pointing_Up',
+      score: projected.confidence,
+      pinching: primaryHand.pinching,
+    }, now);
+    const targets = settingsOpen ? [] : collectSpatialTargets();
+    const nextFrame = spatialUiRef.current.update({
+      face: {
+        present: false,
+        confidence: 0,
+        gazeX: 0,
+        gazeY: 0,
+        yaw: 0,
+        pitch: 0,
+        calibrationProgress: 0,
+      },
+      hand: {
+        present: projected.visible,
+        confidence: projected.confidence,
+        x: projected.x,
+        y: projected.y,
+        z: clampSpatial(projected.depth, -0.45, 0.45),
+        pinching: primaryHand.pinching,
+        direct: true,
+      },
+      gestureIntent: intent,
+      headGesture: 'none',
+      targets,
+    }, now);
+
+    setHandSeen(projected.visible);
+    setSpatialFrame(nextFrame);
+
+    for (const event of nextFrame.events) {
+      if (event.type === 'activate' && event.targetKind === 'action') {
+        const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action]'))
+          .find((element) => element.dataset.spatialAction === event.targetId);
+        target?.click();
+        continue;
+      }
+
+      if (event.targetKind === 'window') {
+        if (event.type === 'grab_start' && spatialWindowAvailable(event.targetId)) {
+          const id = event.targetId;
+          lastSpatialWindowRef.current = id;
+          spatialGrabSessionRef.current = {
+            id,
+            start: { x: event.point.x, y: event.point.y, z: event.point.z },
+            base: { ...spatialWindowsRef.current[id] },
+          };
+          continue;
+        }
+
+        const session = spatialGrabSessionRef.current;
+        if (event.type === 'grab_move' && session && session.id === event.targetId) {
+          const dx = (event.point.x - session.start.x) * window.innerWidth;
+          const dy = (event.point.y - session.start.y) * window.innerHeight;
+          updateSpatialWindow(session.id, (current) => ({
+            ...current,
+            x: clampSpatial(session.base.x + dx, -window.innerWidth * 0.42, window.innerWidth * 0.42),
+            y: clampSpatial(session.base.y + dy, -window.innerHeight * 0.34, window.innerHeight * 0.34),
+          }));
+          continue;
+        }
+
+        if (event.type === 'grab_end' && session?.id === event.targetId) {
+          spatialGrabSessionRef.current = null;
+          showSpatialFeedback('XR · đã đặt cửa sổ');
+          continue;
+        }
+      }
+
+      if (event.targetKind === 'object') {
+        if (event.type === 'grab_start' && spatialObjectAvailable(event.targetId)) {
+          spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
+          spatialJointBeforeGrabRef.current = spatialJointRuntimeRef.current.removeForChild(event.targetId);
+          spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
+          setSpatialPhysicsState(spatialPhysicsRef.current.beginGrab(event.targetId, event.point, now));
+          setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+          continue;
+        }
+
+        if (event.type === 'grab_move') {
+          spatialPhysicsRef.current.sampleGrab(event.targetId, event.point, now);
+          spatialObjectRuntimeRef.current.moveGrab(event.point, {
+            depthDelta: 0,
+            xyGain: 1.05,
+            depthGain: 0,
+          });
+          setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+          continue;
+        }
+
+        if (event.type === 'grab_end') {
+          const placed = spatialObjectRuntimeRef.current.endGrab();
+          spatialWorldRuntimeRef.current.setAnchors(
+            collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+          );
+          const snapped = placed
+            ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
+            : null;
+          if (snapped) spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
+          setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
+          setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+          spatialObjectAttachmentBeforeGrabRef.current = null;
+          spatialJointBeforeGrabRef.current = null;
+          showSpatialFeedback(snapped ? `XR · neo ${snapped.anchorLabel}` : 'XR · đã đặt vật thể');
+        }
+      }
+    }
+  }, [settingsOpen, showSpatialFeedback, updateSpatialWindow, webXRSnapshot]);
 
   useEffect(() => {
     if (!visionOn) return;
