@@ -78,3 +78,36 @@ This keeps the control state machine stable while swapping only the spatial sens
 - `src/core/vision/holistic-tracker.ts`
 - `src/ui/vision-v2.css`
 - `src/ui/result-surface.css`
+
+
+## Spatial v3: fingertip collision volumes
+
+Mira now creates session-only 3D collision volumes for spatial controls and windows.
+
+```text
+fingertip x/y/z
+    ↓
+SpatialAnchorVolume
+    ↓
+point-in-volume collision
+    ↓
+90 ms stable contact dwell
+    ↓
+direct spatial focus
+    ↓
+pinch required for commit / grab
+```
+
+This adds a real direct-contact state without treating noisy webcam depth as proof of physical touch.
+
+Current rules:
+
+- x, y and z must all fall inside the target volume;
+- hand confidence must be at least 0.58;
+- contact must remain stable for 90 ms;
+- a short release grace prevents flicker;
+- entering a volume never auto-clicks;
+- pinch remains the commit/hold signal;
+- direct touch state is RAM/session-only.
+
+The current coordinate space is normalized camera-relative space. A future WebXR/depth-device adapter can supply metric world-space points and anchors while preserving the same `SpatialDirectTouchTracker` state machine.
