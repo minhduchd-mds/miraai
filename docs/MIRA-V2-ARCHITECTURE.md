@@ -34,8 +34,8 @@ ASSISTANT TURN
 `src/app/AppV2.tsx`
 
 - clean conversation-first shell;
-- text composer;
 - mic + live mode;
+- no production text composer; text remains a runtime/host compatibility capability;
 - caption/status;
 - generic Result Surface;
 - history drawer;
@@ -165,6 +165,30 @@ Limitation: this is anonymous browser identity, not authenticated multi-user acc
 
 Production Settings exposes a small safe avatar manifest. Experimental looks remain in Labs.
 
+## 8.1 Vision world state
+
+Production camera context now composes a conservative, ephemeral stack:
+
+```text
+Object detector
+  ↓
+Spatial Scene Graph
+  ↓
+Object Interaction proxy
+  ↓
+Action Sequence v12
+  ↓
+Causal Action Graph v13
+  ↓
+Short-term World Model v14
+  ↓
+Brain runtime context
+```
+
+World Model v14 provides short-term object permanence, confidence decay, near-return/relocation continuity and a bounded temporal event window. It is RAM-only and is explicitly blocked from long-term memory persistence by the architecture guard. It does not establish physical identity, ownership, touch, intent or human causality.
+
+See `docs/MIRA-WORLD-MODEL-V14.md`.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
@@ -192,6 +216,8 @@ CI (Node 22 + 24):
 - runtime unit tests;
 - Vite production build;
 - initial bundle budget;
+- deploy-artifact smoke check;
+- GitHub Pages artifact smoke check before publish;
 - runtime dependency audit at critical threshold.
 
 The bundle guard traverses only the Vite initial import graph. Dynamic 3D/Labs/Vision chunks are intentionally excluded from the initial budget.
