@@ -482,3 +482,38 @@
   outline:1px solid color-mix(in srgb,var(--accent) 42%,transparent);
   outline-offset:3px;
 }
+
+
+.v2-spatial-placement{
+  --placement-strength:0;
+  position:absolute;
+  left:50%;
+  bottom:max(84px,calc(env(safe-area-inset-bottom) + 74px));
+  transform:translateX(-50%) scale(calc(.96 + var(--placement-strength) * .04));
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 10px;
+  border:1px solid color-mix(in srgb,var(--accent) calc(18% + var(--placement-strength) * 34%),transparent);
+  border-radius:999px;
+  background:rgba(4,8,24,.68);
+  color:rgba(237,243,255,.84);
+  box-shadow:0 10px 30px rgba(0,0,0,.18),0 0 18px color-mix(in srgb,var(--accent) calc(var(--placement-strength) * 18%),transparent);
+  backdrop-filter:blur(12px);
+  font:600 9px/1 'Inter',system-ui,sans-serif;
+  white-space:nowrap;
+}
+.v2-spatial-placement i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:color-mix(in srgb,var(--accent) 76%,white 24%);
+  box-shadow:0 0 calc(5px + var(--placement-strength) * 8px) color-mix(in srgb,var(--accent) 58%,transparent);
+}
+.v2-spatial-placement.kind-surface i{
+  border-radius:2px;
+}
+.v2-spatial-placement.kind-object i{
+  width:9px;
+  height:9px;
+}
