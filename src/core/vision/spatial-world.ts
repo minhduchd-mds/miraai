@@ -29,6 +29,7 @@ export interface SpatialWorldAnchor {
   priority?: number;
   constraint?: SpatialSurfaceConstraint | null;
   ownerObjectId?: string | null;
+  acceptsObjectId?: string | null;
 }
 
 export interface SpatialObjectAttachment {
@@ -231,6 +232,8 @@ export class SpatialWorldRuntime {
             }
           : null,
         ownerObjectId: anchor.ownerObjectId || null,
+      acceptsObjectId: anchor.acceptsObjectId || null,
+        acceptsObjectId: anchor.acceptsObjectId || null,
       });
     }
     this.anchors = next;
@@ -417,7 +420,8 @@ export class SpatialWorldRuntime {
     return Array.from(this.anchors.values())
       .filter((anchor) =>
         anchor.enabled !== false &&
-        anchor.ownerObjectId !== objectId
+        anchor.ownerObjectId !== objectId &&
+        (!anchor.acceptsObjectId || anchor.acceptsObjectId === objectId)
       )
       .map((anchor) => {
         const worldAnchorPose = this.resolveAnchorPose(anchor.id);
