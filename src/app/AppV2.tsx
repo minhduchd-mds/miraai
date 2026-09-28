@@ -52,6 +52,11 @@ import {
 import { EMPTY_REAL_PRESENCE_POSE } from '../core/vision/real-presence';
 import { SpatialObjectRuntime, type SpatialObjectPose, type SpatialObjectState } from '../core/vision/spatial-object';
 import {
+  SpatialPhysicsRuntime,
+  applySpatialSpringConstraint,
+  type SpatialPhysicsState,
+} from '../core/vision/spatial-physics';
+import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
   type SpatialPlacementPreview,
@@ -422,7 +427,12 @@ export default function AppV2() {
   const spatialWorldRuntimeRef = useRef(new SpatialWorldRuntime());
   const spatialObjectAttachmentBeforeGrabRef = useRef<SpatialObjectAttachment | null>(null);
   const [placementPreview, setPlacementPreview] = useState<SpatialPlacementPreview | null>(null);
+  const placementPreviewRef = useRef<SpatialPlacementPreview | null>(null);
   const spatialObjectDepthRef = useRef(new SpatialDepthAnchorTracker());
+  const spatialPhysicsRef = useRef(new SpatialPhysicsRuntime());
+  const [spatialPhysicsState, setSpatialPhysicsState] = useState<SpatialPhysicsState>(() =>
+    spatialPhysicsRef.current.snapshot('mira.core')
+  );
   const twoHandObjectSessionRef = useRef<{
     id: string;
     since: number;
@@ -540,7 +550,10 @@ export default function AppV2() {
     spatialObjectDepthRef.current.reset();
     spatialWorldRuntimeRef.current.reset();
     spatialObjectAttachmentBeforeGrabRef.current = null;
+    placementPreviewRef.current = null;
     setPlacementPreview(null);
+    spatialPhysicsRef.current.reset();
+    setSpatialPhysicsState(spatialPhysicsRef.current.snapshot('mira.core'));
     setSpatialObjects(spatialObjectRuntimeRef.current.reset());
     setSpatialFeedback('');
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
@@ -679,10 +692,29 @@ export default function AppV2() {
           : Math.max(0.5, primaryScore);
 
       const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
+      let currentCoreObject = spatialObjectRuntimeRef.current.get('mira.core');
+      if (currentCoreObject && !currentCoreObject.grabbed && spatialPhysicsRef.current.isActive('mira.core')) {
+        const inertiaStep = spatialPhysicsRef.current.step('mira.core', currentCoreObject.pose, now);
+        spatialObjectRuntimeRef.current.setPose('mira.core', inertiaStep.pose);
+        setSpatialPhysicsState(inertiaStep.state);
+        currentCoreObject = spatialObjectRuntimeRef.current.get('mira.core');
+        setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+      }
       const currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
-      const currentCoreObject = spatialObjectRuntimeRef.current.get('mira.core');
       spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentSpatialObjects));
       const coreAttachment = spatialWorldRuntimeRef.current.attachment('mira.core');
+      if (!coreAttachment && currentCoreObject && !currentCoreObject.grabbed && spatialPhysicsRef.current.isActive('mira.core')) {
+        const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject('mira.core', currentCoreObject.pose);
+        if (inertiaPreview && inertiaPreview.strength >= 0.78 && spatialPhysicsRef.current.snapshot('mira.core').speed <= 0.34) {
+          const snapped = spatialWorldRuntimeRef.current.snapObject('mira.core', currentCoreObject.pose, now);
+          if (snapped) {
+            spatialObjectRuntimeRef.current.setPose('mira.core', snapped.worldPose);
+            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            setSpatialPhysicsState(spatialPhysicsRef.current.stop('mira.core', now));
+            showSpatialFeedback(`Đã bắt neo · ${snapped.anchorLabel}`);
+          }
+        }
+      }
       if (coreAttachment && currentCoreObject && !currentCoreObject.grabbed) {
         const resolvedPose = spatialWorldRuntimeRef.current.resolveObjectPose('mira.core');
         if (resolvedPose) {
@@ -783,6 +815,8 @@ export default function AppV2() {
             spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
             spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
             spatialObjectDepthRef.current.begin(event.point.z);
+            setSpatialPhysicsState(spatialPhysicsRef.current.beginGrab(event.targetId, event.point, now));
+            placementPreviewRef.current = null;
             setPlacementPreview(null);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             showSpatialFeedback('Pinch giữ · cầm vật thể 3D');
@@ -790,6 +824,7 @@ export default function AppV2() {
           }
           if (event.type === 'grab_move' && !twoHandsActive) {
             const depth = spatialObjectDepthRef.current.update(event.point.z);
+            setSpatialPhysicsState(spatialPhysicsRef.current.sampleGrab(event.targetId, event.point, now));
             const moved = spatialObjectRuntimeRef.current.moveGrab(event.point, {
               depthDelta: depth.ready && depth.confidence >= 0.56 ? depth.normalizedDelta : 0,
               xyGain: 1.05,
@@ -799,30 +834,53 @@ export default function AppV2() {
               const worldObjects = spatialObjectRuntimeRef.current.snapshot();
               spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(worldObjects));
               const previewPlacement = spatialWorldRuntimeRef.current.previewSnapObject(event.targetId, moved.pose);
+              placementPreviewRef.current = previewPlacement;
               setPlacementPreview(previewPlacement);
               if (previewPlacement && previewPlacement.strength >= 0.08) {
-                spatialObjectRuntimeRef.current.setPose(event.targetId, previewPlacement.worldPose);
+                const sprung = applySpatialSpringConstraint(
+                  moved.pose,
+                  previewPlacement.targetPose,
+                  previewPlacement.strength,
+                  0.05,
+                );
+                spatialObjectRuntimeRef.current.setPose(event.targetId, sprung);
               }
             }
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             continue;
           }
           if (event.type === 'grab_end') {
+            const previewAtRelease = placementPreviewRef.current;
+            const release = spatialPhysicsRef.current.release(
+              event.targetId,
+              previewAtRelease?.strength || 0,
+              now,
+            );
+            setSpatialPhysicsState(spatialPhysicsRef.current.snapshot(event.targetId));
             const placed = spatialObjectRuntimeRef.current.endGrab();
             spatialObjectDepthRef.current.end();
             spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(
               spatialObjectRuntimeRef.current.snapshot(),
             ));
-            const snapped = placed
-              ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
-              : null;
-            if (snapped) {
-              spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
-              showSpatialFeedback(`Đã neo · ${snapped.anchorLabel}`);
+
+            if (release.mode === 'throw') {
+              spatialWorldRuntimeRef.current.detachObject(event.targetId);
+              showSpatialFeedback('Ném · quán tính không gian');
             } else {
-              showSpatialFeedback('Đã đặt vật thể tự do');
+              const snapped = placed
+                ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
+                : null;
+              if (snapped) {
+                spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
+                setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
+                showSpatialFeedback(`Đã neo · ${snapped.anchorLabel}`);
+              } else {
+                setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
+                showSpatialFeedback('Đã đặt vật thể tự do');
+              }
             }
             spatialObjectAttachmentBeforeGrabRef.current = null;
+            placementPreviewRef.current = null;
             setPlacementPreview(null);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             continue;
@@ -840,7 +898,9 @@ export default function AppV2() {
               );
             }
             spatialObjectAttachmentBeforeGrabRef.current = null;
+            placementPreviewRef.current = null;
             setPlacementPreview(null);
+            setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             showSpatialFeedback('Đã hoàn tác vật thể');
             continue;
@@ -1529,6 +1589,7 @@ export default function AppV2() {
               ? spatialPoseStyle(placementPreview.targetPose)
               : undefined}
             spatialCorePreviewVisible={placementPreview?.objectId === 'mira.core'}
+            spatialCorePhysicsMode={spatialPhysicsState.mode}
             spatialCoreDepth={spatialObjects.find((object) => object.id === 'mira.core')?.pose.position.z || 0}
             spatialCoreActive={visionOn}
           />
