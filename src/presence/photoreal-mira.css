@@ -367,6 +367,11 @@
 .pm-wave i:nth-child(5n) { --bar: 2.15; }
 
 .pm-state-orb {
+  --spatial-object-x: 0vw;
+  --spatial-object-y: 0vh;
+  --spatial-object-z: 0px;
+  --spatial-object-scale: 1;
+  --spatial-object-rotation: 0deg;
   position: absolute;
   z-index: 9;
   right: clamp(28px, 4vw, 66px);
@@ -379,6 +384,14 @@
   border: 1px solid rgba(181,198,255,.13);
   background: rgba(8,13,36,.34);
   backdrop-filter: blur(12px);
+  transform:
+    perspective(760px)
+    translate3d(var(--spatial-object-x), var(--spatial-object-y), var(--spatial-object-z))
+    rotate(var(--spatial-object-rotation))
+    scale(var(--spatial-object-scale));
+  transform-origin:center;
+  will-change:transform;
+  transition:border-color .14s ease,box-shadow .14s ease,background .14s ease;
 }
 .pm-state-orb i {
   width: 7px;
@@ -458,6 +471,7 @@
   .pm-caption-card b { font-size: 9px; -webkit-line-clamp: 2; }
   .pm-wave { bottom: 31px; transform: translateX(-50%) scale(.82); }
   .pm-state-orb { display: none; }
+  .photo-mira.spatial-core-active .pm-state-orb { display:grid; right:16px; bottom:88px; }
   .mira-v2.has-result .pm-character-zone { transform: translate(var(--pm-look-x), calc(var(--pm-look-y) - 8vh)); opacity: .34; }
 }
 
@@ -730,4 +744,16 @@
   0% { transform: scale(.9); }
   45% { transform: scale(1.14); }
   100% { transform: scale(1); }
+}
+
+
+.pm-state-orb[data-spatial-focused="true"]{
+  border-color:color-mix(in srgb,var(--accent) 66%,white 34%);
+  background:color-mix(in srgb,var(--accent) 10%,rgba(8,13,36,.38));
+  box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 7%,transparent),0 0 24px color-mix(in srgb,var(--accent) 25%,transparent);
+}
+.pm-state-orb[data-spatial-contacted="true"]{
+  outline:none;
+  border-color:rgba(244,248,255,.92);
+  box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 9%,transparent),0 0 30px color-mix(in srgb,var(--accent) 34%,transparent);
 }
