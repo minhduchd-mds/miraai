@@ -645,3 +645,77 @@ The human-hand path is intentionally conservative:
 - all hand contact/intent state stays RAM/session-only.
 
 Stress tests exercise hundreds of jittered frames to guard against NaN propagation, pressure overflow and latched interaction state.
+
+
+## Spatial v16: real surface interaction
+
+Mira now consumes real WebXR environment depth when the negotiated immersive AR session exposes the `depth-sensing` feature.
+
+The current runtime explicitly requests `cpu-optimized` depth because v16 reads depth through:
+
+```text
+XRFrame.getDepthInformation(view)
+→ XRCPUDepthInformation.getDepthInMeters(x, y)
+```
+
+The depth value is interpreted as specified by WebXR: distance from the camera plane to environment geometry. It is not ray length.
+
+### Sparse real-surface reconstruction
+
+Each XR frame samples a bounded 5×5 normalized depth lattice per view. `SpatialXRSurfaceRuntime` converts those samples into small interaction patches with:
+
+- normalized screen center;
+- metric environment depth;
+- local depth gradient;
+- interaction normal;
+- support/confidence.
+
+This is deliberately a sparse interaction surface, **not** a semantic room mesh.
+
+### Hand ↔ physical-surface probe
+
+The projected XR fingertip keeps its metric camera-plane depth. Mira compares that against real environment depth at the same normalized view location.
+
+The probe classifies:
+
+```text
+clear → near surface → surface contact → behind surface / occluded
+```
+
+Current conservative thresholds:
+
+- near surface: within 8 cm;
+- surface contact cue: within 2.8 cm;
+- occlusion epsilon: 1.8 cm behind the measured environment surface.
+
+These thresholds drive interaction/visual feedback only. They do not turn depth proximity into proof of physical touch or measured force.
+
+### Real-world object anchors
+
+When an XR object is released near a valid physical surface and the session negotiated `anchors`:
+
+1. Mira queues an anchor request;
+2. the next active hit-test result creates an anchor with `XRHitTestResult.createAnchor()`;
+3. the XR runtime tracks the returned `anchorSpace`;
+4. every frame reads the anchor pose relative to the local reference space;
+5. the metric anchor position is reprojected into the DOM overlay;
+6. the virtual object follows that reprojection as the viewer moves.
+
+Grabbing an anchored object deletes the session anchor first, allowing the object to detach naturally.
+
+The runtime can request an `XRAnchor.requestPersistentHandle()`, but Mira does **not** automatically persist that handle to browser storage. Real-world spatial state stays privacy-preserving and session-local unless a future explicit persistence UX is added.
+
+### Real-surface occlusion
+
+Objects whose projected metric anchor falls behind the measured real environment depth receive an occlusion state. The current DOM overlay represents that with reduced visibility.
+
+This is a conservative browser-overlay approximation. True per-pixel virtual/real compositing belongs in a WebGL/WebGPU XR rendering layer that consumes the full depth texture.
+
+### Fallback behavior
+
+- Depth unavailable → hit-test and hand tracking continue.
+- Anchors unavailable → existing Mira UI/world snapping continues.
+- XR unavailable → webcam-relative spatial interaction continues.
+- Invalid/zero depth → no physical-surface contact is fabricated.
+
+All XR depth samples, patches, probes, tracked anchors and persistent handles remain RAM/session-only.
