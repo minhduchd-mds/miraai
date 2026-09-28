@@ -47,5 +47,8 @@ jobs:
       - name: Initial bundle budget
         run: npm run check:bundle
 
+      - name: Deploy artifact smoke
+        run: npm run check:artifact
+
       - name: Runtime dependency audit (critical)
         run: npm audit --omit=dev --audit-level=critical
