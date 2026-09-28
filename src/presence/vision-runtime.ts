@@ -111,18 +111,24 @@ export function stopVision(): void {
 export function visionSnapshot() {
   const landmarks = handData.landmarks.map((point) => ({ ...point }));
   const spatialPose = estimateRealPresencePose(faceData.landmarks);
-  const indexTip = landmarks[8] || { x: handData.x, y: handData.y };
+  const indexTip = landmarks[8] || { x: handData.x, y: handData.y, z: 0 };
   const thumbTip = landmarks[4] || indexTip;
   const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
-  const hands = handData.hands.map((hand) => ({
-    handedness: hand.handedness,
-    gesture: hand.gesture,
-    score: hand.score,
-    x: 1 - hand.x,
-    y: hand.y,
-    pinching: hand.pinching,
-    landmarks: hand.landmarks.map((point) => ({ ...point })),
-  }));
+  const hands = handData.hands.map((hand) => {
+    const handIndexTip = hand.landmarks[8] || hand.landmarks[0] || { x: hand.x, y: hand.y, z: 0 };
+    return {
+      handedness: hand.handedness,
+      gesture: hand.gesture,
+      score: hand.score,
+      x: 1 - hand.x,
+      y: hand.y,
+      z: Number(handIndexTip.z || 0),
+      pointerX: 1 - Number(handIndexTip.x || hand.x),
+      pointerY: Number(handIndexTip.y || hand.y),
+      pinching: hand.pinching,
+      landmarks: hand.landmarks.map((point) => ({ ...point })),
+    };
+  });
 
   return {
     faceSeen: Boolean(faceData.active && faceData.present),
@@ -189,6 +195,7 @@ export function visionSnapshot() {
     handY: handData.y,
     pointerX: 1 - indexTip.x,
     pointerY: indexTip.y,
+    pointerZ: Number(indexTip.z || 0),
     pinching: landmarks.length >= 21 && pinchDistance < 0.055,
     pinchDistance,
     gestureScore: handData.score,
