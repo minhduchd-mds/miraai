@@ -251,6 +251,14 @@ The active production sensor remains webcam-relative unless a real XR/device ada
 
 Metric XR coordinates are intentionally not mixed with normalized DOM interaction coordinates until a dedicated projection/calibration layer is present.
 
+
+### Spatial v15 XR projection bridge
+
+`SpatialXRProjectionRuntime` maps metric XR-space points into DOM-normalized interaction coordinates using each frame's `XRView.transform.inverse.matrix` and `XRView.projectionMatrix`. Stereo projections are combined conservatively and a session-local calibration can recenter DOM overlay alignment from the viewer-ray hit-test. The resulting normalized point enters the existing `SpatialUIController`, preserving one focus/pinch state machine across webcam and WebXR input.
+
+Metric XR depth remains distinct from webcam-relative depth. v15 uses XR metric data for projection and preserves the metric camera-space depth value without pretending the two depth models are interchangeable.
+
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
