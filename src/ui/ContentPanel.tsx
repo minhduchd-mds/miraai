@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import type { ResultView } from '../intelligence/skills/result-view';
 import { downloadImage } from '../core/content';
 import { IconClose, IconDownload } from './icons';
@@ -7,15 +7,34 @@ import './result-surface.css';
 interface Props {
   content: ResultView;
   onClose: () => void;
+  spatialStyle?: CSSProperties;
 }
 
 /** Generic Result Surface: skills choose a view model; UI owns the presentation. */
-export default function ContentPanel({ content, onClose }: Props) {
+export default function ContentPanel({ content, onClose, spatialStyle }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <aside className="content-panel" data-air-grab="result" aria-live="polite" aria-label="Kết quả từ Mira">
-      <button className="cp-close" onClick={onClose} aria-label="Đóng kết quả">
+    <aside
+      className="content-panel"
+      data-spatial-window="result"
+      style={spatialStyle}
+      aria-live="polite"
+      aria-label="Kết quả từ Mira"
+    >
+      <div
+        className="cp-spatial-bar"
+        data-spatial-grab-handle="result"
+        data-spatial-label="Di chuyển kết quả"
+        aria-hidden="true"
+      ><i /></div>
+      <button
+        className="cp-close"
+        onClick={onClose}
+        aria-label="Đóng kết quả"
+        data-spatial-action="result.close"
+        data-spatial-label="Đóng kết quả"
+      >
         <IconClose />
       </button>
 
@@ -42,6 +61,8 @@ export default function ContentPanel({ content, onClose }: Props) {
           <button
             className="mbtn primary"
             onClick={() => downloadImage(content.data.url, `mira-${content.data.prompt.slice(0, 20).replace(/\s+/g, '-')}.jpg`)}
+            data-spatial-action="result.download"
+            data-spatial-label="Tải ảnh"
           >
             <IconDownload /> Tải về máy
           </button>
