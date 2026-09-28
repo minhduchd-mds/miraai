@@ -608,6 +608,7 @@ export default function AppV2() {
   const xrHandKinematicsRef = useRef(new SpatialHandKinematicsTracker());
   const xrSurfaceRef = useRef(new SpatialXRSurfaceRuntime());
   const [xrSurfaceProbe, setXrSurfaceProbe] = useState<XRSurfaceProbe | null>(null);
+  const xrSurfaceFeedbackAtRef = useRef(0);
   const xrAutoCalibratedRef = useRef(false);
   const [webXRAvailable, setWebXRAvailable] = useState(false);
   const [webXRSnapshot, setWebXRSnapshot] = useState<WebXRSessionSnapshot>(() =>
@@ -1021,7 +1022,12 @@ export default function AppV2() {
     setHandSeen(projected.visible);
     setSpatialFrame(nextFrame);
 
-    if (surfaceProbe?.touchingSurface && surfaceProbe.confidence >= 0.5) {
+    if (
+      surfaceProbe?.touchingSurface &&
+      surfaceProbe.confidence >= 0.5 &&
+      now - xrSurfaceFeedbackAtRef.current >= 900
+    ) {
+      xrSurfaceFeedbackAtRef.current = now;
       showSpatialFeedback('XR · surface contact');
     }
 
