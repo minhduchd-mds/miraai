@@ -876,6 +876,7 @@ export default function AppV2() {
           radius: object.collisionRadius,
           mass: object.mass,
           dynamic: !object.grabbed && !spatialWorldRuntimeRef.current.attachment(object.id),
+          clusterId: spatialWorldRuntimeRef.current.clusterRootObjectId(object.id),
         })),
         Object.fromEntries(currentSpatialObjects.map((object) => [
           object.id,
@@ -915,6 +916,13 @@ export default function AppV2() {
               now,
             );
             if (attachment) {
+              spatialJointRuntimeRef.current.setJoint({
+                id: `joint.${child.id}`,
+                kind: 'fixed',
+                parentObjectId: parent.id,
+                childObjectId: child.id,
+                stiffness: 1,
+              });
               const resolved = spatialWorldRuntimeRef.current.resolveObjectPose(child.id);
               if (resolved) spatialObjectRuntimeRef.current.setPose(child.id, resolved);
               setSpatialPhysicsState(spatialPhysicsRef.current.stop(child.id, now));
@@ -1019,14 +1027,39 @@ export default function AppV2() {
       for (const event of spatialFrameNext.events) {
         if (event.targetKind === 'object') {
           if (event.type === 'grab_start' && spatialObjectAvailable(event.targetId)) {
+            const existingAttachment = spatialWorldRuntimeRef.current.attachment(event.targetId);
+            const existingJoint = spatialJointRuntimeRef.current.findForChild(event.targetId);
+
+            if (twoHandsActive && existingAttachment && existingJoint) {
+              spatialJointControlRef.current = event.targetId;
+              showSpatialFeedback(
+                existingJoint.kind === 'hinge'
+                  ? 'Hai tay · điều khiển bản lề'
+                  : existingJoint.kind === 'slider'
+                    ? 'Hai tay · điều khiển thanh trượt'
+                    : 'Hai tay · điều khiển cả cụm',
+              );
+              continue;
+            }
+
             spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
+            spatialJointBeforeGrabRef.current = spatialJointRuntimeRef.current.removeForChild(event.targetId);
             spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
             spatialObjectDepthRef.current.begin(event.point.z);
             setSpatialPhysicsState(spatialPhysicsRef.current.beginGrab(event.targetId, event.point, now));
             placementPreviewRef.current = null;
             setPlacementPreview(null);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
-            showSpatialFeedback('Pinch giữ · cầm vật thể 3D');
+
+            const clusterMembers = spatialWorldRuntimeRef.current.clusterObjectIds(event.targetId);
+            showSpatialFeedback(
+              clusterMembers.length > 1
+                ? `Pinch giữ · cầm cụm ${clusterMembers.length} vật thể`
+                : 'Pinch giữ · cầm vật thể 3D',
+            );
+            continue;
+          }
+          if (event.type === 'grab_move' && spatialJointControlRef.current === event.targetId) {
             continue;
           }
           if (event.type === 'grab_move' && !twoHandsActive) {
@@ -1038,7 +1071,16 @@ export default function AppV2() {
               depthGain: 0.52,
             });
             if (moved) {
-              const worldObjects = spatialObjectRuntimeRef.current.snapshot();
+              let worldObjects = spatialObjectRuntimeRef.current.snapshot();
+              spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(worldObjects));
+
+              const clusterMembers = spatialWorldRuntimeRef.current.clusterObjectIds(event.targetId).slice(1);
+              for (const childId of clusterMembers) {
+                const resolvedChild = spatialWorldRuntimeRef.current.resolveObjectPose(childId);
+                if (resolvedChild) spatialObjectRuntimeRef.current.setPose(childId, resolvedChild);
+              }
+
+              worldObjects = spatialObjectRuntimeRef.current.snapshot();
               spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(worldObjects));
               const previewPlacement = spatialWorldRuntimeRef.current.previewSnapObject(event.targetId, moved.pose);
               placementPreviewRef.current = previewPlacement;
@@ -1054,6 +1096,11 @@ export default function AppV2() {
               }
             }
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            continue;
+          }
+          if (event.type === 'grab_end' && spatialJointControlRef.current === event.targetId) {
+            spatialJointControlRef.current = null;
+            showSpatialFeedback('Đã khóa vị trí khớp');
             continue;
           }
           if (event.type === 'grab_end') {
@@ -1072,6 +1119,7 @@ export default function AppV2() {
 
             if (release.mode === 'throw') {
               spatialWorldRuntimeRef.current.detachObject(event.targetId);
+              spatialJointRuntimeRef.current.removeForChild(event.targetId);
               showSpatialFeedback('Ném · quán tính không gian');
             } else {
               const snapped = placed
@@ -1080,16 +1128,34 @@ export default function AppV2() {
               if (snapped) {
                 spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
                 setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
+
+                const parentObjectId = spatialWorldRuntimeRef.current.parentObjectId(event.targetId);
+                const jointDefinition = spatialJointForAttachment(
+                  event.targetId,
+                  parentObjectId,
+                  snapped.anchorId,
+                );
+                if (jointDefinition) spatialJointRuntimeRef.current.setJoint(jointDefinition);
+                else spatialJointRuntimeRef.current.removeForChild(event.targetId);
+
                 showSpatialFeedback(`Đã neo · ${snapped.anchorLabel}`);
               } else {
+                spatialJointRuntimeRef.current.removeForChild(event.targetId);
                 setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
                 showSpatialFeedback('Đã đặt vật thể tự do');
               }
             }
             spatialObjectAttachmentBeforeGrabRef.current = null;
+            spatialJointBeforeGrabRef.current = null;
             placementPreviewRef.current = null;
             setPlacementPreview(null);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            continue;
+          }
+          if (event.type === 'cancel' && spatialJointControlRef.current === event.targetId) {
+            spatialJointControlRef.current = null;
+            twoHandObjectSessionRef.current = null;
+            showSpatialFeedback('Đã hủy điều khiển khớp');
             continue;
           }
           if (event.type === 'cancel') {
@@ -1103,8 +1169,12 @@ export default function AppV2() {
                 restored.pose,
                 previousAttachment.attachedAt,
               );
+              if (spatialJointBeforeGrabRef.current) {
+                spatialJointRuntimeRef.current.setJoint(spatialJointBeforeGrabRef.current);
+              }
             }
             spatialObjectAttachmentBeforeGrabRef.current = null;
+            spatialJointBeforeGrabRef.current = null;
             placementPreviewRef.current = null;
             setPlacementPreview(null);
             setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
