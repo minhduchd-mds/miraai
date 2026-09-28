@@ -257,7 +257,7 @@ export class SpatialPhysicsRuntime {
       collided = true;
     }
 
-    if (magnitude(body.velocity) < SETTLE_SPEED) {
+    if (!collided && magnitude(body.velocity) < SETTLE_SPEED) {
       body.velocity = zeroVelocity();
       body.mode = 'idle';
     }
