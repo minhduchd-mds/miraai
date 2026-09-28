@@ -15,7 +15,9 @@ export interface TrackedHand {
   x: number;
   y: number;
   pinching: boolean;
+  pinchRatio: number;
   landmarks: Array<{ x: number; y: number; z?: number }>;
+  worldLandmarks: Array<{ x: number; y: number; z?: number }>;
 }
 
 export interface HandData {
@@ -66,6 +68,27 @@ export function gestureTrackerError(): string | null {
   return lastError;
 }
 
+function normalizedPinchRatio(
+  landmarks: Array<{ x: number; y: number; z?: number }>,
+): number {
+  if (landmarks.length < 21) return 1;
+  const indexTip = landmarks[8];
+  const thumbTip = landmarks[4];
+  const indexMcp = landmarks[5];
+  const pinkyMcp = landmarks[17];
+  const palmSpan = Math.max(1e-5, Math.hypot(
+    indexMcp.x - pinkyMcp.x,
+    indexMcp.y - pinkyMcp.y,
+    Number(indexMcp.z || 0) - Number(pinkyMcp.z || 0),
+  ));
+  const pinch = Math.hypot(
+    indexTip.x - thumbTip.x,
+    indexTip.y - thumbTip.y,
+    Number(indexTip.z || 0) - Number(thumbTip.z || 0),
+  );
+  return pinch / palmSpan;
+}
+
 function detectWave(): boolean {
   if (xHist.length < 6) return false;
   let reversals = 0;
@@ -101,6 +124,7 @@ function readFrame(): void {
   }
 
   const allLandmarks = Array.isArray(res?.landmarks) ? res.landmarks.slice(0, 2) : [];
+  const allWorldLandmarks = Array.isArray(res?.worldLandmarks) ? res.worldLandmarks.slice(0, 2) : [];
   const hands: TrackedHand[] = allLandmarks
     .map((lm: any[], index: number) => {
       if (!lm?.length) return null;
@@ -109,20 +133,29 @@ function readFrame(): void {
         y: Number(point.y),
         z: Number(point.z || 0),
       }));
+      const worldLandmarks = Array.isArray(allWorldLandmarks[index])
+        ? allWorldLandmarks[index].slice(0, 21).map((point: { x: number; y: number; z?: number }) => ({
+            x: Number(point.x),
+            y: Number(point.y),
+            z: Number(point.z || 0),
+          }))
+        : [];
       const palm = lm[9] || lm[0];
       const gesture = res?.gestures?.[index]?.[0]?.categoryName || 'None';
       const score = Number(res?.gestures?.[index]?.[0]?.score || 0);
       const handed = res?.handednesses?.[index]?.[0] || res?.handedness?.[index]?.[0];
-      const indexTip = landmarks[8] || landmarks[0];
-      const thumbTip = landmarks[4] || indexTip;
+      const shapeLandmarks = worldLandmarks.length >= 21 ? worldLandmarks : landmarks;
+      const pinchRatio = normalizedPinchRatio(shapeLandmarks);
       return {
         handedness: String(handed?.categoryName || handed?.displayName || `Hand ${index + 1}`),
         gesture,
         score,
         x: Number(palm.x),
         y: Number(palm.y),
-        pinching: Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y) < 0.055,
+        pinching: pinchRatio <= 0.52,
+        pinchRatio,
         landmarks,
+        worldLandmarks,
       } satisfies TrackedHand;
     })
     .filter(Boolean) as TrackedHand[];
