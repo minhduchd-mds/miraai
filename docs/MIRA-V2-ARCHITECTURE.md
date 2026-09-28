@@ -214,6 +214,10 @@ See `docs/SPATIAL-INTERACTION.md`.
 
 `SpatialObjectRuntime` introduces manipulable object poses independent of DOM window movement. The first wired object is `mira.core`. Direct contact or ray focus selects the object; pinch starts a grab; one hand changes bounded x/y/z position; two pinched hands change scale and rotation. A shake/cancel restores the pre-grab pose. Object state remains session-only.
 
+### Spatial v5 world graph
+
+`SpatialWorldRuntime` adds a bounded parent/child anchor graph above `SpatialObjectRuntime`. Runtime anchors currently include workspace, home/center docks, and dynamic Camera/Result surface docks. Grab detaches an object; release may snap it to the nearest eligible anchor; attached objects resolve their pose through the parent chain and therefore follow moving parent surfaces. Cycles are rejected and hierarchy resolution is capped at eight levels. World anchors and attachments remain session-only.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
