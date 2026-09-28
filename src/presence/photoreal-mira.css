@@ -784,3 +784,20 @@
 .pm-state-orb.physics-grabbed{
   transition:none;
 }
+
+
+.pm-state-node{
+  width:24px;
+  height:24px;
+  border-color:rgba(219,230,255,.22);
+  background:rgba(10,16,40,.38);
+  box-shadow:0 8px 22px rgba(0,0,0,.16);
+}
+.pm-state-node i{
+  width:7px;
+  height:7px;
+  opacity:.72;
+}
+.photo-mira.spatial-core-active .pm-state-node{
+  display:grid;
+}
