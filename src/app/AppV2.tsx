@@ -50,6 +50,7 @@ import {
   worldModelPrompt,
 } from '../core/vision/world-model';
 import { EMPTY_REAL_PRESENCE_POSE } from '../core/vision/real-presence';
+import { SpatialObjectRuntime, type SpatialObjectState } from '../core/vision/spatial-object';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -119,7 +120,7 @@ function collectSpatialTargets(): SpatialTargetGeometry[] {
   const height = Math.max(1, window.innerHeight);
   const targets: SpatialTargetGeometry[] = [];
 
-  const push = (element: HTMLElement, id: string, label: string, kind: 'action' | 'window', priority: number) => {
+  const push = (element: HTMLElement, id: string, label: string, kind: 'action' | 'window' | 'object', priority: number) => {
     if (!id || !label || element.offsetParent === null) return;
     const rect = element.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) return;
@@ -162,6 +163,16 @@ function collectSpatialTargets(): SpatialTargetGeometry[] {
     );
   });
 
+  document.querySelectorAll<HTMLElement>('[data-spatial-object]').forEach((element) => {
+    push(
+      element,
+      String(element.dataset.spatialObject || ''),
+      String(element.dataset.spatialLabel || 'Vật thể không gian'),
+      'object',
+      0.18,
+    );
+  });
+
   return targets;
 }
 
@@ -176,6 +187,23 @@ function spatialWindowAvailable(id: string): id is SpatialWindowId {
   return typeof document !== 'undefined' &&
     Boolean(Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-grab-handle]'))
       .find((element) => element.dataset.spatialGrabHandle === id && element.offsetParent !== null));
+}
+
+function spatialObjectAvailable(id: string): boolean {
+  return typeof document !== 'undefined' &&
+    Boolean(Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-object]'))
+      .find((element) => element.dataset.spatialObject === id && element.offsetParent !== null));
+}
+
+function spatialObjectStyle(object: SpatialObjectState | null): CSSProperties {
+  const pose = object?.pose;
+  return {
+    '--spatial-object-x': `${(pose?.position.x || 0) * 100}vw`,
+    '--spatial-object-y': `${(pose?.position.y || 0) * 100}vh`,
+    '--spatial-object-z': `${(pose?.position.z || 0) * 180}px`,
+    '--spatial-object-scale': String(pose?.scale || 1),
+    '--spatial-object-rotation': `${pose?.rotation || 0}deg`,
+  } as CSSProperties;
 }
 
 
@@ -262,6 +290,23 @@ export default function AppV2() {
   }));
   const twoHandSpatialSessionRef = useRef<TwoHandSpatialSession | null>(null);
   const lastSpatialWindowRef = useRef<SpatialWindowId>('camera');
+  const spatialObjectRuntimeRef = useRef(new SpatialObjectRuntime([{
+    id: 'mira.core',
+    label: 'Mira Core',
+    minScale: 0.72,
+    maxScale: 1.65,
+  }]));
+  const [spatialObjects, setSpatialObjects] = useState(() => spatialObjectRuntimeRef.current.snapshot());
+  const spatialObjectDepthRef = useRef(new SpatialDepthAnchorTracker());
+  const twoHandObjectSessionRef = useRef<{
+    id: string;
+    since: number;
+    active: boolean;
+    startDistance: number;
+    startAngle: number;
+    baseScale: number;
+    baseRotation: number;
+  } | null>(null);
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
     gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
@@ -366,6 +411,9 @@ export default function AppV2() {
     spatialDepthAnchorRef.current.reset();
     setSpatialTouch(spatialTouchRef.current.reset());
     twoHandSpatialSessionRef.current = null;
+    twoHandObjectSessionRef.current = null;
+    spatialObjectDepthRef.current.reset();
+    setSpatialObjects(spatialObjectRuntimeRef.current.reset());
     setSpatialFeedback('');
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
@@ -582,6 +630,40 @@ export default function AppV2() {
       const twoHandsActive = pinchedHands.length >= 2;
 
       for (const event of spatialFrameNext.events) {
+        if (event.targetKind === 'object') {
+          if (event.type === 'grab_start' && spatialObjectAvailable(event.targetId)) {
+            spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
+            spatialObjectDepthRef.current.begin(event.point.z);
+            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            showSpatialFeedback('Pinch giữ · cầm vật thể 3D');
+            continue;
+          }
+          if (event.type === 'grab_move') {
+            const depth = spatialObjectDepthRef.current.update(event.point.z);
+            spatialObjectRuntimeRef.current.moveGrab(event.point, {
+              depthDelta: depth.ready && depth.confidence >= 0.56 ? depth.normalizedDelta : 0,
+              xyGain: 1.05,
+              depthGain: 0.52,
+            });
+            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            continue;
+          }
+          if (event.type === 'grab_end') {
+            spatialObjectRuntimeRef.current.endGrab();
+            spatialObjectDepthRef.current.end();
+            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            showSpatialFeedback('Đã đặt vật thể');
+            continue;
+          }
+          if (event.type === 'cancel') {
+            spatialObjectRuntimeRef.current.cancelGrab();
+            spatialObjectDepthRef.current.reset();
+            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            showSpatialFeedback('Đã hoàn tác vật thể');
+            continue;
+          }
+        }
+
         if (event.type === 'activate') {
           const target = spatialActionElement(event.targetId);
           if (target) {
@@ -696,6 +778,62 @@ export default function AppV2() {
         }
       } else {
         twoHandSpatialSessionRef.current = null;
+      }
+
+      const objectTarget = spatialFrameNext.focus?.kind === 'object'
+        ? spatialFrameNext.focus.id
+        : '';
+      if (twoHandsActive && objectTarget && spatialObjectAvailable(objectTarget)) {
+        const a = pinchedHands[0];
+        const b = pinchedHands[1];
+        const geometry = measureTwoHands(
+          {
+            x: clampSpatial(Number(a?.pointerX ?? a?.x ?? 0.5), 0, 1),
+            y: clampSpatial(Number(a?.pointerY ?? a?.y ?? 0.5), 0, 1),
+          },
+          {
+            x: clampSpatial(Number(b?.pointerX ?? b?.x ?? 0.5), 0, 1),
+            y: clampSpatial(Number(b?.pointerY ?? b?.y ?? 0.5), 0, 1),
+          },
+        );
+        let objectSession = twoHandObjectSessionRef.current;
+        if (!objectSession || objectSession.id !== objectTarget) {
+          const base = spatialObjectRuntimeRef.current.get(objectTarget);
+          if (base) {
+            objectSession = {
+              id: objectTarget,
+              since: now,
+              active: false,
+              startDistance: geometry.distance,
+              startAngle: geometry.angleDeg,
+              baseScale: base.pose.scale,
+              baseRotation: base.pose.rotation,
+            };
+            twoHandObjectSessionRef.current = objectSession;
+          }
+        } else if (!objectSession.active && now - objectSession.since >= 240 && geometry.distance >= 0.08) {
+          objectSession.active = true;
+          showSpatialFeedback('Hai tay · scale / rotate vật thể');
+        } else if (objectSession.active) {
+          const scale = scaleFromDistance(
+            objectSession.baseScale,
+            objectSession.startDistance,
+            geometry.distance,
+            0.72,
+            1.65,
+          );
+          const rotation = rotationFromAngles(
+            objectSession.baseRotation,
+            objectSession.startAngle,
+            geometry.angleDeg,
+            -45,
+            45,
+          );
+          spatialObjectRuntimeRef.current.applyTransform(objectSession.id, { scale, rotation });
+          setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+        }
+      } else {
+        twoHandObjectSessionRef.current = null;
       }
 
       const gestureScoreNow = Number(snapshot?.gestureScore || 0);
@@ -884,10 +1022,11 @@ export default function AppV2() {
     const focusId = spatialFrame.focus?.id;
     if (!focusId) return;
 
-    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle]'))
+    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle], [data-spatial-object]'))
       .find((element) =>
         element.dataset.spatialAction === focusId ||
-        element.dataset.spatialGrabHandle === focusId
+        element.dataset.spatialGrabHandle === focusId ||
+        element.dataset.spatialObject === focusId
       );
     target?.setAttribute('data-spatial-focused', 'true');
     return () => target?.removeAttribute('data-spatial-focused');
@@ -901,7 +1040,8 @@ export default function AppV2() {
     const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle]'))
       .find((element) =>
         element.dataset.spatialAction === spatialTouch.targetId ||
-        element.dataset.spatialGrabHandle === spatialTouch.targetId
+        element.dataset.spatialGrabHandle === spatialTouch.targetId ||
+        element.dataset.spatialObject === spatialTouch.targetId
       );
     target?.setAttribute('data-spatial-contacted', 'true');
     return () => target?.removeAttribute('data-spatial-contacted');
@@ -1201,6 +1341,9 @@ export default function AppV2() {
             presenceMode={presenceContinuity.mode}
             presenceCue={presenceContinuity.cue}
             presenceContinuity={presenceContinuity.continuity}
+            spatialCoreStyle={spatialObjectStyle(spatialObjects.find((object) => object.id === 'mira.core') || null)}
+            spatialCoreDepth={spatialObjects.find((object) => object.id === 'mira.core')?.pose.position.z || 0}
+            spatialCoreActive={visionOn}
           />
         </div>
 
