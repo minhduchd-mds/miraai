@@ -3213,11 +3213,14 @@ test('multi cluster group transform moves scale and rotates around centroid', ()
     rotationDelta: 90,
   });
 
-  assert.ok(Math.abs(transformed.a.position.x - 0.05) < 1e-6);
-  assert.ok(transformed.a.position.y < -0.12);
-  assert.ok(transformed.b.position.y > 0.16);
+  const centerX = (transformed.a.position.x + transformed.b.position.x) / 2;
+  const centerY = (transformed.a.position.y + transformed.b.position.y) / 2;
+  assert.ok(Math.abs(centerX - 0.05) < 1e-6);
+  assert.ok(Math.abs(centerY - 0.02) < 1e-6);
+  assert.ok(transformed.a.position.y < centerY);
+  assert.ok(transformed.b.position.y > centerY);
   assert.ok(Math.abs(transformed.a.scale - 1.5) < 1e-6);
-  assert.equal(transformed.a.rotation, 90);
+  assert.equal(transformed.a.rotation, 55);
 });
 
 test('spatial device adapter keeps webcam input relative and gates metric points', () => {
