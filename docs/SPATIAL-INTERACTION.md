@@ -281,3 +281,44 @@ When a child snaps to a stack anchor it becomes attached through the normal worl
 Home anchors can now declare `acceptsObjectId`. This prevents Core and Node from competing for each other's home positions while keeping shared surfaces and stack anchors available.
 
 Collision, velocity, stack and attachment state remain session-only. Radius and mass are interaction tuning values rather than physical measurements.
+
+
+## Spatial v9: cluster manipulation and joints
+
+The spatial world now exposes cluster hierarchy explicitly:
+
+- `clusterRootObjectId(objectId)` resolves the root;
+- `clusterObjectIds(rootId)` returns recursive members;
+- attachment local poses can be updated without breaking the parent link.
+
+### Cluster manipulation
+
+A one-hand grab keeps the existing v8 behavior:
+
+- grabbing a free/root object moves the root while attached descendants follow;
+- grabbing an attached child detaches only that child;
+- cancel restores the previous attachment and joint.
+
+A two-hand transform on a fixed cluster member targets the cluster root, so scale and rotation propagate through the world hierarchy.
+
+### Joint constraints
+
+`SpatialJointRuntime` supports three session-only joint types:
+
+- `fixed` — rigid child attachment;
+- `hinge` — bounded angular motion;
+- `slider` — bounded motion on one configured axis.
+
+Production mapping:
+
+- `stack.<id>` creates a fixed joint;
+- `object.<id>` creates a hinge joint;
+- `slide.<id>` creates an x-axis slider joint.
+
+Two-hand input controls the active joint without detaching the child. Hinge input follows two-hand angle; slider input follows two-hand center movement. Bounds and stiffness are applied in local attachment space.
+
+### Cluster-aware collision
+
+Every collision body now carries a `clusterId`. Members of the same cluster do not collide with each other, preventing attached children from pushing their own parent. Different clusters continue to use v8 impulse and stack behavior.
+
+Joint, cluster and attachment state remain ephemeral and are never written to long-term memory.
