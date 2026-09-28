@@ -50,7 +50,7 @@ import {
   worldModelPrompt,
 } from '../core/vision/world-model';
 import { EMPTY_REAL_PRESENCE_POSE } from '../core/vision/real-presence';
-import { SpatialObjectRuntime, type SpatialObjectState } from '../core/vision/spatial-object';
+import { SpatialObjectRuntime, type SpatialObjectPose, type SpatialObjectState } from '../core/vision/spatial-object';
 import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
@@ -201,8 +201,7 @@ function spatialObjectAvailable(id: string): boolean {
       .find((element) => element.dataset.spatialObject === id && element.offsetParent !== null));
 }
 
-function spatialObjectStyle(object: SpatialObjectState | null): CSSProperties {
-  const pose = object?.pose;
+function spatialPoseStyle(pose: SpatialObjectPose | null | undefined): CSSProperties {
   return {
     '--spatial-object-x': `${(pose?.position.x || 0) * 100}vw`,
     '--spatial-object-y': `${(pose?.position.y || 0) * 100}vh`,
@@ -210,6 +209,10 @@ function spatialObjectStyle(object: SpatialObjectState | null): CSSProperties {
     '--spatial-object-scale': String(pose?.scale || 1),
     '--spatial-object-rotation': `${pose?.rotation || 0}deg`,
   } as CSSProperties;
+}
+
+function spatialObjectStyle(object: SpatialObjectState | null): CSSProperties {
+  return spatialPoseStyle(object?.pose);
 }
 
 function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorldAnchor[] {
@@ -1522,6 +1525,10 @@ export default function AppV2() {
             presenceCue={presenceContinuity.cue}
             presenceContinuity={presenceContinuity.continuity}
             spatialCoreStyle={spatialObjectStyle(spatialObjects.find((object) => object.id === 'mira.core') || null)}
+            spatialCorePreviewStyle={placementPreview?.objectId === 'mira.core'
+              ? spatialPoseStyle(placementPreview.targetPose)
+              : undefined}
+            spatialCorePreviewVisible={placementPreview?.objectId === 'mira.core'}
             spatialCoreDepth={spatialObjects.find((object) => object.id === 'mira.core')?.pose.position.z || 0}
             spatialCoreActive={visionOn}
           />
