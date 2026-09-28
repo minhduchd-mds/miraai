@@ -50,6 +50,7 @@ const spatialAnchor = await importTypeScript('src/core/vision/spatial-anchor.ts'
 const spatialObject = await importTypeScript('src/core/vision/spatial-object.ts');
 const spatialWorld = await importTypeScript('src/core/vision/spatial-world.ts');
 const spatialPhysics = await importTypeScript('src/core/vision/spatial-physics.ts');
+const spatialCollision = await importTypeScript('src/core/vision/spatial-collision.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -2654,4 +2655,178 @@ test('spatial physics reset clears inertia state', () => {
   assert.equal(physics.isActive('mira.core'), true);
   physics.reset();
   assert.equal(physics.snapshot('mira.core').mode, 'idle');
+});
+
+
+test('multi object collision separates overlapping spatial bodies', () => {
+  const result = spatialCollision.resolveSpatialObjectCollisions([{
+    id: 'core',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.06,
+    mass: 1.4,
+  }, {
+    id: 'node',
+    pose: { position: { x: 0.07, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.05,
+    mass: 0.6,
+  }]);
+
+  assert.equal(result.contacts.length, 1);
+  const distance = Math.abs(result.poses.node.position.x - result.poses.core.position.x);
+  assert.ok(distance > 0.07);
+  assert.ok(result.poses.core.position.x < 0);
+  assert.ok(result.poses.node.position.x > 0.07);
+});
+
+test('collision impulse transfers motion from heavier core to lighter node', () => {
+  const result = spatialCollision.resolveSpatialObjectCollisions([{
+    id: 'core',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.06,
+    mass: 1.5,
+  }, {
+    id: 'node',
+    pose: { position: { x: 0.095, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.05,
+    mass: 0.6,
+  }], {
+    core: { x: 1.1, y: 0, z: 0 },
+    node: { x: 0, y: 0, z: 0 },
+  });
+
+  assert.ok(result.contacts[0].impulse > 0);
+  assert.ok(result.velocityDeltas.core.x < 0);
+  assert.ok(result.velocityDeltas.node.x > 0);
+  assert.ok(Math.abs(result.velocityDeltas.node.x) > Math.abs(result.velocityDeltas.core.x));
+});
+
+test('static attached object stays fixed while free object is separated', () => {
+  const result = spatialCollision.resolveSpatialObjectCollisions([{
+    id: 'anchored',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.06,
+    mass: 1,
+    dynamic: false,
+  }, {
+    id: 'free',
+    pose: { position: { x: 0.08, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.05,
+    mass: 0.6,
+    dynamic: true,
+  }]);
+
+  assert.equal(result.poses.anchored.position.x, 0);
+  assert.ok(result.poses.free.position.x > 0.08);
+});
+
+test('spatial objects preserve collision radius and mass definitions', () => {
+  const runtime = new spatialObject.SpatialObjectRuntime([{
+    id: 'core',
+    label: 'Core',
+    collisionRadius: 0.07,
+    mass: 1.8,
+  }, {
+    id: 'node',
+    label: 'Node',
+    collisionRadius: 0.035,
+    mass: 0.55,
+  }]);
+  assert.equal(runtime.get('core')?.collisionRadius, 0.07);
+  assert.equal(runtime.get('core')?.mass, 1.8);
+  assert.equal(runtime.get('node')?.collisionRadius, 0.035);
+  assert.equal(runtime.get('node')?.mass, 0.55);
+});
+
+test('anchor eligibility prevents objects from snapping to another object home', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'core.home',
+    label: 'Core home',
+    kind: 'dock',
+    acceptsObjectId: 'core',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.2,
+    priority: 1,
+  }, {
+    id: 'node.home',
+    label: 'Node home',
+    kind: 'dock',
+    acceptsObjectId: 'node',
+    pose: { position: { x: 0.08, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.2,
+    priority: 1,
+  }]);
+
+  const snap = world.snapObject('node', {
+    position: { x: 0.01, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  }, 1000);
+  assert.equal(snap?.anchorId, 'node.home');
+});
+
+test('stack anchor makes child follow the parent object as a cluster', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'workspace.root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.025,
+  }, {
+    id: 'object.core',
+    label: 'Core',
+    kind: 'object',
+    parentId: 'workspace.root',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0.1, y: 0.1, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+  }, {
+    id: 'stack.core',
+    label: 'Stack on Core',
+    kind: 'dock',
+    parentId: 'object.core',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0, y: -0.08, z: 0.04 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+    priority: 0.6,
+  }]);
+
+  const snap = world.snapObject('node', {
+    position: { x: 0.1, y: 0.03, z: 0.04 },
+    scale: 0.8,
+    rotation: 0,
+  }, 1000);
+  assert.equal(snap?.anchorId, 'stack.core');
+
+  world.setAnchors([{
+    id: 'workspace.root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.025,
+  }, {
+    id: 'object.core',
+    label: 'Core',
+    kind: 'object',
+    parentId: 'workspace.root',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0.25, y: -0.05, z: 0.1 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+  }, {
+    id: 'stack.core',
+    label: 'Stack on Core',
+    kind: 'dock',
+    parentId: 'object.core',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0, y: -0.08, z: 0.04 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+    priority: 0.6,
+  }]);
+
+  const followed = world.resolveObjectPose('node');
+  assert.ok(followed);
+  assert.ok(Math.abs(followed.position.x - 0.25) < 1e-6);
+  assert.ok(Math.abs(followed.position.y + 0.13) < 1e-6);
+  assert.ok(Math.abs(followed.position.z - 0.14) < 1e-6);
 });
