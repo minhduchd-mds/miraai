@@ -51,6 +51,7 @@ const spatialObject = await importTypeScript('src/core/vision/spatial-object.ts'
 const spatialWorld = await importTypeScript('src/core/vision/spatial-world.ts');
 const spatialPhysics = await importTypeScript('src/core/vision/spatial-physics.ts');
 const spatialCollision = await importTypeScript('src/core/vision/spatial-collision.ts');
+const spatialJoint = await importTypeScript('src/core/vision/spatial-joint.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -2949,4 +2950,174 @@ test('collision impulse can activate inertia on a resting object', () => {
   const state = physics.addVelocity('mira.node', { x: 0.8, y: 0, z: 0 }, 1000);
   assert.equal(state.mode, 'inertia');
   assert.ok(state.speed > 0.7);
+});
+
+
+test('spatial world reports cluster root and recursive members', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'workspace.root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.025,
+  }, {
+    id: 'object.core',
+    label: 'Core',
+    kind: 'object',
+    parentId: 'workspace.root',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0.1, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+  }, {
+    id: 'object.node',
+    label: 'Node',
+    kind: 'object',
+    parentId: 'object.core',
+    ownerObjectId: 'node',
+    pose: { position: { x: 0.02, y: -0.08, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.1,
+  }]);
+
+  world.attachObject('node', 'object.core', {
+    position: { x: 0.12, y: -0.08, z: 0 },
+    scale: 0.8,
+    rotation: 0,
+  }, 1000);
+  world.attachObject('leaf', 'object.node', {
+    position: { x: 0.14, y: -0.16, z: 0 },
+    scale: 0.6,
+    rotation: 0,
+  }, 1100);
+
+  assert.equal(world.clusterRootObjectId('leaf'), 'core');
+  assert.deepEqual(world.clusterObjectIds('core'), ['core', 'node', 'leaf']);
+});
+
+test('spatial world can update attachment local pose without detaching cluster', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'object.core',
+    label: 'Core',
+    kind: 'object',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0.2, y: 0.1, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+  }]);
+  world.attachObject('node', 'object.core', {
+    position: { x: 0.2, y: 0, z: 0 },
+    scale: 0.8,
+    rotation: 0,
+  }, 1000);
+
+  const before = world.attachment('node');
+  assert.ok(before);
+  world.updateAttachmentLocalPose('node', {
+    ...before.localPose,
+    position: { ...before.localPose.position, x: 0.08 },
+  });
+  const after = world.resolveObjectPose('node');
+  assert.ok(after);
+  assert.ok(Math.abs(after.position.x - 0.28) < 1e-6);
+});
+
+test('fixed spatial joint preserves bound local pose', () => {
+  const joints = new spatialJoint.SpatialJointRuntime();
+  joints.setJoint({
+    id: 'joint.node',
+    kind: 'fixed',
+    parentObjectId: 'core',
+    childObjectId: 'node',
+  });
+  const base = {
+    position: { x: 0, y: -0.1, z: 0.02 },
+    scale: 0.8,
+    rotation: 7,
+  };
+  const result = joints.constrainLocalPose('node', base, 99);
+  assert.ok(result);
+  assert.equal(result.kind, 'fixed');
+  assert.deepEqual(result.localPose, base);
+});
+
+test('hinge joint clamps angle and applies bounded local rotation', () => {
+  const joints = new spatialJoint.SpatialJointRuntime();
+  joints.setJoint({
+    id: 'joint.node',
+    kind: 'hinge',
+    parentObjectId: 'core',
+    childObjectId: 'node',
+    axis: 'z',
+    min: -42,
+    max: 42,
+    stiffness: 0.9,
+  });
+  const result = joints.constrainLocalPose('node', {
+    position: { x: 0, y: -0.1, z: 0 },
+    scale: 1,
+    rotation: 5,
+  }, 90);
+
+  assert.ok(result);
+  assert.equal(result.value, 42);
+  assert.ok(Math.abs(result.localPose.rotation - 42.8) < 1e-6);
+});
+
+test('slider joint clamps travel to one configured axis', () => {
+  const joints = new spatialJoint.SpatialJointRuntime();
+  joints.setJoint({
+    id: 'joint.node',
+    kind: 'slider',
+    parentObjectId: 'core',
+    childObjectId: 'node',
+    axis: 'x',
+    min: -0.11,
+    max: 0.11,
+    stiffness: 0.9,
+  });
+  const result = joints.constrainLocalPose('node', {
+    position: { x: 0.02, y: -0.08, z: 0.01 },
+    scale: 1,
+    rotation: 0,
+  }, 0.5);
+
+  assert.ok(result);
+  assert.equal(result.value, 0.11);
+  assert.ok(Math.abs(result.localPose.position.x - 0.119) < 1e-6);
+  assert.equal(result.localPose.position.y, -0.08);
+  assert.equal(result.localPose.position.z, 0.01);
+});
+
+test('detaching a cluster child can remove its joint independently', () => {
+  const joints = new spatialJoint.SpatialJointRuntime();
+  joints.setJoint({
+    id: 'joint.node',
+    kind: 'hinge',
+    parentObjectId: 'core',
+    childObjectId: 'node',
+  });
+  assert.equal(joints.findForChild('node')?.kind, 'hinge');
+  const removed = joints.removeForChild('node');
+  assert.equal(removed?.childObjectId, 'node');
+  assert.equal(joints.findForChild('node'), null);
+});
+
+test('collision solver skips contacts between members of the same cluster', () => {
+  const result = spatialCollision.resolveSpatialObjectCollisions([{
+    id: 'core',
+    clusterId: 'core',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.06,
+    mass: 1.4,
+  }, {
+    id: 'node',
+    clusterId: 'core',
+    pose: { position: { x: 0.04, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.04,
+    mass: 0.6,
+  }]);
+
+  assert.equal(result.contacts.length, 0);
+  assert.equal(result.poses.core.position.x, 0);
+  assert.equal(result.poses.node.position.x, 0.04);
 });
