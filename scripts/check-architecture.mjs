@@ -52,6 +52,7 @@ const mustExist = [
   'src/core/vision/spatial-collision.ts',
   'src/core/vision/spatial-joint.ts',
   'src/core/vision/spatial-device-adapter.ts',
+  'src/core/vision/spatial-webxr-session.ts',
   'src/core/vision/spatial-group.ts',
   'src/core/vision/spatial-layout.ts',
   'src/intelligence/vision/deictic-vision.ts',
@@ -121,7 +122,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'spatialSessionLayoutRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'spatialSessionLayoutRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'SpatialWebXRSessionRuntime', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -374,6 +375,9 @@ for (const token of ['faceBounds', 'v2-face-lock', 'FACE LOCK']) {
 }
 const v2Css = readFileSync('src/ui/v2.css', 'utf8');
 const visionCss = readFileSync('src/ui/vision-v2.css', 'utf8');
+for (const token of ['.v2-actions button.xr-active', '.v2-xr-glyph']) {
+  if (!v2Css.includes(token)) failures.push(`WebXR control CSS missing: ${token}`);
+}
 if (v2Css.includes('.v2-camera-frame') || v2Css.includes('.v2-air-layer')) failures.push('vision/air CSS leaked into initial v2.css');
 if (visionCss.includes('.v2-air-layer') || visionCss.includes('.v2-hand-skeleton') || visionCss.includes('.v2-gesture-overlay')) failures.push('dead Air/hand overlay CSS must not ship');
 for (const token of ['Camera recognition mode', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
@@ -488,9 +492,14 @@ for (const token of ['beginSpatialGroupTransform', 'applySpatialGroupTransform',
 if (/localStorage|sessionStorage|indexedDB/.test(spatialGroup)) failures.push('spatial group transform state must stay session-only');
 
 const spatialDeviceAdapter = readFileSync('src/core/vision/spatial-device-adapter.ts', 'utf8');
-for (const token of ['SpatialDeviceAdapterRuntime', "'webcam-relative'", "'webxr-metric'", 'detectWebXR', 'webcamPoint', 'metricPoint', 'immersive-ar']) {
+for (const token of ['SpatialDeviceAdapterRuntime', "'webcam-relative'", "'webxr-metric'", 'detectWebXR', 'useWebXRSessionFeatures', 'webcamPoint', 'metricPoint', 'immersive-ar']) {
   if (!spatialDeviceAdapter.includes(token)) failures.push(`spatial device adapter missing: ${token}`);
 }
+const spatialWebXR = readFileSync('src/core/vision/spatial-webxr-session.ts', 'utf8');
+for (const token of ['SpatialWebXRSessionRuntime', "requestSession('immersive-ar'", "'hand-tracking'", "'hit-test'", "'anchors'", "'depth-sensing'", 'getJointPose', 'requestHitTestSource', 'PINCH_DISTANCE_M = 0.028', 'never', 'auto-opens immersive XR']) {
+  if (!spatialWebXR.includes(token)) failures.push(`real WebXR session runtime missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialWebXR)) failures.push('WebXR live sensor state must remain session-only');
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
 for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing', 'placementPreview', 'v2-spatial-placement']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
