@@ -145,3 +145,34 @@ The object runtime is bounded and ephemeral:
 - rotation is normalized;
 - cancel restores the exact pre-grab pose;
 - object pose is not written to long-term personal memory.
+
+
+## Spatial v5: world anchors and snapping
+
+Mira now has a session-only spatial world graph above the object manipulation runtime.
+
+```text
+workspace.root
+├─ dock.home
+├─ dock.center
+├─ surface.camera
+│  └─ dock.camera
+└─ surface.result
+   └─ dock.result
+```
+
+When a spatial object is grabbed it detaches from its current parent. On release, `SpatialWorldRuntime` searches eligible anchors within their snap radius. A successful snap creates an `SpatialObjectAttachment` and resolves the object's world pose through the anchor hierarchy.
+
+Because dock anchors are children of their surface anchors, an attached object follows the parent surface when that surface moves. The hierarchy is cycle-guarded and capped at eight parent levels.
+
+Current behavior for `mira.core`:
+
+- release near its original location → snap to `dock.home`;
+- release near the viewport center → snap to `dock.center`;
+- release near Camera → snap to `dock.camera`;
+- release near Result Surface → snap to `dock.result`;
+- release outside snap radii → remain free;
+- grabbing an attached object detaches it first;
+- cancel restores the pre-grab pose and previous attachment.
+
+The current coordinates remain normalized interaction-space values. The world graph is sensor-agnostic and is designed so metric WebXR/device anchors can replace the current DOM/camera adapter later.
