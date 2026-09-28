@@ -47,6 +47,7 @@ const mustExist = [
   'src/core/vision/spatial-ray.ts',
   'src/core/vision/spatial-anchor.ts',
   'src/core/vision/spatial-object.ts',
+  'src/core/vision/spatial-world.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
@@ -294,6 +295,7 @@ if (localMemoryStore.includes('ShortTermWorldState') || localMemoryStore.include
 if (localMemoryStore.includes('PresenceContinuityState') || localMemoryStore.includes('presenceContinuity')) failures.push('presence continuity must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialDirectTouchState') || localMemoryStore.includes('spatialTouch')) failures.push('direct spatial touch state must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialObjectState') || localMemoryStore.includes('spatialObjects')) failures.push('spatial object must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('SpatialWorldAnchor') || localMemoryStore.includes('SpatialObjectAttachment') || localMemoryStore.includes('spatialWorld')) failures.push('spatial world graph must remain ephemeral, not long-term memory');
 const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
 for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
   if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
@@ -442,6 +444,11 @@ for (const token of ['SpatialObjectRuntime', 'SpatialObjectPose', 'beginGrab', '
   if (!spatialObject.includes(token)) failures.push(`spatial object runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialObject)) failures.push('spatial object pose must remain session-only');
+const spatialWorld = readFileSync('src/core/vision/spatial-world.ts', 'utf8');
+for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'parentId', 'snapObject', 'attachObject', 'resolveObjectPose', 'MAX_PARENT_DEPTH = 8', 'sensor-agnostic', 'WebXR/device world poses']) {
+  if (!spatialWorld.includes(token)) failures.push(`spatial world runtime missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialWorld)) failures.push('spatial world anchors must remain session-only');
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
 for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
