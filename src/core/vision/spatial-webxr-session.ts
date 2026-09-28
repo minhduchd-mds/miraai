@@ -199,7 +199,7 @@ export class SpatialWebXRSessionRuntime {
       const options: any = {
         optionalFeatures,
         depthSensing: {
-          usagePreference: ['cpu-optimized', 'gpu-optimized'],
+          usagePreference: ['cpu-optimized'],
           dataFormatPreference: ['float32', 'luminance-alpha'],
         },
       };
