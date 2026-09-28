@@ -33,6 +33,11 @@ interface Props {
   spatialCorePreviewVisible?: boolean;
   spatialCorePhysicsMode?: 'idle' | 'grabbed' | 'inertia';
   spatialCoreDepth?: number;
+  spatialNodeStyle?: CSSProperties;
+  spatialNodePreviewStyle?: CSSProperties;
+  spatialNodePreviewVisible?: boolean;
+  spatialNodePhysicsMode?: 'idle' | 'grabbed' | 'inertia';
+  spatialNodeDepth?: number;
   spatialCoreActive?: boolean;
 }
 
@@ -83,6 +88,11 @@ export default function PhotorealMira({
   spatialCorePreviewVisible = false,
   spatialCorePhysicsMode = 'idle',
   spatialCoreDepth = 0,
+  spatialNodeStyle,
+  spatialNodePreviewStyle,
+  spatialNodePreviewVisible = false,
+  spatialNodePhysicsMode = 'idle',
+  spatialNodeDepth = 0,
   spatialCoreActive = false,
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
@@ -206,6 +216,22 @@ export default function PhotorealMira({
         data-spatial-label="Mira Core"
         data-spatial-depth={spatialCoreDepth}
         data-spatial-depth-radius="0.12"
+        aria-hidden="true"
+      ><i /></span>
+      {spatialNodePreviewVisible && (
+        <span
+          className="pm-state-orb pm-state-node pm-state-orb-preview"
+          style={spatialNodePreviewStyle}
+          aria-hidden="true"
+        ><i /></span>
+      )}
+      <span
+        className={`pm-state-orb pm-state-node physics-${spatialNodePhysicsMode}`}
+        style={spatialNodeStyle}
+        data-spatial-object="mira.node"
+        data-spatial-label="Mira Node"
+        data-spatial-depth={spatialNodeDepth}
+        data-spatial-depth-radius="0.09"
         aria-hidden="true"
       ><i /></span>
       <span className="pm-vignette" aria-hidden="true" />
