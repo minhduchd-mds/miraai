@@ -50,6 +50,8 @@ export class VisionPostprocessWorkerClient {
     pose: PosePoint[] | null;
     leftHand: HandPoint[] | null;
     rightHand: HandPoint[] | null;
+    leftHandWorld?: HandPoint[] | null;
+    rightHandWorld?: HandPoint[] | null;
   }): boolean {
     if (!this.worker || this.pending) return false;
     this.seq += 1;
@@ -59,6 +61,8 @@ export class VisionPostprocessWorkerClient {
       pose: input.pose,
       leftHand: input.leftHand,
       rightHand: input.rightHand,
+      leftHandWorld: input.leftHandWorld || null,
+      rightHandWorld: input.rightHandWorld || null,
     };
     this.pending = true;
     this.worker.postMessage(payload);
@@ -78,6 +82,7 @@ export class VisionPostprocessWorkerClient {
           hands: this.latestResult.hands.map((hand) => ({
             ...hand,
             landmarks: hand.landmarks.map((point) => ({ ...point })),
+            worldLandmarks: hand.worldLandmarks.map((point) => ({ ...point })),
             gesture: { ...hand.gesture, extensions: { ...hand.gesture.extensions } },
           })),
         }
