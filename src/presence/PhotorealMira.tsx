@@ -29,6 +29,8 @@ interface Props {
   presenceCue?: 'none' | 'return' | 'focus' | 'smile' | 'brow';
   presenceContinuity?: number;
   spatialCoreStyle?: CSSProperties;
+  spatialCorePreviewStyle?: CSSProperties;
+  spatialCorePreviewVisible?: boolean;
   spatialCoreDepth?: number;
   spatialCoreActive?: boolean;
 }
@@ -76,6 +78,8 @@ export default function PhotorealMira({
   presenceCue = 'none',
   presenceContinuity = 0,
   spatialCoreStyle,
+  spatialCorePreviewStyle,
+  spatialCorePreviewVisible = false,
   spatialCoreDepth = 0,
   spatialCoreActive = false,
 }: Props) {
@@ -186,6 +190,13 @@ export default function PhotorealMira({
         {WAVE_BARS.map((index) => <i key={index} />)}
       </span>
 
+      {spatialCorePreviewVisible && (
+        <span
+          className="pm-state-orb pm-state-orb-preview"
+          style={spatialCorePreviewStyle}
+          aria-hidden="true"
+        ><i /></span>
+      )}
       <span
         className="pm-state-orb"
         style={spatialCoreStyle}
