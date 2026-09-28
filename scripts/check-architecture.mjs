@@ -48,6 +48,7 @@ const mustExist = [
   'src/core/vision/spatial-anchor.ts',
   'src/core/vision/spatial-object.ts',
   'src/core/vision/spatial-world.ts',
+  'src/core/vision/spatial-physics.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
@@ -115,7 +116,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -297,6 +298,7 @@ if (localMemoryStore.includes('SpatialDirectTouchState') || localMemoryStore.inc
 if (localMemoryStore.includes('SpatialObjectState') || localMemoryStore.includes('spatialObjects')) failures.push('spatial object must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialWorldAnchor') || localMemoryStore.includes('SpatialObjectAttachment') || localMemoryStore.includes('spatialWorld')) failures.push('spatial world graph must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialPlacementPreview') || localMemoryStore.includes('placementPreview')) failures.push('placement preview must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('SpatialPhysicsState') || localMemoryStore.includes('spatialPhysics')) failures.push('spatial physics must remain ephemeral, not long-term memory');
 const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
 for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
   if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
@@ -450,6 +452,11 @@ for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'SpatialPlacem
   if (!spatialWorld.includes(token)) failures.push(`spatial world runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialWorld)) failures.push('spatial world anchors must remain session-only');
+const spatialPhysics = readFileSync('src/core/vision/spatial-physics.ts', 'utf8');
+for (const token of ['SpatialPhysicsRuntime', 'THROW_SPEED_MIN', 'PLACE_MAGNET_STRENGTH', 'LINEAR_DAMPING', 'BOUNDARY_STIFFNESS', 'RESTITUTION', 'applySpatialSpringConstraint', "'inertia'", 'normalized interaction-space units per second', 'not physical']) {
+  if (!spatialPhysics.includes(token)) failures.push(`spatial physics runtime missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialPhysics)) failures.push('spatial physics state must remain session-only');
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
 for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing', 'placementPreview', 'v2-spatial-placement']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
