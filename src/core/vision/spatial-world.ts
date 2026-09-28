@@ -365,6 +365,19 @@ export class SpatialWorldRuntime {
     };
   }
 
+  wouldCreateAttachmentCycle(objectId: string, anchorId: string): boolean {
+    const anchor = this.anchors.get(anchorId);
+    let parentObjectId = anchor?.ownerObjectId || null;
+    const visited = new Set<string>();
+
+    while (parentObjectId && !visited.has(parentObjectId)) {
+      if (parentObjectId === objectId) return true;
+      visited.add(parentObjectId);
+      parentObjectId = this.parentObjectId(parentObjectId);
+    }
+    return false;
+  }
+
   attachObject(
     objectId: string,
     anchorId: string,
@@ -372,7 +385,7 @@ export class SpatialWorldRuntime {
     now = performance.now(),
   ): SpatialObjectAttachment | null {
     const anchorPose = this.resolveAnchorPose(anchorId);
-    if (!anchorPose) return null;
+    if (!anchorPose || this.wouldCreateAttachmentCycle(objectId, anchorId)) return null;
     const attachment: SpatialObjectAttachment = {
       objectId,
       anchorId,
@@ -482,6 +495,7 @@ export class SpatialWorldRuntime {
       .filter((anchor) =>
         anchor.enabled !== false &&
         anchor.ownerObjectId !== objectId &&
+        !this.wouldCreateAttachmentCycle(objectId, anchor.id) &&
         (!anchor.acceptsObjectId || anchor.acceptsObjectId === objectId)
       )
       .map((anchor) => {
