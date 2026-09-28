@@ -2164,6 +2164,41 @@ export default function AppV2() {
     return () => target?.removeAttribute('data-spatial-contacted');
   }, [spatialTouch.ready, spatialTouch.targetId]);
 
+  useEffect(() => {
+    const previouslyHumanTouched = document.querySelectorAll<HTMLElement>('[data-spatial-human-contact]');
+    previouslyHumanTouched.forEach((element) => {
+      element.removeAttribute('data-spatial-human-contact');
+      element.removeAttribute('data-spatial-pressed');
+      element.style.removeProperty('--spatial-pressure');
+    });
+    if (!humanHandContact.active || !humanHandContact.primaryTargetId) return;
+
+    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle], [data-spatial-object]'))
+      .find((element) =>
+        element.dataset.spatialAction === humanHandContact.primaryTargetId ||
+        element.dataset.spatialGrabHandle === humanHandContact.primaryTargetId ||
+        element.dataset.spatialObject === humanHandContact.primaryTargetId
+      );
+    if (!target) return;
+
+    target.setAttribute('data-spatial-human-contact', humanHandContact.phase);
+    target.style.setProperty('--spatial-pressure', String(humanHandContact.pressure));
+    if (humanHandContact.phase === 'press' || humanHandContact.phase === 'grab') {
+      target.setAttribute('data-spatial-pressed', 'true');
+    }
+
+    return () => {
+      target.removeAttribute('data-spatial-human-contact');
+      target.removeAttribute('data-spatial-pressed');
+      target.style.removeProperty('--spatial-pressure');
+    };
+  }, [
+    humanHandContact.active,
+    humanHandContact.phase,
+    humanHandContact.pressure,
+    humanHandContact.primaryTargetId,
+  ]);
+
   useEffect(() => () => {
     const modules = visionModulesRef.current;
     modules?.stopVision();
@@ -2400,8 +2435,19 @@ export default function AppV2() {
           style={spatialWindowStyle(spatialWindows.camera)}
           data-spatial-window="camera"
         >
-          <div className="v2-camera-frame">
+          <div
+            className={`v2-camera-frame${handSeen ? ' hand-depth-active' : ''}`}
+            data-hand-intent={humanHandIntent.intent}
+            data-hand-contact={humanHandContact.phase}
+            style={{
+              '--hand-depth-x': `${Math.max(0, Math.min(1, handKinematics.palmCenter.x)) * 100}%`,
+              '--hand-depth-y': `${Math.max(0, Math.min(1, handKinematics.palmCenter.y)) * 100}%`,
+              '--hand-depth-z': String(Math.max(0, Math.min(1, 0.5 - handKinematics.index.tip.z * 2.5))),
+              '--hand-pressure': String(humanHandContact.pressure),
+            } as CSSProperties}
+          >
             <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
+            {handSeen && <span className="v2-hand-depth-field" aria-hidden="true" />}
             <div className="v2-camera-status face-only" role="status" aria-live="polite">
               <span className={faceSeen ? 'detected' : 'scanning'}>
                 {faceSeen ? 'Đã nhận diện khuôn mặt' : 'Đang quét khuôn mặt'}
@@ -2412,6 +2458,15 @@ export default function AppV2() {
                 points={faceLandmarks}
                 active={faceSeen}
                 muscles={faceTelemetry.muscles}
+              />
+            )}
+            {handSeen && (
+              <HandSkeletonOverlay
+                points={handLandmarks}
+                active={handSeen}
+                kinematics={handKinematics}
+                contact={humanHandContact}
+                intent={humanHandIntent}
               />
             )}
             {faceSeen && (
