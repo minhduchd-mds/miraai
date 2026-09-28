@@ -1900,6 +1900,22 @@ test('spatial UI can prioritize a ray hit for an explicit depth-aware target', (
     z: 0,
     depthRadius: 0.02,
   }];
+  const ray = {
+    origin: { x: 0.5, y: 0.5, z: -0.2 },
+    direction: { x: 0, y: 0, z: 1 },
+    confidence: 0.9,
+    source: 'hand',
+  };
+  const rayHit = spatialRay.hitTestSpatialRay(ray, [{
+    id: 'depth.window',
+    label: 'Depth window',
+    left: 0.42,
+    top: 0.42,
+    right: 0.58,
+    bottom: 0.58,
+    z: 0,
+    depthRadius: 0.02,
+  }]);
   const input = {
     face: spatialFace({ present: false, confidence: 0 }),
     hand: spatialHand({
@@ -1908,13 +1924,9 @@ test('spatial UI can prioritize a ray hit for an explicit depth-aware target', (
       x: 0.2,
       y: 0.2,
       direct: true,
-      ray: {
-        origin: { x: 0.5, y: 0.5, z: -0.2 },
-        direction: { x: 0, y: 0, z: 1 },
-        confidence: 0.9,
-        source: 'hand',
-      },
+      ray,
     }),
+    rayHit,
     gestureIntent: spatialIntent('none', 1000),
     headGesture: 'none',
     targets,
