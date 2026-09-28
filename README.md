@@ -13,6 +13,7 @@ Mira là một **AI companion ưu tiên hội thoại bằng giọng nói**, có
 - Host integration: Soi hoặc app khác có thể inject context/action mà không fork Mira core.
 - Presence: 2D tải ngay; Three/VRM chỉ lazy-load khi cần.
 - Labs: camera, gesture, Gaussian Splat, simulator, BYOK/dev diagnostics được tách khỏi UI production.
+- Spatial Interaction: gaze/head focus + pinch commit, direct hand pointing, pinch-drag cửa sổ và two-hand scale/rotate.
 
 ## Kiến trúc
 
@@ -130,6 +131,7 @@ Xem [`docs/HOST-INTEGRATION.md`](docs/HOST-INTEGRATION.md).
 - [`DESIGN.md`](DESIGN.md) — product/visual direction.
 - [`docs/MIRA-V2-ARCHITECTURE.md`](docs/MIRA-V2-ARCHITECTURE.md) — kiến trúc hiện tại.
 - [`docs/MIRA-WORLD-MODEL-V14.md`](docs/MIRA-WORLD-MODEL-V14.md) — object permanence / world state ngắn hạn.
+- [`docs/SPATIAL-INTERACTION.md`](docs/SPATIAL-INTERACTION.md) — gaze/hand control, window manipulation và đường nâng lên 3D touch.
 - [`docs/MIRA-SKILLS.md`](docs/MIRA-SKILLS.md) — skill contract + eval pattern.
 - [`docs/BRAIN-GATEWAY.md`](docs/BRAIN-GATEWAY.md) — provider gateway.
 - [`docs/HOST-INTEGRATION.md`](docs/HOST-INTEGRATION.md) — embed/host bridge.
