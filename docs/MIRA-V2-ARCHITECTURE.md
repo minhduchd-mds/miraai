@@ -206,6 +206,10 @@ The camera monitor and Result Surface are movable spatial windows. Hand landmark
 
 See `docs/SPATIAL-INTERACTION.md`.
 
+### Spatial v3 direct contact
+
+`SpatialDirectTouchTracker` adds conservative fingertip collision over `SpatialAnchorVolume` targets. Contact requires x/y/z overlap, hand confidence, and a 90 ms stable dwell. Contact changes focus and visual feedback only; pinch is still required to commit an action or hold a window. The state remains session-only and is guarded against long-term persistence.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
