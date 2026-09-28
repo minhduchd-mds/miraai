@@ -15,7 +15,7 @@ export interface TrackedHand {
   x: number;
   y: number;
   pinching: boolean;
-  landmarks: Array<{ x: number; y: number }>;
+  landmarks: Array<{ x: number; y: number; z?: number }>;
 }
 
 export interface HandData {
@@ -26,7 +26,7 @@ export interface HandData {
   y: number;
   wave: boolean;
   score: number;
-  landmarks: Array<{ x: number; y: number }>;
+  landmarks: Array<{ x: number; y: number; z?: number }>;
   hands: TrackedHand[];
 }
 
@@ -104,9 +104,10 @@ function readFrame(): void {
   const hands: TrackedHand[] = allLandmarks
     .map((lm: any[], index: number) => {
       if (!lm?.length) return null;
-      const landmarks = lm.slice(0, 21).map((point: { x: number; y: number }) => ({
+      const landmarks = lm.slice(0, 21).map((point: { x: number; y: number; z?: number }) => ({
         x: Number(point.x),
         y: Number(point.y),
+        z: Number(point.z || 0),
       }));
       const palm = lm[9] || lm[0];
       const gesture = res?.gestures?.[index]?.[0]?.categoryName || 'None';
