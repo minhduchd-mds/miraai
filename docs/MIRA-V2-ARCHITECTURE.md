@@ -202,7 +202,7 @@ two pinched hands ────────────────────�
 
 Indirect mode keeps gaze/head as the focus source and uses pinch only as the commit gesture. A stable Pointing Up gesture switches to direct hand pointing. A nod is a face-only activation fallback; gaze alone never triggers a click.
 
-The camera monitor and Result Surface are movable spatial windows. Hand landmark `z` is preserved through the input pipeline, but production one-hand drag remains x/y-only until a metric-depth/WebXR/device adapter can provide reliable world-space depth.
+The camera monitor and Result Surface are movable spatial windows. Hand landmark `z` is preserved through the input pipeline and a session-only depth anchor can add bounded translate-z after six low-jitter samples; otherwise movement remains x/y-only. A relative index-finger ray can hit targets that explicitly declare a depth plane. Metric world-space depth remains reserved for a future WebXR/device adapter.
 
 See `docs/SPATIAL-INTERACTION.md`.
 
