@@ -1,4 +1,5 @@
 import type { GestureIntentState } from './gesture-intent';
+import { hitTestSpatialRay, type SpatialRay3D, type SpatialRayHit } from './spatial-ray';
 
 export type SpatialPointerSource = 'none' | 'face' | 'hand';
 export type SpatialTargetKind = 'action' | 'window';
@@ -29,6 +30,7 @@ export interface SpatialHandSample {
   z: number;
   pinching: boolean;
   direct: boolean;
+  ray?: SpatialRay3D | null;
 }
 
 export interface SpatialTargetGeometry {
@@ -39,6 +41,8 @@ export interface SpatialTargetGeometry {
   top: number;
   right: number;
   bottom: number;
+  z?: number;
+  depthRadius?: number;
   priority?: number;
 }
 
@@ -70,6 +74,7 @@ export interface SpatialControlEvent {
 export interface SpatialControlFrame {
   pointer: SpatialPoint3D;
   focus: SpatialFocus | null;
+  rayHit: SpatialRayHit | null;
   events: SpatialControlEvent[];
   grabbing: boolean;
   grabTargetId: string;
@@ -94,6 +99,7 @@ export const EMPTY_SPATIAL_POINT: SpatialPoint3D = {
 export const EMPTY_SPATIAL_CONTROL_FRAME: SpatialControlFrame = {
   pointer: { ...EMPTY_SPATIAL_POINT },
   focus: null,
+  rayHit: null,
   events: [],
   grabbing: false,
   grabTargetId: '',
@@ -173,6 +179,22 @@ function targetScore(target: SpatialTargetGeometry, point: SpatialPoint3D): numb
   return (inside ? 2.2 : 1) - distance + Number(target.priority || 0);
 }
 
+function depthAwareTargets(targets: SpatialTargetGeometry[]) {
+  return targets
+    .filter((target) => Number.isFinite(target.z))
+    .map((target) => ({
+      id: target.id,
+      label: target.label,
+      left: target.left,
+      top: target.top,
+      right: target.right,
+      bottom: target.bottom,
+      z: Number(target.z || 0),
+      depthRadius: Number(target.depthRadius || 0),
+      priority: target.priority,
+    }));
+}
+
 function chooseTarget(
   targets: SpatialTargetGeometry[],
   point: SpatialPoint3D,
@@ -239,7 +261,9 @@ export class SpatialUIController {
         source: nextRaw.source,
       };
 
-      const target = chooseTarget(input.targets, this.pointer, this.focus);
+      const target = rayHit
+        ? input.targets.find((item) => item.id === rayHit.targetId) || null
+        : chooseTarget(input.targets, this.pointer, this.focus);
       if (!target) {
         this.focus = null;
       } else if (!this.focus || this.focus.id !== target.id) {
@@ -344,6 +368,7 @@ export class SpatialUIController {
     return {
       pointer: { ...this.pointer },
       focus: this.focus ? { ...this.focus } : null,
+      rayHit: rayHit ? { ...rayHit, point: { ...rayHit.point } } : null,
       events,
       grabbing: Boolean(this.grabTargetId),
       grabTargetId: this.grabTargetId,
@@ -356,6 +381,10 @@ export class SpatialUIController {
     this.grabTargetId = '';
     this.previousHeadGesture = 'none';
     this.lastActivationAt = -Infinity;
-    return { ...EMPTY_SPATIAL_CONTROL_FRAME, pointer: { ...EMPTY_SPATIAL_POINT } };
+    return {
+      ...EMPTY_SPATIAL_CONTROL_FRAME,
+      pointer: { ...EMPTY_SPATIAL_POINT },
+      rayHit: null,
+    };
   }
 }
