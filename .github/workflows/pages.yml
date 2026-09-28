@@ -59,6 +59,9 @@ jobs:
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
 
+      - name: Pages artifact smoke
+        run: npm run check:pages
+
       - name: Publish gh-pages branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
