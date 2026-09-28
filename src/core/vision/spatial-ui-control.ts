@@ -2,7 +2,7 @@ import type { GestureIntentState } from './gesture-intent';
 import type { SpatialRay3D, SpatialRayHit } from './spatial-ray';
 
 export type SpatialPointerSource = 'none' | 'face' | 'hand';
-export type SpatialTargetKind = 'action' | 'window';
+export type SpatialTargetKind = 'action' | 'window' | 'object';
 
 export interface SpatialPoint3D {
   x: number;
@@ -217,6 +217,7 @@ export class SpatialUIController {
   private pointer: SpatialPoint3D = { ...EMPTY_SPATIAL_POINT };
   private focus: SpatialFocus | null = null;
   private grabTargetId = '';
+  private grabTargetKind: SpatialTargetKind | null = null;
   private previousHeadGesture = 'none';
   private lastActivationAt = -Infinity;
 
@@ -282,12 +283,13 @@ export class SpatialUIController {
       events.push({
         type: 'cancel',
         targetId: this.grabTargetId,
-        targetKind: 'window',
+        targetKind: this.grabTargetKind,
         source: 'face',
         point: { ...this.pointer },
         at: now,
       });
       this.grabTargetId = '';
+      this.grabTargetKind = null;
     }
 
     const nodEdge = input.headGesture === 'nod' && this.previousHeadGesture !== 'nod';
@@ -304,8 +306,9 @@ export class SpatialUIController {
     }
 
     if (input.gestureIntent.intent === 'pinch_down' && canCommit && focus) {
-      if (focus.kind === 'window' && input.hand.present) {
+      if ((focus.kind === 'window' || focus.kind === 'object') && input.hand.present) {
         this.grabTargetId = focus.id;
+        this.grabTargetKind = focus.kind;
         events.push({
           type: 'grab_start',
           targetId: focus.id,
@@ -331,7 +334,7 @@ export class SpatialUIController {
       events.push({
         type: 'grab_move',
         targetId: this.grabTargetId,
-        targetKind: 'window',
+        targetKind: this.grabTargetKind,
         source: 'hand',
         point: handPoint.source === 'hand' ? handPoint : { ...this.pointer },
         at: now,
@@ -342,12 +345,13 @@ export class SpatialUIController {
       events.push({
         type: 'grab_end',
         targetId: this.grabTargetId,
-        targetKind: 'window',
+        targetKind: this.grabTargetKind,
         source: 'hand',
         point: handPoint.source === 'hand' ? handPoint : { ...this.pointer },
         at: now,
       });
       this.grabTargetId = '';
+      this.grabTargetKind = null;
     }
 
     this.previousHeadGesture = input.headGesture || 'none';
@@ -366,6 +370,7 @@ export class SpatialUIController {
     this.pointer = { ...EMPTY_SPATIAL_POINT };
     this.focus = null;
     this.grabTargetId = '';
+    this.grabTargetKind = null;
     this.previousHeadGesture = 'none';
     this.lastActivationAt = -Infinity;
     return {
