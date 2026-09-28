@@ -2406,3 +2406,158 @@ test('spatial object setPose accepts resolved world pose while preserving limits
   assert.equal(object?.pose.scale, 1.65);
   assert.equal(object?.pose.rotation, 30);
 });
+
+
+test('spatial placement preview increases magnetic strength near an anchor', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'dock.center',
+    label: 'Center',
+    kind: 'dock',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.2,
+    priority: 0.2,
+  }]);
+
+  const far = world.previewSnapObject('mira.core', {
+    position: { x: 0.18, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  });
+  const near = world.previewSnapObject('mira.core', {
+    position: { x: 0.05, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  });
+
+  assert.ok(far);
+  assert.ok(near);
+  assert.ok(near.strength > far.strength);
+  assert.ok(Math.abs(near.targetPose.position.x) < 1e-6);
+  assert.ok(Math.abs(near.worldPose.position.x) < 0.05);
+});
+
+test('surface constraint projects placement to the nearest point on the plane', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'surface.result',
+    label: 'Result surface',
+    kind: 'surface',
+    pose: { position: { x: 0, y: 0, z: 0.1 }, scale: 1, rotation: 0 },
+    snapRadius: 0.2,
+    constraint: {
+      axis: 'xy',
+      halfExtents: { x: 0.2, y: 0.1, z: 0.04 },
+      offset: 0,
+    },
+  }]);
+
+  const preview = world.previewSnapObject('mira.core', {
+    position: { x: 0.15, y: 0.08, z: 0.18 },
+    scale: 1,
+    rotation: 0,
+  });
+
+  assert.ok(preview);
+  assert.equal(preview.constrained, true);
+  assert.equal(preview.anchorKind, 'surface');
+  assert.ok(Math.abs(preview.targetPose.position.x - 0.15) < 1e-6);
+  assert.ok(Math.abs(preview.targetPose.position.y - 0.08) < 1e-6);
+  assert.ok(Math.abs(preview.targetPose.position.z - 0.1) < 1e-6);
+});
+
+test('surface constraint clamps placement to plane bounds', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'surface.camera',
+    label: 'Camera surface',
+    kind: 'surface',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.3,
+    constraint: {
+      axis: 'xy',
+      halfExtents: { x: 0.12, y: 0.08, z: 0.04 },
+      offset: 0,
+    },
+  }]);
+
+  const snap = world.snapObject('mira.core', {
+    position: { x: 0.2, y: 0.11, z: 0.04 },
+    scale: 1,
+    rotation: 0,
+  }, 1000);
+
+  assert.ok(snap);
+  assert.ok(Math.abs(snap.worldPose.position.x - 0.12) < 1e-6);
+  assert.ok(Math.abs(snap.worldPose.position.y - 0.08) < 1e-6);
+  assert.ok(Math.abs(snap.worldPose.position.z) < 1e-6);
+});
+
+test('object-to-object parenting resolves child pose from parent object anchor', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'workspace.root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.025,
+  }, {
+    id: 'object.parent',
+    label: 'Parent object',
+    kind: 'object',
+    parentId: 'workspace.root',
+    ownerObjectId: 'parent',
+    pose: { position: { x: 0.2, y: -0.1, z: 0.15 }, scale: 1.2, rotation: 10 },
+    snapRadius: 0.18,
+    priority: 0.5,
+  }]);
+
+  const snap = world.snapObject('child', {
+    position: { x: 0.22, y: -0.09, z: 0.15 },
+    scale: 0.9,
+    rotation: 5,
+  }, 1000);
+  assert.equal(snap?.anchorId, 'object.parent');
+
+  world.setAnchors([{
+    id: 'workspace.root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.025,
+  }, {
+    id: 'object.parent',
+    label: 'Parent object',
+    kind: 'object',
+    parentId: 'workspace.root',
+    ownerObjectId: 'parent',
+    pose: { position: { x: 0.35, y: 0.05, z: 0.2 }, scale: 1.2, rotation: 10 },
+    snapRadius: 0.18,
+    priority: 0.5,
+  }]);
+
+  const followed = world.resolveObjectPose('child');
+  assert.ok(followed);
+  assert.ok(Math.abs(followed.position.x - 0.35) < 1e-6);
+  assert.ok(Math.abs(followed.position.y - 0.05) < 1e-6);
+  assert.ok(Math.abs(followed.position.z - 0.2) < 1e-6);
+});
+
+test('object anchor never snaps an object to itself', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'object.mira.core',
+    label: 'Mira Core',
+    kind: 'object',
+    ownerObjectId: 'mira.core',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.2,
+    priority: 1,
+  }]);
+
+  assert.equal(world.previewSnapObject('mira.core', {
+    position: { x: 0.01, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  }), null);
+});
