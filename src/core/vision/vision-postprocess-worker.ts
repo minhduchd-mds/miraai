@@ -18,6 +18,7 @@ scope.onmessage = (event: MessageEvent<VisionWorkerPayload>) => {
     hands.push({
       handedness: 'Left',
       landmarks: payload.leftHand.slice(0, 21),
+      worldLandmarks: Array.isArray(payload.leftHandWorld) ? payload.leftHandWorld.slice(0, 21) : [],
       gesture: inferLiteGesture(payload.leftHand),
     });
   }
@@ -25,6 +26,7 @@ scope.onmessage = (event: MessageEvent<VisionWorkerPayload>) => {
     hands.push({
       handedness: 'Right',
       landmarks: payload.rightHand.slice(0, 21),
+      worldLandmarks: Array.isArray(payload.rightHandWorld) ? payload.rightHandWorld.slice(0, 21) : [],
       gesture: inferLiteGesture(payload.rightHand),
     });
   }
