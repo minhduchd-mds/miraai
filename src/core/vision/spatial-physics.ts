@@ -272,6 +272,41 @@ export class SpatialPhysicsRuntime {
     };
   }
 
+  velocity(objectId: string): SpatialVelocity3 {
+    return cloneVelocity(this.ensureBody(objectId, 0).velocity);
+  }
+
+  setVelocity(
+    objectId: string,
+    velocity: SpatialVelocity3,
+    now = performance.now(),
+    activate = true,
+  ): SpatialPhysicsState {
+    const body = this.ensureBody(objectId, now);
+    body.velocity = limitVelocity(velocity, 1.85);
+    body.mode = activate && magnitude(body.velocity) >= SETTLE_SPEED ? 'inertia' : 'idle';
+    body.lastPointer = null;
+    body.lastSampleAt = now;
+    body.lastUpdateAt = now;
+    return this.snapshot(objectId);
+  }
+
+  addVelocity(
+    objectId: string,
+    delta: SpatialVelocity3,
+    now = performance.now(),
+  ): SpatialPhysicsState {
+    const body = this.ensureBody(objectId, now);
+    body.velocity = limitVelocity({
+      x: body.velocity.x + Number(delta.x || 0),
+      y: body.velocity.y + Number(delta.y || 0),
+      z: body.velocity.z + Number(delta.z || 0),
+    }, 1.85);
+    if (magnitude(body.velocity) >= SETTLE_SPEED) body.mode = 'inertia';
+    body.lastUpdateAt = now;
+    return this.snapshot(objectId);
+  }
+
   stop(objectId: string, now = performance.now()): SpatialPhysicsState {
     const body = this.ensureBody(objectId, now);
     body.mode = 'idle';
