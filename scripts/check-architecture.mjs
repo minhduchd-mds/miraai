@@ -117,7 +117,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'mira.node', 'stack.', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -460,10 +460,11 @@ for (const token of ['SpatialPhysicsRuntime', 'THROW_SPEED_MIN', 'PLACE_MAGNET_S
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialPhysics)) failures.push('spatial physics state must remain session-only');
 const spatialCollision = readFileSync('src/core/vision/spatial-collision.ts', 'utf8');
-for (const token of ['resolveSpatialObjectCollisions', 'SpatialCollisionBody', 'SpatialCollisionContact', 'COLLISION_RESTITUTION', 'POSITION_CORRECTION', 'sphere-proxy collision solver', 'not physical measurements']) {
+for (const token of ['resolveSpatialObjectCollisions', 'SpatialCollisionBody', 'SpatialCollisionContact', 'COLLISION_RESTITUTION', 'POSITION_CORRECTION', 'STACK_RELATIVE_SPEED_MAX', 'STACK_LATERAL_FACTOR', 'stackCandidate', 'sphere-proxy collision solver', 'not physical measurements']) {
   if (!spatialCollision.includes(token)) failures.push(`multi-object collision runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialCollision)) failures.push('spatial collision state must remain session-only');
+if (localMemoryStore.includes('SpatialCollisionContact') || localMemoryStore.includes('stackCandidate')) failures.push('spatial collision state must remain ephemeral, not long-term memory');
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
 for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing', 'placementPreview', 'v2-spatial-placement']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
