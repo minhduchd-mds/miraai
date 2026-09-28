@@ -5,6 +5,7 @@ import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
+import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import SpatialControlOverlay from '../presence/SpatialControlOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { describeAffectSignal, resolveFaceControlAction } from '../intelligence/affect/affect-control';
@@ -68,6 +69,20 @@ import {
   type SpatialGroupTransformSession,
 } from '../core/vision/spatial-group';
 import { SpatialDeviceAdapterRuntime } from '../core/vision/spatial-device-adapter';
+import {
+  EMPTY_HAND_KINEMATICS,
+  mirrorSpatialHandKinematicsX,
+  type SpatialHandKinematicsState,
+} from '../core/vision/spatial-hand-kinematics';
+import {
+  EMPTY_HAND_CONTACT,
+  SpatialHandContactRuntime,
+  type SpatialHandContactState,
+} from '../core/vision/spatial-hand-contact';
+import {
+  SpatialHandIntentRuntime,
+  type SpatialHandIntentState,
+} from '../core/vision/spatial-hand-intent';
 import {
   SpatialWebXRSessionRuntime,
   type WebXRSessionSnapshot,
@@ -491,6 +506,26 @@ export default function AppV2() {
   const [faceSeen, setFaceSeen] = useState(false);
   const [handSeen, setHandSeen] = useState(false);
   const [faceLandmarks, setFaceLandmarks] = useState<FaceLandmarkPoint[]>([]);
+  const [handLandmarks, setHandLandmarks] = useState<HandLandmarkPoint[]>([]);
+  const [handKinematics, setHandKinematics] = useState<SpatialHandKinematicsState>(() => ({
+    ...EMPTY_HAND_KINEMATICS,
+    palmCenter: { ...EMPTY_HAND_KINEMATICS.palmCenter },
+    palmNormal: { ...EMPTY_HAND_KINEMATICS.palmNormal },
+  }));
+  const handContactRef = useRef(new SpatialHandContactRuntime());
+  const [humanHandContact, setHumanHandContact] = useState<SpatialHandContactState>(() => ({
+    ...EMPTY_HAND_CONTACT,
+    contacts: [],
+  }));
+  const handIntentRef = useRef(new SpatialHandIntentRuntime());
+  const [humanHandIntent, setHumanHandIntent] = useState<SpatialHandIntentState>({
+    intent: 'none',
+    confidence: 0,
+    stableMs: 0,
+    handedness: 'none',
+    targetId: '',
+    at: 0,
+  });
   const sceneGraphTrackerRef = useRef(new SpatialSceneGraphTracker());
   const objectInteractionTrackerRef = useRef(new ObjectInteractionTracker());
   const actionSequenceTrackerRef = useRef(new ActionSequenceTracker());
@@ -708,6 +743,22 @@ export default function AppV2() {
     setVisionOn(false);
     setFaceSeen(false);
     setHandSeen(false);
+    setHandLandmarks([]);
+    setHandKinematics({
+      ...EMPTY_HAND_KINEMATICS,
+      palmCenter: { ...EMPTY_HAND_KINEMATICS.palmCenter },
+      palmNormal: { ...EMPTY_HAND_KINEMATICS.palmNormal },
+    });
+    setHumanHandContact(handContactRef.current.reset());
+    handIntentRef.current.reset();
+    setHumanHandIntent({
+      intent: 'none',
+      confidence: 0,
+      stableMs: 0,
+      handedness: 'none',
+      targetId: '',
+      at: 0,
+    });
     setFaceActionFeedback('');
     lastHeadGestureRef.current = 'none';
     lastFaceActionAtRef.current = 0;
@@ -1109,6 +1160,16 @@ export default function AppV2() {
       const primaryGesture = String(primaryHand?.gesture || snapshot?.gesture || 'None');
       const primaryScore = Number(primaryHand?.score ?? snapshot?.gestureScore ?? 0);
       const primaryPinching = Boolean(primaryHand?.pinching ?? snapshot?.pinching);
+      const rawKinematics = primaryHand?.kinematics as SpatialHandKinematicsState | undefined;
+      const screenKinematics = rawKinematics?.present
+        ? mirrorSpatialHandKinematicsX(rawKinematics)
+        : {
+            ...EMPTY_HAND_KINEMATICS,
+            handedness: String(primaryHand?.handedness || 'none'),
+            at: now,
+          };
+      setHandLandmarks(Array.isArray(primaryHand?.landmarks) ? primaryHand.landmarks : []);
+      setHandKinematics(screenKinematics);
       const relativePointer = spatialDeviceAdapterRef.current.webcamPoint({
         x: Number(primaryHand?.pointerX ?? snapshot?.pointerX ?? 0.5),
         y: Number(primaryHand?.pointerY ?? snapshot?.pointerY ?? 0.5),
@@ -1120,13 +1181,14 @@ export default function AppV2() {
       const primaryPointerZ = clampSpatial(relativePointer.z, -0.45, 0.45);
       const pointingHand = Boolean(snapshot?.handSeen) && (
         (primaryGesture === 'Pointing_Up' && primaryScore >= 0.55) ||
-        intent.intent === 'point_hold'
+        intent.intent === 'point_hold' ||
+        screenKinematics.pointingConfidence >= 0.62
       );
       const handConfidence = primaryPinching
-        ? Math.max(0.78, primaryScore)
+        ? Math.max(0.78, primaryScore, screenKinematics.pinchConfidence)
         : pointingHand
-          ? Math.max(0.62, primaryScore)
-          : Math.max(0.5, primaryScore);
+          ? Math.max(0.62, primaryScore, screenKinematics.pointingConfidence)
+          : Math.max(0.5, primaryScore, screenKinematics.confidence * 0.82);
 
       const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
 
@@ -1285,6 +1347,22 @@ export default function AppV2() {
           target.kind === 'window' ? 0.1 : 0.12,
         ),
       }));
+      const humanContact = handContactRef.current.update(
+        screenKinematics,
+        spatialAnchors.map((anchor) => ({
+          id: anchor.id,
+          label: anchor.label,
+          kind: anchor.kind,
+          center: { ...anchor.center },
+          halfExtents: { ...anchor.halfExtents },
+          priority: anchor.priority,
+        })),
+        now,
+      );
+      setHumanHandContact(humanContact);
+      const humanIntent = handIntentRef.current.update(screenKinematics, humanContact, now);
+      setHumanHandIntent(humanIntent);
+
       const directTouch = spatialTouchRef.current.update({
         active: Boolean(snapshot?.handSeen && primaryHand),
         confidence: handConfidence,
@@ -1297,7 +1375,11 @@ export default function AppV2() {
         anchors: spatialAnchors,
       }, now);
       setSpatialTouch(directTouch);
-      const directHand = pointingHand || directTouch.ready;
+      const directHand = pointingHand ||
+        directTouch.ready ||
+        humanContact.phase === 'contact' ||
+        humanContact.phase === 'press' ||
+        humanContact.phase === 'grab';
 
       const spatialRayTargets = spatialTargets
         .filter((target) => Number.isFinite(target.z))
@@ -1413,11 +1495,21 @@ export default function AppV2() {
           if (event.type === 'grab_move' && !twoHandsActive) {
             const depth = spatialObjectDepthRef.current.update(event.point.z);
             setSpatialPhysicsState(spatialPhysicsRef.current.sampleGrab(event.targetId, event.point, now));
+            const intentDepthDelta = humanIntent.intent === 'push'
+              ? 0.035
+              : humanIntent.intent === 'pull'
+                ? -0.035
+                : 0;
             const moved = spatialObjectRuntimeRef.current.moveGrab(event.point, {
-              depthDelta: depth.ready && depth.confidence >= 0.56 ? depth.normalizedDelta : 0,
+              depthDelta: (depth.ready && depth.confidence >= 0.56 ? depth.normalizedDelta : 0) + intentDepthDelta,
               xyGain: 1.05,
               depthGain: 0.52,
             });
+            if (moved && (humanIntent.intent === 'rotate_cw' || humanIntent.intent === 'rotate_ccw')) {
+              spatialObjectRuntimeRef.current.applyTransform(event.targetId, {
+                rotationDelta: humanIntent.intent === 'rotate_cw' ? 3.5 : -3.5,
+              });
+            }
             if (moved) {
               let worldObjects = spatialObjectRuntimeRef.current.snapshot();
               spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(worldObjects));
