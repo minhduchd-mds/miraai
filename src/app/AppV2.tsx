@@ -51,6 +51,11 @@ import {
 } from '../core/vision/world-model';
 import { EMPTY_REAL_PRESENCE_POSE } from '../core/vision/real-presence';
 import { SpatialObjectRuntime, type SpatialObjectState } from '../core/vision/spatial-object';
+import {
+  SpatialWorldRuntime,
+  type SpatialObjectAttachment,
+  type SpatialWorldAnchor,
+} from '../core/vision/spatial-world';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -206,6 +211,96 @@ function spatialObjectStyle(object: SpatialObjectState | null): CSSProperties {
   } as CSSProperties;
 }
 
+function collectSpatialWorldAnchors(object: SpatialObjectState | null): SpatialWorldAnchor[] {
+  const identityPose = { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 };
+  const anchors: SpatialWorldAnchor[] = [{
+    id: 'workspace.root',
+    label: 'Không gian Mira',
+    kind: 'workspace',
+    pose: identityPose,
+    snapRadius: 0.025,
+    priority: -1,
+  }, {
+    id: 'dock.home',
+    label: 'Vị trí Mira Core',
+    kind: 'dock',
+    parentId: 'workspace.root',
+    pose: identityPose,
+    snapRadius: 0.13,
+    priority: 0.35,
+  }];
+
+  if (!object || typeof document === 'undefined' || typeof window === 'undefined') return anchors;
+  const element = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-object]'))
+    .find((node) => node.dataset.spatialObject === object.id && node.offsetParent !== null);
+  if (!element) return anchors;
+
+  const width = Math.max(1, window.innerWidth);
+  const height = Math.max(1, window.innerHeight);
+  const rect = element.getBoundingClientRect();
+  const objectScreen = {
+    x: (rect.left + rect.right) / 2 / width,
+    y: (rect.top + rect.bottom) / 2 / height,
+  };
+
+  const poseForScreenPoint = (x: number, y: number, z = object.pose.position.z) => ({
+    position: {
+      x: clampSpatial(object.pose.position.x + (x - objectScreen.x), -0.48, 0.48),
+      y: clampSpatial(object.pose.position.y + (y - objectScreen.y), -0.48, 0.48),
+      z: clampSpatial(z, -0.7, 0.7),
+    },
+    scale: 1,
+    rotation: 0,
+  });
+
+  anchors.push({
+    id: 'dock.center',
+    label: 'Trung tâm không gian',
+    kind: 'dock',
+    parentId: 'workspace.root',
+    pose: poseForScreenPoint(0.5, 0.5),
+    snapRadius: 0.12,
+    priority: 0.2,
+  });
+
+  document.querySelectorAll<HTMLElement>('[data-spatial-window]').forEach((windowElement) => {
+    if (windowElement.offsetParent === null) return;
+    const id = String(windowElement.dataset.spatialWindow || '');
+    if (!id) return;
+    const windowRect = windowElement.getBoundingClientRect();
+    const cx = (windowRect.left + windowRect.right) / 2 / width;
+    const cy = (windowRect.top + windowRect.bottom) / 2 / height;
+    const handle = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-grab-handle]'))
+      .find((node) => node.dataset.spatialGrabHandle === id);
+    const surfaceZ = clampSpatial(Number(handle?.dataset.spatialDepth || object.pose.position.z), -0.7, 0.7);
+    const surfaceId = `surface.${id}`;
+
+    anchors.push({
+      id: surfaceId,
+      label: id === 'camera' ? 'Mặt phẳng Camera' : 'Mặt phẳng Kết quả',
+      kind: 'surface',
+      parentId: 'workspace.root',
+      pose: poseForScreenPoint(cx, cy, surfaceZ),
+      snapRadius: 0.035,
+      priority: -0.5,
+    }, {
+      id: `dock.${id}`,
+      label: id === 'camera' ? 'Neo cạnh Camera' : 'Neo cạnh Kết quả',
+      kind: 'dock',
+      parentId: surfaceId,
+      pose: {
+        position: { x: 0, y: -0.065, z: 0.025 },
+        scale: 1,
+        rotation: 0,
+      },
+      snapRadius: 0.16,
+      priority: 0.5,
+    });
+  });
+
+  return anchors;
+}
+
 
 function loadTheme(): Theme {
   try {
@@ -297,6 +392,8 @@ export default function AppV2() {
     maxScale: 1.65,
   }]));
   const [spatialObjects, setSpatialObjects] = useState(() => spatialObjectRuntimeRef.current.snapshot());
+  const spatialWorldRuntimeRef = useRef(new SpatialWorldRuntime());
+  const spatialObjectAttachmentBeforeGrabRef = useRef<SpatialObjectAttachment | null>(null);
   const spatialObjectDepthRef = useRef(new SpatialDepthAnchorTracker());
   const twoHandObjectSessionRef = useRef<{
     id: string;
@@ -413,6 +510,8 @@ export default function AppV2() {
     twoHandSpatialSessionRef.current = null;
     twoHandObjectSessionRef.current = null;
     spatialObjectDepthRef.current.reset();
+    spatialWorldRuntimeRef.current.reset();
+    spatialObjectAttachmentBeforeGrabRef.current = null;
     setSpatialObjects(spatialObjectRuntimeRef.current.reset());
     setSpatialFeedback('');
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
@@ -551,6 +650,25 @@ export default function AppV2() {
           : Math.max(0.5, primaryScore);
 
       const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
+      const currentCoreObject = spatialObjectRuntimeRef.current.get('mira.core');
+      spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentCoreObject));
+      const coreAttachment = spatialWorldRuntimeRef.current.attachment('mira.core');
+      if (coreAttachment && currentCoreObject && !currentCoreObject.grabbed) {
+        const resolvedPose = spatialWorldRuntimeRef.current.resolveObjectPose('mira.core');
+        if (resolvedPose) {
+          const delta = Math.hypot(
+            resolvedPose.position.x - currentCoreObject.pose.position.x,
+            resolvedPose.position.y - currentCoreObject.pose.position.y,
+            resolvedPose.position.z - currentCoreObject.pose.position.z,
+          );
+          if (delta > 0.001 ||
+              Math.abs(resolvedPose.scale - currentCoreObject.pose.scale) > 0.001 ||
+              Math.abs(resolvedPose.rotation - currentCoreObject.pose.rotation) > 0.1) {
+            spatialObjectRuntimeRef.current.setPose('mira.core', resolvedPose);
+            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+          }
+        }
+      }
       const spatialAnchors = spatialTargets.map((target) => spatialAnchorFromRect({
         ...target,
         depthRadius: Math.max(
@@ -632,6 +750,7 @@ export default function AppV2() {
       for (const event of spatialFrameNext.events) {
         if (event.targetKind === 'object') {
           if (event.type === 'grab_start' && spatialObjectAvailable(event.targetId)) {
+            spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
             spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
             spatialObjectDepthRef.current.begin(event.point.z);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
@@ -649,15 +768,35 @@ export default function AppV2() {
             continue;
           }
           if (event.type === 'grab_end') {
-            spatialObjectRuntimeRef.current.endGrab();
+            const placed = spatialObjectRuntimeRef.current.endGrab();
             spatialObjectDepthRef.current.end();
+            spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(placed));
+            const snapped = placed
+              ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
+              : null;
+            if (snapped) {
+              spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
+              showSpatialFeedback(`Đã neo · ${snapped.anchorLabel}`);
+            } else {
+              showSpatialFeedback('Đã đặt vật thể tự do');
+            }
+            spatialObjectAttachmentBeforeGrabRef.current = null;
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
-            showSpatialFeedback('Đã đặt vật thể');
             continue;
           }
           if (event.type === 'cancel') {
-            spatialObjectRuntimeRef.current.cancelGrab();
+            const restored = spatialObjectRuntimeRef.current.cancelGrab();
             spatialObjectDepthRef.current.reset();
+            const previousAttachment = spatialObjectAttachmentBeforeGrabRef.current;
+            if (restored && previousAttachment) {
+              spatialWorldRuntimeRef.current.attachObject(
+                event.targetId,
+                previousAttachment.anchorId,
+                restored.pose,
+                previousAttachment.attachedAt,
+              );
+            }
+            spatialObjectAttachmentBeforeGrabRef.current = null;
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             showSpatialFeedback('Đã hoàn tác vật thể');
             continue;
