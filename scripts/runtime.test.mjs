@@ -45,6 +45,7 @@ const actionSequence = await importTypeScript('src/core/vision/action-sequence.t
 const causalActionGraph = await importTypeScript('src/core/vision/causal-action-graph.ts');
 const worldModel = await importTypeScript('src/core/vision/world-model.ts');
 const spatialUiControl = await importTypeScript('src/core/vision/spatial-ui-control.ts');
+const spatialRay = await importTypeScript('src/core/vision/spatial-ray.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -1816,4 +1817,115 @@ test('spatial pointer mapping clamps noisy webcam gaze instead of producing inva
   assert.ok(point.x >= 0.025 && point.x <= 0.975);
   assert.ok(point.y >= 0.035 && point.y <= 0.965);
   assert.equal(point.source, 'face');
+});
+
+
+test('spatial hand ray is derived from index direction and mirrors camera x', () => {
+  const landmarks = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
+  landmarks[5] = { x: 0.62, y: 0.58, z: -0.05 };
+  landmarks[8] = { x: 0.42, y: 0.38, z: -0.12 };
+  const ray = spatialRay.handRayFromLandmarks(landmarks);
+  assert.ok(ray);
+  assert.ok(ray.confidence >= 0.55);
+  assert.ok(Math.abs(ray.origin.x - 0.38) < 1e-6);
+  assert.ok(ray.direction.x > 0);
+  assert.ok(ray.direction.y < 0);
+  assert.ok(ray.direction.z < 0);
+});
+
+test('spatial ray hit-test selects only explicit depth-aware target planes', () => {
+  const ray = {
+    origin: { x: 0.5, y: 0.5, z: -0.2 },
+    direction: { x: 0, y: 0, z: 1 },
+    confidence: 0.9,
+    source: 'hand',
+  };
+  const hit = spatialRay.hitTestSpatialRay(ray, [{
+    id: 'volume',
+    label: 'Volume',
+    left: 0.42,
+    top: 0.42,
+    right: 0.58,
+    bottom: 0.58,
+    z: 0,
+    depthRadius: 0.02,
+  }]);
+  assert.equal(hit?.targetId, 'volume');
+  assert.ok(Math.abs(hit.point.x - 0.5) < 1e-6);
+  assert.ok(Math.abs(hit.point.y - 0.5) < 1e-6);
+  assert.ok(Math.abs(hit.point.z) < 1e-6);
+});
+
+test('spatial depth anchor stays locked until relative z becomes stable', () => {
+  const tracker = new spatialRay.SpatialDepthAnchorTracker();
+  let state = tracker.begin(-0.08);
+  assert.equal(state.ready, false);
+
+  for (let i = 0; i < 6; i += 1) state = tracker.update(-0.08);
+  assert.equal(state.ready, true);
+  assert.ok(state.confidence > 0.5);
+  assert.equal(state.normalizedDelta, 0);
+
+  for (let i = 0; i < 8; i += 1) state = tracker.update(-0.13);
+  assert.equal(state.ready, true);
+  assert.ok(state.normalizedDelta > 0);
+  assert.ok(state.normalizedDelta <= 1);
+
+  const ended = tracker.end();
+  assert.equal(ended.active, true);
+  assert.equal(tracker.snapshot().active, false);
+});
+
+test('spatial depth anchor rejects jittery monocular depth', () => {
+  const tracker = new spatialRay.SpatialDepthAnchorTracker();
+  tracker.begin(-0.08);
+  let state = tracker.snapshot();
+  for (const z of [-0.02, -0.15, -0.03, -0.16, -0.04, -0.14, -0.02]) {
+    state = tracker.update(z);
+  }
+  assert.equal(state.ready, false);
+  assert.equal(state.normalizedDelta, 0);
+});
+
+test('spatial UI can prioritize a ray hit for an explicit depth-aware target', () => {
+  const controller = new spatialUiControl.SpatialUIController();
+  const targets = [{
+    id: 'depth.window',
+    label: 'Depth window',
+    kind: 'window',
+    left: 0.42,
+    top: 0.42,
+    right: 0.58,
+    bottom: 0.58,
+    z: 0,
+    depthRadius: 0.02,
+  }];
+  const input = {
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({
+      present: true,
+      confidence: 0.9,
+      x: 0.2,
+      y: 0.2,
+      direct: true,
+      ray: {
+        origin: { x: 0.5, y: 0.5, z: -0.2 },
+        direction: { x: 0, y: 0, z: 1 },
+        confidence: 0.9,
+        source: 'hand',
+      },
+    }),
+    gestureIntent: spatialIntent('none', 1000),
+    headGesture: 'none',
+    targets,
+  };
+  let frame = controller.update(input, 1000);
+  assert.equal(frame.rayHit?.targetId, 'depth.window');
+  assert.equal(frame.focus?.id, 'depth.window');
+
+  frame = controller.update({
+    ...input,
+    gestureIntent: spatialIntent('none', 1140),
+  }, 1140);
+  assert.equal(frame.focus?.ready, true);
 });
