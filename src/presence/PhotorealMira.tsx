@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { MiraState } from '../core/types';
 import type { ObservedMood } from '../intelligence/affect/mood-engine';
 import { audioLevel } from '../core/audio-level';
@@ -28,6 +28,9 @@ interface Props {
   presenceMode?: 'ambient' | 'attentive' | 'quiet' | 'reconnect';
   presenceCue?: 'none' | 'return' | 'focus' | 'smile' | 'brow';
   presenceContinuity?: number;
+  spatialCoreStyle?: CSSProperties;
+  spatialCoreDepth?: number;
+  spatialCoreActive?: boolean;
 }
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
@@ -72,6 +75,9 @@ export default function PhotorealMira({
   presenceMode = 'ambient',
   presenceCue = 'none',
   presenceContinuity = 0,
+  spatialCoreStyle,
+  spatialCoreDepth = 0,
+  spatialCoreActive = false,
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
@@ -158,7 +164,7 @@ export default function PhotorealMira({
     <button
       ref={rootRef}
       type="button"
-      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue} presence-${presenceMode} presence-cue-${presenceCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}`}
+      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue} presence-${presenceMode} presence-cue-${presenceCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}${spatialCoreActive ? ' spatial-core-active' : ''}`}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
       onPointerLeave={resetPointer}
@@ -180,7 +186,15 @@ export default function PhotorealMira({
         {WAVE_BARS.map((index) => <i key={index} />)}
       </span>
 
-      <span className="pm-state-orb" aria-hidden="true"><i /></span>
+      <span
+        className="pm-state-orb"
+        style={spatialCoreStyle}
+        data-spatial-object="mira.core"
+        data-spatial-label="Mira Core"
+        data-spatial-depth={spatialCoreDepth}
+        data-spatial-depth-radius="0.12"
+        aria-hidden="true"
+      ><i /></span>
       <span className="pm-vignette" aria-hidden="true" />
       <span className="sr-only">{label}</span>
     </button>
