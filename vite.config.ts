@@ -7,6 +7,10 @@ export default defineConfig({
   // Relative base keeps one build portable across Vercel and GitHub Pages (/miraai/).
   base: './',
   plugins: [react()],
+  resolve: {
+    // @vitejs/plugin-react 6 no longer auto-dedupes React.
+    dedupe: ['react', 'react-dom'],
+  },
   server: {
     port: 5173,
     host: true,
