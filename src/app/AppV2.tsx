@@ -770,6 +770,7 @@ export default function AppV2() {
     }
 
     const enabled = snapshot.enabledFeatures;
+    spatialDeviceAdapterRef.current.useWebXRSessionFeatures(enabled);
     setWebXRAvailable(true);
     showSpatialFeedback(
       enabled.includes('hand-tracking')
