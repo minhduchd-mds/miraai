@@ -57,6 +57,10 @@ const spatialGroup = await importTypeScript('src/core/vision/spatial-group.ts');
 const spatialDevice = await importTypeScript('src/core/vision/spatial-device-adapter.ts');
 const spatialWebXR = await importTypeScript('src/core/vision/spatial-webxr-session.ts');
 const spatialXRProjection = await importTypeScript('src/core/vision/spatial-xr-projection.ts');
+const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
+const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
+const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
+const spatialXRHandBridge = await importTypeScript('src/core/vision/spatial-xr-hand-bridge.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -3504,4 +3508,282 @@ test('XR projection rejects points behind the view', () => {
     { x: 0, y: 0, z: -1 },
     { eye: 'none', projectionMatrix: projection, viewMatrix: identity },
   ), null);
+});
+
+
+function syntheticHand(scale = 1, offsetX = 0, offsetY = 0) {
+  const base = [
+    [0.50,0.80,0],[0.46,0.74,0],[0.43,0.66,0],[0.41,0.57,0],[0.39,0.48,0],
+    [0.46,0.65,0],[0.45,0.50,0],[0.44,0.36,0],[0.43,0.22,0],
+    [0.50,0.64,0],[0.50,0.48,0],[0.50,0.33,0],[0.50,0.18,0],
+    [0.54,0.66,0],[0.55,0.51,0],[0.56,0.38,0],[0.57,0.25,0],
+    [0.58,0.70,0],[0.60,0.58,0],[0.61,0.47,0],[0.62,0.36,0],
+  ];
+  return base.map(([x,y,z]) => ({
+    x: 0.5 + (x - 0.5) * scale + offsetX,
+    y: 0.5 + (y - 0.5) * scale + offsetY,
+    z,
+  }));
+}
+
+function pinchedSyntheticHand(scale = 1) {
+  const points = syntheticHand(scale);
+  points[4] = {
+    x: points[8].x + 0.008 * scale,
+    y: points[8].y + 0.004 * scale,
+    z: 0,
+  };
+  return points;
+}
+
+test('human hand pinch ratio is scale invariant', () => {
+  const trackerA = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const trackerB = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const a = trackerA.update({
+    handedness: 'Right',
+    landmarks: pinchedSyntheticHand(1),
+    confidence: 0.9,
+  }, 1000);
+  const b = trackerB.update({
+    handedness: 'Right',
+    landmarks: pinchedSyntheticHand(0.5),
+    confidence: 0.9,
+  }, 1000);
+
+  assert.ok(Math.abs(a.pinchRatio - b.pinchRatio) < 1e-6);
+  assert.equal(a.pinching, true);
+  assert.equal(b.pinching, true);
+  assert.ok(a.pinchConfidence > 0.5);
+});
+
+test('human hand kinematics measures fingertip velocity and stability over time', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const first = syntheticHand();
+  tracker.update({ handedness: 'Right', landmarks: first, confidence: 0.9 }, 1000);
+  const second = syntheticHand();
+  second[8] = { ...second[8], x: second[8].x + 0.08 };
+  const state = tracker.update({ handedness: 'Right', landmarks: second, confidence: 0.9 }, 1050);
+
+  assert.ok(state.index.velocity.x > 1);
+  assert.ok(state.stability > 0.8);
+  assert.ok(Number.isFinite(state.contactRadius));
+  assert.ok(state.contactRadius >= 0.012 && state.contactRadius <= 0.038);
+});
+
+test('world hand geometry drives shape while screen landmarks drive fingertip position', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const screen = syntheticHand();
+  const world = syntheticHand(0.25).map((point, index) => ({
+    x: point.x - 0.5,
+    y: point.y - 0.5,
+    z: index === 8 ? -0.04 : 0,
+  }));
+  const state = tracker.update({
+    handedness: 'Right',
+    landmarks: screen,
+    worldLandmarks: world,
+    confidence: 0.92,
+  }, 1000);
+
+  assert.equal(state.source, 'world-shape');
+  assert.equal(state.index.tip.x, screen[8].x);
+  assert.ok(Number.isFinite(state.palmFacingConfidence));
+});
+
+test('mirrored hand kinematics flips screen x and x velocity only', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  tracker.update({ handedness: 'Right', landmarks: syntheticHand(), confidence: 0.9 }, 1000);
+  const moved = syntheticHand();
+  moved[8] = { ...moved[8], x: moved[8].x + 0.05 };
+  const state = tracker.update({ handedness: 'Right', landmarks: moved, confidence: 0.9 }, 1050);
+  const mirrored = spatialHandKinematics.mirrorSpatialHandKinematicsX(state);
+
+  assert.ok(Math.abs(mirrored.index.tip.x - (1 - state.index.tip.x)) < 1e-6);
+  assert.ok(Math.abs(mirrored.index.velocity.x + state.index.velocity.x) < 1e-6);
+  assert.equal(mirrored.index.velocity.y, state.index.velocity.y);
+});
+
+test('multi finger contact progresses hover contact press without auto activation', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const contact = new spatialHandContact.SpatialHandContactRuntime();
+  const points = syntheticHand();
+  const volume = [{
+    id: 'surface',
+    label: 'Surface',
+    kind: 'object',
+    center: { x: points[8].x, y: points[8].y, z: 0 },
+    halfExtents: { x: 0.05, y: 0.05, z: 0.03 },
+  }];
+
+  const hand0 = tracker.update({ handedness: 'Right', landmarks: points, confidence: 0.9 }, 1000);
+  const first = contact.update(hand0, volume, 1000);
+  assert.ok(first.active);
+  assert.ok(['hover', 'approach'].includes(first.phase));
+
+  const hand1 = tracker.update({ handedness: 'Right', landmarks: points, confidence: 0.9 }, 1070);
+  const second = contact.update(hand1, volume, 1070);
+  assert.ok(['contact', 'press'].includes(second.phase));
+
+  const hand2 = tracker.update({ handedness: 'Right', landmarks: points, confidence: 0.9 }, 1140);
+  const third = contact.update(hand2, volume, 1140);
+  assert.ok(['contact', 'press'].includes(third.phase));
+  assert.ok(third.pressure >= 0 && third.pressure <= 1);
+});
+
+test('pinch with index and thumb on same target becomes grab candidate', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const contact = new spatialHandContact.SpatialHandContactRuntime();
+  const points = pinchedSyntheticHand();
+  const center = {
+    x: (points[8].x + points[4].x) / 2,
+    y: (points[8].y + points[4].y) / 2,
+    z: 0,
+  };
+  const volume = [{
+    id: 'orb',
+    label: 'Orb',
+    kind: 'object',
+    center,
+    halfExtents: { x: 0.05, y: 0.05, z: 0.04 },
+  }];
+
+  contact.update(
+    tracker.update({ handedness: 'Right', landmarks: points, confidence: 0.95 }, 1000),
+    volume,
+    1000,
+  );
+  const result = contact.update(
+    tracker.update({ handedness: 'Right', landmarks: points, confidence: 0.95 }, 1070),
+    volume,
+    1070,
+  );
+
+  assert.equal(result.grabCandidate, true);
+  assert.equal(result.phase, 'grab');
+  assert.ok(result.contactCount >= 2);
+});
+
+test('human hand intent recognizes release and push pull without mapping arbitrary UI actions', () => {
+  const runtime = new spatialHandIntent.SpatialHandIntentRuntime();
+  const contact = { ...spatialHandContact.EMPTY_HAND_CONTACT, contacts: [] };
+  const base = {
+    ...spatialHandKinematics.EMPTY_HAND_KINEMATICS,
+    handedness: 'Right',
+    present: true,
+    confidence: 0.9,
+    pinching: true,
+    pinchConfidence: 0.9,
+    pointingConfidence: 0.7,
+    stability: 0.7,
+    palmFacingConfidence: 0.7,
+    index: {
+      ...spatialHandKinematics.EMPTY_HAND_KINEMATICS.index,
+      velocity: { x: 0, y: 0, z: 0.7 },
+    },
+  };
+
+  const push = runtime.update(base, contact, 1000);
+  assert.equal(push.intent, 'push');
+
+  const released = runtime.update({ ...base, pinching: false, pinchConfidence: 0 }, contact, 1100);
+  assert.equal(released.intent, 'release');
+});
+
+test('human hand intent recognizes fast directional swipes', () => {
+  const runtime = new spatialHandIntent.SpatialHandIntentRuntime();
+  const contact = { ...spatialHandContact.EMPTY_HAND_CONTACT, contacts: [] };
+  const hand = {
+    ...spatialHandKinematics.EMPTY_HAND_KINEMATICS,
+    handedness: 'Right',
+    present: true,
+    confidence: 0.92,
+    pointingConfidence: 0.92,
+    stability: 0.45,
+    index: {
+      ...spatialHandKinematics.EMPTY_HAND_KINEMATICS.index,
+      velocity: { x: 1.8, y: 0.2, z: 0 },
+    },
+  };
+  const result = runtime.update(hand, contact, 1000);
+  assert.equal(result.intent, 'swipe_right');
+});
+
+test('XR hand bridge produces a MediaPipe-compatible 21 point topology', () => {
+  const names = [
+    'wrist',
+    'thumb-metacarpal','thumb-phalanx-proximal','thumb-phalanx-distal','thumb-tip',
+    'index-finger-metacarpal','index-finger-phalanx-proximal','index-finger-phalanx-intermediate','index-finger-phalanx-distal','index-finger-tip',
+    'middle-finger-metacarpal','middle-finger-phalanx-proximal','middle-finger-phalanx-intermediate','middle-finger-phalanx-distal','middle-finger-tip',
+    'ring-finger-metacarpal','ring-finger-phalanx-proximal','ring-finger-phalanx-intermediate','ring-finger-phalanx-distal','ring-finger-tip',
+    'pinky-finger-metacarpal','pinky-finger-phalanx-proximal','pinky-finger-phalanx-intermediate','pinky-finger-phalanx-distal','pinky-finger-tip',
+  ];
+  const joints = names.map((name, index) => ({
+    name,
+    x: index * 0.001,
+    y: 1 + index * 0.001,
+    z: -0.3,
+    radius: 0.008,
+  }));
+  const result = spatialXRHandBridge.bridgeXRHandTo21({
+    handedness: 'right',
+    joints,
+    indexTip: joints.find((joint) => joint.name === 'index-finger-tip'),
+    thumbTip: joints.find((joint) => joint.name === 'thumb-tip'),
+    wrist: joints[0],
+    pinching: false,
+    pinchDistanceM: 0.04,
+  });
+
+  assert.equal(result.worldLandmarks.length, 21);
+  assert.equal(result.complete, true);
+  assert.equal(result.worldLandmarks[0].x, 0);
+  assert.equal(result.worldLandmarks[8].x, joints.find((joint) => joint.name === 'index-finger-tip').x);
+});
+
+test('human hand runtime remains finite across 600 jittered frames', () => {
+  const tracker = new spatialHandKinematics.SpatialHandKinematicsTracker();
+  const contact = new spatialHandContact.SpatialHandContactRuntime();
+  const intent = new spatialHandIntent.SpatialHandIntentRuntime();
+  const volume = [{
+    id: 'stress',
+    label: 'Stress',
+    kind: 'object',
+    center: { x: 0.5, y: 0.3, z: 0 },
+    halfExtents: { x: 0.1, y: 0.1, z: 0.06 },
+  }];
+
+  let last;
+  for (let frame = 0; frame < 600; frame += 1) {
+    const points = syntheticHand();
+    const jitter = Math.sin(frame * 0.37) * 0.004;
+    points.forEach((point, index) => {
+      point.x += jitter * ((index % 3) - 1);
+      point.y += Math.cos(frame * 0.23 + index) * 0.002;
+      point.z = Math.sin(frame * 0.17 + index * 0.11) * 0.012;
+    });
+    const state = tracker.update({
+      handedness: 'Right',
+      landmarks: points,
+      confidence: 0.86,
+    }, 1000 + frame * 16.67);
+    const touch = contact.update(state, volume, 1000 + frame * 16.67);
+    last = intent.update(state, touch, 1000 + frame * 16.67);
+
+    for (const value of [
+      state.pinchRatio,
+      state.speed,
+      state.stability,
+      state.contactRadius,
+      state.index.velocity.x,
+      state.index.velocity.y,
+      state.index.velocity.z,
+      touch.pressure,
+      last.confidence,
+    ]) {
+      assert.equal(Number.isFinite(value), true);
+    }
+    assert.ok(touch.pressure >= 0 && touch.pressure <= 1);
+    assert.ok(last.confidence >= 0 && last.confidence <= 1);
+  }
+  assert.ok(last);
 });
