@@ -20,6 +20,7 @@ import {
   type SpatialTargetGeometry,
 } from '../core/vision/spatial-ui-control';
 import { measureTwoHands, rotationFromAngles, scaleFromDistance, smoothValue } from '../presence/spatial-math';
+import { SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import { EMPTY_ENVIRONMENT, environmentPrompt } from '../core/vision/environment-model';
@@ -125,6 +126,12 @@ function collectSpatialTargets(): SpatialTargetGeometry[] {
       top: clampSpatial(rect.top / height, 0, 1),
       right: clampSpatial(rect.right / width, 0, 1),
       bottom: clampSpatial(rect.bottom / height, 0, 1),
+      z: Number.isFinite(Number(element.dataset.spatialDepth))
+        ? Number(element.dataset.spatialDepth)
+        : undefined,
+      depthRadius: Number.isFinite(Number(element.dataset.spatialDepthRadius))
+        ? Number(element.dataset.spatialDepthRadius)
+        : undefined,
       priority,
     });
   };
@@ -242,6 +249,7 @@ export default function AppV2() {
     camera: { ...DEFAULT_SPATIAL_WINDOWS.camera },
   });
   const spatialGrabSessionRef = useRef<SpatialGrabSession | null>(null);
+  const spatialDepthAnchorRef = useRef(new SpatialDepthAnchorTracker());
   const twoHandSpatialSessionRef = useRef<TwoHandSpatialSession | null>(null);
   const lastSpatialWindowRef = useRef<SpatialWindowId>('camera');
   const [faceTelemetry, setFaceTelemetry] = useState({
@@ -345,6 +353,7 @@ export default function AppV2() {
     gestureIntentTrackerRef.current.reset();
     setSpatialFrame(spatialUiRef.current.reset());
     spatialGrabSessionRef.current = null;
+    spatialDepthAnchorRef.current.reset();
     twoHandSpatialSessionRef.current = null;
     setSpatialFeedback('');
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
@@ -500,6 +509,7 @@ export default function AppV2() {
           z: primaryPointerZ,
           pinching: primaryPinching,
           direct: directHand,
+          ray: primaryHand?.ray || snapshot?.pointerRay || null,
         },
         gestureIntent: intent,
         headGesture: String(face?.headGesture || 'none'),
@@ -528,6 +538,7 @@ export default function AppV2() {
             start: { x: event.point.x, y: event.point.y, z: event.point.z },
             base: { ...spatialWindowsRef.current[id] },
           };
+          spatialDepthAnchorRef.current.begin(event.point.z);
           lastSpatialWindowRef.current = id;
           showSpatialFeedback('Pinch giữ · di chuyển cửa sổ');
           continue;
@@ -540,25 +551,29 @@ export default function AppV2() {
           const dy = (event.point.y - session.start.y) * window.innerHeight * 1.3;
           const limitX = window.innerWidth * 0.56;
           const limitY = window.innerHeight * 0.48;
+          const depth = spatialDepthAnchorRef.current.update(event.point.z);
+          const depthPx = depth.ready && depth.confidence >= 0.56
+            ? depth.normalizedDelta * 120
+            : 0;
           updateSpatialWindow(session.id, () => ({
             ...session.base,
             x: clampSpatial(session.base.x + dx, -limitX, limitX),
             y: clampSpatial(session.base.y + dy, -limitY, limitY),
-            // z is deliberately preserved for now. The input model already carries
-            // depth so a later metric-depth/WebXR adapter can activate true 3D motion.
-            z: session.base.z,
+            z: clampSpatial(session.base.z + depthPx, -120, 120),
           }));
           continue;
         }
 
         if (event.type === 'grab_end') {
           spatialGrabSessionRef.current = null;
+          spatialDepthAnchorRef.current.end();
           showSpatialFeedback('Đã thả cửa sổ');
           continue;
         }
 
         if (event.type === 'cancel') {
           spatialGrabSessionRef.current = null;
+          spatialDepthAnchorRef.current.reset();
           twoHandSpatialSessionRef.current = null;
           spatialHeadConsumedAtRef.current = now;
           showSpatialFeedback('Đã hủy thao tác');
@@ -1028,7 +1043,12 @@ export default function AppV2() {
       {(mira.error || visionError) && <div className="v2-error" role="alert">{visionError || mira.error}</div>}
 
       {visionOn && (
-        <div className="v2-vision-monitor" aria-live="polite" style={spatialWindowStyle(spatialWindows.camera)} data-spatial-window="camera">
+        <div
+          className="v2-vision-monitor"
+          aria-live="polite"
+          style={spatialWindowStyle(spatialWindows.camera)}
+          data-spatial-window="camera"
+        >
           <div className="v2-camera-frame">
             <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
             <div className="v2-camera-status face-only" role="status" aria-live="polite">
@@ -1074,6 +1094,8 @@ export default function AppV2() {
             className="v2-spatial-window-bar"
             data-spatial-grab-handle="camera"
             data-spatial-label="Di chuyển camera"
+            data-spatial-depth={spatialWindows.camera.z / 120}
+            data-spatial-depth-radius="0.035"
             aria-hidden="true"
           ><i /></div>
         </div>
@@ -1118,6 +1140,7 @@ export default function AppV2() {
                 content={mira.content}
                 onClose={mira.clearContent}
                 spatialStyle={spatialWindowStyle(spatialWindows.result)}
+                spatialDepth={spatialWindows.result.z / 120}
               />
             </Suspense>
           </aside>
