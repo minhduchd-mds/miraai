@@ -1031,6 +1031,9 @@ export default function AppV2() {
       showSpatialFeedback('XR · surface contact');
     }
 
+    document.querySelectorAll<HTMLElement>('[data-xr-occluded="true"]')
+      .forEach((element) => element.removeAttribute('data-xr-occluded'));
+
     for (const anchor of webXRSnapshot.anchors) {
       if (!anchor.tracked || !anchor.id.startsWith('object.')) continue;
       const objectId = anchor.id.slice('object.'.length);
