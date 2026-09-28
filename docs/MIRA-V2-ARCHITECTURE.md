@@ -210,6 +210,10 @@ See `docs/SPATIAL-INTERACTION.md`.
 
 `SpatialDirectTouchTracker` adds conservative fingertip collision over `SpatialAnchorVolume` targets. Contact requires x/y/z overlap, hand confidence, and a 90 ms stable dwell. Contact changes focus and visual feedback only; pinch is still required to commit an action or hold a window. The state remains session-only and is guarded against long-term persistence.
 
+### Spatial v4 object manipulation
+
+`SpatialObjectRuntime` introduces manipulable object poses independent of DOM window movement. The first wired object is `mira.core`. Direct contact or ray focus selects the object; pinch starts a grab; one hand changes bounded x/y/z position; two pinched hands change scale and rotation. A shake/cancel restores the pre-grab pose. Object state remains session-only.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
