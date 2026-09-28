@@ -218,6 +218,10 @@ See `docs/SPATIAL-INTERACTION.md`.
 
 `SpatialWorldRuntime` adds a bounded parent/child anchor graph above `SpatialObjectRuntime`. Runtime anchors currently include workspace, home/center docks, and dynamic Camera/Result surface docks. Grab detaches an object; release may snap it to the nearest eligible anchor; attached objects resolve their pose through the parent chain and therefore follow moving parent surfaces. Cycles are rejected and hierarchy resolution is capped at eight levels. World anchors and attachments remain session-only.
 
+### Spatial v6 placement preview
+
+`SpatialWorldRuntime` now exposes magnetic placement previews before release. Surface anchors can define bounded plane constraints, so candidate poses project to the nearest legal point on Camera/Result surfaces. Each spatial object may expose an object anchor for object-to-object parenting; self-parenting is excluded. Preview/attachment state remains ephemeral.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
