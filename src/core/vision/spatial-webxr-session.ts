@@ -428,6 +428,10 @@ export class SpatialWebXRSessionRuntime {
                   persistentHandle = '';
                 }
               }
+              if (this.ended || this.session !== session) {
+                try { anchor?.delete?.(); } catch { /* noop */ }
+                return;
+              }
               this.anchors.set(request.id, {
                 id: request.id,
                 label: request.label,
