@@ -638,7 +638,7 @@ export default function AppV2() {
             showSpatialFeedback('Pinch giữ · cầm vật thể 3D');
             continue;
           }
-          if (event.type === 'grab_move') {
+          if (event.type === 'grab_move' && !twoHandsActive) {
             const depth = spatialObjectDepthRef.current.update(event.point.z);
             spatialObjectRuntimeRef.current.moveGrab(event.point, {
               depthDelta: depth.ready && depth.confidence >= 0.56 ? depth.normalizedDelta : 0,
