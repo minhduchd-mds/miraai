@@ -31,6 +31,7 @@ interface Props {
   spatialCoreStyle?: CSSProperties;
   spatialCorePreviewStyle?: CSSProperties;
   spatialCorePreviewVisible?: boolean;
+  spatialCorePhysicsMode?: 'idle' | 'grabbed' | 'inertia';
   spatialCoreDepth?: number;
   spatialCoreActive?: boolean;
 }
@@ -80,6 +81,7 @@ export default function PhotorealMira({
   spatialCoreStyle,
   spatialCorePreviewStyle,
   spatialCorePreviewVisible = false,
+  spatialCorePhysicsMode = 'idle',
   spatialCoreDepth = 0,
   spatialCoreActive = false,
 }: Props) {
@@ -198,7 +200,7 @@ export default function PhotorealMira({
         ><i /></span>
       )}
       <span
-        className="pm-state-orb"
+        className={`pm-state-orb physics-${spatialCorePhysicsMode}`}
         style={spatialCoreStyle}
         data-spatial-object="mira.core"
         data-spatial-label="Mira Core"
