@@ -42,6 +42,7 @@ const mustExist = [
   'src/core/vision/object-interaction.ts',
   'src/core/vision/action-sequence.ts',
   'src/core/vision/causal-action-graph.ts',
+  'src/core/vision/world-model.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
@@ -104,7 +105,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -280,6 +281,7 @@ if (localMemoryStore.includes('SpatialSceneGraph') || localMemoryStore.includes(
 if (localMemoryStore.includes('ObjectInteractionState') || localMemoryStore.includes('objectInteraction')) failures.push('object interaction proxy must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('ActionSequenceState') || localMemoryStore.includes('actionSequence')) failures.push('action sequence must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('CausalActionGraphState') || localMemoryStore.includes('causalActionGraph')) failures.push('causal action graph must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('ShortTermWorldState') || localMemoryStore.includes('WorldObjectMemory') || localMemoryStore.includes('worldModel')) failures.push('world model must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('PresenceContinuityState') || localMemoryStore.includes('presenceContinuity')) failures.push('presence continuity must remain ephemeral, not long-term memory');
 const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
 for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
@@ -401,6 +403,10 @@ for (const token of ['ActionSequenceTracker', 'hand_approach', 'object_occluded'
 const causalActionGraph = readFileSync('src/core/vision/causal-action-graph.ts', 'utf8');
 for (const token of ['CausalActionGraphTracker', 'competingCount', 'identity_rebind', 'detector_return', 'hand_withdraw', 'margin >= 0.08', 'Math.pow(0.5', 'causalActionGraphPrompt', 'MIRA_CAUSAL_ACTION_GRAPH', 'Temporal order']) {
   if (!causalActionGraph.includes(token)) failures.push(`causal action graph v13 missing: ${token}`);
+}
+const worldModel = readFileSync('src/core/vision/world-model.ts', 'utf8');
+for (const token of ['ShortTermWorldModelTracker', 'version: 14', "'temporarily_missing'", 'MISSING_TTL_MS = 30_000', 'CONFIDENCE_HALF_LIFE_MS = 9_000', 'Math.pow(0.5', 'worldModelPrompt', 'MIRA_WORLD_MODEL', 'same-label continuity hypothesis', 'RAM-only']) {
+  if (!worldModel.includes(token)) failures.push(`world model v14 missing: ${token}`);
 }
 const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');
 for (const token of ['SpatialSceneGraph', 'v2-spatial-overlay', 'v2-spatial-focus-label', 'TARGET']) {
