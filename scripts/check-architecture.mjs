@@ -44,6 +44,7 @@ const mustExist = [
   'src/core/vision/causal-action-graph.ts',
   'src/core/vision/world-model.ts',
   'src/core/vision/spatial-ui-control.ts',
+  'src/core/vision/spatial-ray.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
@@ -422,6 +423,11 @@ for (const token of ['SpatialUIController', 'faceSpatialPoint', 'handSpatialPoin
   if (!spatialUiControl.includes(token)) failures.push(`spatial UI control missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialUiControl)) failures.push('spatial UI control state must remain session-only');
+const spatialRay = readFileSync('src/core/vision/spatial-ray.ts', 'utf8');
+for (const token of ['handRayFromLandmarks', 'hitTestSpatialRay', 'SpatialDepthAnchorTracker', 'DEPTH_READY_SAMPLES = 6', 'DEPTH_DEAD_ZONE', 'relative hand-z signal', 'not metric world-space tracking']) {
+  if (!spatialRay.includes(token)) failures.push(`spatial ray/depth runtime missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialRay)) failures.push('spatial ray/depth state must remain session-only');
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
 for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
@@ -484,7 +490,7 @@ for (const token of ["interaction?.state === 'absent'", "interaction?.state === 
   if (!proactiveEngine.includes(token)) failures.push(`social-aware proactive policy missing: ${token}`);
 }
 const visionRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
-for (const token of ['startHolisticTracking', 'holisticTrackerActive', 'holisticFaceHealthSnapshot', 'faceRuntime', 'startObjectAwareness', 'stopObjectAwareness', 'objectAwarenessSnapshot', 'Backward-compatible fallback', 'visionPerformance', 'visionEngine']) {
+for (const token of ['startHolisticTracking', 'holisticTrackerActive', 'holisticFaceHealthSnapshot', 'faceRuntime', 'startObjectAwareness', 'stopObjectAwareness', 'objectAwarenessSnapshot', 'Backward-compatible fallback', 'visionPerformance', 'visionEngine', 'pointerZ', 'pointerRay', 'handRayFromLandmarks']) {
   if (!visionRuntime.includes(token)) failures.push(`vision runtime holistic orchestration missing: ${token}`);
 }
 const cameraManager = readFileSync('src/core/vision/camera-manager.ts', 'utf8');
