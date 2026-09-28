@@ -757,3 +757,19 @@
   border-color:rgba(244,248,255,.92);
   box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 9%,transparent),0 0 30px color-mix(in srgb,var(--accent) 34%,transparent);
 }
+
+
+.pm-state-orb-preview{
+  pointer-events:none;
+  opacity:.32;
+  border-style:dashed;
+  border-color:color-mix(in srgb,var(--accent) 68%,white 32%);
+  background:color-mix(in srgb,var(--accent) 5%,transparent);
+  box-shadow:
+    0 0 0 7px color-mix(in srgb,var(--accent) 6%,transparent),
+    0 0 28px color-mix(in srgb,var(--accent) 22%,transparent);
+  filter:saturate(.8);
+}
+.pm-state-orb-preview i{
+  opacity:.5;
+}
