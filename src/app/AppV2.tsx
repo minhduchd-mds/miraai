@@ -976,7 +976,7 @@ export default function AppV2() {
   }, [settingsOpen, showSpatialFeedback, updateSpatialWindow, webXRSnapshot]);
 
   useEffect(() => {
-    if (!visionOn) return;
+    if (!visionOn && !webXRSnapshot.active) return;
     const saved = spatialLayoutRef.current.restore();
     if (!saved) return;
     spatialLayoutSkipCaptureRef.current = true;
@@ -1019,10 +1019,10 @@ export default function AppV2() {
 
     setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
     showSpatialFeedback('Đã khôi phục bố cục phiên');
-  }, [showSpatialFeedback, visionOn]);
+  }, [showSpatialFeedback, visionOn, webXRSnapshot.active]);
 
   useEffect(() => {
-    if (!visionOn) return;
+    if (!visionOn && !webXRSnapshot.active) return;
     if (spatialLayoutSkipCaptureRef.current) {
       spatialLayoutSkipCaptureRef.current = false;
       return;
@@ -1033,7 +1033,7 @@ export default function AppV2() {
       joints: spatialJointRuntimeRef.current.snapshot(),
       selectedClusterRoots,
     });
-  }, [selectedClusterRoots, spatialObjects, visionOn]);
+  }, [selectedClusterRoots, spatialObjects, visionOn, webXRSnapshot.active]);
 
   useEffect(() => {
     if (!visionOn) return;
