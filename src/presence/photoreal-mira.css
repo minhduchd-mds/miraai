@@ -817,3 +817,12 @@
     0 0 0 10px color-mix(in srgb,var(--accent) 5%,transparent),
     0 0 30px color-mix(in srgb,var(--accent) 32%,transparent);
 }
+
+
+.pm-state-orb[data-spatial-human-contact="contact"]{
+  border-color:color-mix(in srgb,var(--accent) 58%,white 28%);
+}
+.pm-state-orb[data-spatial-pressed="true"] i{
+  opacity:calc(.72 + var(--spatial-pressure,0) * .28);
+  filter:brightness(calc(1 + var(--spatial-pressure,0) * .18));
+}
