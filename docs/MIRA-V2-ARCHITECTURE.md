@@ -189,6 +189,23 @@ World Model v14 provides short-term object permanence, confidence decay, near-re
 
 See `docs/MIRA-WORLD-MODEL-V14.md`.
 
+## 8.2 Spatial UI control
+
+Production vision input now includes a separate UI interaction plane:
+
+```text
+calibrated gaze/head ─┐
+                      ├─ SpatialUIController → focused UI target
+hand pointer/pinch ───┘                      → activate / grab / move
+two pinched hands ──────────────────────────→ scale / rotate
+```
+
+Indirect mode keeps gaze/head as the focus source and uses pinch only as the commit gesture. A stable Pointing Up gesture switches to direct hand pointing. A nod is a face-only activation fallback; gaze alone never triggers a click.
+
+The camera monitor and Result Surface are movable spatial windows. Hand landmark `z` is preserved through the input pipeline, but production one-hand drag remains x/y-only until a metric-depth/WebXR/device adapter can provide reliable world-space depth.
+
+See `docs/SPATIAL-INTERACTION.md`.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
