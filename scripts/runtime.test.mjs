@@ -44,6 +44,7 @@ const objectInteraction = await importTypeScript('src/core/vision/object-interac
 const actionSequence = await importTypeScript('src/core/vision/action-sequence.ts');
 const causalActionGraph = await importTypeScript('src/core/vision/causal-action-graph.ts');
 const worldModel = await importTypeScript('src/core/vision/world-model.ts');
+const spatialUiControl = await importTypeScript('src/core/vision/spatial-ui-control.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -1589,4 +1590,230 @@ test('world model snapshot is read-only and reset clears session state', () => {
   assert.equal(snapshot.objects[0].status, 'visible');
   tracker.reset();
   assert.equal(tracker.snapshot(1600).objects.length, 0);
+});
+
+
+function spatialIntent(intent, at, stableMs = 0) {
+  return {
+    eventId: intent === 'none' ? 0 : 1,
+    intent,
+    gesture: intent.startsWith('pinch') ? 'None' : 'Pointing_Up',
+    confidence: intent === 'none' ? 0 : 0.9,
+    stableMs,
+    at,
+  };
+}
+
+function spatialFace(overrides = {}) {
+  return {
+    present: true,
+    confidence: 0.82,
+    gazeX: 0,
+    gazeY: 0,
+    yaw: 0,
+    pitch: 0,
+    calibrationProgress: 1,
+    ...overrides,
+  };
+}
+
+function spatialHand(overrides = {}) {
+  return {
+    present: false,
+    confidence: 0,
+    x: 0.5,
+    y: 0.5,
+    z: 0,
+    pinching: false,
+    direct: false,
+    ...overrides,
+  };
+}
+
+const centerActionTarget = [{
+  id: 'theme.cycle',
+  label: 'Đổi màu',
+  kind: 'action',
+  left: 0.42,
+  top: 0.42,
+  right: 0.58,
+  bottom: 0.58,
+  priority: 0.14,
+}];
+
+test('spatial UI uses gaze focus with pinch commit like indirect spatial input', () => {
+  const controller = new spatialUiControl.SpatialUIController();
+
+  let frame = controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.8, pinching: false }),
+    gestureIntent: spatialIntent('none', 1000),
+    headGesture: 'none',
+    targets: centerActionTarget,
+  }, 1000);
+  assert.equal(frame.pointer.source, 'face');
+  assert.equal(frame.focus?.id, 'theme.cycle');
+  assert.equal(frame.focus?.ready, false);
+
+  frame = controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.8, pinching: false }),
+    gestureIntent: spatialIntent('none', 1320),
+    headGesture: 'none',
+    targets: centerActionTarget,
+  }, 1320);
+  assert.equal(frame.focus?.ready, true);
+
+  frame = controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.9, pinching: true }),
+    gestureIntent: spatialIntent('pinch_down', 1400),
+    headGesture: 'none',
+    targets: centerActionTarget,
+  }, 1400);
+
+  const activation = frame.events.find((event) => event.type === 'activate');
+  assert.equal(activation?.targetId, 'theme.cycle');
+  assert.equal(activation?.source, 'hand');
+  assert.equal(frame.pointer.source, 'face');
+});
+
+test('spatial UI supports nod-to-activate as a face-only fallback', () => {
+  const controller = new spatialUiControl.SpatialUIController();
+  controller.update({
+    face: spatialFace(),
+    hand: spatialHand(),
+    gestureIntent: spatialIntent('none', 1000),
+    headGesture: 'none',
+    targets: centerActionTarget,
+  }, 1000);
+  controller.update({
+    face: spatialFace(),
+    hand: spatialHand(),
+    gestureIntent: spatialIntent('none', 1320),
+    headGesture: 'none',
+    targets: centerActionTarget,
+  }, 1320);
+
+  const frame = controller.update({
+    face: spatialFace(),
+    hand: spatialHand(),
+    gestureIntent: spatialIntent('none', 1420),
+    headGesture: 'nod',
+    targets: centerActionTarget,
+  }, 1420);
+
+  const activation = frame.events.find((event) => event.type === 'activate');
+  assert.equal(activation?.targetId, 'theme.cycle');
+  assert.equal(activation?.source, 'face');
+});
+
+test('spatial UI switches to direct hand pointer for explicit pointing', () => {
+  const controller = new spatialUiControl.SpatialUIController();
+  const rightTarget = [{
+    id: 'settings.open',
+    label: 'Cài đặt',
+    kind: 'action',
+    left: 0.72,
+    top: 0.42,
+    right: 0.9,
+    bottom: 0.58,
+  }];
+
+  controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.86, x: 0.8, y: 0.5, direct: true }),
+    gestureIntent: spatialIntent('none', 1000),
+    headGesture: 'none',
+    targets: rightTarget,
+  }, 1000);
+
+  let frame = controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.86, x: 0.8, y: 0.5, direct: true }),
+    gestureIntent: spatialIntent('none', 1140),
+    headGesture: 'none',
+    targets: rightTarget,
+  }, 1140);
+  assert.equal(frame.pointer.source, 'hand');
+  assert.equal(frame.focus?.ready, true);
+
+  frame = controller.update({
+    face: spatialFace({ present: false, confidence: 0 }),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.8, y: 0.5, z: -0.12, pinching: true, direct: true }),
+    gestureIntent: spatialIntent('pinch_down', 1220),
+    headGesture: 'none',
+    targets: rightTarget,
+  }, 1220);
+  assert.ok(frame.events.some((event) => event.type === 'activate' && event.targetId === 'settings.open'));
+  assert.ok(frame.pointer.z < 0);
+});
+
+test('spatial UI emits a complete pinch-grab window lifecycle', () => {
+  const controller = new spatialUiControl.SpatialUIController();
+  const windowTarget = [{
+    id: 'result',
+    label: 'Di chuyển kết quả',
+    kind: 'window',
+    left: 0.42,
+    top: 0.42,
+    right: 0.58,
+    bottom: 0.58,
+  }];
+
+  controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.82 }),
+    gestureIntent: spatialIntent('none', 1000),
+    headGesture: 'none',
+    targets: windowTarget,
+  }, 1000);
+  controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.82 }),
+    gestureIntent: spatialIntent('none', 1320),
+    headGesture: 'none',
+    targets: windowTarget,
+  }, 1320);
+
+  let frame = controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.52, y: 0.48, pinching: true }),
+    gestureIntent: spatialIntent('pinch_down', 1400),
+    headGesture: 'none',
+    targets: windowTarget,
+  }, 1400);
+  assert.ok(frame.events.some((event) => event.type === 'grab_start' && event.targetId === 'result'));
+  assert.equal(frame.grabbing, true);
+
+  frame = controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.68, y: 0.58, pinching: true }),
+    gestureIntent: spatialIntent('none', 1520),
+    headGesture: 'none',
+    targets: windowTarget,
+  }, 1520);
+  assert.ok(frame.events.some((event) => event.type === 'grab_move' && event.targetId === 'result'));
+
+  frame = controller.update({
+    face: spatialFace(),
+    hand: spatialHand({ present: true, confidence: 0.9, x: 0.68, y: 0.58, pinching: false }),
+    gestureIntent: spatialIntent('pinch_up', 1640, 240),
+    headGesture: 'none',
+    targets: windowTarget,
+  }, 1640);
+  assert.ok(frame.events.some((event) => event.type === 'grab_end' && event.targetId === 'result'));
+  assert.equal(frame.grabbing, false);
+});
+
+test('spatial pointer mapping clamps noisy webcam gaze instead of producing invalid coordinates', () => {
+  const point = spatialUiControl.faceSpatialPoint(spatialFace({
+    gazeX: 4,
+    gazeY: -4,
+    yaw: 3,
+    pitch: -3,
+  }));
+  assert.ok(point.x >= 0.025 && point.x <= 0.975);
+  assert.ok(point.y >= 0.035 && point.y <= 0.965);
+  assert.equal(point.source, 'face');
 });
