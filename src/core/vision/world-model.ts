@@ -72,6 +72,8 @@ const EVENT_TTL_MS = 90_000;
 const PROMPT_EVENT_WINDOW_MS = 20_000;
 const NEAR_REBIND_DISTANCE = 0.09;
 const RELOCATION_DISTANCE = 0.12;
+const MAX_WORLD_OBJECTS = 32;
+const MAX_PROCESSED_SCENE_EVENTS = 128;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
@@ -121,6 +123,28 @@ export class ShortTermWorldModelTracker {
   private seq = 0;
   private eventSeq = 0;
   private processedSceneEventIds = new Set<string>();
+  private processedSceneEventOrder: string[] = [];
+
+  private markSceneEventProcessed(id: string): void {
+    if (!id || this.processedSceneEventIds.has(id)) return;
+    this.processedSceneEventIds.add(id);
+    this.processedSceneEventOrder.push(id);
+    while (this.processedSceneEventOrder.length > MAX_PROCESSED_SCENE_EVENTS) {
+      const oldest = this.processedSceneEventOrder.shift();
+      if (oldest) this.processedSceneEventIds.delete(oldest);
+    }
+  }
+
+  private enforceMemoryBudget(): void {
+    if (this.memories.size <= MAX_WORLD_OBJECTS) return;
+    const overflow = [...this.memories.values()]
+      .sort((a, b) =>
+        a.confidence - b.confidence ||
+        a.lastSeenAt - b.lastSeenAt
+      )
+      .slice(0, this.memories.size - MAX_WORLD_OBJECTS);
+    for (const memory of overflow) this.memories.delete(memory.id);
+  }
 
   private pushEvent(
     type: WorldModelEventType,
@@ -165,6 +189,7 @@ export class ShortTermWorldModelTracker {
       supportedByActionHypothesis: false,
     };
     this.memories.set(memory.id, memory);
+    this.enforceMemoryBudget();
     this.pushEvent('seen', memory, now, 'Object ổn định xuất hiện trong scene graph.');
     return memory;
   }
@@ -303,7 +328,7 @@ export class ShortTermWorldModelTracker {
       now - event.at <= 1_500
     );
     if (movedEvent && distance >= 0.06) {
-      this.processedSceneEventIds.add(movedEvent.id);
+      this.markSceneEventProcessed(movedEvent.id);
       this.pushEvent(
         'moved',
         memory,
@@ -403,6 +428,7 @@ export class ShortTermWorldModelTracker {
     this.seq = 0;
     this.eventSeq = 0;
     this.processedSceneEventIds.clear();
+    this.processedSceneEventOrder = [];
   }
 }
 
