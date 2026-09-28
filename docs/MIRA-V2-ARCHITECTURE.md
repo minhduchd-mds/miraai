@@ -259,6 +259,21 @@ Metric XR coordinates are intentionally not mixed with normalized DOM interactio
 Metric XR depth remains distinct from webcam-relative depth. v15 uses XR metric data for projection and preserves the metric camera-space depth value without pretending the two depth models are interchangeable.
 
 
+### Human Hand Interaction architecture
+
+Mira now separates the hand-control stack into four boundaries:
+
+1. **Sensor geometry** — MediaPipe normalized/world-shape landmarks or metric WebXR joints.
+2. **Kinematics** — `SpatialHandKinematicsTracker` normalizes hand scale and derives palm/finger geometry, pinch, velocity and stability.
+3. **Contact** — `SpatialHandContactRuntime` performs conservative multi-finger target-volume contact with dwell and an interaction-only pressure proxy.
+4. **Intent** — `SpatialHandIntentRuntime` interprets temporal point/touch/press/grab/drag/release/push/pull/swipe/rotation semantics without automatically mapping arbitrary gestures to actions.
+
+Webcam normalized coordinates and WebXR metric coordinates are never merged as if they had the same unit system. `bridgeXRHandTo21()` only normalizes topology; metric values stay metric. The App layer separately projects XR joints into DOM coordinates for target interaction.
+
+The depth-aware hand overlay is a presentation layer over relative Z/interaction state. It does not assert reconstructed skin geometry, physical force, or verified physical touch.
+
+All kinematics, contact, intent, XR hand bridge state and contact pressure remain ephemeral and outside long-term memory.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
