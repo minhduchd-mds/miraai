@@ -435,3 +435,50 @@
   .v2-spatial-pointer.locked{width:36px;height:36px}
   .v2-spatial-feedback{bottom:max(48px,calc(env(safe-area-inset-bottom) + 38px))}
 }
+
+
+/* Direct 3D fingertip contact — visual confirmation only, no telemetry panel. */
+.v2-spatial-contact{
+  position:absolute;
+  width:38px;
+  height:38px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--accent) 54%,white 46%);
+  box-shadow:
+    0 0 0 7px color-mix(in srgb,var(--accent) 7%,transparent),
+    0 0 22px color-mix(in srgb,var(--accent) 22%,transparent);
+  opacity:.72;
+  transition:width .12s ease,height .12s ease,opacity .12s ease;
+}
+.v2-spatial-contact i{
+  position:absolute;
+  inset:50% auto auto 50%;
+  width:7px;
+  height:7px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:color-mix(in srgb,var(--accent) 72%,white 28%);
+  box-shadow:0 0 10px color-mix(in srgb,var(--accent) 55%,transparent);
+}
+.v2-spatial-contact.holding{
+  width:30px;
+  height:30px;
+  opacity:.96;
+  border-color:rgba(245,249,255,.94);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb,var(--accent) 10%,transparent),
+    0 0 26px color-mix(in srgb,var(--accent) 30%,transparent);
+}
+.v2-spatial-pointer.touching{
+  border-color:color-mix(in srgb,var(--accent) 74%,white 26%);
+}
+.v2-spatial-pointer.holding{
+  width:20px;
+  height:20px;
+  background:color-mix(in srgb,var(--accent) 14%,rgba(235,242,255,.08));
+}
+[data-spatial-contacted="true"]{
+  outline:1px solid color-mix(in srgb,var(--accent) 42%,transparent);
+  outline-offset:3px;
+}
