@@ -48,6 +48,7 @@ const spatialUiControl = await importTypeScript('src/core/vision/spatial-ui-cont
 const spatialRay = await importTypeScript('src/core/vision/spatial-ray.ts');
 const spatialAnchor = await importTypeScript('src/core/vision/spatial-anchor.ts');
 const spatialObject = await importTypeScript('src/core/vision/spatial-object.ts');
+const spatialWorld = await importTypeScript('src/core/vision/spatial-world.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -2231,4 +2232,177 @@ test('spatial UI emits object grab lifecycle without auto-activating it', () => 
     targets: objectTarget,
   }, 1420);
   assert.ok(frame.events.some((event) => event.type === 'grab_end' && event.targetKind === 'object'));
+});
+
+
+test('spatial world resolves parent child anchor pose', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0.1, y: 0.2, z: 0.05 }, scale: 1, rotation: 0 },
+    snapRadius: 0.05,
+  }, {
+    id: 'surface',
+    label: 'Surface',
+    kind: 'surface',
+    parentId: 'root',
+    pose: { position: { x: 0.2, y: -0.1, z: 0.1 }, scale: 1, rotation: 0 },
+    snapRadius: 0.05,
+  }, {
+    id: 'dock',
+    label: 'Dock',
+    kind: 'dock',
+    parentId: 'surface',
+    pose: { position: { x: 0, y: -0.05, z: 0.02 }, scale: 1, rotation: 0 },
+    snapRadius: 0.16,
+  }]);
+
+  const pose = world.resolveAnchorPose('dock');
+  assert.ok(pose);
+  assert.ok(Math.abs(pose.position.x - 0.3) < 1e-6);
+  assert.ok(Math.abs(pose.position.y - 0.05) < 1e-6);
+  assert.ok(Math.abs(pose.position.z - 0.17) < 1e-6);
+});
+
+test('spatial world snaps object to nearest eligible anchor', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'dock.left',
+    label: 'Left dock',
+    kind: 'dock',
+    pose: { position: { x: -0.2, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+    priority: 0.2,
+  }, {
+    id: 'dock.right',
+    label: 'Right dock',
+    kind: 'dock',
+    pose: { position: { x: 0.24, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+    priority: 0.2,
+  }]);
+
+  const snap = world.snapObject('mira.core', {
+    position: { x: 0.2, y: 0.01, z: 0 },
+    scale: 1.2,
+    rotation: 12,
+  }, 1000);
+
+  assert.equal(snap?.anchorId, 'dock.right');
+  assert.ok(Math.abs(snap.worldPose.position.x - 0.24) < 1e-6);
+  assert.equal(snap.worldPose.scale, 1.2);
+  assert.equal(snap.worldPose.rotation, 12);
+  assert.equal(world.attachment('mira.core')?.anchorId, 'dock.right');
+});
+
+test('attached spatial object follows a moved parent anchor', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'surface.camera',
+    label: 'Camera',
+    kind: 'surface',
+    pose: { position: { x: 0.1, y: 0.1, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.04,
+  }, {
+    id: 'dock.camera',
+    label: 'Camera dock',
+    kind: 'dock',
+    parentId: 'surface.camera',
+    pose: { position: { x: 0, y: -0.05, z: 0.02 }, scale: 1, rotation: 0 },
+    snapRadius: 0.16,
+  }]);
+
+  const snap = world.snapObject('mira.core', {
+    position: { x: 0.1, y: 0.05, z: 0.02 },
+    scale: 1,
+    rotation: 0,
+  }, 1000);
+  assert.equal(snap?.anchorId, 'dock.camera');
+
+  world.setAnchors([{
+    id: 'surface.camera',
+    label: 'Camera',
+    kind: 'surface',
+    pose: { position: { x: 0.3, y: 0.2, z: 0.1 }, scale: 1, rotation: 0 },
+    snapRadius: 0.04,
+  }, {
+    id: 'dock.camera',
+    label: 'Camera dock',
+    kind: 'dock',
+    parentId: 'surface.camera',
+    pose: { position: { x: 0, y: -0.05, z: 0.02 }, scale: 1, rotation: 0 },
+    snapRadius: 0.16,
+  }]);
+
+  const followed = world.resolveObjectPose('mira.core');
+  assert.ok(followed);
+  assert.ok(Math.abs(followed.position.x - 0.3) < 1e-6);
+  assert.ok(Math.abs(followed.position.y - 0.15) < 1e-6);
+  assert.ok(Math.abs(followed.position.z - 0.12) < 1e-6);
+});
+
+test('spatial world detaches object when released outside all snap radii', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'dock.home',
+    label: 'Home',
+    kind: 'dock',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.1,
+  }]);
+  world.attachObject('mira.core', 'dock.home', {
+    position: { x: 0, y: 0, z: 0 },
+    scale: 1,
+    rotation: 0,
+  }, 1000);
+
+  const snap = world.snapObject('mira.core', {
+    position: { x: 0.4, y: 0.4, z: 0.4 },
+    scale: 1,
+    rotation: 0,
+  }, 1200);
+  assert.equal(snap, null);
+  assert.equal(world.attachment('mira.core'), null);
+});
+
+test('spatial world rejects cyclic parent anchor graphs', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'a',
+    label: 'A',
+    kind: 'surface',
+    parentId: 'b',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.1,
+  }, {
+    id: 'b',
+    label: 'B',
+    kind: 'surface',
+    parentId: 'a',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.1,
+  }]);
+  assert.equal(world.resolveAnchorPose('a'), null);
+  assert.equal(world.resolveAnchorPose('b'), null);
+});
+
+test('spatial object setPose accepts resolved world pose while preserving limits', () => {
+  const runtime = new spatialObject.SpatialObjectRuntime([{
+    id: 'mira.core',
+    label: 'Mira Core',
+    minScale: 0.72,
+    maxScale: 1.65,
+  }]);
+  const object = runtime.setPose('mira.core', {
+    position: { x: 2, y: -2, z: 2 },
+    scale: 4,
+    rotation: 390,
+  });
+  assert.equal(object?.pose.position.x, 0.48);
+  assert.equal(object?.pose.position.y, -0.48);
+  assert.equal(object?.pose.position.z, 0.7);
+  assert.equal(object?.pose.scale, 1.65);
+  assert.equal(object?.pose.rotation, 30);
 });
