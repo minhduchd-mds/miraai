@@ -124,6 +124,17 @@
   transform: translateY(-1px);
 }
 .v2-actions .ico { width: 15px; height: 15px; }
+.v2-actions button.xr-active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  background: color-mix(in srgb, var(--accent) 11%, rgba(5,10,31,.24));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.v2-xr-glyph {
+  font: 750 8px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: -.2px;
+}
+
 .v2-theme-dot {
   width: 9px;
   height: 9px;
