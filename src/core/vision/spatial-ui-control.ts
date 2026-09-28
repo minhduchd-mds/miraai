@@ -1,5 +1,5 @@
 import type { GestureIntentState } from './gesture-intent';
-import { hitTestSpatialRay, type SpatialRay3D, type SpatialRayHit } from './spatial-ray';
+import type { SpatialRay3D, SpatialRayHit } from './spatial-ray';
 
 export type SpatialPointerSource = 'none' | 'face' | 'hand';
 export type SpatialTargetKind = 'action' | 'window';
@@ -83,6 +83,7 @@ export interface SpatialControlFrame {
 export interface SpatialControlInput {
   face: SpatialFaceSample;
   hand: SpatialHandSample;
+  rayHit?: SpatialRayHit | null;
   gestureIntent: GestureIntentState;
   headGesture: string;
   targets: SpatialTargetGeometry[];
@@ -179,22 +180,6 @@ function targetScore(target: SpatialTargetGeometry, point: SpatialPoint3D): numb
   return (inside ? 2.2 : 1) - distance + Number(target.priority || 0);
 }
 
-function depthAwareTargets(targets: SpatialTargetGeometry[]) {
-  return targets
-    .filter((target) => Number.isFinite(target.z))
-    .map((target) => ({
-      id: target.id,
-      label: target.label,
-      left: target.left,
-      top: target.top,
-      right: target.right,
-      bottom: target.bottom,
-      z: Number(target.z || 0),
-      depthRadius: Number(target.depthRadius || 0),
-      priority: target.priority,
-    }));
-}
-
 function chooseTarget(
   targets: SpatialTargetGeometry[],
   point: SpatialPoint3D,
@@ -239,9 +224,7 @@ export class SpatialUIController {
     const facePoint = faceSpatialPoint(input.face);
     const handPoint = handSpatialPoint(input.hand);
 
-    const rayHit = input.hand.direct
-      ? hitTestSpatialRay(input.hand.ray || null, depthAwareTargets(input.targets))
-      : null;
+    const rayHit = input.hand.direct ? input.rayHit || null : null;
 
     // visionOS-style indirect input: look chooses target, pinch commits.
     // Direct hand pointing takes over only when explicitly stable or face focus is unavailable.
