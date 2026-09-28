@@ -801,3 +801,19 @@
 .photo-mira.spatial-core-active .pm-state-node{
   display:grid;
 }
+
+
+/* Multi-cluster selection: visible but intentionally quieter than direct contact. */
+.pm-state-orb[data-spatial-selected="true"]{
+  border-color:color-mix(in srgb,var(--accent) 58%,white 42%);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb,var(--accent) 8%,transparent),
+    0 0 0 8px color-mix(in srgb,var(--accent) 4%,transparent),
+    0 0 22px color-mix(in srgb,var(--accent) 22%,transparent);
+}
+.pm-state-orb[data-spatial-selected="true"][data-spatial-contacted="true"]{
+  box-shadow:
+    0 0 0 5px color-mix(in srgb,var(--accent) 12%,transparent),
+    0 0 0 10px color-mix(in srgb,var(--accent) 5%,transparent),
+    0 0 30px color-mix(in srgb,var(--accent) 32%,transparent);
+}
