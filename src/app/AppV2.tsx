@@ -69,6 +69,10 @@ import {
 } from '../core/vision/spatial-group';
 import { SpatialDeviceAdapterRuntime } from '../core/vision/spatial-device-adapter';
 import {
+  SpatialWebXRSessionRuntime,
+  type WebXRSessionSnapshot,
+} from '../core/vision/spatial-webxr-session';
+import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
   type SpatialPlacementPreview,
@@ -553,6 +557,11 @@ export default function AppV2() {
   const spatialLayoutRef = useRef(spatialSessionLayoutRuntime());
   const spatialLayoutSkipCaptureRef = useRef(false);
   const spatialDeviceAdapterRef = useRef(new SpatialDeviceAdapterRuntime());
+  const webXRRuntimeRef = useRef(new SpatialWebXRSessionRuntime());
+  const [webXRAvailable, setWebXRAvailable] = useState(false);
+  const [webXRSnapshot, setWebXRSnapshot] = useState<WebXRSessionSnapshot>(() =>
+    webXRRuntimeRef.current.snapshot()
+  );
   const [selectedClusterRoots, setSelectedClusterRoots] = useState<string[]>([]);
   const spatialJointBeforeGrabRef = useRef<SpatialJointState | null>(null);
   const spatialJointControlRef = useRef<string | null>(null);
@@ -592,8 +601,22 @@ export default function AppV2() {
   useDialogFocus(settingsOpen, '.v2-settings');
 
   useEffect(() => {
-    void spatialDeviceAdapterRef.current.detectWebXR();
+    let cancelled = false;
+    void spatialDeviceAdapterRef.current.detectWebXR().then((capabilities) => {
+      if (!cancelled) setWebXRAvailable(capabilities.mode === 'webxr-metric');
+    });
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!webXRSnapshot.active) return;
+    const timer = window.setInterval(() => {
+      const snapshot = webXRRuntimeRef.current.snapshot();
+      setWebXRSnapshot(snapshot);
+      if (!snapshot.active) setWebXRAvailable(false);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [webXRSnapshot.active]);
 
   useEffect(() => {
     document.body.dataset.state = mira.state;
@@ -728,6 +751,34 @@ export default function AppV2() {
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
   }, [mira.observeAffect]);
+
+  const toggleWebXR = useCallback(async () => {
+    if (webXRSnapshot.active) {
+      const snapshot = await webXRRuntimeRef.current.stop();
+      setWebXRSnapshot(snapshot);
+      setWebXRAvailable(true);
+      showSpatialFeedback('Đã thoát XR');
+      return;
+    }
+
+    const snapshot = await webXRRuntimeRef.current.start(globalThis, document.body);
+    setWebXRSnapshot(snapshot);
+    if (!snapshot.active) {
+      setWebXRAvailable(false);
+      showSpatialFeedback(snapshot.error || 'Không mở được XR');
+      return;
+    }
+
+    const enabled = snapshot.enabledFeatures;
+    setWebXRAvailable(true);
+    showSpatialFeedback(
+      enabled.includes('hand-tracking')
+        ? 'XR · hand tracking đã sẵn sàng'
+        : 'XR · session đã mở',
+    );
+
+    if (visionOn) await stopVision();
+  }, [showSpatialFeedback, stopVision, visionOn, webXRSnapshot.active]);
 
   const toggleVision = useCallback(async () => {
     if (visionBooting) return;
@@ -2038,7 +2089,11 @@ export default function AppV2() {
   ].join(' ');
 
   return (
-    <div className={`mira-v2 voice-only holographic-ui user-mood-${faceAffect.mood}${voiceBooting ? ' voice-booting' : ''}${mira.content ? ' has-result' : ''}`}>
+    <div
+      className={`mira-v2 voice-only holographic-ui user-mood-${faceAffect.mood}${voiceBooting ? ' voice-booting' : ''}${webXRSnapshot.active ? ' xr-active' : ''}${mira.content ? ' has-result' : ''}`}
+      data-xr-hands={webXRSnapshot.hands.length}
+      data-xr-hit={webXRSnapshot.hit ? 'true' : 'false'}
+    >
       <a className="v2-skip" href="#main-content">Chuyển tới nội dung chính</a>
 
       <header className="v2-header voice-header">
@@ -2063,6 +2118,20 @@ export default function AppV2() {
             {visionOn ? <IconCameraOff /> : <IconCamera />}
             <span className="sr-only">{visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}</span>
           </button>
+          {(webXRAvailable || webXRSnapshot.active) && (
+            <button
+              type="button"
+              className={webXRSnapshot.active ? 'xr-active' : ''}
+              onClick={() => void toggleWebXR()}
+              aria-pressed={webXRSnapshot.active}
+              title={webXRSnapshot.active ? 'Thoát WebXR' : 'Mở WebXR AR'}
+              data-spatial-action="xr.toggle"
+              data-spatial-label={webXRSnapshot.active ? 'Thoát XR' : 'Mở XR'}
+            >
+              <span className="v2-xr-glyph" aria-hidden="true">XR</span>
+              <span className="sr-only">{webXRSnapshot.active ? 'Thoát WebXR' : 'Mở WebXR AR'}</span>
+            </button>
+          )}
           <button type="button" onClick={cycleTheme} title="Đổi màu" data-spatial-action="theme.cycle" data-spatial-label="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
           <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt" data-spatial-action="settings.open" data-spatial-label="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
         </nav>
