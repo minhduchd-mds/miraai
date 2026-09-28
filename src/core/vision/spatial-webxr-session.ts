@@ -23,11 +23,18 @@ export interface WebXRHitSample {
   confidence: number;
 }
 
+export interface WebXRViewSample {
+  eye: string;
+  projectionMatrix: number[];
+  viewMatrix: number[];
+}
+
 export interface WebXRSessionSnapshot {
   active: boolean;
   mode: 'inactive' | 'immersive-ar';
   enabledFeatures: string[];
   hands: WebXRHandSample[];
+  views: WebXRViewSample[];
   hit: WebXRHitSample | null;
   frameAt: number;
   error: string;
@@ -38,6 +45,7 @@ const EMPTY: WebXRSessionSnapshot = {
   mode: 'inactive',
   enabledFeatures: [],
   hands: [],
+  views: [],
   hit: null,
   frameAt: 0,
   error: '',
@@ -67,6 +75,11 @@ function cloneSnapshot(snapshot: WebXRSessionSnapshot): WebXRSessionSnapshot {
       indexTip: hand.indexTip ? { ...hand.indexTip } : null,
       thumbTip: hand.thumbTip ? { ...hand.thumbTip } : null,
       wrist: hand.wrist ? { ...hand.wrist } : null,
+    })),
+    views: snapshot.views.map((view) => ({
+      eye: view.eye,
+      projectionMatrix: [...view.projectionMatrix],
+      viewMatrix: [...view.viewMatrix],
     })),
     hit: snapshot.hit ? { ...snapshot.hit } : null,
   };
@@ -154,6 +167,7 @@ export class SpatialWebXRSessionRuntime {
         mode: 'immersive-ar',
         enabledFeatures,
         hands: [],
+        views: [],
         hit: null,
         frameAt: performance.now(),
         error: '',
@@ -234,6 +248,18 @@ export class SpatialWebXRSessionRuntime {
       });
     }
 
+    const viewerPose = typeof frame?.getViewerPose === 'function'
+      ? frame.getViewerPose(referenceSpace)
+      : null;
+    const views: WebXRViewSample[] = Array.from(viewerPose?.views || [])
+      .slice(0, 2)
+      .map((view: any) => ({
+        eye: String(view?.eye || 'none'),
+        projectionMatrix: Array.from(view?.projectionMatrix || []).slice(0, 16).map(finite),
+        viewMatrix: Array.from(view?.transform?.inverse?.matrix || []).slice(0, 16).map(finite),
+      }))
+      .filter((view) => view.projectionMatrix.length === 16 && view.viewMatrix.length === 16);
+
     let hit: WebXRHitSample | null = null;
     if (this.hitTestSource && typeof frame?.getHitTestResults === 'function') {
       try {
@@ -258,6 +284,7 @@ export class SpatialWebXRSessionRuntime {
       active: true,
       mode: 'immersive-ar',
       hands,
+      views,
       hit,
       frameAt: finite(time, performance.now()),
       error: '',
