@@ -120,6 +120,7 @@ export class ShortTermWorldModelTracker {
   private events: WorldModelEvent[] = [];
   private seq = 0;
   private eventSeq = 0;
+  private processedSceneEventIds = new Set<string>();
 
   private pushEvent(
     type: WorldModelEventType,
@@ -296,11 +297,13 @@ export class ShortTermWorldModelTracker {
     }
 
     const movedEvent = graph.events.find((event) =>
+      !this.processedSceneEventIds.has(event.id) &&
       event.type === 'object_moved' &&
       event.label === memory.label &&
       now - event.at <= 1_500
     );
     if (movedEvent && distance >= 0.06) {
+      this.processedSceneEventIds.add(movedEvent.id);
       this.pushEvent(
         'moved',
         memory,
@@ -379,15 +382,19 @@ export class ShortTermWorldModelTracker {
   }
 
   snapshot(now = performance.now()): ShortTermWorldState {
-    return this.update({
-      nodes: [],
-      relations: [],
-      focus: null,
-      pointerActive: false,
-      peopleCount: 0,
-      events: [],
+    const objects = [...this.memories.values()]
+      .sort((a, b) => b.confidence - a.confidence)
+      .map(publicObject);
+    return {
+      version: 14,
+      objects,
+      events: this.events
+        .filter((event) => now - event.at <= EVENT_TTL_MS)
+        .map((event) => ({ ...event })),
+      visibleCount: objects.filter((item) => item.status !== 'temporarily_missing').length,
+      missingCount: objects.filter((item) => item.status === 'temporarily_missing').length,
       updatedAt: now,
-    }, null, now);
+    };
   }
 
   reset(): void {
@@ -395,6 +402,7 @@ export class ShortTermWorldModelTracker {
     this.events = [];
     this.seq = 0;
     this.eventSeq = 0;
+    this.processedSceneEventIds.clear();
   }
 }
 
