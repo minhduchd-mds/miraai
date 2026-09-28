@@ -37,6 +37,8 @@ export default function ContentPanel({ content, onClose, spatialStyle, spatialDe
         aria-label="Đóng kết quả"
         data-spatial-action="result.close"
         data-spatial-label="Đóng kết quả"
+        data-spatial-depth={spatialDepth}
+        data-spatial-depth-radius="0.11"
       >
         <IconClose />
       </button>
@@ -66,6 +68,8 @@ export default function ContentPanel({ content, onClose, spatialStyle, spatialDe
             onClick={() => downloadImage(content.data.url, `mira-${content.data.prompt.slice(0, 20).replace(/\s+/g, '-')}.jpg`)}
             data-spatial-action="result.download"
             data-spatial-label="Tải ảnh"
+            data-spatial-depth={spatialDepth}
+            data-spatial-depth-radius="0.11"
           >
             <IconDownload /> Tải về máy
           </button>
