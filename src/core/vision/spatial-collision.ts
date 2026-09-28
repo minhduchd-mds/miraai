@@ -54,8 +54,8 @@ function magnitude(v: { x: number; y: number; z: number }): number {
 /**
  * Conservative sphere-proxy collision solver for Mira spatial objects.
  *
- * Radii and masses are interaction-space tuning values, not physical
- * measurements. The solver separates overlaps and returns velocity deltas;
+ * Radii and masses are interaction-space tuning values, not physical measurements.
+ * The solver separates overlaps and returns velocity deltas;
  * the owning physics runtime decides how to apply them.
  */
 export function resolveSpatialObjectCollisions(
