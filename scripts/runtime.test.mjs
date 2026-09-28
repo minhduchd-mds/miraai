@@ -46,6 +46,7 @@ const causalActionGraph = await importTypeScript('src/core/vision/causal-action-
 const worldModel = await importTypeScript('src/core/vision/world-model.ts');
 const spatialUiControl = await importTypeScript('src/core/vision/spatial-ui-control.ts');
 const spatialRay = await importTypeScript('src/core/vision/spatial-ray.ts');
+const spatialAnchor = await importTypeScript('src/core/vision/spatial-anchor.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -1940,4 +1941,158 @@ test('spatial UI can prioritize a ray hit for an explicit depth-aware target', (
     gestureIntent: spatialIntent('none', 1140),
   }, 1140);
   assert.equal(frame.focus?.ready, true);
+});
+
+
+test('spatial anchor builds a bounded 3D collision volume from UI geometry', () => {
+  const anchor = spatialAnchor.spatialAnchorFromRect({
+    id: 'result.close',
+    label: 'Đóng kết quả',
+    kind: 'action',
+    left: 0.4,
+    top: 0.3,
+    right: 0.5,
+    bottom: 0.4,
+    z: -0.08,
+    depthRadius: 0.06,
+  });
+  assert.equal(anchor.id, 'result.close');
+  assert.ok(Math.abs(anchor.center.x - 0.45) < 1e-6);
+  assert.ok(Math.abs(anchor.center.y - 0.35) < 1e-6);
+  assert.ok(Math.abs(anchor.center.z + 0.08) < 1e-6);
+  assert.ok(anchor.halfExtents.x > 0.05);
+  assert.ok(anchor.halfExtents.y > 0.05);
+  assert.equal(anchor.halfExtents.z, 0.06);
+});
+
+test('fingertip collision requires x y and z to be inside the target volume', () => {
+  const anchor = spatialAnchor.spatialAnchorFromRect({
+    id: 'window',
+    label: 'Window',
+    kind: 'window',
+    left: 0.4,
+    top: 0.4,
+    right: 0.6,
+    bottom: 0.6,
+    z: -0.1,
+    depthRadius: 0.05,
+  });
+  const hit = spatialAnchor.hitTestSpatialPoint(
+    { x: 0.5, y: 0.5, z: -0.11 },
+    [anchor],
+    0.9,
+  );
+  assert.equal(hit?.targetId, 'window');
+
+  const outsideDepth = spatialAnchor.hitTestSpatialPoint(
+    { x: 0.5, y: 0.5, z: 0.08 },
+    [anchor],
+    0.9,
+  );
+  assert.equal(outsideDepth, null);
+});
+
+test('direct spatial touch needs a stable dwell before contact becomes ready', () => {
+  const tracker = new spatialAnchor.SpatialDirectTouchTracker();
+  const anchors = [spatialAnchor.spatialAnchorFromRect({
+    id: 'result',
+    label: 'Di chuyển kết quả',
+    kind: 'window',
+    left: 0.4,
+    top: 0.4,
+    right: 0.6,
+    bottom: 0.6,
+    z: -0.08,
+    depthRadius: 0.08,
+  })];
+  const input = {
+    active: true,
+    confidence: 0.9,
+    point: { x: 0.5, y: 0.5, z: -0.08 },
+    pinching: false,
+    anchors,
+  };
+
+  let state = tracker.update(input, 1000);
+  assert.equal(state.phase, 'hover');
+  assert.equal(state.ready, false);
+
+  state = tracker.update(input, 1080);
+  assert.equal(state.ready, false);
+
+  state = tracker.update(input, 1100);
+  assert.equal(state.phase, 'contact');
+  assert.equal(state.ready, true);
+  assert.equal(state.targetId, 'result');
+});
+
+test('direct spatial touch enters holding only after stable contact plus pinch', () => {
+  const tracker = new spatialAnchor.SpatialDirectTouchTracker();
+  const anchors = [spatialAnchor.spatialAnchorFromRect({
+    id: 'camera',
+    label: 'Di chuyển camera',
+    kind: 'window',
+    left: 0.4,
+    top: 0.4,
+    right: 0.6,
+    bottom: 0.6,
+    z: -0.05,
+    depthRadius: 0.08,
+  })];
+  const base = {
+    active: true,
+    confidence: 0.88,
+    point: { x: 0.5, y: 0.5, z: -0.05 },
+    anchors,
+  };
+  tracker.update({ ...base, pinching: false }, 1000);
+  tracker.update({ ...base, pinching: false }, 1100);
+  const state = tracker.update({ ...base, pinching: true }, 1120);
+  assert.equal(state.ready, true);
+  assert.equal(state.phase, 'holding');
+  assert.equal(state.pinching, true);
+});
+
+test('direct spatial touch rejects weak confidence and passing hands', () => {
+  const tracker = new spatialAnchor.SpatialDirectTouchTracker();
+  const anchors = [spatialAnchor.spatialAnchorFromRect({
+    id: 'theme.cycle',
+    label: 'Đổi màu',
+    kind: 'action',
+    left: 0.4,
+    top: 0.4,
+    right: 0.6,
+    bottom: 0.6,
+    z: 0,
+    depthRadius: 0.1,
+  })];
+
+  let state = tracker.update({
+    active: true,
+    confidence: 0.4,
+    point: { x: 0.5, y: 0.5, z: 0 },
+    pinching: false,
+    anchors,
+  }, 1000);
+  assert.equal(state.phase, 'idle');
+  assert.equal(state.ready, false);
+
+  state = tracker.update({
+    active: true,
+    confidence: 0.9,
+    point: { x: 0.5, y: 0.5, z: 0 },
+    pinching: false,
+    anchors,
+  }, 1100);
+  assert.equal(state.phase, 'hover');
+
+  state = tracker.update({
+    active: true,
+    confidence: 0.9,
+    point: { x: 0.9, y: 0.9, z: 0.4 },
+    pinching: false,
+    anchors,
+  }, 1250);
+  assert.equal(state.phase, 'idle');
+  assert.equal(state.targetId, '');
 });
