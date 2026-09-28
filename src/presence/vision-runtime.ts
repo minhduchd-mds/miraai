@@ -24,6 +24,7 @@ import {
 } from '../core/vision/holistic-tracker';
 import { EMPTY_VISION_PERFORMANCE } from '../core/vision/vision-performance';
 import { handRayFromLandmarks } from '../core/vision/spatial-ray';
+import { SpatialHandKinematicsTracker } from '../core/vision/spatial-hand-kinematics';
 import {
   objectAwarenessSnapshot,
   startObjectAwareness,
@@ -33,6 +34,7 @@ import {
 let activeEngine: 'holistic' | 'legacy' = 'legacy';
 let visionSession = 0;
 let faceRecoveryTimer: number | null = null;
+const handKinematicsTracker = new SpatialHandKinematicsTracker();
 
 function clearFaceRecoveryTimer(): void {
   if (faceRecoveryTimer != null && typeof window !== 'undefined') window.clearTimeout(faceRecoveryTimer);
@@ -106,6 +108,7 @@ export function stopVision(): void {
   stopPostureTracking();
   stopRppgMonitoring();
   stopObjectAwareness();
+  handKinematicsTracker.reset();
   activeEngine = 'legacy';
 }
 
@@ -115,8 +118,15 @@ export function visionSnapshot() {
   const indexTip = landmarks[8] || { x: handData.x, y: handData.y, z: 0 };
   const thumbTip = landmarks[4] || indexTip;
   const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+  const now = performance.now();
   const hands = handData.hands.map((hand) => {
     const handIndexTip = hand.landmarks[8] || hand.landmarks[0] || { x: hand.x, y: hand.y, z: 0 };
+    const kinematics = handKinematicsTracker.update({
+      handedness: hand.handedness,
+      landmarks: hand.landmarks,
+      worldLandmarks: hand.worldLandmarks,
+      confidence: hand.score,
+    }, now);
     return {
       handedness: hand.handedness,
       gesture: hand.gesture,
@@ -127,8 +137,11 @@ export function visionSnapshot() {
       pointerX: 1 - Number(handIndexTip.x || hand.x),
       pointerY: Number(handIndexTip.y || hand.y),
       ray: handRayFromLandmarks(hand.landmarks),
-      pinching: hand.pinching,
+      pinching: kinematics.pinching,
+      pinchRatio: kinematics.pinchRatio,
+      kinematics,
       landmarks: hand.landmarks.map((point) => ({ ...point })),
+      worldLandmarks: hand.worldLandmarks.map((point) => ({ ...point })),
     };
   });
 
@@ -199,7 +212,7 @@ export function visionSnapshot() {
     pointerY: indexTip.y,
     pointerZ: Number(indexTip.z || 0),
     pointerRay: handRayFromLandmarks(landmarks),
-    pinching: landmarks.length >= 21 && pinchDistance < 0.055,
+    pinching: hands[0]?.pinching ?? (landmarks.length >= 21 && pinchDistance < 0.055),
     pinchDistance,
     gestureScore: handData.score,
     landmarks,
