@@ -15,6 +15,7 @@ export interface SpatialCollisionContact {
   penetration: number;
   relativeSpeed: number;
   impulse: number;
+  stackCandidate: boolean;
 }
 
 export interface SpatialCollisionResolution {
@@ -26,6 +27,9 @@ export interface SpatialCollisionResolution {
 const COLLISION_RESTITUTION = 0.22;
 const POSITION_SLOP = 0.002;
 const POSITION_CORRECTION = 0.72;
+const STACK_RELATIVE_SPEED_MAX = 0.22;
+const STACK_LATERAL_FACTOR = 0.68;
+const STACK_VERTICAL_FACTOR = 0.38;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Number.isFinite(value) ? value : 0));
@@ -130,13 +134,22 @@ export function resolveSpatialObjectCollisions(
         }
       }
 
+      const relativeSpeed = magnitude(rv);
+      const lateralDistance = Math.hypot(dx, dz);
+      const verticalDistance = Math.abs(dy);
+      const stackCandidate =
+        relativeSpeed <= STACK_RELATIVE_SPEED_MAX &&
+        lateralDistance <= minDistance * STACK_LATERAL_FACTOR &&
+        verticalDistance >= minDistance * STACK_VERTICAL_FACTOR;
+
       contacts.push({
         aId: a.id,
         bId: b.id,
         normal,
         penetration,
-        relativeSpeed: magnitude(rv),
+        relativeSpeed,
         impulse,
+        stackCandidate,
       });
     }
   }
