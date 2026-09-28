@@ -56,6 +56,7 @@ const spatialLayout = await importTypeScript('src/core/vision/spatial-layout.ts'
 const spatialGroup = await importTypeScript('src/core/vision/spatial-group.ts');
 const spatialDevice = await importTypeScript('src/core/vision/spatial-device-adapter.ts');
 const spatialWebXR = await importTypeScript('src/core/vision/spatial-webxr-session.ts');
+const spatialXRProjection = await importTypeScript('src/core/vision/spatial-xr-projection.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -3358,8 +3359,21 @@ test('WebXR session runtime requests immersive AR with optional hand and hit fea
     } : null;
   };
 
+  const identity = [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1,
+  ];
   const frame = {
     getJointPose: (space) => jointPose(space),
+    getViewerPose: () => ({
+      views: [{
+        eye: 'none',
+        projectionMatrix: identity,
+        transform: { inverse: { matrix: identity } },
+      }],
+    }),
     getHitTestResults: () => [{
       getPose: () => ({
         transform: { position: { x: 0.4, y: 0.2, z: -1.1 } },
@@ -3370,6 +3384,8 @@ test('WebXR session runtime requests immersive AR with optional hand and hit fea
   frameCallback(1000, frame);
   const snapshot = runtime.snapshot();
   assert.equal(snapshot.hands.length, 1);
+  assert.equal(snapshot.views.length, 1);
+  assert.equal(snapshot.views[0].projectionMatrix.length, 16);
   assert.equal(snapshot.hands[0].handedness, 'right');
   assert.equal(snapshot.hands[0].pinching, true);
   assert.ok(snapshot.hands[0].pinchDistanceM < 0.028);
@@ -3408,4 +3424,84 @@ test('spatial device adapter trusts only enabled WebXR session features', async 
   assert.equal(negotiated.hitTest, true);
   assert.equal(negotiated.anchors, false);
   assert.equal(negotiated.depth, false);
+});
+
+
+test('XR projection maps metric center to DOM center', () => {
+  const identity = [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1,
+  ];
+  const projected = spatialXRProjection.projectMetricPointToView(
+    { x: 0, y: 0, z: 0 },
+    { eye: 'none', projectionMatrix: identity, viewMatrix: identity },
+  );
+  assert.ok(projected);
+  assert.ok(Math.abs(projected.x - 0.5) < 1e-6);
+  assert.ok(Math.abs(projected.y - 0.5) < 1e-6);
+  assert.equal(projected.visible, true);
+});
+
+test('XR projection converts NDC orientation into DOM top-left coordinates', () => {
+  const identity = [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1,
+  ];
+  const projected = spatialXRProjection.projectMetricPointToView(
+    { x: 0.5, y: 0.5, z: 0 },
+    { eye: 'none', projectionMatrix: identity, viewMatrix: identity },
+  );
+  assert.ok(projected);
+  assert.ok(Math.abs(projected.x - 0.75) < 1e-6);
+  assert.ok(Math.abs(projected.y - 0.25) < 1e-6);
+});
+
+test('XR stereo projection averages valid eye views', () => {
+  const identity = [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1,
+  ];
+  const shifted = [...identity];
+  shifted[12] = 0.2;
+  const projected = spatialXRProjection.projectMetricPointAcrossViews(
+    { x: 0, y: 0, z: 0 },
+    [
+      { eye: 'left', projectionMatrix: identity, viewMatrix: identity },
+      { eye: 'right', projectionMatrix: identity, viewMatrix: shifted },
+    ],
+  );
+  assert.ok(projected);
+  assert.ok(projected.x > 0.5 && projected.x < 0.61);
+});
+
+test('XR DOM calibration recenters a projected viewer-ray hit', () => {
+  const runtime = new spatialXRProjection.SpatialXRProjectionRuntime();
+  const calibration = runtime.calibrateCenter({ x: 0.58, y: 0.46 });
+  assert.ok(Math.abs(calibration.offsetX + 0.08) < 1e-6);
+  assert.ok(Math.abs(calibration.offsetY - 0.04) < 1e-6);
+});
+
+test('XR projection rejects points behind the view', () => {
+  const projection = [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,1,
+    0,0,0,0,
+  ];
+  const identity = [
+    1,0,0,0,
+    0,1,0,0,
+    0,0,1,0,
+    0,0,0,1,
+  ];
+  assert.equal(spatialXRProjection.projectMetricPointToView(
+    { x: 0, y: 0, z: -1 },
+    { eye: 'none', projectionMatrix: projection, viewMatrix: identity },
+  ), null);
 });
