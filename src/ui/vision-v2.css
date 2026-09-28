@@ -628,3 +628,20 @@
     0 0 calc(14px + var(--spatial-pressure,0) * 18px)
       color-mix(in srgb,var(--accent) 18%,transparent);
 }
+
+
+/* Real XR surface cues — driven by metric depth samples when available. */
+.mira-v2[data-xr-surface="near"] .v2-spatial-pointer,
+.mira-v2[data-xr-surface="touch"] .v2-spatial-pointer{
+  border-color:color-mix(in srgb,var(--accent) 72%,white 28%);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb,var(--accent) 6%,transparent),
+    0 0 22px color-mix(in srgb,var(--accent) 24%,transparent);
+}
+.mira-v2[data-xr-surface="touch"] .v2-spatial-pointer{
+  transform:translate(-50%,-50%) scale(.86);
+}
+[data-xr-occluded="true"]{
+  opacity:.18 !important;
+  filter:blur(.8px) saturate(.55) !important;
+}
