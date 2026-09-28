@@ -517,3 +517,114 @@
   width:9px;
   height:9px;
 }
+
+
+/* Human Hand Interaction — relative depth cues, not metric webcam depth. */
+.v2-hand-skeleton.depth-aware{
+  position:absolute;
+  inset:0;
+  z-index:7;
+  width:100%;
+  height:100%;
+  overflow:visible;
+  pointer-events:none;
+  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--accent) 22%,transparent));
+}
+.v2-hand-palm-surface{
+  fill:color-mix(in srgb,var(--accent) calc(6% + var(--palm-facing,0) * 11%),transparent);
+  stroke:color-mix(in srgb,var(--accent) calc(18% + var(--palm-facing,0) * 24%),transparent);
+  stroke-width:.55;
+  vector-effect:non-scaling-stroke;
+  opacity:calc(.22 + var(--hand-stability,0) * .34);
+}
+.v2-hand-bones line{
+  stroke:color-mix(in srgb,var(--accent) calc(48% + var(--joint-depth,0) * 36%),white 18%);
+  stroke-width:calc(.6px + var(--joint-depth,0) * .8px);
+  vector-effect:non-scaling-stroke;
+  opacity:calc(.32 + var(--joint-depth,0) * .58);
+  stroke-linecap:round;
+}
+.v2-hand-joints circle{
+  fill:color-mix(in srgb,var(--accent) calc(52% + var(--joint-depth,0) * 38%),white 28%);
+  stroke:rgba(245,249,255,.46);
+  stroke-width:.36;
+  vector-effect:non-scaling-stroke;
+  opacity:var(--joint-opacity,.66);
+}
+.v2-hand-joints circle[data-fingertip="true"]{
+  fill:color-mix(in srgb,var(--accent2) 62%,white 38%);
+}
+.v2-hand-fingertip-halos circle{
+  fill:none;
+  stroke:color-mix(in srgb,var(--accent) calc(18% + var(--joint-depth,0) * 28%),transparent);
+  stroke-width:.6;
+  vector-effect:non-scaling-stroke;
+  opacity:calc(.22 + var(--joint-depth,0) * .46);
+}
+.v2-hand-contact-marker>circle:first-child{
+  fill:color-mix(in srgb,var(--accent) calc(5% + var(--contact-pressure,0) * 14%),transparent);
+  stroke:color-mix(in srgb,var(--accent) calc(48% + var(--contact-pressure,0) * 38%),white 18%);
+  stroke-width:calc(.6px + var(--contact-pressure,0) * 1.1px);
+  vector-effect:non-scaling-stroke;
+  opacity:calc(.55 + var(--contact-pressure,0) * .42);
+}
+.v2-hand-contact-marker .contact-core{
+  fill:color-mix(in srgb,var(--accent2) calc(62% + var(--contact-pressure,0) * 28%),white 22%);
+  opacity:calc(.7 + var(--contact-pressure,0) * .3);
+}
+.v2-hand-contact-marker.phase-press,
+.v2-hand-contact-marker.phase-grab{
+  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--accent) 72%,transparent));
+}
+.v2-hand-depth-field{
+  --hand-depth-x:50%;
+  --hand-depth-y:50%;
+  --hand-depth-z:.5;
+  --hand-pressure:0;
+  position:absolute;
+  z-index:3;
+  left:var(--hand-depth-x);
+  top:var(--hand-depth-y);
+  width:54px;
+  height:54px;
+  border-radius:50%;
+  pointer-events:none;
+  transform:
+    translate(-50%,-50%)
+    scale(calc(.68 + var(--hand-depth-z) * .82 + var(--hand-pressure) * .12));
+  opacity:calc(.08 + var(--hand-depth-z) * .16 + var(--hand-pressure) * .18);
+  background:
+    radial-gradient(circle at 50% 50%,
+      color-mix(in srgb,var(--accent) 18%,transparent) 0 10%,
+      color-mix(in srgb,var(--accent) 7%,transparent) 28%,
+      transparent 68%);
+  box-shadow:
+    0 0 calc(12px + var(--hand-depth-z) * 18px)
+      color-mix(in srgb,var(--accent) 12%,transparent);
+  filter:blur(calc(1px + (1 - var(--hand-depth-z)) * 2px));
+  transition:opacity .08s linear,filter .08s linear;
+}
+.v2-camera-frame.hand-depth-active .v2-camera-preview{
+  filter:
+    saturate(.9)
+    contrast(calc(1.02 + var(--hand-pressure,0) * .03))
+    brightness(calc(.82 + var(--hand-depth-z,.5) * .035));
+}
+[data-spatial-human-contact="hover"],
+[data-spatial-human-contact="approach"]{
+  outline:1px solid color-mix(in srgb,var(--accent) 18%,transparent);
+  outline-offset:2px;
+}
+[data-spatial-human-contact="contact"]{
+  outline:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  outline-offset:2px;
+  box-shadow:0 0 16px color-mix(in srgb,var(--accent) 12%,transparent);
+}
+[data-spatial-pressed="true"]{
+  filter:brightness(calc(1 + var(--spatial-pressure,0) * .08));
+  box-shadow:
+    0 0 0 calc(2px + var(--spatial-pressure,0) * 3px)
+      color-mix(in srgb,var(--accent) 9%,transparent),
+    0 0 calc(14px + var(--spatial-pressure,0) * 18px)
+      color-mix(in srgb,var(--accent) 18%,transparent);
+}
