@@ -226,6 +226,10 @@ See `docs/SPATIAL-INTERACTION.md`.
 
 `SpatialPhysicsRuntime` sits between hand manipulation and object pose. It estimates filtered pointer velocity, classifies release as place vs throw, integrates bounded inertia with damping/soft collisions, and supplies spring-like magnetic placement. Physics coordinates remain normalized interaction-space values rather than physical force/mass measurements. Physics state is session-only.
 
+### Spatial v8 multi-object physics
+
+The production spatial layer now contains `mira.core` and `mira.node`. Objects carry interaction-space collision radius and mass. `resolveSpatialObjectCollisions()` separates sphere-proxy overlaps and returns velocity impulses, while anchored/grabbed bodies can remain static. Per-object stack anchors build clusters through the existing parent/child world graph. Home anchors use `acceptsObjectId` to avoid cross-object snap conflicts. All collision/stack state remains ephemeral.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
