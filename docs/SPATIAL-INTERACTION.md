@@ -209,3 +209,44 @@ workspace
 ```
 
 The hierarchy remains session-only and sensor-agnostic.
+
+
+## Spatial v7: hand physics
+
+Spatial object release now has interaction physics rather than stopping instantly.
+
+```text
+pinch grab
+  ↓
+pointer velocity estimator
+  ↓
+release classifier
+  ├─ slow / strong magnetic target → place
+  └─ fast / weak magnetic target → throw
+                                   ↓
+                                inertia
+                                   ↓
+                         damping + soft bounds
+                                   ↓
+                              settle / snap
+```
+
+### Velocity and throw
+
+`SpatialPhysicsRuntime` estimates a filtered 3D pointer velocity during grab. A release becomes a throw only when the filtered speed clears the throw threshold and no strong magnetic placement target is active.
+
+Velocity is expressed in normalized interaction-space units per second. It is an interaction model, not a physical measurement.
+
+### Inertia and soft collision
+
+Thrown objects continue moving after pinch release. Linear damping reduces velocity over time. Near the x/y/z world limits a soft boundary spring pushes the object inward; crossing the hard bound applies a low-restitution bounce.
+
+The object can therefore feel weighted without being allowed to disappear outside the interaction volume.
+
+### Spring placement
+
+Magnetic placement now uses `applySpatialSpringConstraint()`. The object approaches a preview target progressively instead of teleporting toward it. Strong placement intent wins over throw classification.
+
+During inertia, a slow object entering a strong magnetic target can be captured and snapped to that anchor.
+
+Physics state is session-only and is never persisted to long-term memory.
