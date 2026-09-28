@@ -1,11 +1,11 @@
 # Mira — Voice-first AI Companion
 
-Mira là một **AI companion ưu tiên hội thoại bằng giọng nói**, có text fallback, trí nhớ, skill/tool, host context và lớp hiện diện 2D/3D. Avatar là **Presence Layer**, không phải bản chất của sản phẩm.
+Mira là một **AI companion ưu tiên hội thoại bằng giọng nói**, có runtime text/host fallback, trí nhớ, skill/tool, host context và lớp hiện diện 2D/3D. Avatar là **Presence Layer**, không phải bản chất của sản phẩm.
 
 ## Trải nghiệm chính
 
 - Voice-first: Web Speech STT, smart turn-taking, live conversation, VAD/barge-in.
-- Text-first fallback: composer dùng cùng Conversation Runtime với voice.
+- Text/host fallback vẫn đi qua cùng Conversation Runtime, nhưng production `AppV2` không render text composer.
 - TTS adapters: Web Speech, Edge/self-host, VieNeu, ElevenLabs proxy.
 - Mira Brain Gateway: Gemini / OpenAI / Anthropic chạy server-side, có fallback chain.
 - Memory: recent history + semantic recall + durable facts, có bật/tắt, sửa, quên và export.
@@ -53,7 +53,7 @@ Kiểm tra đầy đủ:
 npm run check
 ```
 
-Quality gate hiện gồm architecture guard, skill contract guard, TypeScript, runtime unit tests, Vite production build và initial bundle budget. GitHub CI chạy trên Node 22 và 24.
+Quality gate hiện gồm architecture guard, skill contract guard, TypeScript, runtime unit tests, Vite production build, initial bundle budget và deploy-artifact smoke. GitHub CI chạy trên Node 22 và 24.
 
 ## Brain server-side
 
@@ -129,6 +129,7 @@ Xem [`docs/HOST-INTEGRATION.md`](docs/HOST-INTEGRATION.md).
 
 - [`DESIGN.md`](DESIGN.md) — product/visual direction.
 - [`docs/MIRA-V2-ARCHITECTURE.md`](docs/MIRA-V2-ARCHITECTURE.md) — kiến trúc hiện tại.
+- [`docs/MIRA-WORLD-MODEL-V14.md`](docs/MIRA-WORLD-MODEL-V14.md) — object permanence / world state ngắn hạn.
 - [`docs/MIRA-SKILLS.md`](docs/MIRA-SKILLS.md) — skill contract + eval pattern.
 - [`docs/BRAIN-GATEWAY.md`](docs/BRAIN-GATEWAY.md) — provider gateway.
 - [`docs/HOST-INTEGRATION.md`](docs/HOST-INTEGRATION.md) — embed/host bridge.
