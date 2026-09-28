@@ -433,3 +433,51 @@ gaze / hand
 ```
 
 Further work is device-specific rather than another required browser architecture phase: real WebXR/AR hardware sessions, metric depth calibration, and real-device UX tuning.
+
+
+## Spatial v14: real WebXR immersive AR session
+
+Mira now has an explicit real-device WebXR runtime rather than capability detection only.
+
+`SpatialWebXRSessionRuntime` opens `immersive-ar` only from a user-triggered XR control. It requests these features as optional capabilities:
+
+- `hand-tracking`;
+- `hit-test`;
+- `anchors`;
+- `depth-sensing`;
+- `local-floor`;
+- `dom-overlay` when a DOM overlay root is supplied.
+
+The runtime then requests a `local` reference space and, when available, a `viewer` reference space for hit-test.
+
+### Metric hand input
+
+When the negotiated session exposes `XRInputSource.hand`, every XR frame reads articulated joints with `XRFrame.getJointPose()`.
+
+The runtime keeps at most two hands and 25 joints per hand. It exposes:
+
+- wrist joint;
+- thumb tip;
+- index-finger tip;
+- joint radius;
+- handedness;
+- metric pinch distance;
+- a conservative pinch boolean at 28 mm.
+
+These values are metric XR-space data from the active XR device. They are not derived from webcam pseudo-depth.
+
+### Real-world hit-test
+
+When `hit-test` is present in `XRSession.enabledFeatures`, Mira creates an XR hit-test source from viewer space. The nearest returned hit pose is exposed in local XR coordinates for future real-world placement.
+
+### Capability truthfulness
+
+`isSessionSupported('immersive-ar')` now only establishes that immersive AR mode may be opened. It no longer implies hand tracking, anchors, hit-test, or depth support.
+
+Actual feature flags are derived from `XRSession.enabledFeatures` after the user opens the session.
+
+### Camera handoff
+
+After an XR session opens successfully, Mira stops the webcam vision stream without resetting the spatial object/world layout. The XR session therefore owns the immersive sensor path while the existing session layout remains intact.
+
+The current v14 boundary deliberately does not project metric XR joints back onto DOM coordinates yet. That next layer requires viewer/view projection calibration rather than an arbitrary meter-to-screen mapping.
