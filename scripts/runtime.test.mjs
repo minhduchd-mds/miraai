@@ -2830,3 +2830,123 @@ test('stack anchor makes child follow the parent object as a cluster', () => {
   assert.ok(Math.abs(followed.position.y + 0.13) < 1e-6);
   assert.ok(Math.abs(followed.position.z - 0.14) < 1e-6);
 });
+
+
+test('slow vertical collision is classified as stack candidate', () => {
+  const result = spatialCollision.resolveSpatialObjectCollisions([{
+    id: 'core',
+    pose: { position: { x: 0, y: 0.04, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.055,
+    mass: 1.4,
+  }, {
+    id: 'node',
+    pose: { position: { x: 0.01, y: -0.045, z: 0.005 }, scale: 1, rotation: 0 },
+    radius: 0.038,
+    mass: 0.6,
+  }], {
+    core: { x: 0, y: 0.02, z: 0 },
+    node: { x: 0, y: 0, z: 0 },
+  });
+
+  assert.equal(result.contacts.length, 1);
+  assert.equal(result.contacts[0].stackCandidate, true);
+  assert.ok(result.contacts[0].relativeSpeed <= 0.22);
+});
+
+test('fast or lateral collision is not classified as stack candidate', () => {
+  const fast = spatialCollision.resolveSpatialObjectCollisions([{
+    id: 'core',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.055,
+  }, {
+    id: 'node',
+    pose: { position: { x: 0.08, y: 0.01, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.038,
+  }], {
+    core: { x: 1.2, y: 0, z: 0 },
+    node: { x: 0, y: 0, z: 0 },
+  });
+  assert.equal(fast.contacts[0].stackCandidate, false);
+
+  const lateral = spatialCollision.resolveSpatialObjectCollisions([{
+    id: 'core',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.055,
+  }, {
+    id: 'node',
+    pose: { position: { x: 0.08, y: -0.01, z: 0 }, scale: 1, rotation: 0 },
+    radius: 0.038,
+  }]);
+  assert.equal(lateral.contacts[0].stackCandidate, false);
+});
+
+test('stack attachment resolves child above parent and follows the cluster', () => {
+  const world = new spatialWorld.SpatialWorldRuntime();
+  world.setAnchors([{
+    id: 'workspace.root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.025,
+  }, {
+    id: 'object.core',
+    label: 'Core',
+    kind: 'object',
+    parentId: 'workspace.root',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0.1, y: 0.08, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+  }, {
+    id: 'stack.core',
+    label: 'Stack Core',
+    kind: 'dock',
+    parentId: 'object.core',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0, y: -0.11, z: 0.03 }, scale: 1, rotation: 0 },
+    snapRadius: 0.12,
+  }]);
+
+  const attached = world.attachObject('node', 'stack.core', {
+    position: { x: 0.1, y: -0.03, z: 0.03 },
+    scale: 0.78,
+    rotation: 0,
+  }, 1000);
+  assert.equal(attached?.anchorId, 'stack.core');
+
+  world.setAnchors([{
+    id: 'workspace.root',
+    label: 'Root',
+    kind: 'workspace',
+    pose: { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 },
+    snapRadius: 0.025,
+  }, {
+    id: 'object.core',
+    label: 'Core',
+    kind: 'object',
+    parentId: 'workspace.root',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0.28, y: -0.02, z: 0.12 }, scale: 1, rotation: 0 },
+    snapRadius: 0.14,
+  }, {
+    id: 'stack.core',
+    label: 'Stack Core',
+    kind: 'dock',
+    parentId: 'object.core',
+    ownerObjectId: 'core',
+    pose: { position: { x: 0, y: -0.11, z: 0.03 }, scale: 1, rotation: 0 },
+    snapRadius: 0.12,
+  }]);
+
+  const followed = world.resolveObjectPose('node');
+  assert.ok(followed);
+  assert.ok(Math.abs(followed.position.x - 0.28) < 1e-6);
+  assert.ok(Math.abs(followed.position.y + 0.13) < 1e-6);
+  assert.ok(Math.abs(followed.position.z - 0.15) < 1e-6);
+});
+
+test('collision impulse can activate inertia on a resting object', () => {
+  const physics = new spatialPhysics.SpatialPhysicsRuntime();
+  const state = physics.addVelocity('mira.node', { x: 0.8, y: 0, z: 0 }, 1000);
+  assert.equal(state.mode, 'inertia');
+  assert.ok(state.speed > 0.7);
+});
