@@ -345,22 +345,35 @@ function normalizeHand(raw: any[]): HandPoint[] | null {
   }));
 }
 
+function normalizedPinchRatio(points: HandPoint[]): number {
+  if (points.length < 21) return 1;
+  const indexTip = points[8];
+  const thumbTip = points[4];
+  const indexMcp = points[5];
+  const pinkyMcp = points[17];
+  const palmSpan = Math.max(1e-5, pointDistance(indexMcp, pinkyMcp));
+  return pointDistance(indexTip, thumbTip) / palmSpan;
+}
+
 function trackedHandFromGeometry(
   landmarks: HandPoint[],
   handedness: string,
   gestureResult = inferLiteGesture(landmarks),
+  worldLandmarks: HandPoint[] = [],
 ): TrackedHand {
   const palm = landmarks[9] || landmarks[0];
-  const indexTip = landmarks[8] || landmarks[0];
-  const thumbTip = landmarks[4] || indexTip;
+  const shape = worldLandmarks.length >= 21 ? worldLandmarks : landmarks;
+  const pinchRatio = normalizedPinchRatio(shape);
   return {
     handedness,
     gesture: gestureResult.gesture,
     score: gestureResult.score,
     x: Number(palm.x),
     y: Number(palm.y),
-    pinching: pointDistance(indexTip, thumbTip) < 0.055,
+    pinching: pinchRatio <= 0.52,
+    pinchRatio,
     landmarks: landmarks.map((point) => ({ x: point.x, y: point.y, z: point.z })),
+    worldLandmarks: worldLandmarks.map((point) => ({ x: point.x, y: point.y, z: point.z })),
   };
 }
 
@@ -396,13 +409,20 @@ function updateHands(result: any): number {
   const hands: TrackedHand[] = [];
   const left = normalizeHand(result?.leftHandLandmarks?.[0]);
   const right = normalizeHand(result?.rightHandLandmarks?.[0]);
-  if (left) hands.push(trackedHandFromGeometry(left, 'Left'));
-  if (right) hands.push(trackedHandFromGeometry(right, 'Right'));
+  const leftWorld = normalizeHand(result?.leftHandWorldLandmarks?.[0]);
+  const rightWorld = normalizeHand(result?.rightHandWorldLandmarks?.[0]);
+  if (left) hands.push(trackedHandFromGeometry(left, 'Left', inferLiteGesture(left), leftWorld || []));
+  if (right) hands.push(trackedHandFromGeometry(right, 'Right', inferLiteGesture(right), rightWorld || []));
   return applyHands(hands);
 }
 
 function workerHandToTracked(hand: WorkerHandResult): TrackedHand {
-  return trackedHandFromGeometry(hand.landmarks, hand.handedness, hand.gesture);
+  return trackedHandFromGeometry(
+    hand.landmarks,
+    hand.handedness,
+    hand.gesture,
+    hand.worldLandmarks || [],
+  );
 }
 
 function applyWorkerResult(result: VisionWorkerResult): number {
@@ -433,7 +453,16 @@ function submitPostprocess(result: any, now: number): number {
   const pose = Array.isArray(rawPose) && rawPose.length >= 25 ? posturePoints(rawPose) : null;
   const leftHand = normalizeHand(result?.leftHandLandmarks?.[0]);
   const rightHand = normalizeHand(result?.rightHandLandmarks?.[0]);
-  postprocessWorker.submit({ at: now, pose, leftHand, rightHand });
+  const leftHandWorld = normalizeHand(result?.leftHandWorldLandmarks?.[0]);
+  const rightHandWorld = normalizeHand(result?.rightHandWorldLandmarks?.[0]);
+  postprocessWorker.submit({
+    at: now,
+    pose,
+    leftHand,
+    rightHand,
+    leftHandWorld,
+    rightHandWorld,
+  });
 
   const latest = postprocessWorker.latest();
   if (latest && latest.seq !== lastWorkerSeq && now - latest.at <= 700) {
