@@ -56,6 +56,7 @@ import {
   applySpatialSpringConstraint,
   type SpatialPhysicsState,
 } from '../core/vision/spatial-physics';
+import { resolveSpatialObjectCollisions } from '../core/vision/spatial-collision';
 import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
@@ -237,6 +238,20 @@ function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorld
     pose: identityPose,
     snapRadius: 0.13,
     priority: 0.35,
+    acceptsObjectId: 'mira.core',
+  }, {
+    id: 'dock.node.home',
+    label: 'Vị trí Mira Node',
+    kind: 'dock',
+    parentId: 'workspace.root',
+    pose: {
+      position: { x: -0.105, y: -0.085, z: 0.035 },
+      scale: 1,
+      rotation: 0,
+    },
+    snapRadius: 0.12,
+    priority: 0.32,
+    acceptsObjectId: 'mira.node',
   }];
 
   if (!objects.length || typeof document === 'undefined' || typeof window === 'undefined') return anchors;
@@ -272,6 +287,19 @@ function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorld
       pose: object.pose,
       snapRadius: 0.14,
       priority: 0.45,
+      ownerObjectId: object.id,
+    }, {
+      id: `stack.${object.id}`,
+      label: `Xếp trên ${object.label}`,
+      kind: 'dock',
+      parentId: `object.${object.id}`,
+      pose: {
+        position: { x: 0, y: -0.082, z: 0.045 },
+        scale: 1,
+        rotation: 0,
+      },
+      snapRadius: 0.13,
+      priority: 0.58,
       ownerObjectId: object.id,
     });
   });
@@ -422,6 +450,20 @@ export default function AppV2() {
     label: 'Mira Core',
     minScale: 0.72,
     maxScale: 1.65,
+    collisionRadius: 0.055,
+    mass: 1.45,
+  }, {
+    id: 'mira.node',
+    label: 'Mira Node',
+    pose: {
+      position: { x: -0.105, y: -0.085, z: 0.035 },
+      scale: 0.78,
+      rotation: -8,
+    },
+    minScale: 0.58,
+    maxScale: 1.22,
+    collisionRadius: 0.038,
+    mass: 0.62,
   }]));
   const [spatialObjects, setSpatialObjects] = useState(() => spatialObjectRuntimeRef.current.snapshot());
   const spatialWorldRuntimeRef = useRef(new SpatialWorldRuntime());
@@ -692,44 +734,91 @@ export default function AppV2() {
           : Math.max(0.5, primaryScore);
 
       const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
-      let currentCoreObject = spatialObjectRuntimeRef.current.get('mira.core');
-      if (currentCoreObject && !currentCoreObject.grabbed && spatialPhysicsRef.current.isActive('mira.core')) {
-        const inertiaStep = spatialPhysicsRef.current.step('mira.core', currentCoreObject.pose, now);
-        spatialObjectRuntimeRef.current.setPose('mira.core', inertiaStep.pose);
-        setSpatialPhysicsState(inertiaStep.state);
-        currentCoreObject = spatialObjectRuntimeRef.current.get('mira.core');
-        setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+
+      let spatialObjectsChanged = false;
+      for (const object of spatialObjectRuntimeRef.current.snapshot()) {
+        if (!object.grabbed && spatialPhysicsRef.current.isActive(object.id)) {
+          const inertiaStep = spatialPhysicsRef.current.step(object.id, object.pose, now);
+          spatialObjectRuntimeRef.current.setPose(object.id, inertiaStep.pose);
+          setSpatialPhysicsState(inertiaStep.state);
+          spatialObjectsChanged = true;
+        }
       }
-      const currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
+
+      let currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
       spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentSpatialObjects));
-      const coreAttachment = spatialWorldRuntimeRef.current.attachment('mira.core');
-      if (!coreAttachment && currentCoreObject && !currentCoreObject.grabbed && spatialPhysicsRef.current.isActive('mira.core')) {
-        const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject('mira.core', currentCoreObject.pose);
-        if (inertiaPreview && inertiaPreview.strength >= 0.78 && spatialPhysicsRef.current.snapshot('mira.core').speed <= 0.34) {
-          const snapped = spatialWorldRuntimeRef.current.snapObject('mira.core', currentCoreObject.pose, now);
-          if (snapped) {
-            spatialObjectRuntimeRef.current.setPose('mira.core', snapped.worldPose);
-            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
-            setSpatialPhysicsState(spatialPhysicsRef.current.stop('mira.core', now));
-            showSpatialFeedback(`Đã bắt neo · ${snapped.anchorLabel}`);
+
+      for (const object of currentSpatialObjects) {
+        const attachment = spatialWorldRuntimeRef.current.attachment(object.id);
+        if (!attachment && !object.grabbed && spatialPhysicsRef.current.isActive(object.id)) {
+          const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject(object.id, object.pose);
+          if (inertiaPreview &&
+              inertiaPreview.strength >= 0.78 &&
+              spatialPhysicsRef.current.snapshot(object.id).speed <= 0.34) {
+            const snapped = spatialWorldRuntimeRef.current.snapObject(object.id, object.pose, now);
+            if (snapped) {
+              spatialObjectRuntimeRef.current.setPose(object.id, snapped.worldPose);
+              setSpatialPhysicsState(spatialPhysicsRef.current.stop(object.id, now));
+              spatialObjectsChanged = true;
+              showSpatialFeedback(`Đã bắt neo · ${snapped.anchorLabel}`);
+            }
           }
         }
       }
-      if (coreAttachment && currentCoreObject && !currentCoreObject.grabbed) {
-        const resolvedPose = spatialWorldRuntimeRef.current.resolveObjectPose('mira.core');
-        if (resolvedPose) {
-          const delta = Math.hypot(
-            resolvedPose.position.x - currentCoreObject.pose.position.x,
-            resolvedPose.position.y - currentCoreObject.pose.position.y,
-            resolvedPose.position.z - currentCoreObject.pose.position.z,
-          );
-          if (delta > 0.001 ||
-              Math.abs(resolvedPose.scale - currentCoreObject.pose.scale) > 0.001 ||
-              Math.abs(resolvedPose.rotation - currentCoreObject.pose.rotation) > 0.1) {
-            spatialObjectRuntimeRef.current.setPose('mira.core', resolvedPose);
-            setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+
+      currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
+      spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentSpatialObjects));
+
+      for (const object of currentSpatialObjects) {
+        const attachment = spatialWorldRuntimeRef.current.attachment(object.id);
+        if (attachment && !object.grabbed) {
+          const resolvedPose = spatialWorldRuntimeRef.current.resolveObjectPose(object.id);
+          if (resolvedPose) {
+            const delta = Math.hypot(
+              resolvedPose.position.x - object.pose.position.x,
+              resolvedPose.position.y - object.pose.position.y,
+              resolvedPose.position.z - object.pose.position.z,
+            );
+            if (delta > 0.001 ||
+                Math.abs(resolvedPose.scale - object.pose.scale) > 0.001 ||
+                Math.abs(resolvedPose.rotation - object.pose.rotation) > 0.1) {
+              spatialObjectRuntimeRef.current.setPose(object.id, resolvedPose);
+              spatialObjectsChanged = true;
+            }
           }
         }
+      }
+
+      currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
+      const collision = resolveSpatialObjectCollisions(
+        currentSpatialObjects.map((object) => ({
+          id: object.id,
+          pose: object.pose,
+          radius: object.collisionRadius,
+          mass: object.mass,
+          dynamic: !object.grabbed && !spatialWorldRuntimeRef.current.attachment(object.id),
+        })),
+        Object.fromEntries(currentSpatialObjects.map((object) => [
+          object.id,
+          spatialPhysicsRef.current.velocity(object.id),
+        ])),
+      );
+
+      if (collision.contacts.length) {
+        for (const object of currentSpatialObjects) {
+          if (!object.grabbed && !spatialWorldRuntimeRef.current.attachment(object.id)) {
+            spatialObjectRuntimeRef.current.setPose(object.id, collision.poses[object.id]);
+          }
+          const impulse = collision.velocityDeltas[object.id];
+          if (impulse && Math.hypot(impulse.x, impulse.y, impulse.z) > 0.012) {
+            setSpatialPhysicsState(spatialPhysicsRef.current.addVelocity(object.id, impulse, now));
+          }
+        }
+        spatialObjectsChanged = true;
+      }
+
+      if (spatialObjectsChanged) {
+        setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
       }
       const spatialAnchors = spatialTargets.map((target) => spatialAnchorFromRect({
         ...target,
@@ -1589,8 +1678,15 @@ export default function AppV2() {
               ? spatialPoseStyle(placementPreview.targetPose)
               : undefined}
             spatialCorePreviewVisible={placementPreview?.objectId === 'mira.core'}
-            spatialCorePhysicsMode={spatialPhysicsState.mode}
+            spatialCorePhysicsMode={spatialPhysicsRef.current.snapshot('mira.core').mode}
             spatialCoreDepth={spatialObjects.find((object) => object.id === 'mira.core')?.pose.position.z || 0}
+            spatialNodeStyle={spatialObjectStyle(spatialObjects.find((object) => object.id === 'mira.node') || null)}
+            spatialNodePreviewStyle={placementPreview?.objectId === 'mira.node'
+              ? spatialPoseStyle(placementPreview.targetPose)
+              : undefined}
+            spatialNodePreviewVisible={placementPreview?.objectId === 'mira.node'}
+            spatialNodePhysicsMode={spatialPhysicsRef.current.snapshot('mira.node').mode}
+            spatialNodeDepth={spatialObjects.find((object) => object.id === 'mira.node')?.pose.position.z || 0}
             spatialCoreActive={visionOn}
           />
         </div>
