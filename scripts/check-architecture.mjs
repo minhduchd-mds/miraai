@@ -323,15 +323,18 @@ const faceRecoveryRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8
 for (const token of ['faceRecoveryTimer', 'face.lastSeenAt > 0', 'startLegacyVision(session)', '4_500']) {
   if (!faceRecoveryRuntime.includes(token)) failures.push(`face recovery watchdog missing: ${token}`);
 }
-const cameraSurfaceStart = v2.indexOf('<div className="v2-camera-frame">');
+const cameraSurfaceStart = Math.max(
+  v2.indexOf('className={\`v2-camera-frame'),
+  v2.indexOf('className="v2-camera-frame"'),
+);
 const cameraSurfaceEnd = v2.indexOf('\n          <div\n            className="v2-spatial-window-bar"', cameraSurfaceStart);
 const cameraSurface = cameraSurfaceStart >= 0 && cameraSurfaceEnd > cameraSurfaceStart
   ? v2.slice(cameraSurfaceStart, cameraSurfaceEnd)
   : '';
-for (const token of ['PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'HandSkeletonOverlay', 'v2-gesture-overlay']) {
-  if (cameraSurface.includes(token)) failures.push(`camera recognition surface must remain face-only: ${token}`);
+for (const token of ['PoseSkeletonOverlay', 'ObjectAwarenessOverlay', 'SpatialSceneOverlay', 'v2-gesture-overlay']) {
+  if (cameraSurface.includes(token)) failures.push(`camera recognition surface includes deprecated telemetry overlay: ${token}`);
 }
-for (const token of ['FaceMeshOverlay', 'v2-camera-status face-only', 'Đã nhận diện khuôn mặt', 'v2-affect-readout', 'v2-affect-follow', 'v2-gaze-readout', 'faceActionFeedback']) {
+for (const token of ['FaceMeshOverlay', 'HandSkeletonOverlay', 'humanHandContact', 'humanHandIntent', 'v2-camera-status face-only', 'Đã nhận diện khuôn mặt', 'v2-affect-readout', 'v2-affect-follow', 'v2-gaze-readout', 'faceActionFeedback']) {
   if (!cameraSurface.includes(token)) failures.push(`camera recognition surface missing: ${token}`);
 }
 if (v2.includes('<RealPresenceOverlay')) failures.push('primary surface must not render the secondary Real Presence popup');
@@ -387,7 +390,7 @@ for (const token of ['.v2-actions button.xr-active', '.v2-xr-glyph']) {
   if (!v2Css.includes(token)) failures.push(`WebXR control CSS missing: ${token}`);
 }
 if (v2Css.includes('.v2-camera-frame') || v2Css.includes('.v2-air-layer')) failures.push('vision/air CSS leaked into initial v2.css');
-if (visionCss.includes('.v2-air-layer') || visionCss.includes('.v2-hand-skeleton') || visionCss.includes('.v2-gesture-overlay')) failures.push('dead Air/hand overlay CSS must not ship');
+if (visionCss.includes('.v2-air-layer') || visionCss.includes('.v2-gesture-overlay')) failures.push('dead Air/gesture telemetry CSS must not ship');
 for (const token of ['Camera recognition mode', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
   if (!visionCss.includes(token)) failures.push(`deferred camera recognition CSS missing: ${token}`);
 }
