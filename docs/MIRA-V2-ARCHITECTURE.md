@@ -274,6 +274,20 @@ The depth-aware hand overlay is a presentation layer over relative Z/interaction
 
 All kinematics, contact, intent, XR hand bridge state and contact pressure remain ephemeral and outside long-term memory.
 
+### Spatial v16 real-surface bridge
+
+`SpatialWebXRSessionRuntime` now exposes bounded CPU depth samples and tracked XR anchors in addition to hands, viewer matrices and hit-test pose. `SpatialXRSurfaceRuntime` turns the sparse metric depth lattice into short-lived interaction patches and compares projected metric hand/object depth against environment depth for near/contact/occlusion classification.
+
+Real-world placement uses `XRHitTestResult.createAnchor()`; tracked `anchorSpace` poses are reprojected into the DOM overlay each frame so browser-spatial objects visually remain attached to their real location as the viewer moves.
+
+The system intentionally keeps three boundaries distinct:
+
+- **metric XR environment state**: depth, hit-test and anchor poses;
+- **DOM projection state**: normalized screen location used by browser controls;
+- **webcam-relative state**: monocular normalized depth with no metric claim.
+
+Persistent anchor handles may be requested from the XR system but are not automatically stored in browser persistence. Depth grids, real-surface patches, probes and anchor handles remain ephemeral by default.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
