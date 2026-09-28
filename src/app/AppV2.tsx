@@ -20,7 +20,7 @@ import {
   type SpatialTargetGeometry,
 } from '../core/vision/spatial-ui-control';
 import { measureTwoHands, rotationFromAngles, scaleFromDistance, smoothValue } from '../presence/spatial-math';
-import { SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
+import { hitTestSpatialRay, SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import { EMPTY_ENVIRONMENT, environmentPrompt } from '../core/vision/environment-model';
@@ -491,6 +491,25 @@ export default function AppV2() {
           ? Math.max(0.62, primaryScore)
           : Math.max(0.5, primaryScore);
 
+      const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
+      const spatialRayTargets = spatialTargets
+        .filter((target) => Number.isFinite(target.z))
+        .map((target) => ({
+          id: target.id,
+          label: target.label,
+          left: target.left,
+          top: target.top,
+          right: target.right,
+          bottom: target.bottom,
+          z: Number(target.z || 0),
+          depthRadius: Number(target.depthRadius || 0),
+          priority: target.priority,
+        }));
+      const handRay = primaryHand?.ray || snapshot?.pointerRay || null;
+      const rayHit = directHand
+        ? hitTestSpatialRay(handRay, spatialRayTargets)
+        : null;
+
       const spatialFrameNext = spatialUiRef.current.update({
         face: {
           present: Boolean(face?.present),
@@ -509,11 +528,12 @@ export default function AppV2() {
           z: primaryPointerZ,
           pinching: primaryPinching,
           direct: directHand,
-          ray: primaryHand?.ray || snapshot?.pointerRay || null,
+          ray: handRay,
         },
+        rayHit,
         gestureIntent: intent,
         headGesture: String(face?.headGesture || 'none'),
-        targets: settingsOpen ? [] : collectSpatialTargets(),
+        targets: spatialTargets,
       }, now);
       setSpatialFrame(spatialFrameNext);
 
