@@ -55,6 +55,7 @@ const spatialJoint = await importTypeScript('src/core/vision/spatial-joint.ts');
 const spatialLayout = await importTypeScript('src/core/vision/spatial-layout.ts');
 const spatialGroup = await importTypeScript('src/core/vision/spatial-group.ts');
 const spatialDevice = await importTypeScript('src/core/vision/spatial-device-adapter.ts');
+const spatialWebXR = await importTypeScript('src/core/vision/spatial-webxr-session.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -3290,4 +3291,121 @@ test('world model keeps a bounded number of visual memories', () => {
   );
   const state = tracker.update(actionGraph(nodes, [], 1000), null, 1000);
   assert.ok(state.objects.length <= 32);
+});
+
+
+test('WebXR session runtime requests immersive AR with optional hand and hit features', async () => {
+  let requestedMode = '';
+  let requestedOptions = null;
+  let frameCallback = null;
+  let ended = false;
+  let hitSourceCancelled = false;
+
+  const hand = new Map([
+    ['wrist', { name: 'wrist' }],
+    ['thumb-tip', { name: 'thumb-tip' }],
+    ['index-finger-tip', { name: 'index-finger-tip' }],
+  ]);
+
+  const session = {
+    enabledFeatures: ['hand-tracking', 'hit-test', 'anchors', 'depth-sensing'],
+    inputSources: [{ handedness: 'right', hand }],
+    requestReferenceSpace: async (type) => ({ type }),
+    requestHitTestSource: async () => ({
+      cancel: () => { hitSourceCancelled = true; },
+    }),
+    requestAnimationFrame: (callback) => {
+      frameCallback = callback;
+      return 1;
+    },
+    cancelAnimationFrame: () => {},
+    addEventListener: () => {},
+    end: async () => { ended = true; },
+  };
+
+  const runtime = new spatialWebXR.SpatialWebXRSessionRuntime();
+  const started = await runtime.start({
+    navigator: {
+      xr: {
+        requestSession: async (mode, options) => {
+          requestedMode = mode;
+          requestedOptions = options;
+          return session;
+        },
+      },
+    },
+  });
+
+  assert.equal(requestedMode, 'immersive-ar');
+  assert.ok(requestedOptions.optionalFeatures.includes('hand-tracking'));
+  assert.ok(requestedOptions.optionalFeatures.includes('hit-test'));
+  assert.ok(requestedOptions.optionalFeatures.includes('anchors'));
+  assert.ok(requestedOptions.optionalFeatures.includes('depth-sensing'));
+  assert.equal(started.active, true);
+  assert.equal(started.mode, 'immersive-ar');
+  assert.ok(frameCallback);
+
+  const jointPose = (space) => {
+    const positions = {
+      wrist: { x: 0, y: 1.2, z: -0.4 },
+      'thumb-tip': { x: 0.01, y: 1.3, z: -0.3 },
+      'index-finger-tip': { x: 0.025, y: 1.3, z: -0.3 },
+    };
+    const point = positions[space.name];
+    return point ? {
+      transform: { position: point },
+      radius: 0.009,
+    } : null;
+  };
+
+  const frame = {
+    getJointPose: (space) => jointPose(space),
+    getHitTestResults: () => [{
+      getPose: () => ({
+        transform: { position: { x: 0.4, y: 0.2, z: -1.1 } },
+      }),
+    }],
+  };
+
+  frameCallback(1000, frame);
+  const snapshot = runtime.snapshot();
+  assert.equal(snapshot.hands.length, 1);
+  assert.equal(snapshot.hands[0].handedness, 'right');
+  assert.equal(snapshot.hands[0].pinching, true);
+  assert.ok(snapshot.hands[0].pinchDistanceM < 0.028);
+  assert.deepEqual(snapshot.hit, { x: 0.4, y: 0.2, z: -1.1, confidence: 1 });
+
+  const stopped = await runtime.stop();
+  assert.equal(ended, true);
+  assert.equal(hitSourceCancelled, true);
+  assert.equal(stopped.active, false);
+});
+
+test('WebXR session runtime does not fabricate XR when requestSession is unavailable', async () => {
+  const runtime = new spatialWebXR.SpatialWebXRSessionRuntime();
+  const snapshot = await runtime.start({ navigator: {} });
+  assert.equal(snapshot.active, false);
+  assert.ok(snapshot.error.includes('WebXR'));
+});
+
+test('spatial device adapter trusts only enabled WebXR session features', async () => {
+  const adapter = new spatialDevice.SpatialDeviceAdapterRuntime();
+  const detected = await adapter.detectWebXR({
+    navigator: {
+      xr: {
+        isSessionSupported: async () => true,
+      },
+    },
+  });
+  assert.equal(detected.mode, 'webxr-metric');
+  assert.equal(detected.handTracking, false);
+  assert.equal(detected.hitTest, false);
+  assert.equal(detected.anchors, false);
+  assert.equal(detected.depth, false);
+
+  const negotiated = adapter.useWebXRSessionFeatures(['hand-tracking', 'hit-test']);
+  assert.equal(negotiated.handTracking, true);
+  assert.equal(negotiated.hitTest, true);
+  assert.equal(negotiated.anchors, false);
+  assert.equal(negotiated.depth, false);
 });
