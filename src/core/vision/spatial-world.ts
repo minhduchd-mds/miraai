@@ -232,7 +232,6 @@ export class SpatialWorldRuntime {
             }
           : null,
         ownerObjectId: anchor.ownerObjectId || null,
-      acceptsObjectId: anchor.acceptsObjectId || null,
         acceptsObjectId: anchor.acceptsObjectId || null,
       });
     }
