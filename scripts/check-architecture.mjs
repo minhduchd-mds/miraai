@@ -49,6 +49,7 @@ const mustExist = [
   'src/core/vision/spatial-object.ts',
   'src/core/vision/spatial-world.ts',
   'src/core/vision/spatial-physics.ts',
+  'src/core/vision/spatial-collision.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
@@ -116,7 +117,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -299,6 +300,7 @@ if (localMemoryStore.includes('SpatialObjectState') || localMemoryStore.includes
 if (localMemoryStore.includes('SpatialWorldAnchor') || localMemoryStore.includes('SpatialObjectAttachment') || localMemoryStore.includes('spatialWorld')) failures.push('spatial world graph must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialPlacementPreview') || localMemoryStore.includes('placementPreview')) failures.push('placement preview must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialPhysicsState') || localMemoryStore.includes('spatialPhysics')) failures.push('spatial physics must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('SpatialCollisionContact') || localMemoryStore.includes('spatialCollision')) failures.push('spatial collision must remain ephemeral, not long-term memory');
 const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
 for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
   if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
@@ -448,7 +450,7 @@ for (const token of ['SpatialObjectRuntime', 'SpatialObjectPose', 'beginGrab', '
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialObject)) failures.push('spatial object pose must remain session-only');
 const spatialWorld = readFileSync('src/core/vision/spatial-world.ts', 'utf8');
-for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'SpatialPlacementPreview', 'SpatialSurfaceConstraint', 'parentId', 'previewSnapObject', 'magneticStrength', 'snapObject', 'attachObject', 'resolveObjectPose', 'ownerObjectId', 'MAX_PARENT_DEPTH = 8', 'sensor-agnostic', 'WebXR/device world poses']) {
+for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'SpatialPlacementPreview', 'SpatialSurfaceConstraint', 'parentId', 'previewSnapObject', 'magneticStrength', 'snapObject', 'attachObject', 'resolveObjectPose', 'ownerObjectId', 'acceptsObjectId', 'MAX_PARENT_DEPTH = 8', 'sensor-agnostic', 'WebXR/device world poses']) {
   if (!spatialWorld.includes(token)) failures.push(`spatial world runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialWorld)) failures.push('spatial world anchors must remain session-only');
@@ -457,6 +459,11 @@ for (const token of ['SpatialPhysicsRuntime', 'THROW_SPEED_MIN', 'PLACE_MAGNET_S
   if (!spatialPhysics.includes(token)) failures.push(`spatial physics runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialPhysics)) failures.push('spatial physics state must remain session-only');
+const spatialCollision = readFileSync('src/core/vision/spatial-collision.ts', 'utf8');
+for (const token of ['resolveSpatialObjectCollisions', 'SpatialCollisionBody', 'SpatialCollisionContact', 'COLLISION_RESTITUTION', 'POSITION_CORRECTION', 'sphere-proxy collision solver', 'not physical measurements']) {
+  if (!spatialCollision.includes(token)) failures.push(`multi-object collision runtime missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialCollision)) failures.push('spatial collision state must remain session-only');
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
 for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing', 'placementPreview', 'v2-spatial-placement']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
