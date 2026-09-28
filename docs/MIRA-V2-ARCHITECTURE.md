@@ -222,6 +222,10 @@ See `docs/SPATIAL-INTERACTION.md`.
 
 `SpatialWorldRuntime` now exposes magnetic placement previews before release. Surface anchors can define bounded plane constraints, so candidate poses project to the nearest legal point on Camera/Result surfaces. Each spatial object may expose an object anchor for object-to-object parenting; self-parenting is excluded. Preview/attachment state remains ephemeral.
 
+### Spatial v7 hand physics
+
+`SpatialPhysicsRuntime` sits between hand manipulation and object pose. It estimates filtered pointer velocity, classifies release as place vs throw, integrates bounded inertia with damping/soft collisions, and supplies spring-like magnetic placement. Physics coordinates remain normalized interaction-space values rather than physical force/mass measurements. Physics state is session-only.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
