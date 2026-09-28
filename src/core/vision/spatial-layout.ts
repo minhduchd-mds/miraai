@@ -1,4 +1,4 @@
-import type { SpatialObjectState } from './spatial-object';
+import type { SpatialObjectPose, SpatialObjectState } from './spatial-object';
 import type { SpatialObjectAttachment } from './spatial-world';
 import type { SpatialJointState } from './spatial-joint';
 
@@ -16,10 +16,11 @@ const MAX_LAYOUT_ATTACHMENTS = 32;
 const MAX_LAYOUT_JOINTS = 32;
 const MAX_SELECTED_CLUSTERS = 16;
 
-function clonePose<T extends { position: { x: number; y: number; z: number }; scale: number; rotation: number }>(pose: T): T {
+function clonePose(pose: SpatialObjectPose): SpatialObjectPose {
   return {
-    ...pose,
     position: { ...pose.position },
+    scale: pose.scale,
+    rotation: pose.rotation,
   };
 }
 
