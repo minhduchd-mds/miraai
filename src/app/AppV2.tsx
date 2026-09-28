@@ -57,6 +57,7 @@ import {
   type SpatialPhysicsState,
 } from '../core/vision/spatial-physics';
 import { resolveSpatialObjectCollisions } from '../core/vision/spatial-collision';
+import { SpatialJointRuntime, type SpatialJointState } from '../core/vision/spatial-joint';
 import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
@@ -305,6 +306,23 @@ function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorld
       snapRadius: Math.max(0.08, object.collisionRadius * 2.35),
       priority: 0.58,
       ownerObjectId: object.id,
+    }, {
+      id: `slide.${object.id}`,
+      label: `Trượt cạnh ${object.label}`,
+      kind: 'dock',
+      parentId: `object.${object.id}`,
+      pose: {
+        position: {
+          x: object.collisionRadius * 2.35,
+          y: 0,
+          z: object.collisionRadius * 0.2,
+        },
+        scale: 1,
+        rotation: 0,
+      },
+      snapRadius: Math.max(0.075, object.collisionRadius * 2.05),
+      priority: 0.54,
+      ownerObjectId: object.id,
     });
   });
 
@@ -363,6 +381,49 @@ function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorld
   });
 
   return anchors;
+}
+
+
+function spatialJointForAttachment(
+  childObjectId: string,
+  parentObjectId: string | null,
+  anchorId: string,
+) {
+  if (!parentObjectId) return null;
+  if (anchorId.startsWith('stack.')) {
+    return {
+      id: `joint.${childObjectId}`,
+      kind: 'fixed' as const,
+      parentObjectId,
+      childObjectId,
+      stiffness: 1,
+    };
+  }
+  if (anchorId.startsWith('slide.')) {
+    return {
+      id: `joint.${childObjectId}`,
+      kind: 'slider' as const,
+      parentObjectId,
+      childObjectId,
+      axis: 'x' as const,
+      min: -0.11,
+      max: 0.11,
+      stiffness: 0.9,
+    };
+  }
+  if (anchorId.startsWith('object.')) {
+    return {
+      id: `joint.${childObjectId}`,
+      kind: 'hinge' as const,
+      parentObjectId,
+      childObjectId,
+      axis: 'z' as const,
+      min: -42,
+      max: 42,
+      stiffness: 0.9,
+    };
+  }
+  return null;
 }
 
 
@@ -477,6 +538,9 @@ export default function AppV2() {
   const placementPreviewRef = useRef<SpatialPlacementPreview | null>(null);
   const spatialObjectDepthRef = useRef(new SpatialDepthAnchorTracker());
   const spatialPhysicsRef = useRef(new SpatialPhysicsRuntime());
+  const spatialJointRuntimeRef = useRef(new SpatialJointRuntime());
+  const spatialJointBeforeGrabRef = useRef<SpatialJointState | null>(null);
+  const spatialJointControlRef = useRef<string | null>(null);
   const [spatialPhysicsState, setSpatialPhysicsState] = useState<SpatialPhysicsState>(() =>
     spatialPhysicsRef.current.snapshot('mira.core')
   );
@@ -488,6 +552,12 @@ export default function AppV2() {
     startAngle: number;
     baseScale: number;
     baseRotation: number;
+    transformObjectId?: string;
+    jointId?: string;
+    jointKind?: 'fixed' | 'hinge' | 'slider';
+    baseJointValue?: number;
+    startCenterX?: number;
+    baseAttachmentLocalPose?: SpatialObjectPose;
   } | null>(null);
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
@@ -600,6 +670,9 @@ export default function AppV2() {
     placementPreviewRef.current = null;
     setPlacementPreview(null);
     spatialPhysicsRef.current.reset();
+    spatialJointRuntimeRef.current.reset();
+    spatialJointBeforeGrabRef.current = null;
+    spatialJointControlRef.current = null;
     setSpatialPhysicsState(spatialPhysicsRef.current.snapshot('mira.core'));
     setSpatialObjects(spatialObjectRuntimeRef.current.reset());
     setSpatialFeedback('');
