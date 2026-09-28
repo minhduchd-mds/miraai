@@ -21,6 +21,11 @@ import {
 } from '../core/vision/spatial-ui-control';
 import { measureTwoHands, rotationFromAngles, scaleFromDistance, smoothValue } from '../presence/spatial-math';
 import { hitTestSpatialRay, SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
+import {
+  EMPTY_SPATIAL_TOUCH,
+  SpatialDirectTouchTracker,
+  spatialAnchorFromRect,
+} from '../core/vision/spatial-anchor';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import { EMPTY_ENVIRONMENT, environmentPrompt } from '../core/vision/environment-model';
@@ -250,6 +255,11 @@ export default function AppV2() {
   });
   const spatialGrabSessionRef = useRef<SpatialGrabSession | null>(null);
   const spatialDepthAnchorRef = useRef(new SpatialDepthAnchorTracker());
+  const spatialTouchRef = useRef(new SpatialDirectTouchTracker());
+  const [spatialTouch, setSpatialTouch] = useState(() => ({
+    ...EMPTY_SPATIAL_TOUCH,
+    point: { ...EMPTY_SPATIAL_TOUCH.point },
+  }));
   const twoHandSpatialSessionRef = useRef<TwoHandSpatialSession | null>(null);
   const lastSpatialWindowRef = useRef<SpatialWindowId>('camera');
   const [faceTelemetry, setFaceTelemetry] = useState({
@@ -354,6 +364,7 @@ export default function AppV2() {
     setSpatialFrame(spatialUiRef.current.reset());
     spatialGrabSessionRef.current = null;
     spatialDepthAnchorRef.current.reset();
+    setSpatialTouch(spatialTouchRef.current.reset());
     twoHandSpatialSessionRef.current = null;
     setSpatialFeedback('');
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
@@ -481,17 +492,38 @@ export default function AppV2() {
       const primaryPointerX = clampSpatial(Number(primaryHand?.pointerX ?? snapshot?.pointerX ?? 0.5), 0, 1);
       const primaryPointerY = clampSpatial(Number(primaryHand?.pointerY ?? snapshot?.pointerY ?? 0.5), 0, 1);
       const primaryPointerZ = clampSpatial(Number(primaryHand?.z ?? snapshot?.pointerZ ?? 0), -0.45, 0.45);
-      const directHand = Boolean(snapshot?.handSeen) && (
+      const pointingHand = Boolean(snapshot?.handSeen) && (
         (primaryGesture === 'Pointing_Up' && primaryScore >= 0.55) ||
         intent.intent === 'point_hold'
       );
       const handConfidence = primaryPinching
         ? Math.max(0.78, primaryScore)
-        : directHand
+        : pointingHand
           ? Math.max(0.62, primaryScore)
           : Math.max(0.5, primaryScore);
 
       const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
+      const spatialAnchors = spatialTargets.map((target) => spatialAnchorFromRect({
+        ...target,
+        depthRadius: Math.max(
+          Number(target.depthRadius || 0),
+          target.kind === 'window' ? 0.1 : 0.12,
+        ),
+      }));
+      const directTouch = spatialTouchRef.current.update({
+        active: Boolean(snapshot?.handSeen && primaryHand),
+        confidence: handConfidence,
+        point: {
+          x: primaryPointerX,
+          y: primaryPointerY,
+          z: primaryPointerZ,
+        },
+        pinching: primaryPinching,
+        anchors: spatialAnchors,
+      }, now);
+      setSpatialTouch(directTouch);
+      const directHand = pointingHand || directTouch.ready;
+
       const spatialRayTargets = spatialTargets
         .filter((target) => Number.isFinite(target.z))
         .map((target) => ({
@@ -506,8 +538,17 @@ export default function AppV2() {
           priority: target.priority,
         }));
       const handRay = primaryHand?.ray || snapshot?.pointerRay || null;
+      const rayHitFromContact = directTouch.ready && directTouch.hit
+        ? {
+            targetId: directTouch.hit.targetId,
+            label: directTouch.hit.label,
+            point: { ...directTouch.hit.point },
+            distance: 0,
+            confidence: directTouch.hit.confidence,
+          }
+        : null;
       const rayHit = directHand
-        ? hitTestSpatialRay(handRay, spatialRayTargets)
+        ? rayHitFromContact || hitTestSpatialRay(handRay, spatialRayTargets)
         : null;
 
       const spatialFrameNext = spatialUiRef.current.update({
@@ -852,6 +893,20 @@ export default function AppV2() {
     return () => target?.removeAttribute('data-spatial-focused');
   }, [spatialFrame.focus?.id]);
 
+  useEffect(() => {
+    const previouslyTouched = document.querySelectorAll<HTMLElement>('[data-spatial-contacted="true"]');
+    previouslyTouched.forEach((element) => element.removeAttribute('data-spatial-contacted'));
+    if (!spatialTouch.ready || !spatialTouch.targetId) return;
+
+    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle]'))
+      .find((element) =>
+        element.dataset.spatialAction === spatialTouch.targetId ||
+        element.dataset.spatialGrabHandle === spatialTouch.targetId
+      );
+    target?.setAttribute('data-spatial-contacted', 'true');
+    return () => target?.removeAttribute('data-spatial-contacted');
+  }, [spatialTouch.ready, spatialTouch.targetId]);
+
   useEffect(() => () => {
     const modules = visionModulesRef.current;
     modules?.stopVision();
@@ -1169,6 +1224,7 @@ export default function AppV2() {
 
       <SpatialControlOverlay
         frame={spatialFrame}
+        touch={spatialTouch}
         visible={visionOn && !settingsOpen && (faceSeen || handSeen)}
         feedback={spatialFeedback}
       />
