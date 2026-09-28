@@ -54,6 +54,7 @@ import { SpatialObjectRuntime, type SpatialObjectState } from '../core/vision/sp
 import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
+  type SpatialPlacementPreview,
   type SpatialWorldAnchor,
 } from '../core/vision/spatial-world';
 import '../ui/a11y.css';
@@ -211,7 +212,7 @@ function spatialObjectStyle(object: SpatialObjectState | null): CSSProperties {
   } as CSSProperties;
 }
 
-function collectSpatialWorldAnchors(object: SpatialObjectState | null): SpatialWorldAnchor[] {
+function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorldAnchor[] {
   const identityPose = { position: { x: 0, y: 0, z: 0 }, scale: 1, rotation: 0 };
   const anchors: SpatialWorldAnchor[] = [{
     id: 'workspace.root',
@@ -230,9 +231,10 @@ function collectSpatialWorldAnchors(object: SpatialObjectState | null): SpatialW
     priority: 0.35,
   }];
 
-  if (!object || typeof document === 'undefined' || typeof window === 'undefined') return anchors;
+  if (!objects.length || typeof document === 'undefined' || typeof window === 'undefined') return anchors;
+  const primary = objects[0];
   const element = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-object]'))
-    .find((node) => node.dataset.spatialObject === object.id && node.offsetParent !== null);
+    .find((node) => node.dataset.spatialObject === primary.id && node.offsetParent !== null);
   if (!element) return anchors;
 
   const width = Math.max(1, window.innerWidth);
@@ -243,14 +245,27 @@ function collectSpatialWorldAnchors(object: SpatialObjectState | null): SpatialW
     y: (rect.top + rect.bottom) / 2 / height,
   };
 
-  const poseForScreenPoint = (x: number, y: number, z = object.pose.position.z) => ({
+  const poseForScreenPoint = (x: number, y: number, z = primary.pose.position.z) => ({
     position: {
-      x: clampSpatial(object.pose.position.x + (x - objectScreen.x), -0.48, 0.48),
-      y: clampSpatial(object.pose.position.y + (y - objectScreen.y), -0.48, 0.48),
+      x: clampSpatial(primary.pose.position.x + (x - objectScreen.x), -0.48, 0.48),
+      y: clampSpatial(primary.pose.position.y + (y - objectScreen.y), -0.48, 0.48),
       z: clampSpatial(z, -0.7, 0.7),
     },
     scale: 1,
     rotation: 0,
+  });
+
+  objects.forEach((object) => {
+    anchors.push({
+      id: `object.${object.id}`,
+      label: object.label,
+      kind: 'object',
+      parentId: 'workspace.root',
+      pose: object.pose,
+      snapRadius: 0.14,
+      priority: 0.45,
+      ownerObjectId: object.id,
+    });
   });
 
   anchors.push({
@@ -281,8 +296,17 @@ function collectSpatialWorldAnchors(object: SpatialObjectState | null): SpatialW
       kind: 'surface',
       parentId: 'workspace.root',
       pose: poseForScreenPoint(cx, cy, surfaceZ),
-      snapRadius: 0.035,
-      priority: -0.5,
+      snapRadius: 0.12,
+      priority: -0.15,
+      constraint: {
+        axis: 'xy',
+        halfExtents: {
+          x: clampSpatial(windowRect.width / width / 2, 0.05, 0.45),
+          y: clampSpatial(windowRect.height / height / 2, 0.04, 0.45),
+          z: 0.04,
+        },
+        offset: 0,
+      },
     }, {
       id: `dock.${id}`,
       label: id === 'camera' ? 'Neo cạnh Camera' : 'Neo cạnh Kết quả',
@@ -394,6 +418,7 @@ export default function AppV2() {
   const [spatialObjects, setSpatialObjects] = useState(() => spatialObjectRuntimeRef.current.snapshot());
   const spatialWorldRuntimeRef = useRef(new SpatialWorldRuntime());
   const spatialObjectAttachmentBeforeGrabRef = useRef<SpatialObjectAttachment | null>(null);
+  const [placementPreview, setPlacementPreview] = useState<SpatialPlacementPreview | null>(null);
   const spatialObjectDepthRef = useRef(new SpatialDepthAnchorTracker());
   const twoHandObjectSessionRef = useRef<{
     id: string;
@@ -512,6 +537,7 @@ export default function AppV2() {
     spatialObjectDepthRef.current.reset();
     spatialWorldRuntimeRef.current.reset();
     spatialObjectAttachmentBeforeGrabRef.current = null;
+    setPlacementPreview(null);
     setSpatialObjects(spatialObjectRuntimeRef.current.reset());
     setSpatialFeedback('');
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
@@ -650,8 +676,9 @@ export default function AppV2() {
           : Math.max(0.5, primaryScore);
 
       const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
+      const currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
       const currentCoreObject = spatialObjectRuntimeRef.current.get('mira.core');
-      spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentCoreObject));
+      spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentSpatialObjects));
       const coreAttachment = spatialWorldRuntimeRef.current.attachment('mira.core');
       if (coreAttachment && currentCoreObject && !currentCoreObject.grabbed) {
         const resolvedPose = spatialWorldRuntimeRef.current.resolveObjectPose('mira.core');
@@ -753,24 +780,36 @@ export default function AppV2() {
             spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
             spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
             spatialObjectDepthRef.current.begin(event.point.z);
+            setPlacementPreview(null);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             showSpatialFeedback('Pinch giữ · cầm vật thể 3D');
             continue;
           }
           if (event.type === 'grab_move' && !twoHandsActive) {
             const depth = spatialObjectDepthRef.current.update(event.point.z);
-            spatialObjectRuntimeRef.current.moveGrab(event.point, {
+            const moved = spatialObjectRuntimeRef.current.moveGrab(event.point, {
               depthDelta: depth.ready && depth.confidence >= 0.56 ? depth.normalizedDelta : 0,
               xyGain: 1.05,
               depthGain: 0.52,
             });
+            if (moved) {
+              const worldObjects = spatialObjectRuntimeRef.current.snapshot();
+              spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(worldObjects));
+              const previewPlacement = spatialWorldRuntimeRef.current.previewSnapObject(event.targetId, moved.pose);
+              setPlacementPreview(previewPlacement);
+              if (previewPlacement && previewPlacement.strength >= 0.08) {
+                spatialObjectRuntimeRef.current.setPose(event.targetId, previewPlacement.worldPose);
+              }
+            }
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             continue;
           }
           if (event.type === 'grab_end') {
             const placed = spatialObjectRuntimeRef.current.endGrab();
             spatialObjectDepthRef.current.end();
-            spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(placed));
+            spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(
+              spatialObjectRuntimeRef.current.snapshot(),
+            ));
             const snapped = placed
               ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
               : null;
@@ -781,6 +820,7 @@ export default function AppV2() {
               showSpatialFeedback('Đã đặt vật thể tự do');
             }
             spatialObjectAttachmentBeforeGrabRef.current = null;
+            setPlacementPreview(null);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             continue;
           }
@@ -797,6 +837,7 @@ export default function AppV2() {
               );
             }
             spatialObjectAttachmentBeforeGrabRef.current = null;
+            setPlacementPreview(null);
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
             showSpatialFeedback('Đã hoàn tác vật thể');
             continue;
@@ -1507,6 +1548,7 @@ export default function AppV2() {
       <SpatialControlOverlay
         frame={spatialFrame}
         touch={spatialTouch}
+        placementPreview={placementPreview}
         visible={visionOn && !settingsOpen && (faceSeen || handSeen)}
         feedback={spatialFeedback}
       />
