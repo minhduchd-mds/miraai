@@ -23,6 +23,7 @@ import {
   stopHolisticTracking,
 } from '../core/vision/holistic-tracker';
 import { EMPTY_VISION_PERFORMANCE } from '../core/vision/vision-performance';
+import { handRayFromLandmarks } from '../core/vision/spatial-ray';
 import {
   objectAwarenessSnapshot,
   startObjectAwareness,
@@ -125,6 +126,7 @@ export function visionSnapshot() {
       z: Number(handIndexTip.z || 0),
       pointerX: 1 - Number(handIndexTip.x || hand.x),
       pointerY: Number(handIndexTip.y || hand.y),
+      ray: handRayFromLandmarks(hand.landmarks),
       pinching: hand.pinching,
       landmarks: hand.landmarks.map((point) => ({ ...point })),
     };
@@ -196,6 +198,7 @@ export function visionSnapshot() {
     pointerX: 1 - indexTip.x,
     pointerY: indexTip.y,
     pointerZ: Number(indexTip.z || 0),
+    pointerRay: handRayFromLandmarks(landmarks),
     pinching: landmarks.length >= 21 && pinchDistance < 0.055,
     pinchDistance,
     gestureScore: handData.score,
