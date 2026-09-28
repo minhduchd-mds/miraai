@@ -69,8 +69,10 @@ import {
   type SpatialGroupTransformSession,
 } from '../core/vision/spatial-group';
 import { SpatialDeviceAdapterRuntime } from '../core/vision/spatial-device-adapter';
+import { bridgeXRHandTo21 } from '../core/vision/spatial-xr-hand-bridge';
 import {
   EMPTY_HAND_KINEMATICS,
+  SpatialHandKinematicsTracker,
   mirrorSpatialHandKinematicsX,
   type SpatialHandKinematicsState,
 } from '../core/vision/spatial-hand-kinematics';
@@ -599,6 +601,7 @@ export default function AppV2() {
   const webXRRuntimeRef = useRef(new SpatialWebXRSessionRuntime());
   const xrProjectionRef = useRef(new SpatialXRProjectionRuntime());
   const xrGestureIntentRef = useRef(new GestureIntentTracker());
+  const xrHandKinematicsRef = useRef(new SpatialHandKinematicsTracker());
   const xrAutoCalibratedRef = useRef(false);
   const [webXRAvailable, setWebXRAvailable] = useState(false);
   const [webXRSnapshot, setWebXRSnapshot] = useState<WebXRSessionSnapshot>(() =>
@@ -818,6 +821,9 @@ export default function AppV2() {
       spatialDeviceAdapterRef.current.useWebcamFallback();
       xrProjectionRef.current.reset();
       xrGestureIntentRef.current.reset();
+      xrHandKinematicsRef.current.reset();
+      handContactRef.current.reset();
+      handIntentRef.current.reset();
       xrAutoCalibratedRef.current = false;
       setSpatialFrame(spatialUiRef.current.reset());
       showSpatialFeedback('Đã thoát XR');
@@ -836,6 +842,9 @@ export default function AppV2() {
     spatialDeviceAdapterRef.current.useWebXRSessionFeatures(enabled);
     xrProjectionRef.current.reset();
     xrGestureIntentRef.current.reset();
+    xrHandKinematicsRef.current.reset();
+    handContactRef.current.reset();
+    handIntentRef.current.reset();
     xrAutoCalibratedRef.current = false;
     setSpatialFrame(spatialUiRef.current.reset());
     setWebXRAvailable(true);
@@ -913,13 +922,60 @@ export default function AppV2() {
       return;
     }
 
+    const bridged = bridgeXRHandTo21(primaryHand);
+    const wristWorld = bridged.worldLandmarks[0] || { x: 0, y: 0, z: 0 };
+    const middleTipWorld = bridged.worldLandmarks[12] || wristWorld;
+    const handMetricLength = Math.max(
+      0.03,
+      Math.hypot(
+        middleTipWorld.x - wristWorld.x,
+        middleTipWorld.y - wristWorld.y,
+        middleTipWorld.z - wristWorld.z,
+      ),
+    );
+    const projectedLandmarks = bridged.worldLandmarks.map((point) => {
+      const screen = projectMetricPointAcrossViews(point, webXRSnapshot.views);
+      return {
+        x: screen?.x ?? projected.x,
+        y: screen?.y ?? projected.y,
+        z: Math.max(-0.22, Math.min(0.22, (point.z - wristWorld.z) / handMetricLength * 0.08)),
+      };
+    });
+    const xrKinematics = xrHandKinematicsRef.current.update({
+      handedness: primaryHand.handedness,
+      landmarks: projectedLandmarks,
+      worldLandmarks: bridged.worldLandmarks,
+      confidence: projected.confidence,
+    }, performance.now());
+
     const now = performance.now();
-    const intent = xrGestureIntentRef.current.update({
-      gesture: 'Pointing_Up',
-      score: projected.confidence,
-      pinching: primaryHand.pinching,
-    }, now);
     const targets = settingsOpen ? [] : collectSpatialTargets();
+    const contactAnchors = targets.map((target) => spatialAnchorFromRect({
+      ...target,
+      depthRadius: Math.max(Number(target.depthRadius || 0), target.kind === 'window' ? 0.1 : 0.12),
+    }));
+    const xrContact = handContactRef.current.update(
+      xrKinematics,
+      contactAnchors.map((anchor) => ({
+        id: anchor.id,
+        label: anchor.label,
+        kind: anchor.kind,
+        center: { ...anchor.center },
+        halfExtents: { ...anchor.halfExtents },
+        priority: anchor.priority,
+      })),
+      now,
+    );
+    const xrHumanIntent = handIntentRef.current.update(xrKinematics, xrContact, now);
+    setHandKinematics(xrKinematics);
+    setHumanHandContact(xrContact);
+    setHumanHandIntent(xrHumanIntent);
+
+    const intent = xrGestureIntentRef.current.update({
+      gesture: xrKinematics.pointingConfidence >= 0.56 ? 'Pointing_Up' : 'None',
+      score: Math.max(projected.confidence, xrKinematics.pointingConfidence),
+      pinching: xrKinematics.pinching,
+    }, now);
     const nextFrame = spatialUiRef.current.update({
       face: {
         present: false,
@@ -932,12 +988,12 @@ export default function AppV2() {
       },
       hand: {
         present: projected.visible,
-        confidence: projected.confidence,
+        confidence: Math.max(projected.confidence, xrKinematics.pointingConfidence),
         x: projected.x,
         y: projected.y,
-        z: clampSpatial(projected.depth, -0.45, 0.45),
-        pinching: primaryHand.pinching,
-        direct: true,
+        z: 0,
+        pinching: xrKinematics.pinching,
+        direct: xrKinematics.pointingConfidence >= 0.5 || xrContact.active,
       },
       gestureIntent: intent,
       headGesture: 'none',
