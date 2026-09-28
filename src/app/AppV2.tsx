@@ -59,6 +59,16 @@ import {
 import { resolveSpatialObjectCollisions } from '../core/vision/spatial-collision';
 import { SpatialJointRuntime, type SpatialJointState } from '../core/vision/spatial-joint';
 import {
+  SpatialSelectionRuntime,
+  spatialSessionLayoutRuntime,
+} from '../core/vision/spatial-layout';
+import {
+  applySpatialGroupTransform,
+  beginSpatialGroupTransform,
+  type SpatialGroupTransformSession,
+} from '../core/vision/spatial-group';
+import { SpatialDeviceAdapterRuntime } from '../core/vision/spatial-device-adapter';
+import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
   type SpatialPlacementPreview,
@@ -539,11 +549,24 @@ export default function AppV2() {
   const spatialObjectDepthRef = useRef(new SpatialDepthAnchorTracker());
   const spatialPhysicsRef = useRef(new SpatialPhysicsRuntime());
   const spatialJointRuntimeRef = useRef(new SpatialJointRuntime());
+  const spatialSelectionRef = useRef(new SpatialSelectionRuntime());
+  const spatialLayoutRef = useRef(spatialSessionLayoutRuntime());
+  const spatialDeviceAdapterRef = useRef(new SpatialDeviceAdapterRuntime());
+  const [selectedClusterRoots, setSelectedClusterRoots] = useState<string[]>([]);
   const spatialJointBeforeGrabRef = useRef<SpatialJointState | null>(null);
   const spatialJointControlRef = useRef<string | null>(null);
   const [spatialPhysicsState, setSpatialPhysicsState] = useState<SpatialPhysicsState>(() =>
     spatialPhysicsRef.current.snapshot('mira.core')
   );
+  const spatialGroupTransformRef = useRef<{
+    key: string;
+    since: number;
+    active: boolean;
+    startDistance: number;
+    startAngle: number;
+    startCenter: { x: number; y: number };
+    session: SpatialGroupTransformSession;
+  } | null>(null);
   const twoHandObjectSessionRef = useRef<{
     id: string;
     since: number;
@@ -566,6 +589,10 @@ export default function AppV2() {
   });
 
   useDialogFocus(settingsOpen, '.v2-settings');
+
+  useEffect(() => {
+    void spatialDeviceAdapterRef.current.detectWebXR();
+  }, []);
 
   useEffect(() => {
     document.body.dataset.state = mira.state;
@@ -637,6 +664,13 @@ export default function AppV2() {
   }, []);
 
   const stopVision = useCallback(async () => {
+    spatialLayoutRef.current.capture({
+      objects: spatialObjectRuntimeRef.current.snapshot(),
+      attachments: spatialWorldRuntimeRef.current.attachmentSnapshot(),
+      joints: spatialJointRuntimeRef.current.snapshot(),
+      selectedClusterRoots: spatialSelectionRef.current.snapshot(),
+    });
+
     const modules = visionModulesRef.current;
     modules?.stopVision();
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
@@ -671,6 +705,9 @@ export default function AppV2() {
     setPlacementPreview(null);
     spatialPhysicsRef.current.reset();
     spatialJointRuntimeRef.current.reset();
+    spatialSelectionRef.current.clear();
+    setSelectedClusterRoots([]);
+    spatialGroupTransformRef.current = null;
     spatialJointBeforeGrabRef.current = null;
     spatialJointControlRef.current = null;
     setSpatialPhysicsState(spatialPhysicsRef.current.snapshot('mira.core'));
@@ -724,6 +761,61 @@ export default function AppV2() {
       setVisionBooting(false);
     }
   }, [loadVisionModules, stopVision, visionBooting, visionOn]);
+
+  useEffect(() => {
+    if (!visionOn) return;
+    const saved = spatialLayoutRef.current.restore();
+    if (!saved) return;
+
+    for (const savedObject of saved.objects) {
+      spatialObjectRuntimeRef.current.setPose(savedObject.id, savedObject.pose);
+    }
+
+    spatialWorldRuntimeRef.current.setAnchors(
+      collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+    );
+
+    for (const attachment of saved.attachments) {
+      const object = spatialObjectRuntimeRef.current.get(attachment.objectId);
+      if (!object) continue;
+      const restored = spatialWorldRuntimeRef.current.attachObject(
+        attachment.objectId,
+        attachment.anchorId,
+        object.pose,
+        attachment.attachedAt,
+      );
+      if (restored) {
+        spatialWorldRuntimeRef.current.updateAttachmentLocalPose(
+          attachment.objectId,
+          attachment.localPose,
+        );
+      }
+    }
+
+    spatialJointRuntimeRef.current.reset();
+    for (const joint of saved.joints) spatialJointRuntimeRef.current.setJoint(joint);
+
+    const selected = spatialSelectionRef.current.replace(saved.selectedClusterRoots);
+    setSelectedClusterRoots(selected);
+
+    for (const attachment of saved.attachments) {
+      const resolved = spatialWorldRuntimeRef.current.resolveObjectPose(attachment.objectId);
+      if (resolved) spatialObjectRuntimeRef.current.setPose(attachment.objectId, resolved);
+    }
+
+    setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+    showSpatialFeedback('Đã khôi phục bố cục phiên');
+  }, [showSpatialFeedback, visionOn]);
+
+  useEffect(() => {
+    if (!visionOn) return;
+    spatialLayoutRef.current.capture({
+      objects: spatialObjects,
+      attachments: spatialWorldRuntimeRef.current.attachmentSnapshot(),
+      joints: spatialJointRuntimeRef.current.snapshot(),
+      selectedClusterRoots,
+    });
+  }, [selectedClusterRoots, spatialObjects, visionOn]);
 
   useEffect(() => {
     if (!visionOn) return;
@@ -799,9 +891,15 @@ export default function AppV2() {
       const primaryGesture = String(primaryHand?.gesture || snapshot?.gesture || 'None');
       const primaryScore = Number(primaryHand?.score ?? snapshot?.gestureScore ?? 0);
       const primaryPinching = Boolean(primaryHand?.pinching ?? snapshot?.pinching);
-      const primaryPointerX = clampSpatial(Number(primaryHand?.pointerX ?? snapshot?.pointerX ?? 0.5), 0, 1);
-      const primaryPointerY = clampSpatial(Number(primaryHand?.pointerY ?? snapshot?.pointerY ?? 0.5), 0, 1);
-      const primaryPointerZ = clampSpatial(Number(primaryHand?.z ?? snapshot?.pointerZ ?? 0), -0.45, 0.45);
+      const relativePointer = spatialDeviceAdapterRef.current.webcamPoint({
+        x: Number(primaryHand?.pointerX ?? snapshot?.pointerX ?? 0.5),
+        y: Number(primaryHand?.pointerY ?? snapshot?.pointerY ?? 0.5),
+        z: Number(primaryHand?.z ?? snapshot?.pointerZ ?? 0),
+        confidence: primaryScore,
+      });
+      const primaryPointerX = relativePointer.x;
+      const primaryPointerY = relativePointer.y;
+      const primaryPointerZ = clampSpatial(relativePointer.z, -0.45, 0.45);
       const pointingHand = Boolean(snapshot?.handSeen) && (
         (primaryGesture === 'Pointing_Up' && primaryScore >= 0.55) ||
         intent.intent === 'point_hold'
@@ -1036,6 +1134,22 @@ export default function AppV2() {
         targets: spatialTargets,
       }, now);
       setSpatialFrame(spatialFrameNext);
+
+      if (intent.intent === 'victory_hold' && spatialFrameNext.focus?.kind === 'object') {
+        const clusterRoot = spatialWorldRuntimeRef.current.clusterRootObjectId(spatialFrameNext.focus.id);
+        const selected = spatialSelectionRef.current.toggle(clusterRoot);
+        setSelectedClusterRoots(selected);
+        showSpatialFeedback(
+          selected.includes(clusterRoot)
+            ? `Victory · chọn cụm ${clusterRoot}`
+            : `Victory · bỏ chọn ${clusterRoot}`,
+        );
+      } else if (intent.intent === 'open_palm_hold' && spatialSelectionRef.current.snapshot().length) {
+        spatialSelectionRef.current.clear();
+        setSelectedClusterRoots([]);
+        spatialGroupTransformRef.current = null;
+        showSpatialFeedback('Open Palm · bỏ chọn nhóm');
+      }
 
       const pinchedHands = rawHands.filter((hand) => Boolean(hand?.pinching));
       const twoHandsActive = pinchedHands.length >= 2;
@@ -1333,107 +1447,172 @@ export default function AppV2() {
           },
         );
 
-        const attachment = spatialWorldRuntimeRef.current.attachment(objectTarget);
-        const joint = spatialJointRuntimeRef.current.findForChild(objectTarget);
-        let objectSession = twoHandObjectSessionRef.current;
+        const targetRoot = spatialWorldRuntimeRef.current.clusterRootObjectId(objectTarget);
+        const selectedRoots = spatialSelectionRef.current.snapshot();
+        const groupMode = selectedRoots.length > 1 && selectedRoots.includes(targetRoot);
 
-        if (!objectSession || objectSession.id !== objectTarget) {
-          const transformObjectId = joint?.kind === 'fixed' && attachment
-            ? spatialWorldRuntimeRef.current.clusterRootObjectId(objectTarget)
-            : objectTarget;
-          const base = spatialObjectRuntimeRef.current.get(transformObjectId);
-          if (base) {
-            objectSession = {
-              id: objectTarget,
-              transformObjectId,
-              since: now,
-              active: false,
-              startDistance: geometry.distance,
-              startAngle: geometry.angleDeg,
-              startCenterX: geometry.center.x,
-              baseScale: base.pose.scale,
-              baseRotation: base.pose.rotation,
-              jointId: joint?.id,
-              jointKind: joint?.kind,
-              baseJointValue: joint?.value || 0,
-              baseAttachmentLocalPose: attachment?.localPose,
-            };
-            twoHandObjectSessionRef.current = objectSession;
-          }
-        } else if (!objectSession.active && now - objectSession.since >= 240 && geometry.distance >= 0.08) {
-          objectSession.active = true;
-          showSpatialFeedback(
-            objectSession.jointKind === 'hinge'
-              ? 'Hai tay · xoay bản lề'
-              : objectSession.jointKind === 'slider'
-                ? 'Hai tay · trượt theo ray'
-                : spatialWorldRuntimeRef.current.clusterObjectIds(
-                    objectSession.transformObjectId || objectSession.id,
-                  ).length > 1
-                  ? 'Hai tay · scale / rotate cả cụm'
-                  : 'Hai tay · scale / rotate vật thể',
-          );
-        } else if (objectSession.active) {
-          const liveJoint = objectSession.jointId
-            ? spatialJointRuntimeRef.current.get(objectSession.jointId)
-            : null;
+        if (groupMode) {
+          twoHandObjectSessionRef.current = null;
+          spatialJointControlRef.current = null;
+          const key = [...selectedRoots].sort().join('|');
+          let groupSession = spatialGroupTransformRef.current;
 
-          if (liveJoint && objectSession.baseAttachmentLocalPose &&
-              (liveJoint.kind === 'hinge' || liveJoint.kind === 'slider')) {
-            const requestedValue = liveJoint.kind === 'hinge'
-              ? rotationFromAngles(
-                  objectSession.baseJointValue || 0,
-                  objectSession.startAngle,
-                  geometry.angleDeg,
-                  liveJoint.min,
-                  liveJoint.max,
-                )
-              : (objectSession.baseJointValue || 0) +
-                (geometry.center.x - (objectSession.startCenterX || 0)) * 0.72;
-
-            const constrained = spatialJointRuntimeRef.current.constrainLocalPose(
-              objectSession.id,
-              objectSession.baseAttachmentLocalPose,
-              requestedValue,
+          if (!groupSession || groupSession.key !== key) {
+            const runtimeSession = beginSpatialGroupTransform(
+              spatialObjectRuntimeRef.current.snapshot(),
+              selectedRoots,
             );
-            if (constrained) {
-              spatialWorldRuntimeRef.current.updateAttachmentLocalPose(
-                objectSession.id,
-                constrained.localPose,
-              );
-              const resolved = spatialWorldRuntimeRef.current.resolveObjectPose(objectSession.id);
-              if (resolved) spatialObjectRuntimeRef.current.setPose(objectSession.id, resolved);
-              setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            if (runtimeSession) {
+              groupSession = {
+                key,
+                since: now,
+                active: false,
+                startDistance: geometry.distance,
+                startAngle: geometry.angleDeg,
+                startCenter: { ...geometry.center },
+                session: runtimeSession,
+              };
+              spatialGroupTransformRef.current = groupSession;
             }
-          } else {
-            const transformId = objectSession.transformObjectId || objectSession.id;
-            const scale = scaleFromDistance(
-              objectSession.baseScale,
-              objectSession.startDistance,
-              geometry.distance,
-              0.72,
-              1.65,
-            );
-            const rotation = rotationFromAngles(
-              objectSession.baseRotation,
-              objectSession.startAngle,
-              geometry.angleDeg,
-              -45,
-              45,
-            );
-            spatialObjectRuntimeRef.current.applyTransform(transformId, { scale, rotation });
+          } else if (!groupSession.active && now - groupSession.since >= 240 && geometry.distance >= 0.08) {
+            groupSession.active = true;
+            showSpatialFeedback(`Hai tay · điều khiển ${selectedRoots.length} cụm`);
+          } else if (groupSession.active) {
+            const poses = applySpatialGroupTransform(groupSession.session, {
+              translateX: (geometry.center.x - groupSession.startCenter.x) * 1.08,
+              translateY: (geometry.center.y - groupSession.startCenter.y) * 1.08,
+              scaleRatio: groupSession.startDistance > 0.001
+                ? geometry.distance / groupSession.startDistance
+                : 1,
+              rotationDelta: rotationFromAngles(
+                0,
+                groupSession.startAngle,
+                geometry.angleDeg,
+                -45,
+                45,
+              ),
+            });
+
+            for (const [id, pose] of Object.entries(poses)) {
+              spatialObjectRuntimeRef.current.setPose(id, pose);
+            }
 
             spatialWorldRuntimeRef.current.setAnchors(
               collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
             );
-            for (const childId of spatialWorldRuntimeRef.current.clusterObjectIds(transformId).slice(1)) {
-              const resolvedChild = spatialWorldRuntimeRef.current.resolveObjectPose(childId);
-              if (resolvedChild) spatialObjectRuntimeRef.current.setPose(childId, resolvedChild);
+            for (const rootId of selectedRoots) {
+              for (const childId of spatialWorldRuntimeRef.current.clusterObjectIds(rootId).slice(1)) {
+                const resolvedChild = spatialWorldRuntimeRef.current.resolveObjectPose(childId);
+                if (resolvedChild) spatialObjectRuntimeRef.current.setPose(childId, resolvedChild);
+              }
             }
             setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
           }
+        } else {
+          spatialGroupTransformRef.current = null;
+          const attachment = spatialWorldRuntimeRef.current.attachment(objectTarget);
+          const joint = spatialJointRuntimeRef.current.findForChild(objectTarget);
+          let objectSession = twoHandObjectSessionRef.current;
+
+          if (!objectSession || objectSession.id !== objectTarget) {
+            const transformObjectId = joint?.kind === 'fixed' && attachment
+              ? spatialWorldRuntimeRef.current.clusterRootObjectId(objectTarget)
+              : objectTarget;
+            const base = spatialObjectRuntimeRef.current.get(transformObjectId);
+            if (base) {
+              objectSession = {
+                id: objectTarget,
+                transformObjectId,
+                since: now,
+                active: false,
+                startDistance: geometry.distance,
+                startAngle: geometry.angleDeg,
+                startCenterX: geometry.center.x,
+                baseScale: base.pose.scale,
+                baseRotation: base.pose.rotation,
+                jointId: joint?.id,
+                jointKind: joint?.kind,
+                baseJointValue: joint?.value || 0,
+                baseAttachmentLocalPose: attachment?.localPose,
+              };
+              twoHandObjectSessionRef.current = objectSession;
+            }
+          } else if (!objectSession.active && now - objectSession.since >= 240 && geometry.distance >= 0.08) {
+            objectSession.active = true;
+            showSpatialFeedback(
+              objectSession.jointKind === 'hinge'
+                ? 'Hai tay · xoay bản lề'
+                : objectSession.jointKind === 'slider'
+                  ? 'Hai tay · trượt theo ray'
+                  : spatialWorldRuntimeRef.current.clusterObjectIds(
+                      objectSession.transformObjectId || objectSession.id,
+                    ).length > 1
+                    ? 'Hai tay · scale / rotate cả cụm'
+                    : 'Hai tay · scale / rotate vật thể',
+            );
+          } else if (objectSession.active) {
+            const liveJoint = objectSession.jointId
+              ? spatialJointRuntimeRef.current.get(objectSession.jointId)
+              : null;
+
+            if (liveJoint && objectSession.baseAttachmentLocalPose &&
+                (liveJoint.kind === 'hinge' || liveJoint.kind === 'slider')) {
+              const requestedValue = liveJoint.kind === 'hinge'
+                ? rotationFromAngles(
+                    objectSession.baseJointValue || 0,
+                    objectSession.startAngle,
+                    geometry.angleDeg,
+                    liveJoint.min,
+                    liveJoint.max,
+                  )
+                : (objectSession.baseJointValue || 0) +
+                  (geometry.center.x - (objectSession.startCenterX || 0)) * 0.72;
+
+              const constrained = spatialJointRuntimeRef.current.constrainLocalPose(
+                objectSession.id,
+                objectSession.baseAttachmentLocalPose,
+                requestedValue,
+              );
+              if (constrained) {
+                spatialWorldRuntimeRef.current.updateAttachmentLocalPose(
+                  objectSession.id,
+                  constrained.localPose,
+                );
+                const resolved = spatialWorldRuntimeRef.current.resolveObjectPose(objectSession.id);
+                if (resolved) spatialObjectRuntimeRef.current.setPose(objectSession.id, resolved);
+                setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+              }
+            } else {
+              const transformId = objectSession.transformObjectId || objectSession.id;
+              const scale = scaleFromDistance(
+                objectSession.baseScale,
+                objectSession.startDistance,
+                geometry.distance,
+                0.72,
+                1.65,
+              );
+              const rotation = rotationFromAngles(
+                objectSession.baseRotation,
+                objectSession.startAngle,
+                geometry.angleDeg,
+                -45,
+                45,
+              );
+              spatialObjectRuntimeRef.current.applyTransform(transformId, { scale, rotation });
+
+              spatialWorldRuntimeRef.current.setAnchors(
+                collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+              );
+              for (const childId of spatialWorldRuntimeRef.current.clusterObjectIds(transformId).slice(1)) {
+                const resolvedChild = spatialWorldRuntimeRef.current.resolveObjectPose(childId);
+                if (resolvedChild) spatialObjectRuntimeRef.current.setPose(childId, resolvedChild);
+              }
+              setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+            }
+          }
         }
       } else {
+        spatialGroupTransformRef.current = null;
         spatialJointControlRef.current = null;
         twoHandObjectSessionRef.current = null;
       }
@@ -1633,6 +1812,23 @@ export default function AppV2() {
     target?.setAttribute('data-spatial-focused', 'true');
     return () => target?.removeAttribute('data-spatial-focused');
   }, [spatialFrame.focus?.id]);
+
+  useEffect(() => {
+    const objects = document.querySelectorAll<HTMLElement>('[data-spatial-object]');
+    objects.forEach((element) => element.removeAttribute('data-spatial-selected'));
+    if (!selectedClusterRoots.length) return;
+
+    objects.forEach((element) => {
+      const id = String(element.dataset.spatialObject || '');
+      if (!id) return;
+      const root = spatialWorldRuntimeRef.current.clusterRootObjectId(id);
+      if (selectedClusterRoots.includes(root)) {
+        element.setAttribute('data-spatial-selected', 'true');
+      }
+    });
+
+    return () => objects.forEach((element) => element.removeAttribute('data-spatial-selected'));
+  }, [selectedClusterRoots, spatialObjects]);
 
   useEffect(() => {
     const previouslyTouched = document.querySelectorAll<HTMLElement>('[data-spatial-contacted="true"]');
