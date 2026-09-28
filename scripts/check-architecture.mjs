@@ -296,6 +296,7 @@ if (localMemoryStore.includes('PresenceContinuityState') || localMemoryStore.inc
 if (localMemoryStore.includes('SpatialDirectTouchState') || localMemoryStore.includes('spatialTouch')) failures.push('direct spatial touch state must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialObjectState') || localMemoryStore.includes('spatialObjects')) failures.push('spatial object must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialWorldAnchor') || localMemoryStore.includes('SpatialObjectAttachment') || localMemoryStore.includes('spatialWorld')) failures.push('spatial world graph must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('SpatialPlacementPreview') || localMemoryStore.includes('placementPreview')) failures.push('placement preview must remain ephemeral, not long-term memory');
 const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
 for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
   if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
@@ -370,7 +371,7 @@ if (visionCss.includes('.v2-air-layer') || visionCss.includes('.v2-hand-skeleton
 for (const token of ['Camera recognition mode', '.v2-face-scan-hint', '.v2-affect-readout', '.v2-affect-follow', '.v2-gaze-readout', '.v2-face-action-feedback']) {
   if (!visionCss.includes(token)) failures.push(`deferred camera recognition CSS missing: ${token}`);
 }
-for (const token of ['.v2-spatial-input-layer', '.v2-spatial-pointer', '.v2-spatial-window-bar', '.v2-spatial-contact', '[data-spatial-action][data-spatial-focused="true"]', '[data-spatial-contacted="true"]']) {
+for (const token of ['.v2-spatial-input-layer', '.v2-spatial-pointer', '.v2-spatial-window-bar', '.v2-spatial-contact', '.v2-spatial-placement', '[data-spatial-action][data-spatial-focused="true"]', '[data-spatial-contacted="true"]']) {
   if (!visionCss.includes(token)) failures.push(`spatial input CSS missing: ${token}`);
 }
 for (const token of ['v2-face-panel', 'v2-affect-vector', 'v2-social-awareness', 'v2-environment-awareness', 'v2-spatial-scene']) {
@@ -445,12 +446,12 @@ for (const token of ['SpatialObjectRuntime', 'SpatialObjectPose', 'beginGrab', '
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialObject)) failures.push('spatial object pose must remain session-only');
 const spatialWorld = readFileSync('src/core/vision/spatial-world.ts', 'utf8');
-for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'parentId', 'snapObject', 'attachObject', 'resolveObjectPose', 'MAX_PARENT_DEPTH = 8', 'sensor-agnostic', 'WebXR/device world poses']) {
+for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'SpatialPlacementPreview', 'SpatialSurfaceConstraint', 'parentId', 'previewSnapObject', 'magneticStrength', 'snapObject', 'attachObject', 'resolveObjectPose', 'ownerObjectId', 'MAX_PARENT_DEPTH = 8', 'sensor-agnostic', 'WebXR/device world poses']) {
   if (!spatialWorld.includes(token)) failures.push(`spatial world runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialWorld)) failures.push('spatial world anchors must remain session-only');
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
-for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing']) {
+for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing', 'placementPreview', 'v2-spatial-placement']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
 }
 const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');
