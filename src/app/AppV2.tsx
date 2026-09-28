@@ -290,7 +290,7 @@ function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorld
     const cy = (windowRect.top + windowRect.bottom) / 2 / height;
     const handle = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-grab-handle]'))
       .find((node) => node.dataset.spatialGrabHandle === id);
-    const surfaceZ = clampSpatial(Number(handle?.dataset.spatialDepth || object.pose.position.z), -0.7, 0.7);
+    const surfaceZ = clampSpatial(Number(handle?.dataset.spatialDepth || primary.pose.position.z), -0.7, 0.7);
     const surfaceId = `surface.${id}`;
 
     anchors.push({
