@@ -405,7 +405,7 @@ for (const token of ['CausalActionGraphTracker', 'competingCount', 'identity_reb
   if (!causalActionGraph.includes(token)) failures.push(`causal action graph v13 missing: ${token}`);
 }
 const worldModel = readFileSync('src/core/vision/world-model.ts', 'utf8');
-for (const token of ['ShortTermWorldModelTracker', 'version: 14', "'temporarily_missing'", 'MISSING_TTL_MS = 30_000', 'CONFIDENCE_HALF_LIFE_MS = 9_000', 'Math.pow(0.5', 'worldModelPrompt', 'MIRA_WORLD_MODEL', 'same-label continuity hypothesis', 'RAM-only']) {
+for (const token of ['ShortTermWorldModelTracker', 'version: 14', "'temporarily_missing'", 'MISSING_TTL_MS = 30_000', 'CONFIDENCE_HALF_LIFE_MS = 9_000', 'Math.pow(0.5', 'worldModelPrompt', 'MIRA_WORLD_MODEL', 'conservative same-label hypothesis', 'RAM-only']) {
   if (!worldModel.includes(token)) failures.push(`world model v14 missing: ${token}`);
 }
 const spatialOverlay = readFileSync('src/presence/SpatialSceneOverlay.tsx', 'utf8');
