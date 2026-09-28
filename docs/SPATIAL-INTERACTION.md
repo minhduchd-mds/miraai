@@ -176,3 +176,36 @@ Current behavior for `mira.core`:
 - cancel restores the pre-grab pose and previous attachment.
 
 The current coordinates remain normalized interaction-space values. The world graph is sensor-agnostic and is designed so metric WebXR/device anchors can replace the current DOM/camera adapter later.
+
+
+## Spatial v6: magnetic placement and surface constraints
+
+Placement is now predictive rather than release-only.
+
+During a grab, `SpatialWorldRuntime.previewSnapObject()` evaluates the current pose against eligible anchors and returns:
+
+- target anchor and label;
+- exact target pose;
+- magnetic strength;
+- whether the target is surface-constrained.
+
+The dragged object is attracted progressively as it approaches an anchor, while a ghost preview shows the exact placement target. Releasing commits the normal snap attachment.
+
+### Surface constraints
+
+Camera and Result surfaces now expose bounded XY placement planes. When an object approaches a surface, the nearest point on that plane is used rather than forcing the object to the surface center. The point is clamped to the surface bounds.
+
+### Object-to-object parenting
+
+Every spatial object can expose an `object.<id>` anchor with `ownerObjectId`. Other objects may attach to it and follow its pose. Self-parenting is explicitly excluded from snap candidates.
+
+This makes the world graph extensible to:
+
+```text
+workspace
+└─ surface
+   └─ parent object
+      └─ child object
+```
+
+The hierarchy remains session-only and sensor-agnostic.
