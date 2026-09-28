@@ -16,6 +16,8 @@ export interface SpatialObjectDefinition {
   pose?: Partial<SpatialObjectPose> & { position?: Partial<SpatialObjectPoint> };
   minScale?: number;
   maxScale?: number;
+  collisionRadius?: number;
+  mass?: number;
 }
 
 export interface SpatialObjectState {
@@ -24,6 +26,8 @@ export interface SpatialObjectState {
   pose: SpatialObjectPose;
   minScale: number;
   maxScale: number;
+  collisionRadius: number;
+  mass: number;
   grabbed: boolean;
 }
 
@@ -76,6 +80,8 @@ function normalizeDefinition(definition: SpatialObjectDefinition): SpatialObject
     },
     minScale,
     maxScale,
+    collisionRadius: clamp(Number(definition.collisionRadius ?? 0.055), 0.018, 0.2),
+    mass: clamp(Number(definition.mass ?? 1), 0.15, 8),
     grabbed: false,
   };
 }
