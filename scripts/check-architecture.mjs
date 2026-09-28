@@ -51,6 +51,9 @@ const mustExist = [
   'src/core/vision/spatial-physics.ts',
   'src/core/vision/spatial-collision.ts',
   'src/core/vision/spatial-joint.ts',
+  'src/core/vision/spatial-device-adapter.ts',
+  'src/core/vision/spatial-group.ts',
+  'src/core/vision/spatial-layout.ts',
   'src/intelligence/vision/deictic-vision.ts',
   'src/presence/ObjectAwarenessOverlay.tsx',
   'src/presence/SpatialSceneOverlay.tsx',
@@ -118,7 +121,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'spatialSessionLayoutRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -150,7 +153,7 @@ for (const token of [
 if (presence.includes('<svg')) failures.push('HolographicMira must use approved art, not a hand-drawn SVG face');
 
 const photoreal = readFileSync('src/presence/PhotorealMira.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_BEDROOM', 'SCENE_BY_STATE', 'mira-bedroom.webp', 'bedroom-presence', 'pm-wave', 'pm-state-orb']) {
+for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_BEDROOM', 'SCENE_BY_STATE', 'mira-bedroom.webp', 'bedroom-presence', 'pm-wave', 'pm-state-orb', 'data-spatial-object']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved bedroom visual/voice behavior: ${token}`);
 }
 for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {
@@ -427,7 +430,7 @@ for (const token of ['CausalActionGraphTracker', 'competingCount', 'identity_reb
   if (!causalActionGraph.includes(token)) failures.push(`causal action graph v13 missing: ${token}`);
 }
 const worldModel = readFileSync('src/core/vision/world-model.ts', 'utf8');
-for (const token of ['ShortTermWorldModelTracker', 'version: 14', "'temporarily_missing'", 'MISSING_TTL_MS = 30_000', 'CONFIDENCE_HALF_LIFE_MS = 9_000', 'Math.pow(0.5', 'worldModelPrompt', 'MIRA_WORLD_MODEL', 'conservative same-label hypothesis', 'RAM-only']) {
+for (const token of ['ShortTermWorldModelTracker', 'version: 14', "'temporarily_missing'", 'MISSING_TTL_MS = 30_000', 'CONFIDENCE_HALF_LIFE_MS = 9_000', 'MAX_WORLD_OBJECTS = 32', 'MAX_PROCESSED_SCENE_EVENTS = 128', 'enforceMemoryBudget', 'markSceneEventProcessed', 'Math.pow(0.5', 'worldModelPrompt', 'MIRA_WORLD_MODEL', 'conservative same-label hypothesis', 'RAM-only']) {
   if (!worldModel.includes(token)) failures.push(`world model v14 missing: ${token}`);
 }
 const spatialUiControl = readFileSync('src/core/vision/spatial-ui-control.ts', 'utf8');
@@ -451,7 +454,7 @@ for (const token of ['SpatialObjectRuntime', 'SpatialObjectPose', 'beginGrab', '
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialObject)) failures.push('spatial object pose must remain session-only');
 const spatialWorld = readFileSync('src/core/vision/spatial-world.ts', 'utf8');
-for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'SpatialPlacementPreview', 'SpatialSurfaceConstraint', 'parentId', 'previewSnapObject', 'magneticStrength', 'snapObject', 'attachObject', 'resolveObjectPose', 'attachmentSnapshot', 'updateAttachmentLocalPose', 'parentObjectId', 'clusterRootObjectId', 'clusterObjectIds', 'ownerObjectId', 'acceptsObjectId', 'MAX_PARENT_DEPTH = 8', 'sensor-agnostic', 'WebXR/device world poses']) {
+for (const token of ['SpatialWorldRuntime', 'SpatialWorldAnchor', 'SpatialPlacementPreview', 'SpatialSurfaceConstraint', 'parentId', 'previewSnapObject', 'magneticStrength', 'snapObject', 'attachObject', 'resolveObjectPose', 'attachmentSnapshot', 'updateAttachmentLocalPose', 'parentObjectId', 'clusterRootObjectId', 'clusterObjectIds', 'wouldCreateAttachmentCycle', 'ownerObjectId', 'acceptsObjectId', 'MAX_PARENT_DEPTH = 8', 'sensor-agnostic', 'WebXR/device world poses']) {
   if (!spatialWorld.includes(token)) failures.push(`spatial world runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialWorld)) failures.push('spatial world anchors must remain session-only');
@@ -472,6 +475,22 @@ for (const token of ['SpatialJointRuntime', 'SpatialJointKind', "'fixed'", "'hin
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialJoint)) failures.push('spatial joint state must remain session-only');
 if (localMemoryStore.includes('SpatialJointState') || localMemoryStore.includes('spatialJoint')) failures.push('spatial joint state must remain ephemeral, not long-term memory');
+const spatialLayout = readFileSync('src/core/vision/spatial-layout.ts', 'utf8');
+for (const token of ['SpatialSessionLayoutRuntime', 'SpatialSelectionRuntime', 'MAX_LAYOUT_OBJECTS = 32', 'MAX_SELECTED_CLUSTERS = 16', 'spatialSessionLayoutRuntime', 'RAM-only layout checkpoint']) {
+  if (!spatialLayout.includes(token)) failures.push(`spatial session layout missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialLayout)) failures.push('spatial session layout must stay RAM-only');
+
+const spatialGroup = readFileSync('src/core/vision/spatial-group.ts', 'utf8');
+for (const token of ['beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialGroupTransformSession', 'group centroid', 'normalized interaction-space']) {
+  if (!spatialGroup.includes(token)) failures.push(`spatial group transform missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialGroup)) failures.push('spatial group transform state must stay session-only');
+
+const spatialDeviceAdapter = readFileSync('src/core/vision/spatial-device-adapter.ts', 'utf8');
+for (const token of ['SpatialDeviceAdapterRuntime', "'webcam-relative'", "'webxr-metric'", 'detectWebXR', 'webcamPoint', 'metricPoint', 'immersive-ar']) {
+  if (!spatialDeviceAdapter.includes(token)) failures.push(`spatial device adapter missing: ${token}`);
+}
 const spatialControlOverlay = readFileSync('src/presence/SpatialControlOverlay.tsx', 'utf8');
 for (const token of ['v2-spatial-input-layer', 'source-', 'locked', 'grabbing', 'placementPreview', 'v2-spatial-placement']) {
   if (!spatialControlOverlay.includes(token)) failures.push(`spatial control overlay missing: ${token}`);
