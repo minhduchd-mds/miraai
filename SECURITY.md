@@ -45,11 +45,9 @@ Provider/network failure falls through to configured server providers; if no pro
 
 ## Dependency status
 
-As of 2026-08-15, `npm audit --omit=dev` reports a moderate advisory affecting transitive `protobufjs` 7.5.0–7.6.4 (GHSA-j3f2-48v5-ccww / CVE-2026-59877). The patched 7.x version is 7.6.5.
+As of 2026-09-28, the previously tracked protobufjs advisory is resolved in this repository: the lockfile pins protobufjs 7.6.6, newer than the patched 7.6.5 release.
 
-The advisory requires parsing attacker-influenced `.proto` schema text through reflection parsing APIs. Mira does not currently expose a user-controlled `.proto` parsing path, so the known vulnerable precondition is absent in the application flow. The dependency should still be upgraded when the lockfile can be regenerated and validated; do not suppress or mislabel the advisory as resolved before that happens.
-
-CI blocks **critical** runtime advisories and surfaces lower-severity advisories for review.
+The frontend toolchain is aligned on Vite 8.3.1 + @vitejs/plugin-react 6.1.1. CI continues to block critical runtime advisories with `npm audit --omit=dev --audit-level=critical`; lower-severity findings remain review items rather than being silently suppressed.
 
 ## Reporting / review checklist
 
