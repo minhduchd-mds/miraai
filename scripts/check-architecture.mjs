@@ -54,6 +54,7 @@ const mustExist = [
   'src/core/vision/spatial-device-adapter.ts',
   'src/core/vision/spatial-webxr-session.ts',
   'src/core/vision/spatial-xr-projection.ts',
+  'src/core/vision/spatial-xr-surface.ts',
   'src/core/vision/spatial-xr-hand-bridge.ts',
   'src/core/vision/spatial-hand-intent.ts',
   'src/core/vision/spatial-hand-contact.ts',
@@ -127,7 +128,7 @@ const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'spatialSessionLayoutRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'SpatialWebXRSessionRuntime', 'SpatialXRProjectionRuntime', 'projectMetricPointAcrossViews', 'xrProjectionRef', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'mirrorSpatialHandKinematicsX', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'XR · đã căn tâm DOM', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'spatialSessionLayoutRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'SpatialWebXRSessionRuntime', 'SpatialXRProjectionRuntime', 'projectMetricPointAcrossViews', 'xrProjectionRef', 'SpatialXRSurfaceRuntime', 'xrSurfaceRef', 'xrSurfaceProbe', 'requestAnchorAtCurrentHit', 'data-xr-depth', 'data-xr-surface', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'mirrorSpatialHandKinematicsX', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'XR · đã căn tâm DOM', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
@@ -386,6 +387,9 @@ const visionCss = readFileSync('src/ui/vision-v2.css', 'utf8');
 for (const token of ['.v2-hand-skeleton.depth-aware', '.v2-hand-palm-surface', '.v2-hand-fingertip-halos', '.v2-hand-contact-marker', '.v2-hand-depth-field', '[data-spatial-pressed="true"]']) {
   if (!visionCss.includes(token)) failures.push(`human hand depth CSS missing: ${token}`);
 }
+for (const token of ['[data-xr-occluded="true"]', '[data-xr-surface="near"]', '[data-xr-surface="touch"]']) {
+  if (!visionCss.includes(token)) failures.push(`XR real surface CSS missing: ${token}`);
+}
 for (const token of ['.v2-actions button.xr-active', '.v2-xr-glyph']) {
   if (!v2Css.includes(token)) failures.push(`WebXR control CSS missing: ${token}`);
 }
@@ -491,6 +495,7 @@ for (const token of ['SpatialJointRuntime', 'SpatialJointKind', "'fixed'", "'hin
 if (/localStorage|sessionStorage|indexedDB/.test(spatialJoint)) failures.push('spatial joint state must remain session-only');
 if (localMemoryStore.includes('SpatialJointState') || localMemoryStore.includes('spatialJoint')) failures.push('spatial joint state must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialHandKinematicsState') || localMemoryStore.includes('SpatialHandContactState') || localMemoryStore.includes('SpatialHandIntentState')) failures.push('hand contact state must remain ephemeral, not long-term memory');
+if (localMemoryStore.includes('XRSurfaceProbe') || localMemoryStore.includes('XRDepthFrameSample') || localMemoryStore.includes('WebXRAnchorSample')) failures.push('XR real-world depth/anchor state must remain ephemeral, not long-term memory');
 const spatialLayout = readFileSync('src/core/vision/spatial-layout.ts', 'utf8');
 for (const token of ['SpatialSessionLayoutRuntime', 'SpatialSelectionRuntime', 'MAX_LAYOUT_OBJECTS = 32', 'MAX_SELECTED_CLUSTERS = 16', 'spatialSessionLayoutRuntime', 'RAM-only layout checkpoint']) {
   if (!spatialLayout.includes(token)) failures.push(`spatial session layout missing: ${token}`);
@@ -508,7 +513,7 @@ for (const token of ['SpatialDeviceAdapterRuntime', "'webcam-relative'", "'webxr
   if (!spatialDeviceAdapter.includes(token)) failures.push(`spatial device adapter missing: ${token}`);
 }
 const spatialWebXR = readFileSync('src/core/vision/spatial-webxr-session.ts', 'utf8');
-for (const token of ['SpatialWebXRSessionRuntime', "requestSession('immersive-ar'", "'hand-tracking'", "'hit-test'", "'anchors'", "'depth-sensing'", 'getJointPose', 'requestHitTestSource', 'PINCH_DISTANCE_M = 0.028', 'never', 'auto-opens immersive XR']) {
+for (const token of ['SpatialWebXRSessionRuntime', "requestSession('immersive-ar'", "'hand-tracking'", "'hit-test'", "'anchors'", "'depth-sensing'", 'getJointPose', 'requestHitTestSource', 'getDepthInformation', 'requestAnchorAtCurrentHit', 'createAnchor', 'trackedAnchors', 'requestPersistentHandle', "usagePreference: ['cpu-optimized']", 'PINCH_DISTANCE_M = 0.028', 'never', 'auto-opens immersive XR']) {
   if (!spatialWebXR.includes(token)) failures.push(`real WebXR session runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialWebXR)) failures.push('WebXR live sensor state must remain session-only');
@@ -517,6 +522,11 @@ for (const token of ['SpatialXRProjectionRuntime', 'projectMetricPointToView', '
   if (!spatialXRProjection.includes(token)) failures.push(`XR projection runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialXRProjection)) failures.push('XR projection calibration must remain session-only');
+const spatialXRSurface = readFileSync('src/core/vision/spatial-xr-surface.ts', 'utf8');
+for (const token of ['SpatialXRSurfaceRuntime', 'probeXRSurface', 'nearestXRDepth', 'reconstructXRSurfacePatches', 'NEAR_SURFACE_M', 'TOUCH_SURFACE_M', 'OCCLUSION_EPSILON_M', 'not a full room mesh']) {
+  if (!spatialXRSurface.includes(token)) failures.push(`XR real surface runtime missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialXRSurface)) failures.push('XR depth surface state must remain session-only');
 const spatialHandKinematics = readFileSync('src/core/vision/spatial-hand-kinematics.ts', 'utf8');
 for (const token of ['SpatialHandKinematicsTracker', 'pinchRatio', 'palmNormal', 'pointingConfidence', 'contactRadius', 'world-shape', 'mirrorSpatialHandKinematicsX']) {
   if (!spatialHandKinematics.includes(token)) failures.push(`human hand kinematics missing: ${token}`);
