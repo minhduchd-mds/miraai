@@ -61,6 +61,7 @@ const spatialXRSurface = await importTypeScript('src/core/vision/spatial-xr-surf
 const spatialXRManipulation = await importTypeScript('src/core/vision/spatial-xr-manipulation.ts');
 const spatialXRBimanual = await importTypeScript('src/core/vision/spatial-xr-bimanual.ts');
 const spatialXRRigidBody = await importTypeScript('src/core/vision/spatial-xr-rigid-body.ts');
+const photorealDepth = await importTypeScript('src/presence/photoreal-depth.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4466,4 +4467,92 @@ test('XR bimanual external commit keeps rigid inertia pose for next grab', () =>
   const snapshot = runtime.snapshot('core');
   assert.equal(snapshot.pitchDeg, -14);
   assert.equal(snapshot.rollDeg, 31);
+});
+
+
+test('photoreal visual quality respects device capability and render budget', () => {
+  assert.equal(photorealDepth.resolvePhotorealVisualQuality({
+    dpr: 2,
+    width: 1440,
+    height: 900,
+    hardwareConcurrency: 12,
+    deviceMemoryGb: 16,
+    reducedMotion: false,
+  }), 'ultra');
+
+  assert.equal(photorealDepth.resolvePhotorealVisualQuality({
+    dpr: 2.5,
+    width: 390,
+    height: 844,
+    hardwareConcurrency: 2,
+    deviceMemoryGb: 2,
+    reducedMotion: false,
+  }), 'lite');
+
+  assert.equal(photorealDepth.resolvePhotorealVisualQuality({
+    dpr: 2,
+    width: 1366,
+    height: 768,
+    hardwareConcurrency: 8,
+    deviceMemoryGb: 8,
+    reducedMotion: true,
+  }), 'high');
+});
+
+test('photoreal clarity adds bounded sharpness without exceeding DPR', () => {
+  const high = photorealDepth.clarityProfile('high', 2, 0.7);
+  assert.ok(high.renderDpr <= 2);
+  assert.ok(high.renderDpr >= 1);
+  assert.ok(high.sharpness > 0 && high.sharpness <= 0.28);
+  assert.ok(high.contrast >= 1 && high.contrast <= 1.06);
+  assert.ok(high.midOpacity > 0);
+  assert.ok(high.nearOpacity > high.midOpacity - 0.02);
+
+  const lite = photorealDepth.clarityProfile('lite', 3, 1);
+  assert.equal(lite.renderDpr, 1);
+  assert.ok(lite.sharpness <= 0.03);
+  assert.equal(lite.midOpacity, 0);
+  assert.equal(lite.nearOpacity, 0);
+});
+
+test('photoreal depth parallax remains subtle and layered', () => {
+  const frame = photorealDepth.computePhotorealDepthFrame({
+    pointerX: 1,
+    pointerY: -1,
+    gazeX: 0.8,
+    gazeY: -0.6,
+    attention: 0.9,
+    quality: 'ultra',
+  });
+  assert.ok(Math.abs(frame.backX) <= 1.8);
+  assert.ok(Math.abs(frame.midX) <= 3.4);
+  assert.ok(Math.abs(frame.nearX) <= 5.2);
+  assert.ok(Math.abs(frame.backY) <= 1.1);
+  assert.ok(Math.abs(frame.midY) <= 2.1);
+  assert.ok(Math.abs(frame.nearY) <= 3.2);
+  assert.ok(Math.abs(frame.tiltXDeg) <= 0.36);
+  assert.ok(Math.abs(frame.tiltYDeg) <= 0.5);
+  assert.ok(Math.abs(frame.nearX) >= Math.abs(frame.midX));
+  assert.ok(Math.abs(frame.midX) >= Math.abs(frame.backX));
+});
+
+test('lite photoreal depth disables motion layers deterministically', () => {
+  const frame = photorealDepth.computePhotorealDepthFrame({
+    pointerX: 1,
+    pointerY: 1,
+    gazeX: 1,
+    gazeY: 1,
+    attention: 1,
+    quality: 'lite',
+  });
+  assert.deepEqual(frame, {
+    backX: 0,
+    backY: 0,
+    midX: 0,
+    midY: 0,
+    nearX: 0,
+    nearY: 0,
+    tiltXDeg: 0,
+    tiltYDeg: 0,
+  });
 });
