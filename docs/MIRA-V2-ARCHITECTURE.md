@@ -310,6 +310,20 @@ The runtime intentionally stays beside, not inside, `SpatialObjectRuntime`: metr
 
 This separation keeps the normalized browser world graph, snapping and physics free from mixed-unit state while enabling a 3-axis two-hand manipulation cue in immersive XR.
 
+### Spatial v19 XR window boundary
+
+Camera and Result windows now participate in the immersive XR interaction stack. Their primary-hand path uses projected XR X/Y plus `SpatialXRMetricManipulationRuntime` for bounded metric Z, while `SpatialXRBimanualRuntime` supplies two-hand scale and yaw/pitch/roll presentation transforms.
+
+Real WebXR anchors may be created for `window.camera` and `window.result` after a valid near-surface release. Tracked metric anchor poses are reprojected into the DOM overlay each frame and drive window position plus perspective depth scale.
+
+The architecture keeps three coordinate domains separate:
+
+1. metric XR hand/depth/anchor coordinates;
+2. normalized/browser interaction state used by Mira's existing world model;
+3. pixel/CSS presentation transforms for DOM windows.
+
+Metric XR window state remains session-only and is not written into durable memory or browser persistence.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
