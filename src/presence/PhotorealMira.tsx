@@ -306,14 +306,16 @@ export default function PhotorealMira({
           draggable={false}
           decoding="async"
         />
-        <Suspense fallback={null}>
-          <PhotorealSceneCanvas
-            className="pm-scene-canvas"
-            src={SCENE_BY_STATE[state]}
-            renderDpr={visualProfile.renderDpr}
-            sharpness={visualProfile.sharpness}
-          />
-        </Suspense>
+        {visualProfile.sharpness > 0 && (
+          <Suspense fallback={null}>
+            <PhotorealSceneCanvas
+              className="pm-scene-canvas"
+              src={SCENE_BY_STATE[state]}
+              renderDpr={visualProfile.renderDpr}
+              sharpness={visualProfile.sharpness}
+            />
+          </Suspense>
+        )}
         <img
           className="pm-depth-layer pm-depth-mid"
           src={SCENE_BY_STATE[state]}
