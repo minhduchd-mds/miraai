@@ -176,7 +176,13 @@ export default function PhotorealSceneCanvas({
       const rect = canvas.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return;
 
-      const dpr = Math.max(1, Math.min(2, Number(renderDpr) || 1));
+      const requestedDpr = Math.max(1, Math.min(2, Number(renderDpr) || 1));
+      const requestedPixels = rect.width * rect.height * requestedDpr * requestedDpr;
+      const maxRenderPixels = 12_000_000;
+      const budgetScale = requestedPixels > maxRenderPixels
+        ? Math.sqrt(maxRenderPixels / requestedPixels)
+        : 1;
+      const dpr = Math.max(1, requestedDpr * budgetScale);
       const width = Math.max(2, Math.round(rect.width * dpr));
       const height = Math.max(2, Math.round(rect.height * dpr));
       if (canvas.width !== width || canvas.height !== height) {
