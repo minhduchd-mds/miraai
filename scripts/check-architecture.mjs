@@ -189,6 +189,11 @@ for (const token of ['Spatial Visual v21', '--pm-depth-back-x', '--pm-depth-mid-
   if (!photorealCss.includes(token)) failures.push(`photoreal v21 CSS missing: ${token}`);
 }
 
+const photorealRestore = readFileSync('scripts/restore-photoreal-assets.mjs', 'utf8');
+for (const token of ['PART_COUNT = 11', 'EXPECTED_SHA256', 'Buffer.from(encoded, \'base64\')', 'RIFF', 'WEBP', 'writeFileSync']) {
+  if (!photorealRestore.includes(token)) failures.push(`photoreal asset restore missing: ${token}`);
+}
+
 const godMode = readFileSync('src/presence/holographic-mira-godmode.css', 'utf8');
 for (const token of ['hm-luxury-glints', 'hm-light-rays', 'hm-crown-halo', 'hm-speaking-pulse-near', 'hm-activation-flash']) {
   if (!godMode.includes(token)) failures.push(`Mira cinematic god mode missing: ${token}`);
