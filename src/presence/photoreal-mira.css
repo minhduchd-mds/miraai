@@ -1116,43 +1116,31 @@
 
 /* Spatial Visual v22 — clean image depth + independent animated copy. */
 .bedroom-presence .pm-clean-copy-scrim {
-  position:absolute;
-  inset:-2%;
-  z-index:7;
-  pointer-events:none;
-  background:
-    linear-gradient(90deg,
-      rgba(5,3,19,.985) 0%,
-      rgba(7,4,23,.96) 19%,
-      rgba(10,5,29,.89) 36%,
-      rgba(12,6,32,.66) 48%,
-      rgba(12,7,31,.28) 57%,
-      transparent 67%),
-    radial-gradient(ellipse 34% 55% at 22% 50%, rgba(39,19,67,.33), transparent 74%);
-  -webkit-backdrop-filter: blur(9px) saturate(.92);
-  backdrop-filter: blur(9px) saturate(.92);
+  display:none;
 }
 
-.bedroom-presence .pm-depth-mid,
-.bedroom-presence .pm-depth-near {
-  -webkit-mask-image:
-    linear-gradient(90deg, transparent 0 43%, rgba(0,0,0,.16) 50%, rgba(0,0,0,.82) 62%, #000 72% 100%);
-  mask-image:
-    linear-gradient(90deg, transparent 0 43%, rgba(0,0,0,.16) 50%, rgba(0,0,0,.82) 62%, #000 72% 100%);
-}
-
+/* Clean canonical scene: depth masks can follow the room/subject itself instead
+   of reserving a flat text-safe region inside the image. */
 .bedroom-presence .pm-depth-mid {
-  opacity: calc(var(--pm-mid-opacity) * 1.06);
+  opacity: calc(var(--pm-mid-opacity) * 1.08);
   transform:
-    translate3d(var(--pm-depth-mid-x), var(--pm-depth-mid-y), 7px)
-    scale(1.02);
+    translate3d(var(--pm-depth-mid-x), var(--pm-depth-mid-y), 8px)
+    scale(1.018);
+  -webkit-mask-image:
+    radial-gradient(ellipse 52% 72% at 49% 49%, #000 0 42%, rgba(0,0,0,.82) 58%, rgba(0,0,0,.22) 76%, transparent 92%);
+  mask-image:
+    radial-gradient(ellipse 52% 72% at 49% 49%, #000 0 42%, rgba(0,0,0,.82) 58%, rgba(0,0,0,.22) 76%, transparent 92%);
 }
 
 .bedroom-presence .pm-depth-near {
-  opacity: calc(var(--pm-near-opacity) * 1.08);
+  opacity: calc(var(--pm-near-opacity) * 1.12);
   transform:
-    translate3d(var(--pm-depth-near-x), var(--pm-depth-near-y), 17px)
-    scale(1.019);
+    translate3d(var(--pm-depth-near-x), var(--pm-depth-near-y), 18px)
+    scale(1.016);
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0 47%, rgba(0,0,0,.08) 57%, rgba(0,0,0,.62) 72%, #000 91% 100%);
+  mask-image:
+    linear-gradient(180deg, transparent 0 47%, rgba(0,0,0,.08) 57%, rgba(0,0,0,.62) 72%, #000 91% 100%);
 }
 
 .pm-hero-copy {
@@ -1287,17 +1275,6 @@
 }
 
 @media (max-width: 900px) {
-  .bedroom-presence .pm-clean-copy-scrim {
-    background:
-      linear-gradient(180deg,
-        rgba(5,3,19,.12) 0%,
-        rgba(5,3,19,.1) 40%,
-        rgba(5,3,19,.83) 68%,
-        rgba(5,3,19,.96) 100%);
-    -webkit-backdrop-filter:none;
-    backdrop-filter:none;
-  }
-
   .pm-hero-capabilities {
     display:none;
   }
@@ -1318,12 +1295,18 @@
     max-width:560px;
   }
 
-  .bedroom-presence .pm-depth-mid,
+  .bedroom-presence .pm-depth-mid {
+    -webkit-mask-image:
+      radial-gradient(ellipse 68% 72% at 48% 44%, #000 0 44%, rgba(0,0,0,.72) 64%, transparent 90%);
+    mask-image:
+      radial-gradient(ellipse 68% 72% at 48% 44%, #000 0 44%, rgba(0,0,0,.72) 64%, transparent 90%);
+  }
+
   .bedroom-presence .pm-depth-near {
     -webkit-mask-image:
-      linear-gradient(90deg, transparent 0 22%, rgba(0,0,0,.55) 42%, #000 62% 100%);
+      linear-gradient(180deg, transparent 0 42%, rgba(0,0,0,.12) 54%, rgba(0,0,0,.72) 74%, #000 92% 100%);
     mask-image:
-      linear-gradient(90deg, transparent 0 22%, rgba(0,0,0,.55) 42%, #000 62% 100%);
+      linear-gradient(180deg, transparent 0 42%, rgba(0,0,0,.12) 54%, rgba(0,0,0,.72) 74%, #000 92% 100%);
   }
 }
 
@@ -1358,4 +1341,62 @@
     filter:none !important;
     animation:none !important;
   }
+}
+
+
+/* Hero copy is real DOM text. The keyed layer remounts on state transitions,
+   replaying the entrance motion without moving with image parallax. */
+.pm-hero-copy[data-hero-state="listening"] .pm-hero-kicker {
+  color:#73f3d5;
+}
+
+.pm-hero-copy[data-hero-state="thinking"] .pm-hero-kicker {
+  color:#a99cff;
+}
+
+.pm-hero-copy[data-hero-state="speaking"] .pm-hero-kicker {
+  color:#ff83dc;
+}
+
+.pm-hero-copy[data-hero-state="interrupted"] .pm-hero-kicker {
+  color:#ffd28a;
+}
+
+.pm-hero-copy[data-hero-state="error"] .pm-hero-kicker {
+  color:#ff9a9a;
+}
+
+.pm-hero-copy[data-hero-state="listening"] .pm-hero-capabilities > span:nth-child(1),
+.pm-hero-copy[data-hero-state="thinking"] .pm-hero-capabilities > span:nth-child(2),
+.pm-hero-copy[data-hero-state="speaking"] .pm-hero-capabilities > span:nth-child(4) {
+  color:rgba(244,242,255,.88);
+}
+
+.pm-hero-copy[data-hero-state="listening"] .pm-hero-capabilities > span:nth-child(1) i,
+.pm-hero-copy[data-hero-state="thinking"] .pm-hero-capabilities > span:nth-child(2) i,
+.pm-hero-copy[data-hero-state="speaking"] .pm-hero-capabilities > span:nth-child(4) i {
+  background:currentColor;
+  box-shadow:0 0 12px currentColor;
+}
+
+.pm-hero-story strong,
+.pm-hero-story em,
+.pm-hero-capabilities {
+  position:relative;
+  z-index:1;
+}
+
+.pm-hero-story::before {
+  content:"";
+  position:absolute;
+  z-index:0;
+  left:-24px;
+  top:-34px;
+  width:min(48vw,780px);
+  height:calc(100% + 62px);
+  border-radius:42px;
+  pointer-events:none;
+  background:radial-gradient(ellipse at 14% 60%,rgba(5,3,17,.42),rgba(5,3,17,.18) 48%,transparent 76%);
+  filter:blur(18px);
+  opacity:.62;
 }
