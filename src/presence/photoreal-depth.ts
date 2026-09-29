@@ -159,6 +159,18 @@ export function computePhotorealDepthFrame(input: PhotorealDepthInput): Photorea
     ultra: 1,
   };
   const gain = qualityGain[input.quality];
+  if (gain === 0) {
+    return {
+      backX: 0,
+      backY: 0,
+      midX: 0,
+      midY: 0,
+      nearX: 0,
+      nearY: 0,
+      tiltXDeg: 0,
+      tiltYDeg: 0,
+    };
+  }
   const combinedX = pointerX * 0.72 + gazeX * (0.12 + attention * 0.16);
   const combinedY = pointerY * 0.76 + gazeY * (0.1 + attention * 0.14);
 
