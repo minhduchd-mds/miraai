@@ -4323,3 +4323,31 @@ test('XR bimanual runtime resets ephemeral object transform deterministically', 
   assert.equal(reset.rollDeg, 0);
   assert.deepEqual(reset.metricCenterDelta, { x: 0, y: 0, z: 0 });
 });
+
+
+test('XR bimanual window transform resumes from committed 6DoF presentation', () => {
+  const runtime = new spatialXRBimanual.SpatialXRBimanualRuntime();
+  const left = makeBimanualHand('left', { x: -0.12, y: 1.2, z: -0.62 }, { x: -0.12, y: 1.06, z: -0.72 });
+  const right = makeBimanualHand('right', { x: 0.12, y: 1.2, z: -0.62 }, { x: 0.12, y: 1.06, z: -0.72 });
+  const key = 'window.camera';
+
+  assert.ok(runtime.begin(key, [left, right]));
+  const moved = runtime.update(key, [
+    makeBimanualHand('left', { x: -0.16, y: 1.16, z: -0.68 }, { x: -0.15, y: 1.02, z: -0.78 }),
+    makeBimanualHand('right', { x: 0.18, y: 1.31, z: -0.5 }, { x: 0.16, y: 1.12, z: -0.64 }),
+  ]);
+  assert.ok(moved);
+  assert.ok(moved.scaleRatio > 1);
+  assert.ok(Math.abs(moved.yawDeg) + Math.abs(moved.pitchDeg) + Math.abs(moved.rollDeg) > 0);
+
+  const committed = runtime.end(key);
+  assert.ok(committed);
+  assert.equal(committed.active, false);
+
+  const resumed = runtime.begin(key, [left, right]);
+  assert.ok(resumed);
+  assert.equal(resumed.scaleRatio, committed.scaleRatio);
+  assert.equal(resumed.yawDeg, committed.yawDeg);
+  assert.equal(resumed.pitchDeg, committed.pitchDeg);
+  assert.equal(resumed.rollDeg, committed.rollDeg);
+});
