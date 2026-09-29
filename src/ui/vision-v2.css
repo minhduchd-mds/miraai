@@ -11,6 +11,11 @@
   --spatial-z: 0px;
   --spatial-scale: 1;
   --spatial-rotation: 0deg;
+  --xr-window-depth-scale: 1;
+  --xr-window-bimanual-scale: 1;
+  --xr-window-yaw: 0deg;
+  --xr-window-pitch: 0deg;
+  --xr-window-roll: 0deg;
   position: fixed;
   z-index: 84;
   right: max(18px, env(safe-area-inset-right));
@@ -19,9 +24,20 @@
   display: grid;
   gap: 6px;
   pointer-events: none;
-  transform: perspective(900px) translate3d(var(--spatial-x), var(--spatial-y), var(--spatial-z)) rotate(var(--spatial-rotation)) scale(var(--spatial-scale));
+  transform:
+    perspective(900px)
+    translate3d(var(--spatial-x), var(--spatial-y), var(--spatial-z))
+    rotateZ(var(--spatial-rotation))
+    rotateY(var(--xr-window-yaw))
+    rotateX(var(--xr-window-pitch))
+    rotateZ(var(--xr-window-roll))
+    scale(var(--spatial-scale))
+    scale(var(--xr-window-depth-scale))
+    scale(var(--xr-window-bimanual-scale));
   transform-origin: center;
-  will-change: transform;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, opacity, filter;
 }
 .v2-camera-frame {
   position: relative;
@@ -644,4 +660,59 @@
 [data-xr-occluded="true"]{
   opacity:.18 !important;
   filter:blur(.8px) saturate(.55) !important;
+}
+
+/* Spatial v19 — XR window depth / physical-surface presentation. */
+.v2-xr-spatial-sensor{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 42%),
+    linear-gradient(145deg,rgba(6,11,31,.94),rgba(3,7,22,.82));
+}
+.v2-xr-spatial-sensor::before,
+.v2-xr-spatial-sensor::after{
+  content:"";
+  position:absolute;
+  inset:18%;
+  border:1px solid color-mix(in srgb,var(--accent) 24%,transparent);
+  border-radius:50%;
+}
+.v2-xr-spatial-sensor::after{
+  inset:32%;
+  opacity:.58;
+}
+.v2-xr-spatial-sensor i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 18px color-mix(in srgb,var(--accent) 80%,transparent);
+}
+.v2-xr-spatial-sensor span{
+  position:absolute;
+  bottom:12px;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.18em;
+  color:rgba(225,232,255,.55);
+}
+[data-spatial-window][data-xr-surface="near"]{
+  filter:brightness(1.04);
+}
+[data-spatial-window][data-xr-surface="touch"]{
+  filter:brightness(1.08);
+}
+[data-spatial-window][data-xr-surface="near"] .v2-camera-frame,
+[data-spatial-window][data-xr-surface="touch"] .v2-camera-frame{
+  border-color:color-mix(in srgb,var(--accent) 58%,white 12%);
+}
+[data-spatial-window][data-xr-surface="touch"] .v2-camera-frame{
+  box-shadow:
+    0 12px 28px rgba(0,0,0,.32),
+    0 0 0 1px color-mix(in srgb,var(--accent) 36%,transparent),
+    0 0 24px color-mix(in srgb,var(--accent) 18%,transparent);
 }
