@@ -760,3 +760,48 @@ Tracked XR anchors use the same principle: the first tracked depth becomes the v
 On release near a measured real surface, Mira queues `XRHitTestResult.createAnchor()`. If a real anchor is created, the object is reprojected from the anchor's tracked metric pose every frame. If real anchors are unavailable, the existing browser spatial snap system remains the fallback.
 
 All v17 metric manipulation state is RAM/session-only.
+
+
+## Spatial v18: metric bimanual orientation
+
+Mira now keeps a dedicated two-hand metric XR transform layer above the one-hand v17 depth path.
+
+When two tracked XR hands are pinching the same grabbed object, `SpatialXRBimanualRuntime` derives a stable interaction frame from:
+
+- the metric midpoint between both pinch centers;
+- the metric distance between hands;
+- the left→right hand axis;
+- a wrist→pinch guide used to resolve twist around that axis.
+
+The runtime emits:
+
+```text
+two metric pinch centers
+        ↓
+pair center + pair distance
+        ↓
+3D pair axis + wrist guide
+        ↓
+scale ratio
+yaw / pitch / roll deltas
+metric center delta
+        ↓
+bounded DOM presentation transform
+```
+
+The existing primary-hand path still owns X/Y dragging and v17 metric Z/surface constraints. v18 therefore does not double-apply translation and does not write metric XR coordinates into `SpatialObjectRuntime`.
+
+Current safeguards:
+
+- both hands must be actively pinching;
+- pair distance must be at least 5.5 cm;
+- scale is clamped to 0.58–1.72×;
+- yaw is clamped to ±72°;
+- pitch is clamped to ±58°;
+- roll is clamped to ±95°;
+- transform output is smoothed before rendering;
+- releasing one hand commits the current visual transform in RAM and returns control to the one-hand path;
+- re-entering a two-hand pinch resumes from the committed transform instead of jumping back to identity;
+- all bimanual metric state remains session-only.
+
+This is an interaction-oriented rigid transform, not a claim that Mira reconstructed a complete physical object pose. The XR joint coordinates are real metric device data; the final DOM rotation/scale is a bounded presentation mapping.
