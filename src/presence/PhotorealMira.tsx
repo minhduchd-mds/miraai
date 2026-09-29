@@ -334,9 +334,28 @@ export default function PhotorealMira({
         <span className="pm-depth-relight" />
         <span className="pm-depth-contact-shadow" />
         <span className="pm-depth-grain" />
+        <span className="pm-clean-copy-scrim" />
       </span>
 
       <span className="pm-bedroom-tint" aria-hidden="true" />
+
+      <span className="pm-hero-copy" aria-hidden="true">
+        <span className="pm-hero-capabilities">
+          <span><i />VOICE</span>
+          <span><i />MEMORY</span>
+          <span><i />VISION</span>
+          <span><i />SPATIAL AI</span>
+        </span>
+        <span className="pm-hero-story">
+          <span className="pm-hero-kicker">MIRA <i /> COMPANION 2.0</span>
+          <strong>
+            <span>Discover</span>
+            <span>a presence</span>
+            <span>that learns you</span>
+          </strong>
+          <em>A companion that listens, remembers, sees, and lives in your space. Not just an AI — a presence that knows when to speak, and when to stay.</em>
+        </span>
+      </span>
 
       <span className="pm-live-pill" aria-hidden="true">
         <i />
