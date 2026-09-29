@@ -35,6 +35,11 @@ mustExist(join(DIST, 'index.html'), 'built index');
 mustExist(join(DIST, '.vite', 'manifest.json'), 'Vite manifest');
 mustExist(join(DIST, 'manifest.webmanifest'), 'PWA manifest');
 mustExist(join(DIST, 'sw.js'), 'service worker');
+mustExist(join(DIST, 'scenes', 'mira-bedroom.webp'), 'photoreal bedroom scene');
+if (existsSync(join(DIST, 'scenes', 'mira-bedroom.webp'))) {
+  const sceneBytes = statSync(join(DIST, 'scenes', 'mira-bedroom.webp')).size;
+  if (sceneBytes < 40_000) failures.push(`photoreal bedroom scene unexpectedly small: ${sceneBytes} bytes`);
+}
 
 if (existsSync(join(DIST, 'index.html'))) {
   const html = readFileSync(join(DIST, 'index.html'), 'utf8');
