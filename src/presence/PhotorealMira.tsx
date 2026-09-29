@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { MiraState } from '../core/types';
 import type { ObservedMood } from '../intelligence/affect/mood-engine';
 import { audioLevel } from '../core/audio-level';
-import PhotorealSceneCanvas from './PhotorealSceneCanvas';
 import {
   clarityProfile,
   computePhotorealDepthFrame,
@@ -49,6 +48,7 @@ interface Props {
 }
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
+const PhotorealSceneCanvas = lazy(() => import('./PhotorealSceneCanvas'));
 const MIRA_BEDROOM = asset('scenes/mira-bedroom.webp');
 
 const SCENE_BY_STATE: Record<MiraState, string> = {
@@ -306,12 +306,14 @@ export default function PhotorealMira({
           draggable={false}
           decoding="async"
         />
-        <PhotorealSceneCanvas
-          className="pm-scene-canvas"
-          src={SCENE_BY_STATE[state]}
-          renderDpr={visualProfile.renderDpr}
-          sharpness={visualProfile.sharpness}
-        />
+        <Suspense fallback={null}>
+          <PhotorealSceneCanvas
+            className="pm-scene-canvas"
+            src={SCENE_BY_STATE[state]}
+            renderDpr={visualProfile.renderDpr}
+            sharpness={visualProfile.sharpness}
+          />
+        </Suspense>
         <img
           className="pm-depth-layer pm-depth-mid"
           src={SCENE_BY_STATE[state]}
