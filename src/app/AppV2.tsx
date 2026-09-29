@@ -2843,20 +2843,22 @@ export default function AppV2() {
             {visionOn
               ? <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
               : <div className="v2-xr-spatial-sensor" aria-label="XR spatial sensor" aria-hidden="true"><i /><span>XR</span></div>}
-            {handSeen && <span className="v2-hand-depth-field" aria-hidden="true" />}
-            <div className="v2-camera-status face-only" role="status" aria-live="polite">
-              <span className={faceSeen ? 'detected' : 'scanning'}>
-                {faceSeen ? 'Đã nhận diện khuôn mặt' : 'Đang quét khuôn mặt'}
-              </span>
-            </div>
-            {faceSeen && (
+            {visionOn && handSeen && <span className="v2-hand-depth-field" aria-hidden="true" />}
+            {visionOn && (
+              <div className="v2-camera-status face-only" role="status" aria-live="polite">
+                <span className={faceSeen ? 'detected' : 'scanning'}>
+                  {faceSeen ? 'Đã nhận diện khuôn mặt' : 'Đang quét khuôn mặt'}
+                </span>
+              </div>
+            )}
+            {visionOn && faceSeen && (
               <FaceMeshOverlay
                 points={faceLandmarks}
                 active={faceSeen}
                 muscles={faceTelemetry.muscles}
               />
             )}
-            {handSeen && (
+            {visionOn && handSeen && (
               <HandSkeletonOverlay
                 points={handLandmarks}
                 active={handSeen}
@@ -2865,7 +2867,7 @@ export default function AppV2() {
                 intent={humanHandIntent}
               />
             )}
-            {faceSeen && (
+            {visionOn && faceSeen && (
               <>
                 <div className={`v2-affect-readout tone-${affectSignal.tone}${affectSignal.ready ? ' ready' : ' reading'}`}>
                   <span>Biểu cảm</span>
@@ -2890,7 +2892,7 @@ export default function AppV2() {
                 {faceActionFeedback && <div className="v2-face-action-feedback" role="status">{faceActionFeedback}</div>}
               </>
             )}
-            {!faceSeen && <div className="v2-face-scan-hint">Đưa khuôn mặt vào giữa khung hình</div>}
+            {visionOn && !faceSeen && <div className="v2-face-scan-hint">Đưa khuôn mặt vào giữa khung hình</div>}
           </div>
           <div
             className="v2-spatial-window-bar"
