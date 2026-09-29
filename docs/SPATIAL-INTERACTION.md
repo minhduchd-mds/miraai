@@ -862,3 +862,75 @@ Grabbing an anchored window removes the old XR anchor before manipulation begins
 The webcam stream is still stopped when XR owns the immersive sensor path. The Camera window remains available as a compact XR spatial sensor surface rather than displaying misleading webcam/face-recognition cues.
 
 All v19 window depth, bimanual orientation, surface state, anchor tracking and perspective baselines remain RAM/session-only.
+
+
+## Spatial v20: XR rigid-body release and hand-object impulse
+
+Mira now has a dedicated XR rigid interaction layer above the v18/v19 bimanual presentation stack.
+
+The goal is not to claim laboratory-grade physical simulation. The new runtime preserves the existing coordinate boundaries while making two-hand manipulation behave more like a rigid object after release.
+
+### Two-hand velocity estimation
+
+While two XR hands are pinching the same object, `SpatialXRRigidBodyRuntime` samples the temporal change of the bimanual transform:
+
+```text
+metric pair-center delta
++ scale delta
++ yaw / pitch / roll delta
+          ↓
+linear velocity estimator
++ angular velocity estimator
+          ↓
+release classifier
+          ↓
+normalized translation impulse → SpatialPhysicsRuntime
+angular inertia → XR presentation transform
+```
+
+Metric translation remains inside the XR estimator. Only a bounded normalized interaction-space velocity crosses into `SpatialPhysicsRuntime`.
+
+### Release inertia
+
+A two-hand release can now preserve momentum:
+
+- sufficiently fast center motion produces a bounded translation impulse;
+- sufficiently fast yaw/pitch/roll produces angular inertia;
+- angular velocity decays exponentially;
+- scale velocity decays independently;
+- yaw/pitch/roll and scale remain clamped to the existing v18 presentation limits;
+- a snapped or real-anchored object stops inertial motion immediately.
+
+The primary-hand pointer velocity continues to contribute through the existing `SpatialPhysicsRuntime.release()` path, so one-hand and two-hand motion compose rather than replacing one another.
+
+### Hand-object collision impulse
+
+The existing `SpatialHandContactRuntime` remains authoritative for contact classification. v20 adds `SpatialXRHandCollisionRuntime` only after that gate.
+
+A collision impulse requires:
+
+- a stable object contact or press phase;
+- sufficient hand confidence;
+- no active pinch/grab;
+- non-trivial fingertip motion;
+- a per-target cooldown to avoid frame-by-frame repeated impulses.
+
+Multiple fingertip velocities are pressure/confidence weighted and converted to one bounded normalized impulse. The value is an interaction proxy and is not physical force.
+
+### XR physics stepping
+
+Because the webcam vision loop stops when immersive XR owns the sensor path, v20 adds a dedicated XR animation loop that:
+
+1. advances `SpatialPhysicsRuntime` inertia;
+2. advances angular rigid inertia;
+3. runs the existing object collision solver;
+4. applies collision velocity deltas;
+5. keeps real XR anchored objects non-dynamic.
+
+This makes throw/collision behavior continue even while webcam vision is off.
+
+### Continuity
+
+Angular inertia writes its final bounded presentation transform back into `SpatialXRBimanualRuntime.commitExternal()`. A later two-hand grab therefore resumes from the post-inertia orientation instead of snapping back to the pre-release pose.
+
+All v20 velocity, collision and rigid-body state is session RAM only.
