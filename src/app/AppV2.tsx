@@ -158,14 +158,39 @@ function clampSpatial(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Number.isFinite(value) ? value : 0));
 }
 
-function spatialWindowStyle(transform: SpatialWindowTransform): CSSProperties {
+function spatialWindowStyle(
+  transform: SpatialWindowTransform,
+  xrDepthScale = 1,
+  xrBimanual?: XRBimanualTransform | null,
+): CSSProperties {
   return {
     '--spatial-x': `${transform.x}px`,
     '--spatial-y': `${transform.y}px`,
     '--spatial-z': `${transform.z}px`,
     '--spatial-scale': String(transform.scale),
     '--spatial-rotation': `${transform.rotation}deg`,
+    '--xr-window-depth-scale': String(clampSpatial(xrDepthScale, 0.72, 1.42)),
+    '--xr-window-bimanual-scale': String(clampSpatial(xrBimanual?.scaleRatio || 1, 0.58, 1.72)),
+    '--xr-window-yaw': `${clampSpatial(xrBimanual?.yawDeg || 0, -72, 72)}deg`,
+    '--xr-window-pitch': `${clampSpatial(xrBimanual?.pitchDeg || 0, -58, 58)}deg`,
+    '--xr-window-roll': `${clampSpatial(xrBimanual?.rollDeg || 0, -95, 95)}deg`,
   } as CSSProperties;
+}
+
+function setXRWindowSurfaceState(id: SpatialWindowId, probe: XRSurfaceProbe | null): void {
+  if (typeof document === 'undefined') return;
+  const element = document.querySelector<HTMLElement>(`[data-spatial-window="${id}"]`);
+  if (!element) return;
+  const state = probe?.occluded
+    ? 'occluded'
+    : probe?.touchingSurface
+      ? 'touch'
+      : probe?.nearSurface
+        ? 'near'
+        : 'clear';
+  element.dataset.xrSurface = state;
+  if (probe?.occluded) element.setAttribute('data-xr-occluded', 'true');
+  else element.removeAttribute('data-xr-occluded');
 }
 
 function collectSpatialTargets(): SpatialTargetGeometry[] {
@@ -625,6 +650,11 @@ export default function AppV2() {
   const xrAnchorDepthRef = useRef(new Map<string, number>());
   const [xrObjectDepthScale, setXrObjectDepthScale] = useState<Record<string, number>>({});
   const [xrObjectBimanual, setXrObjectBimanual] = useState<Record<string, XRBimanualTransform>>({});
+  const [xrWindowDepthScale, setXrWindowDepthScale] = useState<Record<SpatialWindowId, number>>({
+    camera: 1,
+    result: 1,
+  });
+  const [xrWindowBimanual, setXrWindowBimanual] = useState<Partial<Record<SpatialWindowId, XRBimanualTransform>>>({});
   const [xrSurfaceProbe, setXrSurfaceProbe] = useState<XRSurfaceProbe | null>(null);
   const xrSurfaceFeedbackAtRef = useRef(0);
   const xrAutoCalibratedRef = useRef(false);
@@ -853,6 +883,8 @@ export default function AppV2() {
       xrAnchorDepthRef.current.clear();
       setXrObjectDepthScale({});
       setXrObjectBimanual({});
+      setXrWindowDepthScale({ camera: 1, result: 1 });
+      setXrWindowBimanual({});
       setXrSurfaceProbe(null);
       handContactRef.current.reset();
       handIntentRef.current.reset();
@@ -881,6 +913,8 @@ export default function AppV2() {
     xrAnchorDepthRef.current.clear();
     setXrObjectDepthScale({});
     setXrObjectBimanual({});
+    setXrWindowDepthScale({ camera: 1, result: 1 });
+    setXrWindowBimanual({});
     setXrSurfaceProbe(null);
     handContactRef.current.reset();
     handIntentRef.current.reset();
@@ -1063,49 +1097,99 @@ export default function AppV2() {
     document.querySelectorAll<HTMLElement>('[data-xr-occluded="true"]')
       .forEach((element) => element.removeAttribute('data-xr-occluded'));
 
+    let trackedSpatialObject = false;
     for (const anchor of webXRSnapshot.anchors) {
-      if (!anchor.tracked || !anchor.id.startsWith('object.')) continue;
-      const objectId = anchor.id.slice('object.'.length);
-      const object = spatialObjectRuntimeRef.current.get(objectId);
-      if (!object) continue;
+      if (!anchor.tracked) continue;
 
-      const anchorProjection = projectMetricPointAcrossViews(anchor, webXRSnapshot.views);
-      if (!anchorProjection?.visible) continue;
-      const metricDepth = Math.max(0.08, -anchorProjection.depth);
-      const baselineDepth = xrAnchorDepthRef.current.get(objectId) || metricDepth;
-      if (!xrAnchorDepthRef.current.has(objectId)) xrAnchorDepthRef.current.set(objectId, baselineDepth);
-      const perspectiveScale = clampSpatial(baselineDepth / metricDepth, 0.72, 1.42);
-      setXrObjectDepthScale((current) => (
-        Math.abs((current[objectId] || 1) - perspectiveScale) < 0.015
-          ? current
-          : { ...current, [objectId]: perspectiveScale }
-      ));
+      if (anchor.id.startsWith('object.')) {
+        const objectId = anchor.id.slice('object.'.length);
+        const object = spatialObjectRuntimeRef.current.get(objectId);
+        if (!object) continue;
 
-      const element = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-object]'))
-        .find((node) => node.dataset.spatialObject === objectId && node.offsetParent !== null);
-      if (!element) continue;
-      const rect = element.getBoundingClientRect();
-      const screenX = (rect.left + rect.right) / 2 / Math.max(1, window.innerWidth);
-      const screenY = (rect.top + rect.bottom) / 2 / Math.max(1, window.innerHeight);
-      const pose = {
-        ...object.pose,
-        position: {
-          ...object.pose.position,
-          x: clampSpatial(object.pose.position.x + (anchorProjection.x - screenX), -0.48, 0.48),
-          y: clampSpatial(object.pose.position.y + (anchorProjection.y - screenY), -0.48, 0.48),
-        },
-      };
-      spatialObjectRuntimeRef.current.setPose(objectId, pose);
+        const anchorProjection = projectMetricPointAcrossViews(anchor, webXRSnapshot.views);
+        if (!anchorProjection?.visible) continue;
+        const metricDepth = Math.max(0.08, -anchorProjection.depth);
+        const baselineDepth = xrAnchorDepthRef.current.get(objectId) || metricDepth;
+        if (!xrAnchorDepthRef.current.has(objectId)) xrAnchorDepthRef.current.set(objectId, baselineDepth);
+        const perspectiveScale = clampSpatial(baselineDepth / metricDepth, 0.72, 1.42);
+        setXrObjectDepthScale((current) => (
+          Math.abs((current[objectId] || 1) - perspectiveScale) < 0.015
+            ? current
+            : { ...current, [objectId]: perspectiveScale }
+        ));
 
-      const objectSurface = xrSurfaceRef.current.probe(
-        anchorProjection.x,
-        anchorProjection.y,
-        Math.max(0, -anchorProjection.depth),
-      );
-      if (objectSurface?.occluded) element.setAttribute('data-xr-occluded', 'true');
-      else element.removeAttribute('data-xr-occluded');
+        const element = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-object]'))
+          .find((node) => node.dataset.spatialObject === objectId && node.offsetParent !== null);
+        if (!element) continue;
+        const rect = element.getBoundingClientRect();
+        const screenX = (rect.left + rect.right) / 2 / Math.max(1, window.innerWidth);
+        const screenY = (rect.top + rect.bottom) / 2 / Math.max(1, window.innerHeight);
+        const pose = {
+          ...object.pose,
+          position: {
+            ...object.pose.position,
+            x: clampSpatial(object.pose.position.x + (anchorProjection.x - screenX), -0.48, 0.48),
+            y: clampSpatial(object.pose.position.y + (anchorProjection.y - screenY), -0.48, 0.48),
+          },
+        };
+        spatialObjectRuntimeRef.current.setPose(objectId, pose);
+        trackedSpatialObject = true;
+
+        const objectSurface = xrSurfaceRef.current.probe(
+          anchorProjection.x,
+          anchorProjection.y,
+          Math.max(0, -anchorProjection.depth),
+        );
+        if (objectSurface?.occluded) element.setAttribute('data-xr-occluded', 'true');
+        else element.removeAttribute('data-xr-occluded');
+        continue;
+      }
+
+      if (anchor.id.startsWith('window.')) {
+        const id = anchor.id.slice('window.'.length) as SpatialWindowId;
+        if (id !== 'camera' && id !== 'result') continue;
+        const element = document.querySelector<HTMLElement>(`[data-spatial-window="${id}"]`);
+        if (!element || element.offsetParent === null) continue;
+        const anchorProjection = projectMetricPointAcrossViews(anchor, webXRSnapshot.views);
+        if (!anchorProjection?.visible) continue;
+
+        const metricDepth = Math.max(0.08, -anchorProjection.depth);
+        const depthKey = `window.${id}`;
+        const baselineDepth = xrAnchorDepthRef.current.get(depthKey) || metricDepth;
+        if (!xrAnchorDepthRef.current.has(depthKey)) xrAnchorDepthRef.current.set(depthKey, baselineDepth);
+        const perspectiveScale = clampSpatial(baselineDepth / metricDepth, 0.72, 1.42);
+        setXrWindowDepthScale((current) => (
+          Math.abs((current[id] || 1) - perspectiveScale) < 0.015
+            ? current
+            : { ...current, [id]: perspectiveScale }
+        ));
+
+        const rect = element.getBoundingClientRect();
+        const screenX = (rect.left + rect.right) / 2 / Math.max(1, window.innerWidth);
+        const screenY = (rect.top + rect.bottom) / 2 / Math.max(1, window.innerHeight);
+        updateSpatialWindow(id, (current) => ({
+          ...current,
+          x: clampSpatial(
+            current.x + (anchorProjection.x - screenX) * window.innerWidth,
+            -window.innerWidth * 0.48,
+            window.innerWidth * 0.48,
+          ),
+          y: clampSpatial(
+            current.y + (anchorProjection.y - screenY) * window.innerHeight,
+            -window.innerHeight * 0.42,
+            window.innerHeight * 0.42,
+          ),
+        }));
+
+        const windowSurface = xrSurfaceRef.current.probe(
+          anchorProjection.x,
+          anchorProjection.y,
+          Math.max(0, -anchorProjection.depth),
+        );
+        setXRWindowSurfaceState(id, windowSurface);
+      }
     }
-    if (webXRSnapshot.anchors.some((anchor) => anchor.tracked)) {
+    if (trackedSpatialObject) {
       setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
     }
 
@@ -1120,30 +1204,102 @@ export default function AppV2() {
       if (event.targetKind === 'window') {
         if (event.type === 'grab_start' && spatialWindowAvailable(event.targetId)) {
           const id = event.targetId;
+          const windowKey = `window.${id}`;
           lastSpatialWindowRef.current = id;
+          webXRRuntimeRef.current.removeAnchor(windowKey);
+          xrAnchorDepthRef.current.delete(windowKey);
+          setXrWindowDepthScale((current) => ({ ...current, [id]: 1 }));
           spatialGrabSessionRef.current = {
             id,
             start: { x: event.point.x, y: event.point.y, z: event.point.z },
             base: { ...spatialWindowsRef.current[id] },
           };
+          xrMetricManipulationRef.current.begin(
+            windowKey,
+            Math.max(0.05, -projected.depth),
+            spatialWindowsRef.current[id].scale,
+            surfaceProbe?.environmentDepthM ?? null,
+            0.035,
+          );
+          const bimanualStart = secondaryHand
+            ? xrBimanualRef.current.begin(windowKey, [primaryHand, secondaryHand])
+            : null;
+          if (bimanualStart) {
+            setXrWindowBimanual((current) => ({ ...current, [id]: bimanualStart }));
+          }
+          setXRWindowSurfaceState(id, surfaceProbe);
           continue;
         }
 
         const session = spatialGrabSessionRef.current;
         if (event.type === 'grab_move' && session && session.id === event.targetId) {
+          const windowKey = `window.${session.id}`;
           const dx = (event.point.x - session.start.x) * window.innerWidth;
           const dy = (event.point.y - session.start.y) * window.innerHeight;
+          const metricMove = xrMetricManipulationRef.current.update(
+            windowKey,
+            Math.max(0.05, -projected.depth),
+            surfaceProbe?.environmentDepthM ?? null,
+            surfaceProbe?.confidence ?? 0,
+          );
+          const xrHands = secondaryHand ? [primaryHand, secondaryHand] : [primaryHand];
+          const bimanualMove = secondaryHand && primaryHand.pinching && secondaryHand.pinching
+            ? (
+                xrBimanualRef.current.update(windowKey, xrHands) ||
+                xrBimanualRef.current.begin(windowKey, xrHands)
+              )
+            : xrBimanualRef.current.end(windowKey);
+          if (bimanualMove) {
+            setXrWindowBimanual((current) => ({ ...current, [session.id]: bimanualMove }));
+          }
           updateSpatialWindow(session.id, (current) => ({
             ...current,
             x: clampSpatial(session.base.x + dx, -window.innerWidth * 0.42, window.innerWidth * 0.42),
             y: clampSpatial(session.base.y + dy, -window.innerHeight * 0.34, window.innerHeight * 0.34),
+            z: clampSpatial(
+              session.base.z + (metricMove?.normalizedDepthDelta || 0) * 180,
+              -160,
+              160,
+            ),
           }));
+          if (metricMove) {
+            setXrWindowDepthScale((current) => ({
+              ...current,
+              [session.id]: metricMove.visualScaleRatio,
+            }));
+          }
+          setXRWindowSurfaceState(session.id, surfaceProbe);
           continue;
         }
 
         if (event.type === 'grab_end' && session?.id === event.targetId) {
+          const windowKey = `window.${session.id}`;
+          const metricRelease = xrMetricManipulationRef.current.end(windowKey);
+          const bimanualRelease = xrBimanualRef.current.end(windowKey);
+          if (bimanualRelease) {
+            setXrWindowBimanual((current) => ({ ...current, [session.id]: bimanualRelease }));
+          }
+          const canRealAnchor = Boolean(
+            surfaceProbe?.nearSurface &&
+            surfaceProbe.confidence >= 0.45 &&
+            webXRSnapshot.hit &&
+            webXRSnapshot.enabledFeatures.includes('anchors')
+          );
+          const queuedRealAnchor = canRealAnchor
+            ? webXRRuntimeRef.current.requestAnchorAtCurrentHit(windowKey, session.id, false)
+            : false;
+          if (!queuedRealAnchor) {
+            setXrWindowDepthScale((current) => ({ ...current, [session.id]: 1 }));
+          }
+          setXRWindowSurfaceState(session.id, surfaceProbe);
           spatialGrabSessionRef.current = null;
-          showSpatialFeedback('XR · đã đặt cửa sổ');
+          showSpatialFeedback(
+            queuedRealAnchor
+              ? metricRelease?.constrainedToSurface
+                ? 'XR · cửa sổ bám bề mặt'
+                : 'XR · đã neo cửa sổ'
+              : 'XR · đã đặt cửa sổ'
+          );
           continue;
         }
       }
@@ -2662,11 +2818,15 @@ export default function AppV2() {
 
       {(mira.error || visionError) && <div className="v2-error" role="alert">{visionError || mira.error}</div>}
 
-      {visionOn && (
+      {(visionOn || webXRSnapshot.active) && (
         <div
-          className="v2-vision-monitor"
+          className={`v2-vision-monitor${webXRSnapshot.active && !visionOn ? ' xr-spatial-monitor' : ''}`}
           aria-live="polite"
-          style={spatialWindowStyle(spatialWindows.camera)}
+          style={spatialWindowStyle(
+            spatialWindows.camera,
+            xrWindowDepthScale.camera,
+            xrWindowBimanual.camera,
+          )}
           data-spatial-window="camera"
         >
           <div
@@ -2680,7 +2840,9 @@ export default function AppV2() {
               '--hand-pressure': String(humanHandContact.pressure),
             } as CSSProperties}
           >
-            <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
+            {visionOn
+              ? <video ref={cameraPreviewRef} className="v2-camera-preview" autoPlay muted playsInline aria-label="Camera preview" />
+              : <div className="v2-xr-spatial-sensor" aria-label="XR spatial sensor" aria-hidden="true"><i /><span>XR</span></div>}
             {handSeen && <span className="v2-hand-depth-field" aria-hidden="true" />}
             <div className="v2-camera-status face-only" role="status" aria-live="polite">
               <span className={faceSeen ? 'detected' : 'scanning'}>
@@ -2802,7 +2964,11 @@ export default function AppV2() {
               <ContentPanel
                 content={mira.content}
                 onClose={mira.clearContent}
-                spatialStyle={spatialWindowStyle(spatialWindows.result)}
+                spatialStyle={spatialWindowStyle(
+                  spatialWindows.result,
+                  xrWindowDepthScale.result,
+                  xrWindowBimanual.result,
+                )}
                 spatialDepth={spatialWindows.result.z / 120}
               />
             </Suspense>
