@@ -324,6 +324,18 @@ The architecture keeps three coordinate domains separate:
 
 Metric XR window state remains session-only and is not written into durable memory or browser persistence.
 
+### Spatial v20 XR rigid interaction boundary
+
+`SpatialXRRigidBodyRuntime` sits between metric bimanual sensing and Mira's normalized interaction physics. It estimates temporal metric center velocity plus yaw/pitch/roll/scale velocity, but only emits a bounded normalized translation velocity into `SpatialPhysicsRuntime`.
+
+Angular inertia remains a presentation-layer transform and is synchronized back to `SpatialXRBimanualRuntime` after each inertial step. This keeps metric XR coordinates out of `SpatialObjectPose` while maintaining transform continuity across releases and future grabs.
+
+`SpatialXRHandCollisionRuntime` consumes the already confidence/dwell-gated `SpatialHandContactRuntime` output. It converts stable non-grab fingertip motion into bounded interaction impulses. Those impulses are explicitly proxies for interaction feel, not measured physical force.
+
+Immersive XR has its own requestAnimationFrame physics step because webcam vision is intentionally stopped during XR ownership. The XR loop advances translation inertia, angular inertia and the existing object collision solver while treating tracked real XR anchors as non-dynamic.
+
+All rigid velocities, collision history and contact impulses remain RAM/session-only and must never enter durable personal memory.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
