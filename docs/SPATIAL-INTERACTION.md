@@ -805,3 +805,60 @@ Current safeguards:
 - all bimanual metric state remains session-only.
 
 This is an interaction-oriented rigid transform, not a claim that Mira reconstructed a complete physical object pose. The XR joint coordinates are real metric device data; the final DOM rotation/scale is a bounded presentation mapping.
+
+
+## Spatial v19: XR 6DoF windows and real-surface anchoring
+
+Camera and Result are now first-class XR spatial windows instead of remaining flat 2D overlays.
+
+During an immersive XR session, a grabbed window uses the same strict sensor boundaries as Mira objects:
+
+```text
+primary XR hand
+  ├─ projected X/Y → DOM window translation
+  └─ metric hand depth → v17 constrained Z
+                              │
+second pinched XR hand ───────┤
+                              ↓
+                   scale + yaw/pitch/roll
+                              ↓
+                    6DoF presentation
+```
+
+### Two-hand window manipulation
+
+When both tracked XR hands pinch during a window grab:
+
+- pair distance controls bounded scale;
+- the left→right metric hand axis drives yaw and pitch;
+- wrist-to-pinch guides resolve roll;
+- releasing one hand commits the current visual transform in session RAM;
+- returning to two hands resumes from that committed transform without snapping back.
+
+The browser window model still stores X/Y/Z in interaction presentation units. Metric XR coordinates remain inside the XR manipulation runtimes and are never relabelled as normalized world coordinates.
+
+### Real-surface constraint
+
+The primary hand depth continues through `SpatialXRMetricManipulationRuntime`. When WebXR environment depth is available:
+
+- the window center is prevented from crossing the measured surface;
+- a small clearance keeps it in front of physical geometry;
+- near-surface movement receives the same bounded magnetic stabilization as XR objects;
+- the window receives `near`, `touch` or `occluded` visual state from the real depth probe.
+
+### Real anchor placement
+
+If the released window is near a valid depth surface, hit-test is valid and the XR session negotiated `anchors`, Mira requests a real XR anchor using:
+
+- `window.camera`
+- `window.result`
+
+A tracked anchor is reprojected every XR frame through the headset view/projection matrices. The DOM window follows that projected anchor while the viewer moves. Perspective scale is derived from tracked metric depth.
+
+Grabbing an anchored window removes the old XR anchor before manipulation begins, so the window naturally detaches and can be placed again.
+
+### XR camera monitor handoff
+
+The webcam stream is still stopped when XR owns the immersive sensor path. The Camera window remains available as a compact XR spatial sensor surface rather than displaying misleading webcam/face-recognition cues.
+
+All v19 window depth, bimanual orientation, surface state, anchor tracking and perspective baselines remain RAM/session-only.
