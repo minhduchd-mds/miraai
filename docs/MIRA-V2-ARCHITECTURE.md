@@ -302,6 +302,14 @@ Depth samples and anchor poses remain metric XR data. The App layer projects the
 
 Real-surface contact, sparse surface patches, occlusion state, tracked anchors and persistent-handle metadata are session-only and must not enter long-term personal memory.
 
+### Spatial v18 metric bimanual transform
+
+Two-hand WebXR manipulation now has a dedicated `SpatialXRBimanualRuntime`. It consumes only real metric XR joint coordinates and derives pair-center translation, scale and bounded yaw/pitch/roll interaction deltas from two simultaneous pinch poses.
+
+The runtime intentionally stays beside, not inside, `SpatialObjectRuntime`: metric center deltas remain metric and session-local, while only bounded presentation transforms are applied to the DOM spatial layer. One-hand X/Y dragging and v17 metric Z/surface constraints remain authoritative for object translation.
+
+This separation keeps the normalized browser world graph, snapping and physics free from mixed-unit state while enabling a 3-axis two-hand manipulation cue in immersive XR.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
