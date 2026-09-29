@@ -1092,8 +1092,8 @@
   }
 
   .bedroom-presence .pm-depth-contact-shadow {
-    inset-left: 12%;
-    inset-right: 12%;
+    left: 12%;
+    right: 12%;
     opacity: .14;
   }
 }
