@@ -60,6 +60,7 @@ const spatialXRProjection = await importTypeScript('src/core/vision/spatial-xr-p
 const spatialXRSurface = await importTypeScript('src/core/vision/spatial-xr-surface.ts');
 const spatialXRManipulation = await importTypeScript('src/core/vision/spatial-xr-manipulation.ts');
 const spatialXRBimanual = await importTypeScript('src/core/vision/spatial-xr-bimanual.ts');
+const spatialXRRigidBody = await importTypeScript('src/core/vision/spatial-xr-rigid-body.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4350,4 +4351,119 @@ test('XR bimanual window transform resumes from committed 6DoF presentation', ()
   assert.equal(resumed.yawDeg, committed.yawDeg);
   assert.equal(resumed.pitchDeg, committed.pitchDeg);
   assert.equal(resumed.rollDeg, committed.rollDeg);
+});
+
+
+test('XR rigid body derives release velocity and angular inertia from bimanual motion', () => {
+  const runtime = new spatialXRRigidBody.SpatialXRRigidBodyRuntime();
+  const start = {
+    objectId: 'core',
+    active: true,
+    scaleRatio: 1,
+    yawDeg: 0,
+    pitchDeg: 0,
+    rollDeg: 0,
+    metricCenterDelta: { x: 0, y: 0, z: 0 },
+  };
+  runtime.begin('core', start, 1000);
+  const moved = runtime.sample('core', {
+    ...start,
+    scaleRatio: 1.08,
+    yawDeg: 18,
+    pitchDeg: -9,
+    rollDeg: 24,
+    metricCenterDelta: { x: 0.08, y: 0.04, z: -0.06 },
+  }, 1100);
+  assert.ok(moved);
+  const released = runtime.release('core', 1110);
+  assert.ok(released);
+  assert.equal(released.throwing, true);
+  assert.ok(released.linearSpeed > 0.2);
+  assert.ok(released.angularSpeed > 30);
+  assert.ok(Number.isFinite(released.linearVelocity.x));
+  assert.ok(Number.isFinite(released.angularVelocity.rollDegPerSec));
+});
+
+test('XR rigid body angular inertia decays while presentation remains bounded', () => {
+  const runtime = new spatialXRRigidBody.SpatialXRRigidBodyRuntime();
+  const start = {
+    objectId: 'node',
+    active: true,
+    scaleRatio: 1,
+    yawDeg: 0,
+    pitchDeg: 0,
+    rollDeg: 0,
+    metricCenterDelta: { x: 0, y: 0, z: 0 },
+  };
+  runtime.begin('node', start, 1000);
+  runtime.sample('node', {
+    ...start,
+    scaleRatio: 1.1,
+    yawDeg: 35,
+    pitchDeg: 22,
+    rollDeg: -40,
+    metricCenterDelta: { x: 0.04, y: -0.03, z: -0.04 },
+  }, 1100);
+  const released = runtime.release('node', 1110);
+  assert.ok(released?.throwing);
+  const first = runtime.step('node', 1160);
+  const second = runtime.step('node', 1210);
+  assert.ok(first && second);
+  assert.ok(Math.abs(second.transform.yawDeg) <= 72);
+  assert.ok(Math.abs(second.transform.pitchDeg) <= 58);
+  assert.ok(Math.abs(second.transform.rollDeg) <= 95);
+  assert.ok(second.transform.scaleRatio >= 0.58 && second.transform.scaleRatio <= 1.72);
+  assert.ok(second.angularSpeed <= first.angularSpeed + 1e-6);
+});
+
+test('XR hand collision emits bounded impulse only for stable non-pinch contact', () => {
+  const runtime = new spatialXRRigidBody.SpatialXRHandCollisionRuntime();
+  const hand = {
+    present: true,
+    confidence: 0.92,
+    pinching: false,
+    index: { velocity: { x: 0.8, y: -0.25, z: 0.18 } },
+    middle: { velocity: { x: 0.45, y: -0.1, z: 0.12 } },
+    ring: { velocity: { x: 0, y: 0, z: 0 } },
+    pinky: { velocity: { x: 0, y: 0, z: 0 } },
+    thumb: { velocity: { x: 0, y: 0, z: 0 } },
+  };
+  const contact = {
+    active: true,
+    primaryTargetId: 'mira.core',
+    phase: 'press',
+    pressure: 0.72,
+    contactCount: 2,
+    contacts: [
+      { finger: 'index', targetId: 'mira.core', phase: 'press', pressure: 0.78, confidence: 0.9 },
+      { finger: 'middle', targetId: 'mira.core', phase: 'contact', pressure: 0.48, confidence: 0.82 },
+    ],
+  };
+  const impulse = runtime.update(hand, contact, 1000);
+  assert.ok(impulse);
+  assert.equal(impulse.targetId, 'mira.core');
+  assert.ok(Math.hypot(impulse.impulse.x, impulse.impulse.y, impulse.impulse.z) <= 0.620001);
+  assert.ok(impulse.intensity >= 0 && impulse.intensity <= 1);
+  assert.equal(runtime.update(hand, contact, 1080), null);
+
+  hand.pinching = true;
+  assert.equal(runtime.update(hand, contact, 1300), null);
+});
+
+test('XR bimanual external commit keeps rigid inertia pose for next grab', () => {
+  const runtime = new spatialXRBimanual.SpatialXRBimanualRuntime();
+  const committed = runtime.commitExternal('core', {
+    objectId: 'core',
+    active: false,
+    scaleRatio: 1.18,
+    yawDeg: 26,
+    pitchDeg: -14,
+    rollDeg: 31,
+    metricCenterDelta: { x: 0.02, y: 0.01, z: -0.03 },
+  });
+  assert.equal(committed.scaleRatio, 1.18);
+  assert.equal(committed.yawDeg, 26);
+  const snapshot = runtime.snapshot('core');
+  assert.equal(snapshot.pitchDeg, -14);
+  assert.equal(snapshot.rollDeg, 31);
 });
