@@ -514,7 +514,7 @@
   height: calc(100% + 12px);
   margin: -6px;
   object-fit: cover;
-  object-position: center center;
+  object-position: 30% center;
   transform: translate(var(--pm-scene-x), var(--pm-scene-y)) scale(1.008);
   filter: saturate(.98) contrast(1.015) brightness(.96);
   transition: filter .55s ease, transform .34s ease-out;
@@ -588,7 +588,7 @@
 
 @media (max-width: 760px) {
   .bedroom-presence .pm-scene {
-    object-position: 48% center;
+    object-position: 30% center;
   }
 
   .bedroom-presence .pm-live-pill {
@@ -880,7 +880,7 @@
   height: calc(100% + 16px);
   margin: 0;
   object-fit: cover;
-  object-position: center center;
+  object-position: 30% center;
   pointer-events: none;
   user-select: none;
   backface-visibility: hidden;
@@ -1088,7 +1088,7 @@
 @media (max-width: 760px) {
   .bedroom-presence .pm-scene-fallback,
   .bedroom-presence .pm-depth-layer {
-    object-position: 48% center;
+    object-position: 30% center;
   }
 
   .bedroom-presence .pm-depth-contact-shadow {

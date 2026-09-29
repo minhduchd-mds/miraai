@@ -103,7 +103,7 @@ function coverUv(
   }
 
   const scaleX = targetAspect / sourceAspect;
-  return { scaleX, scaleY: 1, offsetX: (1 - scaleX) * 0.5, offsetY: 0 };
+  return { scaleX, scaleY: 1, offsetX: (1 - scaleX) * 0.3, offsetY: 0 };
 }
 
 /**

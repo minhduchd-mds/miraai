@@ -347,7 +347,7 @@ The primary bedroom presence now has a dedicated presentation stack:
 
 This layer is explicitly downstream of perception. Gaze/attention may influence a few pixels of presentation parallax, but no visual-quality/depth state is written into affect, world-model, XR geometry or durable memory.
 
-The current canonical bedroom source is 1440×810. GPU sharpening improves resampling/edge clarity on high-DPI screens but is not described as super-resolution and cannot recreate source detail that does not exist.
+The current canonical bedroom source is 1448×1086. GPU sharpening improves resampling/edge clarity on high-DPI screens but is not described as super-resolution and cannot recreate source detail that does not exist.
 
 ## 9. Backend boundaries
 

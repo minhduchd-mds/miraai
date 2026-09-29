@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const PART_COUNT = 11;
-const EXPECTED_SHA256 = '1f9b1cd14e0b99eae846f51251e869b2693ba8c38039c6c52ea85dc5e145cc99';
+const EXPECTED_SHA256 = 'ee079d175ddd4920d161d56cd8ce79fdb3dac078d492a814bc380cd7faab2d61';
 const SOURCE_DIR = 'assets-source';
 const OUTPUT_DIR = 'public/scenes';
 const OUTPUT_PATH = join(OUTPUT_DIR, 'mira-bedroom.webp');

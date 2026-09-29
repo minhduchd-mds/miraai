@@ -4,7 +4,7 @@ Spatial Visual v21 upgrades Mira's primary photoreal bedroom surface without cha
 
 ## Source boundary
 
-The current bedroom source decodes to a 1440×810 WebP. That is sufficient for a normal 1366×768 / 1440p CSS viewport, but a direct fullscreen upscale becomes visibly soft on high-DPI displays.
+The current bedroom source decodes to a 1448×1086 WebP. That is sufficient for a normal 1366×768 / 1440p CSS viewport, but a direct fullscreen upscale becomes visibly soft on high-DPI displays.
 
 v21 therefore treats source resolution and presentation resolution as separate concerns:
 
