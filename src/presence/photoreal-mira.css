@@ -372,6 +372,10 @@
   --spatial-object-z: 0px;
   --spatial-object-scale: 1;
   --xr-depth-scale: 1;
+  --xr-bimanual-scale: 1;
+  --xr-bimanual-yaw: 0deg;
+  --xr-bimanual-pitch: 0deg;
+  --xr-bimanual-roll: 0deg;
   --spatial-object-rotation: 0deg;
   position: absolute;
   z-index: 9;
@@ -388,10 +392,16 @@
   transform:
     perspective(760px)
     translate3d(var(--spatial-object-x), var(--spatial-object-y), var(--spatial-object-z))
-    rotate(var(--spatial-object-rotation))
+    rotateZ(var(--spatial-object-rotation))
+    rotateY(var(--xr-bimanual-yaw))
+    rotateX(var(--xr-bimanual-pitch))
+    rotateZ(var(--xr-bimanual-roll))
     scale(var(--spatial-object-scale))
-    scale(var(--xr-depth-scale));
+    scale(var(--xr-depth-scale))
+    scale(var(--xr-bimanual-scale));
   transform-origin:center;
+  transform-style:preserve-3d;
+  backface-visibility:hidden;
   will-change:transform;
   transition:border-color .14s ease,box-shadow .14s ease,background .14s ease;
 }
