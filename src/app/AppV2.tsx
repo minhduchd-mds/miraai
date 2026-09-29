@@ -99,6 +99,7 @@ import {
 } from '../core/vision/spatial-xr-surface';
 import { SpatialXRMetricManipulationRuntime } from '../core/vision/spatial-xr-manipulation';
 import { SpatialXRBimanualRuntime, type XRBimanualTransform } from '../core/vision/spatial-xr-bimanual';
+import { SpatialXRRigidBodyRuntime, SpatialXRHandCollisionRuntime } from '../core/vision/spatial-xr-rigid-body';
 import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
@@ -647,6 +648,10 @@ export default function AppV2() {
   const xrSurfaceRef = useRef(new SpatialXRSurfaceRuntime());
   const xrMetricManipulationRef = useRef(new SpatialXRMetricManipulationRuntime());
   const xrBimanualRef = useRef(new SpatialXRBimanualRuntime());
+  const xrRigidBodyRef = useRef(new SpatialXRRigidBodyRuntime());
+  const xrHandCollisionRef = useRef(new SpatialXRHandCollisionRuntime());
+  const xrAnchoredObjectIdsRef = useRef(new Set<string>());
+  const xrRigidFeedbackAtRef = useRef(0);
   const xrAnchorDepthRef = useRef(new Map<string, number>());
   const [xrObjectDepthScale, setXrObjectDepthScale] = useState<Record<string, number>>({});
   const [xrObjectBimanual, setXrObjectBimanual] = useState<Record<string, XRBimanualTransform>>({});
@@ -880,6 +885,9 @@ export default function AppV2() {
       xrSurfaceRef.current.reset();
       xrMetricManipulationRef.current.cancel();
       xrBimanualRef.current.reset();
+      xrRigidBodyRef.current.reset();
+      xrHandCollisionRef.current.reset();
+      xrAnchoredObjectIdsRef.current.clear();
       xrAnchorDepthRef.current.clear();
       setXrObjectDepthScale({});
       setXrObjectBimanual({});
@@ -910,6 +918,9 @@ export default function AppV2() {
     xrSurfaceRef.current.reset();
     xrMetricManipulationRef.current.cancel();
     xrBimanualRef.current.reset();
+    xrRigidBodyRef.current.reset();
+    xrHandCollisionRef.current.reset();
+    xrAnchoredObjectIdsRef.current.clear();
     xrAnchorDepthRef.current.clear();
     setXrObjectDepthScale({});
     setXrObjectBimanual({});
@@ -1003,6 +1014,11 @@ export default function AppV2() {
       Math.max(0, -projected.depth),
     );
     setXrSurfaceProbe(surfaceProbe);
+    xrAnchoredObjectIdsRef.current = new Set(
+      webXRSnapshot.anchors
+        .filter((anchor) => anchor.tracked && anchor.id.startsWith('object.'))
+        .map((anchor) => anchor.id.slice('object.'.length)),
+    );
 
     const bridged = bridgeXRHandTo21(primaryHand);
     const wristWorld = bridged.worldLandmarks[0] || { x: 0, y: 0, z: 0 };
@@ -1052,6 +1068,27 @@ export default function AppV2() {
     setHandKinematics(xrKinematics);
     setHumanHandContact(xrContact);
     setHumanHandIntent(xrHumanIntent);
+
+    const handCollision = xrHandCollisionRef.current.update(xrKinematics, xrContact, now);
+    if (
+      handCollision &&
+      spatialObjectAvailable(handCollision.targetId) &&
+      !spatialObjectRuntimeRef.current.get(handCollision.targetId)?.grabbed &&
+      !spatialWorldRuntimeRef.current.attachment(handCollision.targetId) &&
+      !xrAnchoredObjectIdsRef.current.has(handCollision.targetId)
+    ) {
+      setSpatialPhysicsState(
+        spatialPhysicsRef.current.applyImpulse(
+          handCollision.targetId,
+          handCollision.impulse,
+          now,
+        ),
+      );
+      if (now - xrRigidFeedbackAtRef.current >= 520) {
+        xrRigidFeedbackAtRef.current = now;
+        showSpatialFeedback('XR · tay chạm vật thể · truyền lực');
+      }
+    }
 
     const intent = xrGestureIntentRef.current.update({
       gesture: xrKinematics.pointingConfidence >= 0.56 ? 'Pointing_Up' : 'None',
@@ -1312,6 +1349,8 @@ export default function AppV2() {
           spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
           spatialJointBeforeGrabRef.current = spatialJointRuntimeRef.current.removeForChild(event.targetId);
           const object = spatialObjectRuntimeRef.current.get(event.targetId);
+          xrAnchoredObjectIdsRef.current.delete(event.targetId);
+          xrRigidBodyRef.current.stop(event.targetId);
           spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
           xrMetricManipulationRef.current.begin(
             event.targetId,
@@ -1324,6 +1363,7 @@ export default function AppV2() {
             ? xrBimanualRef.current.begin(event.targetId, [primaryHand, secondaryHand])
             : null;
           if (bimanualStart) {
+            xrRigidBodyRef.current.begin(event.targetId, bimanualStart, now);
             setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualStart }));
           }
           setSpatialPhysicsState(spatialPhysicsRef.current.beginGrab(event.targetId, event.point, now));
@@ -1347,6 +1387,9 @@ export default function AppV2() {
               )
             : xrBimanualRef.current.end(event.targetId);
           if (bimanualMove) {
+            if (bimanualMove.active) {
+              xrRigidBodyRef.current.sample(event.targetId, bimanualMove, now);
+            }
             setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualMove }));
           }
           spatialObjectRuntimeRef.current.moveGrab(event.point, {
@@ -1367,6 +1410,7 @@ export default function AppV2() {
         if (event.type === 'grab_end') {
           const metricRelease = xrMetricManipulationRef.current.end(event.targetId);
           const bimanualRelease = xrBimanualRef.current.end(event.targetId);
+          const rigidRelease = xrRigidBodyRef.current.release(event.targetId, now);
           if (bimanualRelease) {
             setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualRelease }));
           }
@@ -1393,7 +1437,22 @@ export default function AppV2() {
             ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
             : null;
           if (snapped) spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
-          setSpatialPhysicsState(spatialPhysicsRef.current.stop(event.targetId, now));
+          let nextPhysicsState: SpatialPhysicsState;
+          if (queuedRealAnchor || snapped) {
+            xrRigidBodyRef.current.stop(event.targetId);
+            nextPhysicsState = spatialPhysicsRef.current.stop(event.targetId, now);
+            if (queuedRealAnchor) xrAnchoredObjectIdsRef.current.add(event.targetId);
+          } else {
+            spatialPhysicsRef.current.release(event.targetId, 0, now);
+            nextPhysicsState = rigidRelease?.throwing
+              ? spatialPhysicsRef.current.addVelocity(
+                  event.targetId,
+                  rigidRelease.linearVelocity,
+                  now,
+                )
+              : spatialPhysicsRef.current.snapshot(event.targetId);
+          }
+          setSpatialPhysicsState(nextPhysicsState);
           setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
           spatialObjectAttachmentBeforeGrabRef.current = null;
           spatialJointBeforeGrabRef.current = null;
@@ -1407,12 +1466,106 @@ export default function AppV2() {
                 : 'XR · đang neo vào bề mặt thật'
               : snapped
                 ? `XR · neo ${snapped.anchorLabel}`
-                : 'XR · đã đặt vật thể'
+                : rigidRelease?.throwing
+                  ? 'XR · rigid release · quán tính'
+                  : 'XR · đã đặt vật thể'
           );
         }
       }
     }
   }, [settingsOpen, showSpatialFeedback, updateSpatialWindow, webXRSnapshot]);
+
+  useEffect(() => {
+    if (!webXRSnapshot.active) return;
+
+    let frame = 0;
+    let cancelled = false;
+    const tick = (now: number) => {
+      if (cancelled) return;
+      let changed = false;
+
+      const rigidSteps = xrRigidBodyRef.current.stepAll(now);
+      if (rigidSteps.length) {
+        setXrObjectBimanual((current) => {
+          const next = { ...current };
+          for (const step of rigidSteps) {
+            const committed = xrBimanualRef.current.commitExternal(step.objectId, step.transform);
+            next[step.objectId] = committed;
+          }
+          return next;
+        });
+      }
+
+      let objects = spatialObjectRuntimeRef.current.snapshot();
+      for (const object of objects) {
+        if (
+          !object.grabbed &&
+          !xrAnchoredObjectIdsRef.current.has(object.id) &&
+          spatialPhysicsRef.current.isActive(object.id)
+        ) {
+          const inertiaStep = spatialPhysicsRef.current.step(object.id, object.pose, now);
+          spatialObjectRuntimeRef.current.setPose(object.id, inertiaStep.pose);
+          setSpatialPhysicsState(inertiaStep.state);
+          changed = true;
+        }
+      }
+
+      objects = spatialObjectRuntimeRef.current.snapshot();
+      const collision = resolveSpatialObjectCollisions(
+        objects.map((object) => ({
+          id: object.id,
+          pose: object.pose,
+          radius: object.collisionRadius,
+          mass: object.mass,
+          dynamic:
+            !object.grabbed &&
+            !spatialWorldRuntimeRef.current.attachment(object.id) &&
+            !xrAnchoredObjectIdsRef.current.has(object.id),
+          clusterId: spatialWorldRuntimeRef.current.clusterRootObjectId(object.id),
+        })),
+        Object.fromEntries(objects.map((object) => [
+          object.id,
+          spatialPhysicsRef.current.velocity(object.id),
+        ])),
+      );
+
+      if (collision.contacts.length) {
+        for (const object of objects) {
+          if (
+            !object.grabbed &&
+            !spatialWorldRuntimeRef.current.attachment(object.id) &&
+            !xrAnchoredObjectIdsRef.current.has(object.id)
+          ) {
+            spatialObjectRuntimeRef.current.setPose(object.id, collision.poses[object.id]);
+          }
+          const impulse = collision.velocityDeltas[object.id];
+          if (impulse && Math.hypot(impulse.x, impulse.y, impulse.z) > 0.012) {
+            setSpatialPhysicsState(spatialPhysicsRef.current.addVelocity(object.id, impulse, now));
+          }
+        }
+        if (now - spatialCollisionFeedbackAtRef.current >= 650) {
+          spatialCollisionFeedbackAtRef.current = now;
+          showSpatialFeedback('XR · rigid collision');
+        }
+        changed = true;
+      }
+
+      if (changed) {
+        spatialWorldRuntimeRef.current.setAnchors(
+          collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+        );
+        setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+      }
+
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [showSpatialFeedback, webXRSnapshot.active]);
 
   useEffect(() => {
     if (!visionOn && !webXRSnapshot.active) return;
