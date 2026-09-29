@@ -719,3 +719,44 @@ This is a conservative browser-overlay approximation. True per-pixel virtual/rea
 - Invalid/zero depth → no physical-surface contact is fabricated.
 
 All XR depth samples, patches, probes, tracked anchors and persistent handles remain RAM/session-only.
+
+
+## Spatial v17: metric Z manipulation and surface-constrained placement
+
+The XR path now keeps metric hand depth separate from Mira's normalized DOM object model.
+
+`SpatialXRMetricManipulationRuntime` owns the conversion boundary:
+
+```text
+metric XR hand depth (meters)
+→ surface clearance / occlusion constraint
+→ bounded metric depth delta
+→ normalizedDepthDelta
+→ SpatialObjectRuntime
+```
+
+Only `normalizedDepthDelta` crosses into the existing browser-spatial object runtime. Metric XR depth is never stored in the normalized object pose or relabelled as webcam depth.
+
+### Surface-constrained Z motion
+
+While an XR object is grabbed:
+
+- projected hand X/Y continue to drive DOM-space dragging;
+- camera-plane hand depth drives metric Z;
+- measured environment depth limits motion before the physical surface;
+- a 3 cm clearance keeps the virtual object center in front of the measured environment geometry;
+- near the clearance plane, a bounded magnetic surface snap stabilizes the object instead of letting it jitter through the surface.
+
+The surface constraint is only active when real depth data has sufficient confidence.
+
+### Perspective depth cue
+
+During metric Z movement, Mira derives a temporary visual scale from the ratio between grab-start depth and current metric depth. The value is clamped and kept separate from the object's authored/user scale.
+
+Tracked XR anchors use the same principle: the first tracked depth becomes the visual baseline and later viewer movement produces bounded perspective scaling while the anchor's metric world pose remains authoritative.
+
+### Real anchor placement
+
+On release near a measured real surface, Mira queues `XRHitTestResult.createAnchor()`. If a real anchor is created, the object is reprojected from the anchor's tracked metric pose every frame. If real anchors are unavailable, the existing browser spatial snap system remains the fallback.
+
+All v17 metric manipulation state is RAM/session-only.
