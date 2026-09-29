@@ -97,6 +97,7 @@ import {
   SpatialXRSurfaceRuntime,
   type XRSurfaceProbe,
 } from '../core/vision/spatial-xr-surface';
+import { SpatialXRMetricManipulationRuntime } from '../core/vision/spatial-xr-manipulation';
 import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
@@ -607,6 +608,9 @@ export default function AppV2() {
   const xrGestureIntentRef = useRef(new GestureIntentTracker());
   const xrHandKinematicsRef = useRef(new SpatialHandKinematicsTracker());
   const xrSurfaceRef = useRef(new SpatialXRSurfaceRuntime());
+  const xrMetricManipulationRef = useRef(new SpatialXRMetricManipulationRuntime());
+  const xrAnchorDepthRef = useRef(new Map<string, number>());
+  const [xrObjectDepthScale, setXrObjectDepthScale] = useState<Record<string, number>>({});
   const [xrSurfaceProbe, setXrSurfaceProbe] = useState<XRSurfaceProbe | null>(null);
   const xrSurfaceFeedbackAtRef = useRef(0);
   const xrAutoCalibratedRef = useRef(false);
@@ -830,6 +834,9 @@ export default function AppV2() {
       xrGestureIntentRef.current.reset();
       xrHandKinematicsRef.current.reset();
       xrSurfaceRef.current.reset();
+      xrMetricManipulationRef.current.cancel();
+      xrAnchorDepthRef.current.clear();
+      setXrObjectDepthScale({});
       setXrSurfaceProbe(null);
       handContactRef.current.reset();
       handIntentRef.current.reset();
@@ -853,6 +860,9 @@ export default function AppV2() {
     xrGestureIntentRef.current.reset();
     xrHandKinematicsRef.current.reset();
     xrSurfaceRef.current.reset();
+    xrMetricManipulationRef.current.cancel();
+    xrAnchorDepthRef.current.clear();
+    setXrObjectDepthScale({});
     setXrSurfaceProbe(null);
     handContactRef.current.reset();
     handIntentRef.current.reset();
@@ -1042,6 +1052,15 @@ export default function AppV2() {
 
       const anchorProjection = projectMetricPointAcrossViews(anchor, webXRSnapshot.views);
       if (!anchorProjection?.visible) continue;
+      const metricDepth = Math.max(0.08, -anchorProjection.depth);
+      const baselineDepth = xrAnchorDepthRef.current.get(objectId) || metricDepth;
+      if (!xrAnchorDepthRef.current.has(objectId)) xrAnchorDepthRef.current.set(objectId, baselineDepth);
+      const perspectiveScale = clampSpatial(baselineDepth / metricDepth, 0.72, 1.42);
+      setXrObjectDepthScale((current) => (
+        Math.abs((current[objectId] || 1) - perspectiveScale) < 0.015
+          ? current
+          : { ...current, [objectId]: perspectiveScale }
+      ));
 
       const element = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-object]'))
         .find((node) => node.dataset.spatialObject === objectId && node.offsetParent !== null);
@@ -1113,9 +1132,19 @@ export default function AppV2() {
       if (event.targetKind === 'object') {
         if (event.type === 'grab_start' && spatialObjectAvailable(event.targetId)) {
           webXRRuntimeRef.current.removeAnchor(`object.${event.targetId}`);
+          xrAnchorDepthRef.current.delete(event.targetId);
+          setXrObjectDepthScale((current) => ({ ...current, [event.targetId]: 1 }));
           spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
           spatialJointBeforeGrabRef.current = spatialJointRuntimeRef.current.removeForChild(event.targetId);
+          const object = spatialObjectRuntimeRef.current.get(event.targetId);
           spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
+          xrMetricManipulationRef.current.begin(
+            event.targetId,
+            Math.max(0.05, -projected.depth),
+            object?.pose.scale || 1,
+            surfaceProbe?.environmentDepthM ?? null,
+            0.03,
+          );
           setSpatialPhysicsState(spatialPhysicsRef.current.beginGrab(event.targetId, event.point, now));
           setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
           continue;
@@ -1123,16 +1152,29 @@ export default function AppV2() {
 
         if (event.type === 'grab_move') {
           spatialPhysicsRef.current.sampleGrab(event.targetId, event.point, now);
+          const metricMove = xrMetricManipulationRef.current.update(
+            event.targetId,
+            Math.max(0.05, -projected.depth),
+            surfaceProbe?.environmentDepthM ?? null,
+            surfaceProbe?.confidence ?? 0,
+          );
           spatialObjectRuntimeRef.current.moveGrab(event.point, {
-            depthDelta: 0,
+            depthDelta: metricMove?.normalizedDepthDelta ?? 0,
             xyGain: 1.05,
-            depthGain: 0,
+            depthGain: 1,
           });
+          if (metricMove) {
+            setXrObjectDepthScale((current) => ({
+              ...current,
+              [event.targetId]: metricMove.visualScaleRatio,
+            }));
+          }
           setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
           continue;
         }
 
         if (event.type === 'grab_end') {
+          const metricRelease = xrMetricManipulationRef.current.end(event.targetId);
           const placed = spatialObjectRuntimeRef.current.endGrab();
           const canRealAnchor = Boolean(
             placed &&
@@ -1160,9 +1202,14 @@ export default function AppV2() {
           setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
           spatialObjectAttachmentBeforeGrabRef.current = null;
           spatialJointBeforeGrabRef.current = null;
+          if (!queuedRealAnchor) {
+            setXrObjectDepthScale((current) => ({ ...current, [event.targetId]: 1 }));
+          }
           showSpatialFeedback(
             queuedRealAnchor
-              ? 'XR · đang neo vào bề mặt thật'
+              ? metricRelease?.constrainedToSurface
+                ? 'XR · đặt sát bề mặt và đang neo'
+                : 'XR · đang neo vào bề mặt thật'
               : snapped
                 ? `XR · neo ${snapped.anchorLabel}`
                 : 'XR · đã đặt vật thể'
