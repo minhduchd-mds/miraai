@@ -167,7 +167,7 @@ for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_
 for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
-for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', '--pm-depth-back-x']) {
+for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-clean-copy-scrim', 'pm-hero-copy', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira v21 depth/clarity integration missing: ${token}`);
 }
 if (photoreal.includes('pm-runtime')) failures.push('PhotorealMira must not render the legacy Mira Core popup');
@@ -185,7 +185,7 @@ for (const token of ['webgl', 'u_sharpness', 'haloGuard', 'coverUv', 'maxRenderP
 }
 
 const photorealCss = readFileSync('src/presence/photoreal-mira.css', 'utf8');
-for (const token of ['Spatial Visual v21', '--pm-depth-back-x', '--pm-depth-mid-x', '--pm-depth-near-x', '--pm-clarity-contrast', '.pm-scene-canvas[data-ready="true"]', '.pm-depth-mid', '.pm-depth-near', '.pm-depth-atmosphere', '.pm-depth-relight', '.pm-depth-contact-shadow', '[data-visual-quality="lite"]']) {
+for (const token of ['Spatial Visual v21', 'Spatial Visual v22', '--pm-depth-back-x', '--pm-depth-mid-x', '--pm-depth-near-x', '--pm-clarity-contrast', '.pm-scene-canvas[data-ready="true"]', '.pm-depth-mid', '.pm-depth-near', '.pm-depth-atmosphere', '.pm-depth-relight', '.pm-depth-contact-shadow', '.pm-clean-copy-scrim', '.pm-hero-copy', '@keyframes pmHeroLineIn', '[data-visual-quality="lite"]']) {
   if (!photorealCss.includes(token)) failures.push(`photoreal v21 CSS missing: ${token}`);
 }
 
