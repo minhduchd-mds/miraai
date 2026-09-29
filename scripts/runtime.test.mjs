@@ -59,6 +59,7 @@ const spatialWebXR = await importTypeScript('src/core/vision/spatial-webxr-sessi
 const spatialXRProjection = await importTypeScript('src/core/vision/spatial-xr-projection.ts');
 const spatialXRSurface = await importTypeScript('src/core/vision/spatial-xr-surface.ts');
 const spatialXRManipulation = await importTypeScript('src/core/vision/spatial-xr-manipulation.ts');
+const spatialXRBimanual = await importTypeScript('src/core/vision/spatial-xr-bimanual.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4239,4 +4240,86 @@ test('XR metric manipulation ends and clears session deterministically', () => {
   assert.ok(ended);
   assert.equal(runtime.snapshot(), null);
   assert.equal(runtime.update('core', 1.0, 1.2, 1), null);
+});
+
+
+function makeBimanualHand(handedness, center, wrist, pinching = true) {
+  return {
+    handedness,
+    pinching,
+    indexTip: { x: center.x - 0.004, y: center.y, z: center.z },
+    thumbTip: { x: center.x + 0.004, y: center.y, z: center.z },
+    wrist: { ...wrist },
+  };
+}
+
+test('XR bimanual runtime requires two pinched metric hands', () => {
+  const runtime = new spatialXRBimanual.SpatialXRBimanualRuntime();
+  const left = makeBimanualHand('left', { x: -0.1, y: 1.25, z: -0.55 }, { x: -0.1, y: 1.12, z: -0.62 });
+  const right = makeBimanualHand('right', { x: 0.1, y: 1.25, z: -0.55 }, { x: 0.1, y: 1.12, z: -0.62 }, false);
+  assert.equal(runtime.begin('core', [left, right]), null);
+  right.pinching = true;
+  const started = runtime.begin('core', [right, left]);
+  assert.ok(started);
+  assert.equal(started.active, true);
+  assert.equal(started.scaleRatio, 1);
+});
+
+test('XR bimanual runtime emits bounded scale orientation and metric center delta', () => {
+  const runtime = new spatialXRBimanual.SpatialXRBimanualRuntime();
+  const startLeft = makeBimanualHand('left', { x: -0.1, y: 1.2, z: -0.6 }, { x: -0.1, y: 1.08, z: -0.7 });
+  const startRight = makeBimanualHand('right', { x: 0.1, y: 1.2, z: -0.6 }, { x: 0.1, y: 1.08, z: -0.7 });
+  runtime.begin('core', [startLeft, startRight]);
+
+  const nextLeft = makeBimanualHand('left', { x: -0.13, y: 1.18, z: -0.63 }, { x: -0.12, y: 1.05, z: -0.73 });
+  const nextRight = makeBimanualHand('right', { x: 0.17, y: 1.31, z: -0.47 }, { x: 0.15, y: 1.13, z: -0.62 });
+  const moved = runtime.update('core', [nextRight, nextLeft]);
+  assert.ok(moved);
+  assert.ok(moved.scaleRatio > 1);
+  assert.ok(Math.abs(moved.yawDeg) <= 72);
+  assert.ok(Math.abs(moved.pitchDeg) <= 58);
+  assert.ok(Math.abs(moved.rollDeg) <= 95);
+  assert.ok(Number.isFinite(moved.metricCenterDelta.x));
+  assert.ok(Number.isFinite(moved.metricCenterDelta.y));
+  assert.ok(Number.isFinite(moved.metricCenterDelta.z));
+  assert.notEqual(moved.metricCenterDelta.z, 0);
+});
+
+test('XR bimanual runtime commits transform and resumes without resetting pose', () => {
+  const runtime = new spatialXRBimanual.SpatialXRBimanualRuntime();
+  const left = makeBimanualHand('left', { x: -0.1, y: 1.2, z: -0.6 }, { x: -0.1, y: 1.08, z: -0.7 });
+  const right = makeBimanualHand('right', { x: 0.1, y: 1.2, z: -0.6 }, { x: 0.1, y: 1.08, z: -0.7 });
+  runtime.begin('node', [left, right]);
+  const moved = runtime.update('node', [
+    makeBimanualHand('left', { x: -0.14, y: 1.2, z: -0.62 }, { x: -0.13, y: 1.08, z: -0.72 }),
+    makeBimanualHand('right', { x: 0.16, y: 1.28, z: -0.5 }, { x: 0.14, y: 1.1, z: -0.64 }),
+  ]);
+  assert.ok(moved);
+  const ended = runtime.end('node');
+  assert.ok(ended);
+  assert.equal(ended.active, false);
+  const committed = runtime.snapshot('node');
+  assert.equal(committed.scaleRatio, ended.scaleRatio);
+  const resumed = runtime.begin('node', [left, right]);
+  assert.ok(resumed);
+  assert.equal(resumed.scaleRatio, committed.scaleRatio);
+  assert.equal(resumed.yawDeg, committed.yawDeg);
+});
+
+test('XR bimanual runtime resets ephemeral object transform deterministically', () => {
+  const runtime = new spatialXRBimanual.SpatialXRBimanualRuntime();
+  const left = makeBimanualHand('left', { x: -0.1, y: 1.2, z: -0.6 }, { x: -0.1, y: 1.08, z: -0.7 });
+  const right = makeBimanualHand('right', { x: 0.1, y: 1.2, z: -0.6 }, { x: 0.1, y: 1.08, z: -0.7 });
+  runtime.begin('core', [left, right]);
+  runtime.update('core', [
+    makeBimanualHand('left', { x: -0.16, y: 1.2, z: -0.65 }, { x: -0.15, y: 1.08, z: -0.74 }),
+    makeBimanualHand('right', { x: 0.18, y: 1.3, z: -0.48 }, { x: 0.16, y: 1.11, z: -0.62 }),
+  ]);
+  runtime.end('core');
+  const reset = runtime.resetObject('core');
+  assert.equal(reset.scaleRatio, 1);
+  assert.equal(reset.yawDeg, 0);
+  assert.equal(reset.pitchDeg, 0);
+  assert.equal(reset.rollDeg, 0);
+  assert.deepEqual(reset.metricCenterDelta, { x: 0, y: 0, z: 0 });
 });
