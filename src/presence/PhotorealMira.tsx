@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { MiraState } from '../core/types';
 import type { ObservedMood } from '../intelligence/affect/mood-engine';
 import { audioLevel } from '../core/audio-level';
+import PhotorealSceneCanvas from './PhotorealSceneCanvas';
+import {
+  clarityProfile,
+  computePhotorealDepthFrame,
+  resolvePhotorealVisualQuality,
+  type PhotorealVisualQuality,
+} from './photoreal-depth';
 import './photoreal-mira.css';
 
 interface Props {
@@ -96,6 +103,12 @@ export default function PhotorealMira({
   spatialCoreActive = false,
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
+  const pointerDepthRef = useRef({ x: 0, y: 0 });
+  const gazeDepthRef = useRef({ x: 0, y: 0, attention: 0 });
+  const reducedMotionRef = useRef(false);
+  const [visualQuality, setVisualQuality] = useState<PhotorealVisualQuality>('balanced');
+  const deviceDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const visualProfile = clarityProfile(visualQuality, deviceDpr, attention);
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
   const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bật Mira 24/7';
 
@@ -116,7 +129,108 @@ export default function PhotorealMira({
     node.style.setProperty('--pm-gaze-x', `${gazeShiftX.toFixed(2)}px`);
     node.style.setProperty('--pm-gaze-y', `${gazeShiftY.toFixed(2)}px`);
     node.style.setProperty('--pm-continuity', continuity.toFixed(3));
+    gazeDepthRef.current = {
+      x: Math.max(-1, Math.min(1, Number(gazeX) || 0)),
+      y: Math.max(-1, Math.min(1, Number(gazeY) || 0)),
+      attention: attentionLevel,
+    };
   }, [affectActive, affectFollowing, attention, eyeContact, gazeX, gazeY, moodConfidence, presenceContinuity]);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateQuality = () => {
+      const nav = navigator as Navigator & { deviceMemory?: number };
+      const reducedMotion = motionQuery.matches;
+      reducedMotionRef.current = reducedMotion;
+      const quality = resolvePhotorealVisualQuality({
+        dpr: window.devicePixelRatio || 1,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        hardwareConcurrency: navigator.hardwareConcurrency || 4,
+        deviceMemoryGb: Number(nav.deviceMemory || 0),
+        reducedMotion,
+      });
+      setVisualQuality(quality);
+      node.dataset.reducedMotion = reducedMotion ? 'true' : 'false';
+    };
+
+    updateQuality();
+    window.addEventListener('resize', updateQuality, { passive: true });
+    motionQuery.addEventListener?.('change', updateQuality);
+    return () => {
+      window.removeEventListener('resize', updateQuality);
+      motionQuery.removeEventListener?.('change', updateQuality);
+    };
+  }, []);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    node.style.setProperty('--pm-clarity-contrast', visualProfile.contrast.toFixed(3));
+    node.style.setProperty('--pm-clarity-saturation', visualProfile.saturation.toFixed(3));
+    node.style.setProperty('--pm-clarity-brightness', visualProfile.brightness.toFixed(3));
+    node.style.setProperty('--pm-far-blur', `${visualProfile.farBlurPx.toFixed(2)}px`);
+    node.style.setProperty('--pm-mid-opacity', visualProfile.midOpacity.toFixed(3));
+    node.style.setProperty('--pm-near-opacity', visualProfile.nearOpacity.toFixed(3));
+    node.style.setProperty('--pm-haze-opacity', visualProfile.hazeOpacity.toFixed(3));
+    node.style.setProperty('--pm-grain-opacity', visualProfile.grainOpacity.toFixed(3));
+  }, [visualProfile.brightness, visualProfile.contrast, visualProfile.farBlurPx, visualProfile.grainOpacity, visualProfile.hazeOpacity, visualProfile.midOpacity, visualProfile.nearOpacity, visualProfile.saturation]);
+
+  useEffect(() => {
+    let raf = 0;
+    const current = {
+      backX: 0, backY: 0,
+      midX: 0, midY: 0,
+      nearX: 0, nearY: 0,
+      tiltXDeg: 0, tiltYDeg: 0,
+    };
+
+    const frame = () => {
+      const node = rootRef.current;
+      if (!node) return;
+
+      const target = reducedMotionRef.current
+        ? computePhotorealDepthFrame({
+            pointerX: 0,
+            pointerY: 0,
+            gazeX: 0,
+            gazeY: 0,
+            attention: 0,
+            quality: 'lite',
+          })
+        : computePhotorealDepthFrame({
+            pointerX: pointerDepthRef.current.x,
+            pointerY: pointerDepthRef.current.y,
+            gazeX: gazeDepthRef.current.x,
+            gazeY: gazeDepthRef.current.y,
+            attention: gazeDepthRef.current.attention,
+            quality: visualQuality,
+          });
+
+      const smoothing = reducedMotionRef.current ? 1 : 0.11;
+      for (const key of Object.keys(current) as Array<keyof typeof current>) {
+        current[key] += (target[key] - current[key]) * smoothing;
+      }
+
+      node.style.setProperty('--pm-depth-back-x', `${current.backX.toFixed(2)}px`);
+      node.style.setProperty('--pm-depth-back-y', `${current.backY.toFixed(2)}px`);
+      node.style.setProperty('--pm-depth-mid-x', `${current.midX.toFixed(2)}px`);
+      node.style.setProperty('--pm-depth-mid-y', `${current.midY.toFixed(2)}px`);
+      node.style.setProperty('--pm-depth-near-x', `${current.nearX.toFixed(2)}px`);
+      node.style.setProperty('--pm-depth-near-y', `${current.nearY.toFixed(2)}px`);
+      node.style.setProperty('--pm-depth-tilt-x', `${current.tiltXDeg.toFixed(3)}deg`);
+      node.style.setProperty('--pm-depth-tilt-y', `${current.tiltYDeg.toFixed(3)}deg`);
+      node.style.setProperty('--pm-scene-x', `${current.midX.toFixed(2)}px`);
+      node.style.setProperty('--pm-scene-y', `${current.midY.toFixed(2)}px`);
+      raf = requestAnimationFrame(frame);
+    };
+
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [visualQuality]);
 
   useEffect(() => {
     PRELOAD.forEach((src) => {
@@ -163,17 +277,14 @@ export default function PhotorealMira({
     const node = rootRef.current;
     if (!node) return;
     const rect = node.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-    node.style.setProperty('--pm-scene-x', `${(x * -3.2).toFixed(2)}px`);
-    node.style.setProperty('--pm-scene-y', `${(y * -1.8).toFixed(2)}px`);
+    pointerDepthRef.current = {
+      x: Math.max(-1, Math.min(1, ((event.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2)),
+      y: Math.max(-1, Math.min(1, ((event.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 2)),
+    };
   }, []);
 
   const resetPointer = useCallback(() => {
-    const node = rootRef.current;
-    if (!node) return;
-    node.style.setProperty('--pm-scene-x', '0px');
-    node.style.setProperty('--pm-scene-y', '0px');
+    pointerDepthRef.current = { x: 0, y: 0 };
   }, []);
 
   return (
@@ -181,13 +292,44 @@ export default function PhotorealMira({
       ref={rootRef}
       type="button"
       className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue} presence-${presenceMode} presence-cue-${presenceCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}${spatialCoreActive ? ' spatial-core-active' : ''}`}
+      data-visual-quality={visualQuality}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
       onPointerLeave={resetPointer}
       aria-label={label}
     >
       <span className="pm-scene-shell" aria-hidden="true">
-        <img className="pm-scene pm-bedroom-scene" src={SCENE_BY_STATE[state]} alt="" draggable={false} />
+        <img
+          className="pm-scene pm-bedroom-scene pm-scene-fallback"
+          src={SCENE_BY_STATE[state]}
+          alt=""
+          draggable={false}
+          decoding="async"
+        />
+        <PhotorealSceneCanvas
+          className="pm-scene-canvas"
+          src={SCENE_BY_STATE[state]}
+          renderDpr={visualProfile.renderDpr}
+          sharpness={visualProfile.sharpness}
+        />
+        <img
+          className="pm-depth-layer pm-depth-mid"
+          src={SCENE_BY_STATE[state]}
+          alt=""
+          draggable={false}
+          decoding="async"
+        />
+        <img
+          className="pm-depth-layer pm-depth-near"
+          src={SCENE_BY_STATE[state]}
+          alt=""
+          draggable={false}
+          decoding="async"
+        />
+        <span className="pm-depth-atmosphere" />
+        <span className="pm-depth-relight" />
+        <span className="pm-depth-contact-shadow" />
+        <span className="pm-depth-grain" />
       </span>
 
       <span className="pm-bedroom-tint" aria-hidden="true" />
