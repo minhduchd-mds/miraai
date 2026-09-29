@@ -30,24 +30,6 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Decode Mira bedroom scene
-        run: |
-          mkdir -p public/scenes
-          cat \
-            assets-source/mira-bedroom.part00 \
-            assets-source/mira-bedroom.part01 \
-            assets-source/mira-bedroom.part02 \
-            assets-source/mira-bedroom.part03 \
-            assets-source/mira-bedroom.part04 \
-            assets-source/mira-bedroom.part05 \
-            assets-source/mira-bedroom.part06 \
-            assets-source/mira-bedroom.part07 \
-            assets-source/mira-bedroom.part08 \
-            assets-source/mira-bedroom.part09 \
-            assets-source/mira-bedroom.part10 \
-            | base64 --decode > public/scenes/mira-bedroom.webp
-          echo "1f9b1cd14e0b99eae846f51251e869b2693ba8c38039c6c52ea85dc5e145cc99  public/scenes/mira-bedroom.webp" | sha256sum -c -
-
       - name: Build
         run: npm run build
 
