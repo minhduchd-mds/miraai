@@ -58,6 +58,7 @@ const spatialDevice = await importTypeScript('src/core/vision/spatial-device-ada
 const spatialWebXR = await importTypeScript('src/core/vision/spatial-webxr-session.ts');
 const spatialXRProjection = await importTypeScript('src/core/vision/spatial-xr-projection.ts');
 const spatialXRSurface = await importTypeScript('src/core/vision/spatial-xr-surface.ts');
+const spatialXRManipulation = await importTypeScript('src/core/vision/spatial-xr-manipulation.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4182,4 +4183,60 @@ test('late XR anchor creation is discarded after session stop', async () => {
 
   assert.equal(runtime.snapshot().anchors.length, 0);
   assert.equal(deleted, true);
+});
+
+
+test('XR metric manipulation maps meter depth delta into bounded interaction z', () => {
+  const runtime = new spatialXRManipulation.SpatialXRMetricManipulationRuntime();
+  const start = runtime.begin('core', 0.8, 1, null, 0.03);
+  assert.ok(start);
+  const moved = runtime.update('core', 1.0, null, 0);
+  assert.ok(moved);
+  assert.ok(Math.abs(moved.depthDeltaM - 0.2) < 1e-6);
+  assert.ok(Math.abs(moved.normalizedDepthDelta - 0.164) < 1e-6);
+  assert.ok(moved.visualScaleRatio < 1);
+  assert.equal(moved.constrainedToSurface, false);
+});
+
+test('XR metric manipulation prevents object center from crossing measured surface', () => {
+  const runtime = new spatialXRManipulation.SpatialXRMetricManipulationRuntime();
+  runtime.begin('core', 0.85, 1, 1.0, 0.03);
+  const moved = runtime.update('core', 1.12, 1.0, 0.95);
+  assert.ok(moved);
+  assert.equal(moved.constrainedToSurface, true);
+  assert.equal(moved.occluded, true);
+  assert.ok(moved.depthDeltaM <= 0.120001);
+  assert.ok(moved.normalizedDepthDelta <= 0.1);
+});
+
+test('XR metric manipulation surface snap remains stable near clearance plane', () => {
+  const runtime = new spatialXRManipulation.SpatialXRMetricManipulationRuntime();
+  runtime.begin('node', 0.9, 0.8, 1.0, 0.03);
+  const first = runtime.update('node', 0.955, 1.0, 0.9);
+  const second = runtime.update('node', 0.965, 1.0, 0.9);
+  assert.ok(first && second);
+  assert.equal(second.constrainedToSurface, true);
+  assert.ok(second.handDepthM > 0.9);
+  assert.ok(second.visualScaleRatio >= 0.72 && second.visualScaleRatio <= 1.42);
+});
+
+test('XR metric manipulation never accepts invalid metric depth', () => {
+  const runtime = new spatialXRManipulation.SpatialXRMetricManipulationRuntime();
+  assert.equal(runtime.begin('core', Number.NaN, 1, null), null);
+  assert.equal(runtime.begin('core', 0, 1, null), null);
+  const started = runtime.begin('core', 0.7, 1, null);
+  assert.ok(started);
+  const previous = runtime.snapshot();
+  const invalidMove = runtime.update('core', Number.NaN, null, 1);
+  assert.deepEqual(invalidMove, previous);
+});
+
+test('XR metric manipulation ends and clears session deterministically', () => {
+  const runtime = new spatialXRManipulation.SpatialXRMetricManipulationRuntime();
+  runtime.begin('core', 0.8, 1, 1.2);
+  runtime.update('core', 0.9, 1.2, 1);
+  const ended = runtime.end('core');
+  assert.ok(ended);
+  assert.equal(runtime.snapshot(), null);
+  assert.equal(runtime.update('core', 1.0, 1.2, 1), null);
 });
