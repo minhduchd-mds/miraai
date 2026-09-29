@@ -533,6 +533,12 @@ for (const token of ['SpatialXRMetricManipulationRuntime', 'normalizedDepthDelta
   if (!spatialXRManipulation.includes(token)) failures.push(`XR metric manipulation missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(spatialXRManipulation)) failures.push('XR metric manipulation state must remain session-only');
+const spatialXRBimanual = readFileSync('src/core/vision/spatial-xr-bimanual.ts', 'utf8');
+for (const token of ['SpatialXRBimanualRuntime', 'XRBimanualTransform', 'metricCenterDelta', 'yawDeg', 'pitchDeg', 'rollDeg', 'MIN_PAIR_DISTANCE_M', 'Session-only two-hand metric XR transform layer', 'never writes metric coordinates into', 'SpatialObjectRuntime']) {
+  if (!spatialXRBimanual.includes(token)) failures.push(`XR bimanual transform missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(spatialXRBimanual)) failures.push('XR bimanual transform must remain session-only');
+if (localMemoryStore.includes('XRBimanualTransform') || localMemoryStore.includes('metricCenterDelta')) failures.push('XR bimanual metric state must remain ephemeral, not long-term memory');
 const spatialHandKinematics = readFileSync('src/core/vision/spatial-hand-kinematics.ts', 'utf8');
 for (const token of ['SpatialHandKinematicsTracker', 'pinchRatio', 'palmNormal', 'pointingConfidence', 'contactRadius', 'world-shape', 'mirrorSpatialHandKinematicsX']) {
   if (!spatialHandKinematics.includes(token)) failures.push(`human hand kinematics missing: ${token}`);
