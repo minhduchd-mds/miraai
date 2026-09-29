@@ -336,6 +336,19 @@ Immersive XR has its own requestAnimationFrame physics step because webcam visio
 
 All rigid velocities, collision history and contact impulses remain RAM/session-only and must never enter durable personal memory.
 
+### Spatial Visual v21 presentation boundary
+
+The primary bedroom presence now has a dedicated presentation stack:
+
+- `photoreal-depth.ts` selects a session-only visual quality tier and computes bounded multi-plane parallax;
+- `PhotorealSceneCanvas.tsx` performs an optional WebGL cover-resample plus halo-guarded sharpness pass;
+- `photoreal-mira.css` composes base, mid and near planes with restrained atmosphere, relight, grounding shadow and micro-grain;
+- `scripts/restore-photoreal-assets.mjs` restores and checksum-verifies the canonical bedroom WebP before every Vite build.
+
+This layer is explicitly downstream of perception. Gaze/attention may influence a few pixels of presentation parallax, but no visual-quality/depth state is written into affect, world-model, XR geometry or durable memory.
+
+The current canonical bedroom source is 1440×810. GPU sharpening improves resampling/edge clarity on high-DPI screens but is not described as super-resolution and cannot recreate source detail that does not exist.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
