@@ -98,6 +98,7 @@ import {
   type XRSurfaceProbe,
 } from '../core/vision/spatial-xr-surface';
 import { SpatialXRMetricManipulationRuntime } from '../core/vision/spatial-xr-manipulation';
+import { SpatialXRBimanualRuntime, type XRBimanualTransform } from '../core/vision/spatial-xr-bimanual';
 import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
@@ -261,10 +262,15 @@ function spatialPoseStyle(pose: SpatialObjectPose | null | undefined): CSSProper
 function spatialObjectStyle(
   object: SpatialObjectState | null,
   xrDepthScale = 1,
+  xrBimanual?: XRBimanualTransform | null,
 ): CSSProperties {
   return {
     ...spatialPoseStyle(object?.pose),
     '--xr-depth-scale': String(clampSpatial(xrDepthScale, 0.72, 1.42)),
+    '--xr-bimanual-scale': String(clampSpatial(xrBimanual?.scaleRatio || 1, 0.58, 1.72)),
+    '--xr-bimanual-yaw': `${clampSpatial(xrBimanual?.yawDeg || 0, -72, 72)}deg`,
+    '--xr-bimanual-pitch': `${clampSpatial(xrBimanual?.pitchDeg || 0, -58, 58)}deg`,
+    '--xr-bimanual-roll': `${clampSpatial(xrBimanual?.rollDeg || 0, -95, 95)}deg`,
   } as CSSProperties;
 }
 
@@ -615,8 +621,10 @@ export default function AppV2() {
   const xrHandKinematicsRef = useRef(new SpatialHandKinematicsTracker());
   const xrSurfaceRef = useRef(new SpatialXRSurfaceRuntime());
   const xrMetricManipulationRef = useRef(new SpatialXRMetricManipulationRuntime());
+  const xrBimanualRef = useRef(new SpatialXRBimanualRuntime());
   const xrAnchorDepthRef = useRef(new Map<string, number>());
   const [xrObjectDepthScale, setXrObjectDepthScale] = useState<Record<string, number>>({});
+  const [xrObjectBimanual, setXrObjectBimanual] = useState<Record<string, XRBimanualTransform>>({});
   const [xrSurfaceProbe, setXrSurfaceProbe] = useState<XRSurfaceProbe | null>(null);
   const xrSurfaceFeedbackAtRef = useRef(0);
   const xrAutoCalibratedRef = useRef(false);
@@ -841,8 +849,10 @@ export default function AppV2() {
       xrHandKinematicsRef.current.reset();
       xrSurfaceRef.current.reset();
       xrMetricManipulationRef.current.cancel();
+      xrBimanualRef.current.reset();
       xrAnchorDepthRef.current.clear();
       setXrObjectDepthScale({});
+      setXrObjectBimanual({});
       setXrSurfaceProbe(null);
       handContactRef.current.reset();
       handIntentRef.current.reset();
@@ -867,8 +877,10 @@ export default function AppV2() {
     xrHandKinematicsRef.current.reset();
     xrSurfaceRef.current.reset();
     xrMetricManipulationRef.current.cancel();
+    xrBimanualRef.current.reset();
     xrAnchorDepthRef.current.clear();
     setXrObjectDepthScale({});
+    setXrObjectBimanual({});
     setXrSurfaceProbe(null);
     handContactRef.current.reset();
     handIntentRef.current.reset();
@@ -929,6 +941,7 @@ export default function AppV2() {
   useEffect(() => {
     if (!webXRSnapshot.active) return;
     const primaryHand = webXRSnapshot.hands.find((hand) => hand.indexTip) || null;
+    const secondaryHand = webXRSnapshot.hands.find((hand) => hand !== primaryHand && hand.indexTip && hand.thumbTip) || null;
     if (!primaryHand?.indexTip || !webXRSnapshot.views.length) {
       setHandSeen(false);
       return;
@@ -1151,6 +1164,12 @@ export default function AppV2() {
             surfaceProbe?.environmentDepthM ?? null,
             0.03,
           );
+          const bimanualStart = secondaryHand
+            ? xrBimanualRef.current.begin(event.targetId, [primaryHand, secondaryHand])
+            : null;
+          if (bimanualStart) {
+            setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualStart }));
+          }
           setSpatialPhysicsState(spatialPhysicsRef.current.beginGrab(event.targetId, event.point, now));
           setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
           continue;
@@ -1164,6 +1183,16 @@ export default function AppV2() {
             surfaceProbe?.environmentDepthM ?? null,
             surfaceProbe?.confidence ?? 0,
           );
+          const xrHands = secondaryHand ? [primaryHand, secondaryHand] : [primaryHand];
+          const bimanualMove = secondaryHand && primaryHand.pinching && secondaryHand.pinching
+            ? (
+                xrBimanualRef.current.update(event.targetId, xrHands) ||
+                xrBimanualRef.current.begin(event.targetId, xrHands)
+              )
+            : xrBimanualRef.current.end(event.targetId);
+          if (bimanualMove) {
+            setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualMove }));
+          }
           spatialObjectRuntimeRef.current.moveGrab(event.point, {
             depthDelta: metricMove?.normalizedDepthDelta ?? 0,
             xyGain: 1.05,
@@ -1181,6 +1210,10 @@ export default function AppV2() {
 
         if (event.type === 'grab_end') {
           const metricRelease = xrMetricManipulationRef.current.end(event.targetId);
+          const bimanualRelease = xrBimanualRef.current.end(event.targetId);
+          if (bimanualRelease) {
+            setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualRelease }));
+          }
           const placed = spatialObjectRuntimeRef.current.endGrab();
           const canRealAnchor = Boolean(
             placed &&
@@ -2736,6 +2769,7 @@ export default function AppV2() {
             spatialCoreStyle={spatialObjectStyle(
               spatialObjects.find((object) => object.id === 'mira.core') || null,
               xrObjectDepthScale['mira.core'] || 1,
+              xrObjectBimanual['mira.core'],
             )}
             spatialCorePreviewStyle={placementPreview?.objectId === 'mira.core'
               ? spatialPoseStyle(placementPreview.targetPose)
@@ -2746,6 +2780,7 @@ export default function AppV2() {
             spatialNodeStyle={spatialObjectStyle(
               spatialObjects.find((object) => object.id === 'mira.node') || null,
               xrObjectDepthScale['mira.node'] || 1,
+              xrObjectBimanual['mira.node'],
             )}
             spatialNodePreviewStyle={placementPreview?.objectId === 'mira.node'
               ? spatialPoseStyle(placementPreview.targetPose)
