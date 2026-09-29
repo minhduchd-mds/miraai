@@ -295,6 +295,28 @@ export class SpatialXRBimanualRuntime {
     return cloneTransform(this.committed.get(objectId) || defaultTransform(objectId));
   }
 
+  commitExternal(objectId: string, transform: XRBimanualTransform): XRBimanualTransform {
+    const next: XRBimanualTransform = {
+      objectId,
+      active: false,
+      scaleRatio: clamp(Number(transform.scaleRatio || 1), MIN_SCALE, MAX_SCALE),
+      yawDeg: clamp(Number(transform.yawDeg || 0), -MAX_YAW_DEG, MAX_YAW_DEG),
+      pitchDeg: clamp(Number(transform.pitchDeg || 0), -MAX_PITCH_DEG, MAX_PITCH_DEG),
+      rollDeg: clamp(Number(transform.rollDeg || 0), -MAX_ROLL_DEG, MAX_ROLL_DEG),
+      metricCenterDelta: {
+        x: Number.isFinite(Number(transform.metricCenterDelta?.x)) ? Number(transform.metricCenterDelta.x) : 0,
+        y: Number.isFinite(Number(transform.metricCenterDelta?.y)) ? Number(transform.metricCenterDelta.y) : 0,
+        z: Number.isFinite(Number(transform.metricCenterDelta?.z)) ? Number(transform.metricCenterDelta.z) : 0,
+      },
+    };
+    this.committed.set(objectId, cloneTransform(next));
+    if (this.session?.objectId === objectId) {
+      this.session.base = cloneTransform(next);
+      this.session.last = cloneTransform(next);
+    }
+    return cloneTransform(next);
+  }
+
   resetObject(objectId: string): XRBimanualTransform {
     if (this.session?.objectId === objectId) this.session = null;
     this.committed.delete(objectId);
