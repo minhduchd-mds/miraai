@@ -258,8 +258,14 @@ function spatialPoseStyle(pose: SpatialObjectPose | null | undefined): CSSProper
   } as CSSProperties;
 }
 
-function spatialObjectStyle(object: SpatialObjectState | null): CSSProperties {
-  return spatialPoseStyle(object?.pose);
+function spatialObjectStyle(
+  object: SpatialObjectState | null,
+  xrDepthScale = 1,
+): CSSProperties {
+  return {
+    ...spatialPoseStyle(object?.pose),
+    '--xr-depth-scale': String(clampSpatial(xrDepthScale, 0.72, 1.42)),
+  } as CSSProperties;
 }
 
 function collectSpatialWorldAnchors(objects: SpatialObjectState[]): SpatialWorldAnchor[] {
@@ -2727,21 +2733,27 @@ export default function AppV2() {
             presenceMode={presenceContinuity.mode}
             presenceCue={presenceContinuity.cue}
             presenceContinuity={presenceContinuity.continuity}
-            spatialCoreStyle={spatialObjectStyle(spatialObjects.find((object) => object.id === 'mira.core') || null)}
+            spatialCoreStyle={spatialObjectStyle(
+              spatialObjects.find((object) => object.id === 'mira.core') || null,
+              xrObjectDepthScale['mira.core'] || 1,
+            )}
             spatialCorePreviewStyle={placementPreview?.objectId === 'mira.core'
               ? spatialPoseStyle(placementPreview.targetPose)
               : undefined}
             spatialCorePreviewVisible={placementPreview?.objectId === 'mira.core'}
             spatialCorePhysicsMode={spatialPhysicsRef.current.snapshot('mira.core').mode}
             spatialCoreDepth={spatialObjects.find((object) => object.id === 'mira.core')?.pose.position.z || 0}
-            spatialNodeStyle={spatialObjectStyle(spatialObjects.find((object) => object.id === 'mira.node') || null)}
+            spatialNodeStyle={spatialObjectStyle(
+              spatialObjects.find((object) => object.id === 'mira.node') || null,
+              xrObjectDepthScale['mira.node'] || 1,
+            )}
             spatialNodePreviewStyle={placementPreview?.objectId === 'mira.node'
               ? spatialPoseStyle(placementPreview.targetPose)
               : undefined}
             spatialNodePreviewVisible={placementPreview?.objectId === 'mira.node'}
             spatialNodePhysicsMode={spatialPhysicsRef.current.snapshot('mira.node').mode}
             spatialNodeDepth={spatialObjects.find((object) => object.id === 'mira.node')?.pose.position.z || 0}
-            spatialCoreActive={visionOn}
+            spatialCoreActive={visionOn || webXRSnapshot.active}
           />
         </div>
 
@@ -2767,7 +2779,7 @@ export default function AppV2() {
         frame={spatialFrame}
         touch={spatialTouch}
         placementPreview={placementPreview}
-        visible={visionOn && !settingsOpen && (faceSeen || handSeen)}
+        visible={(visionOn || webXRSnapshot.active) && !settingsOpen && (faceSeen || handSeen || webXRSnapshot.hands.length > 0)}
         feedback={spatialFeedback}
       />
 
