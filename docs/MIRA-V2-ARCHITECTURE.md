@@ -294,6 +294,14 @@ Persistent anchor handles may be requested from the XR system but are not automa
 
 This prevents the normalized `SpatialObjectRuntime` from becoming mixed-unit state while still enabling real metric Z manipulation, surface collision constraints and anchored perspective cues.
 
+### Spatial v16 real-surface boundary
+
+The real-device path now adds `SpatialXRSurfaceRuntime` above the WebXR depth/anchor APIs. The WebXR bridge samples bounded CPU depth using `XRFrame.getDepthInformation(view)` / `getDepthInMeters()`, tracks optional real anchors created from hit-test results, and exposes anchor poses from `anchorSpace`.
+
+Depth samples and anchor poses remain metric XR data. The App layer projects them into DOM coordinates only for presentation/interaction; the data is not rewritten into webcam-relative depth units.
+
+Real-surface contact, sparse surface patches, occlusion state, tracked anchors and persistent-handle metadata are session-only and must not enter long-term personal memory.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
