@@ -288,6 +288,12 @@ The system intentionally keeps three boundaries distinct:
 
 Persistent anchor handles may be requested from the XR system but are not automatically stored in browser persistence. Depth grids, real-surface patches, probes and anchor handles remain ephemeral by default.
 
+### Spatial v17 metric manipulation boundary
+
+`SpatialXRMetricManipulationRuntime` is the explicit unit boundary between metric XR depth and normalized browser-spatial object state. XR hand depth, real-surface depth and clearance remain in meters inside this runtime. It emits only a bounded `normalizedDepthDelta` plus a temporary visual perspective scale for the App layer.
+
+This prevents the normalized `SpatialObjectRuntime` from becoming mixed-unit state while still enabling real metric Z manipulation, surface collision constraints and anchored perspective cues.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
