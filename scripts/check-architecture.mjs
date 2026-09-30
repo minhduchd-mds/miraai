@@ -132,6 +132,12 @@ for (const token of ['GITHUB_PAGES_LITE', "hostname.endsWith('.github.io')", '!G
 }
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
+if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
+if (v2.includes("from '../ui/icons'")) failures.push('full icon library must not leak into AppV2 deferred graph');
+const appShellIcons = readFileSync('src/ui/app-shell-icons.tsx', 'utf8');
+for (const token of ['IconCamera', 'IconCameraOff', 'IconSettings', 'ShellSvg']) {
+  if (!appShellIcons.includes(token)) failures.push(`minimal AppV2 shell icon set missing: ${token}`);
+}
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
