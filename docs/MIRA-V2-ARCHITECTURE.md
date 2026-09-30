@@ -349,6 +349,14 @@ This layer is explicitly downstream of perception. Gaze/attention may influence 
 
 The current canonical bedroom source is 1448×1086. GPU sharpening improves resampling/edge clarity on high-DPI screens but is not described as super-resolution and cannot recreate source detail that does not exist.
 
+### Spatial Visual v23 camera-depth boundary
+
+Camera-driven scene depth consumes the already-available face yaw, pitch, roll, distance and confidence telemetry. It does not add another perception pass.
+
+The mapping runtime is isolated in `photoreal-camera-depth.ts` and dynamically imported only after camera pose becomes active on non-lite visual tiers. The resulting frame is presentation-only: bounded room/subject/foreground translation, small viewpoint rotation, relative zoom and contact-shadow offset.
+
+The transform loop writes compositor-friendly CSS transforms only. Camera motion must not animate blur/backdrop-filter or enter durable memory. Reduced-motion and low-confidence pose collapse the camera frame back to neutral.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
