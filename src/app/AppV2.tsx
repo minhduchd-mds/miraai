@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
-import { IconCamera, IconCameraOff, IconSettings } from '../ui/icons';
+import { IconCamera, IconCameraOff, IconSettings } from '../ui/app-shell-icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
