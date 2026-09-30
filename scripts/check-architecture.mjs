@@ -199,7 +199,7 @@ for (const token of ['MIRA_BEDROOM_SEGMENTS', "'window'", "'pillow'", "'subject'
 if (/localStorage|sessionStorage|indexedDB/.test(photorealSceneSegmentation)) failures.push('photoreal scene segmentation profile must remain static/session-only');
 
 const photorealDepthWarp = readFileSync('src/presence/photoreal-depth-warp.ts', 'utf8');
-for (const token of ['PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealDepthWarpControl', 'computePhotorealViewRefinementControl', 'PhotorealViewRefinementControl', 'windowMask', 'pillowMask', 'subjectMask', 'bedDepth', 'foregroundDepth', "quality === 'ultra'", "quality === 'high' || quality === 'ultra'", "performanceTier === 'full'", 'relightStrength', 'occlusionStrength', 'fpsCap: 30', 'fpsCap: ultra ? 30 : 24', 'no normals, geometry or physical light sources are inferred', 'not metric depth', 'not inferred geometry']) {
+for (const token of ['PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealDepthWarpControl', 'computePhotorealViewRefinementControl', 'computePhotorealWarpSafetyEnvelope', 'PhotorealViewRefinementControl', 'PhotorealWarpSafetyInput', 'windowMask', 'pillowMask', 'subjectMask', 'bedDepth', 'foregroundDepth', "quality === 'ultra'", "quality === 'high' || quality === 'ultra'", "performanceTier === 'full'", 'relightStrength', 'occlusionStrength', 'depthBoundaryGuard', 'continuityGuard', 'sourceEdgeGuard', 'temporalGuard', 'never invents hidden pixels', 'fpsCap: 30', 'fpsCap: ultra ? 30 : 24', 'no normals, geometry or physical light sources are inferred', 'not metric depth', 'not inferred geometry']) {
   if (!photorealDepthWarp.includes(token)) failures.push(`photoreal v27 continuous depth warp missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealDepthWarp)) failures.push('photoreal depth warp control must remain session-only');
@@ -216,7 +216,7 @@ for (const token of ['pm-scene-segments', 'pm-scene-segment', 'data-depth-rank',
 }
 
 const photorealCanvas = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
-for (const token of ['webgl', 'u_sharpness', 'u_view', 'u_depth_strength', 'u_relight_strength', 'u_occlusion_strength', 'PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealViewRefinementControl', 'PhotorealTemporalStabilizer', 'temporalStabilizerRef', 'dataset.depthStability', 'dataset.depthRecovering', 'updateDepthWarp', 'textureUploaded', 'depthGradient', 'edgeStrength', 'microLight', 'microOcclusion', 'subjectWeight', 'dataset.viewRefinement', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'same WebGL context', 'does not claim']) {
+for (const token of ['webgl', 'u_sharpness', 'u_view', 'u_depth_strength', 'u_relight_strength', 'u_occlusion_strength', 'u_temporal_stability', 'PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealViewRefinementControl', 'PhotorealTemporalStabilizer', 'temporalStabilizerRef', 'dataset.depthStability', 'dataset.depthRecovering', 'updateDepthWarp', 'textureUploaded', 'candidateUv', 'candidateDepth', 'depthMismatch', 'sourceEdgeDistance', 'depthBoundaryGuard', 'continuityGuard', 'sourceEdgeGuard', 'temporalGuard', 'warpConfidence', 'mix(baseUv, candidateUv, warpConfidence)', 'depthGradient', 'edgeStrength', 'microLight', 'microOcclusion', 'subjectWeight', 'dataset.viewRefinement', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'same WebGL context', 'does not claim']) {
   if (!photorealCanvas.includes(token)) failures.push(`photoreal GPU clarity pass missing: ${token}`);
 }
 
