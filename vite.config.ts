@@ -17,9 +17,6 @@ export default defineConfig({
     open: false,
     allowedHosts: true,
   },
-  esbuild: {
-    legalComments: 'none',
-  },
   build: {
     // Modern production target keeps emitted JS compact; Mira already requires
     // secure-context browser APIs such as Web Speech, WebGL and MediaDevices.
