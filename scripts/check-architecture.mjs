@@ -167,7 +167,7 @@ for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_
 for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
-for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", "lazy(() => import('./PhotorealSceneSegments'))", "import('./photoreal-camera-depth')", "import('./photoreal-environment')", 'PhotorealSceneCanvas', 'PhotorealSceneSegments', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'cameraDepthControllerRef', 'environmentControllerRef', 'environmentRef', 'cameraPoseRef', 'pm-env-window-light', 'pm-env-city-bokeh', 'pm-env-light-rays', 'pm-env-practical-light', 'pm-env-bed-bounce', 'pm-env-reflection', 'pm-env-edge-occlusion', 'pm-env-dust', 'pm-env-vignette', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
+for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", "lazy(() => import('./PhotorealSceneSegments'))", "import('./photoreal-camera-depth')", "import('./photoreal-environment')", 'PhotorealSceneCanvas', 'PhotorealSceneSegments', 'PhotorealSceneCanvasHandle', 'sceneCanvasRef', 'updateDepthWarp', 'data.depthWarp', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'cameraDepthControllerRef', 'environmentControllerRef', 'environmentRef', 'cameraPoseRef', 'pm-env-window-light', 'pm-env-city-bokeh', 'pm-env-light-rays', 'pm-env-practical-light', 'pm-env-bed-bounce', 'pm-env-reflection', 'pm-env-edge-occlusion', 'pm-env-dust', 'pm-env-vignette', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira v21/v22/v23/v24 depth-copy integration missing: ${token}`);
 }
 if (photoreal.includes('<span className="pm-clean-copy-scrim"')) failures.push('clean canonical scene must not reintroduce a baked-copy masking scrim');
@@ -198,18 +198,24 @@ for (const token of ['MIRA_BEDROOM_SEGMENTS', "'window'", "'pillow'", "'subject'
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealSceneSegmentation)) failures.push('photoreal scene segmentation profile must remain static/session-only');
 
+const photorealDepthWarp = readFileSync('src/presence/photoreal-depth-warp.ts', 'utf8');
+for (const token of ['PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealDepthWarpControl', 'windowMask', 'pillowMask', 'subjectMask', 'bedDepth', 'foregroundDepth', "quality === 'ultra'", "performanceTier === 'full'", 'fpsCap: 30', 'not metric depth', 'not inferred geometry']) {
+  if (!photorealDepthWarp.includes(token)) failures.push(`photoreal v27 continuous depth warp missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(photorealDepthWarp)) failures.push('photoreal depth warp control must remain session-only');
+
 const photorealSceneSegments = readFileSync('src/presence/PhotorealSceneSegments.tsx', 'utf8');
 for (const token of ['pm-scene-segments', 'pm-scene-segment', 'data-depth-rank', 'sceneSegmentPolygon', 'MIRA_BEDROOM_SEGMENTS']) {
   if (!photorealSceneSegments.includes(token)) failures.push(`photoreal v26 segment renderer missing: ${token}`);
 }
 
 const photorealCanvas = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
-for (const token of ['webgl', 'u_sharpness', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'does not claim', 'reconstruct detail']) {
+for (const token of ['webgl', 'u_sharpness', 'u_view', 'u_depth_strength', 'PHOTOREAL_DEPTH_FIELD_GLSL', 'updateDepthWarp', 'textureUploaded', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'same WebGL context', 'does not claim']) {
   if (!photorealCanvas.includes(token)) failures.push(`photoreal GPU clarity pass missing: ${token}`);
 }
 
 const photorealCss = readFileSync('src/presence/photoreal-mira.css', 'utf8');
-for (const token of ['Spatial Visual v21', 'Spatial Visual v22', 'Spatial Visual v23', 'Spatial Visual v24', 'Spatial Visual v25', 'Spatial Visual v26', '--pm-depth-back-x', '--pm-depth-mid-x', '--pm-depth-near-x', '--pm-camera-room-x', '--pm-camera-subject-x', '--pm-camera-foreground-x', '--pm-camera-rotate-x', '--pm-camera-rotate-y', '--pm-camera-scale', '--pm-env-practical', '--pm-env-window', '--pm-env-reflection', '--pm-env-haze', '--pm-env-city-bokeh', '--pm-env-light-rays', '--pm-env-bed-bounce', '--pm-env-edge-occlusion', '.pm-env-window-light', '.pm-env-city-bokeh', '.pm-env-light-rays', '.pm-env-practical-light', '.pm-env-bed-bounce', '.pm-env-reflection', '.pm-env-edge-occlusion', '.pm-env-dust', '.pm-env-vignette', '[data-performance-tier="reduced"]', '[data-performance-tier="minimal"]', '--pm-clarity-contrast', '.pm-scene-canvas[data-ready="true"]', '.pm-depth-mid', '.pm-depth-near', '.pm-depth-atmosphere', '.pm-depth-relight', '.pm-depth-contact-shadow', '.pm-hero-copy', '[data-hero-state="listening"]', '@keyframes pmHeroLineIn', '[data-visual-quality="lite"]']) {
+for (const token of ['Spatial Visual v21', 'Spatial Visual v22', 'Spatial Visual v23', 'Spatial Visual v24', 'Spatial Visual v25', 'Spatial Visual v26', 'Spatial Visual v27', '--pm-depth-back-x', '--pm-depth-mid-x', '--pm-depth-near-x', '--pm-camera-room-x', '--pm-camera-subject-x', '--pm-camera-foreground-x', '--pm-camera-rotate-x', '--pm-camera-rotate-y', '--pm-camera-scale', '--pm-env-practical', '--pm-env-window', '--pm-env-reflection', '--pm-env-haze', '--pm-env-city-bokeh', '--pm-env-light-rays', '--pm-env-bed-bounce', '--pm-env-edge-occlusion', '.pm-env-window-light', '.pm-env-city-bokeh', '.pm-env-light-rays', '.pm-env-practical-light', '.pm-env-bed-bounce', '.pm-env-reflection', '.pm-env-edge-occlusion', '.pm-env-dust', '.pm-env-vignette', '[data-performance-tier="reduced"]', '[data-performance-tier="minimal"]', '--pm-clarity-contrast', '.pm-scene-canvas[data-ready="true"]', '.pm-depth-mid', '.pm-depth-near', '.pm-depth-atmosphere', '.pm-depth-relight', '.pm-depth-contact-shadow', '.pm-hero-copy', '[data-hero-state="listening"]', '@keyframes pmHeroLineIn', '[data-visual-quality="lite"]']) {
   if (!photorealCss.includes(token)) failures.push(`photoreal v21/v22/v23/v24 CSS missing: ${token}`);
 }
 if (/filter\s*:\s*blur\([^)]*--pm-camera|backdrop-filter[^;]*--pm-camera/.test(photorealCss)) failures.push('camera-driven v23 must keep per-frame motion on compositor transforms, not animated blur/backdrop-filter');
@@ -218,6 +224,9 @@ if (!photorealCss.includes('[data-performance-tier="minimal"] .pm-env-city-bokeh
 }
 for (const token of ['.pm-scene-segments', '.pm-scene-segment-window', '.pm-scene-segment-subject', '.pm-scene-segment-bed', '.pm-scene-segment-foreground', '[data-visual-quality="high"] .pm-scene-segment-window', '[data-performance-tier="reduced"] .pm-scene-segment-bed', '[data-performance-tier="minimal"] .pm-scene-segments']) {
   if (!photorealCss.includes(token)) failures.push(`v26 segmented depth CSS missing/degrade contract: ${token}`);
+}
+for (const token of ['[data-depth-warp="true"] .pm-scene-canvas', '[data-depth-warp="true"] .pm-depth-mid', '[data-depth-warp="true"] .pm-scene-segment-subject', '[data-depth-warp="true"] .pm-scene-segment-foreground']) {
+  if (!photorealCss.includes(token)) failures.push(`v27 GPU depth-warp blending CSS missing: ${token}`);
 }
 
 const photorealRestore = readFileSync('scripts/restore-photoreal-assets.mjs', 'utf8');
