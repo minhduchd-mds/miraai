@@ -104,12 +104,18 @@ for (const path of mustExist) {
 }
 
 const entry = readFileSync('src/main.tsx', 'utf8');
-if (!entry.includes("./app/AppV2")) failures.push('production entry does not import AppV2');
+if (!entry.includes("const AppV2 = lazy(() => import('./app/AppV2'))")) failures.push('production AppV2 must stay route-level lazy-loaded');
+if (/^import\s+AppV2\s+from\s+['"]\.\/app\/AppV2['"]/m.test(entry)) failures.push('AppV2 must not leak back into the bootstrap initial graph');
 if (!entry.includes("const LegacyApp = lazy(async () =>") || !entry.includes("import('./ui/styles.css')") || !entry.includes("return import('./App')")) {
   failures.push('Legacy/Labs shell and legacy stylesheet must stay lazy-loaded');
 }
 if (entry.includes("import './ui/styles.css';")) failures.push('legacy styles.css must not be in the initial AppV2 graph');
 if (!entry.includes("import './ui/base-v2.css';")) failures.push('AppV2 base stylesheet missing');
+
+const viteConfig = readFileSync('vite.config.ts', 'utf8');
+for (const token of ["target: 'es2022'", "minify: 'esbuild'", "cssMinify: 'esbuild'", "modulePreload: { polyfill: false }", "legalComments: 'none'"]) {
+  if (!viteConfig.includes(token)) failures.push(`modern Vite compression target missing: ${token}`);
+}
 
 const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 if (!ciWorkflow.includes('npm run check:artifact')) failures.push('CI must run deploy artifact smoke after build');
