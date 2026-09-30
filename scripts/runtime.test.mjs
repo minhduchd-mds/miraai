@@ -4556,3 +4556,81 @@ test('lite photoreal depth disables motion layers deterministically', () => {
     tiltYDeg: 0,
   });
 });
+
+
+test('camera-driven photoreal 3D stays bounded and directionally layered', () => {
+  const frame = photorealDepth.computeCameraSpatialFrame({
+    enabled: true,
+    yaw: 0.68,
+    pitch: -0.52,
+    roll: 0.48,
+    distanceM: 0.55,
+    baselineDistanceM: 0.72,
+    confidence: 0.92,
+    quality: 'ultra',
+  });
+
+  assert.ok(Math.abs(frame.roomX) <= 4.2);
+  assert.ok(Math.abs(frame.roomY) <= 2.8);
+  assert.ok(Math.abs(frame.subjectX) <= 8.4);
+  assert.ok(Math.abs(frame.subjectY) <= 5.6);
+  assert.ok(Math.abs(frame.foregroundX) <= 12.6);
+  assert.ok(Math.abs(frame.foregroundY) <= 8.1);
+  assert.ok(Math.abs(frame.rotateXDeg) <= 1.9);
+  assert.ok(Math.abs(frame.rotateYDeg) <= 3.1);
+  assert.ok(Math.abs(frame.rollDeg) <= 0.7);
+  assert.ok(frame.scale >= 0.968 && frame.scale <= 1.038);
+  assert.ok(Math.abs(frame.foregroundX) >= Math.abs(frame.subjectX));
+  assert.ok(Math.abs(frame.subjectX) >= Math.abs(frame.roomX));
+  assert.ok(frame.scale > 1);
+});
+
+test('camera-driven photoreal 3D disables on low confidence and lite quality', () => {
+  const base = {
+    enabled: true,
+    yaw: 0.4,
+    pitch: 0.3,
+    roll: 0.2,
+    distanceM: 0.5,
+    baselineDistanceM: 0.7,
+  };
+  const lowConfidence = photorealDepth.computeCameraSpatialFrame({
+    ...base,
+    confidence: 0.3,
+    quality: 'ultra',
+  });
+  const lite = photorealDepth.computeCameraSpatialFrame({
+    ...base,
+    confidence: 0.95,
+    quality: 'lite',
+  });
+
+  for (const frame of [lowConfidence, lite]) {
+    assert.equal(frame.roomX, 0);
+    assert.equal(frame.subjectX, 0);
+    assert.equal(frame.foregroundX, 0);
+    assert.equal(frame.rotateXDeg, 0);
+    assert.equal(frame.rotateYDeg, 0);
+    assert.equal(frame.scale, 1);
+    assert.equal(frame.intensity, 0);
+  }
+});
+
+test('camera-driven photoreal zoom is relative to session baseline', () => {
+  const common = {
+    enabled: true,
+    yaw: 0,
+    pitch: 0,
+    roll: 0,
+    baselineDistanceM: 0.7,
+    confidence: 1,
+    quality: 'high',
+  };
+  const closer = photorealDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.48 });
+  const baseline = photorealDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.7 });
+  const farther = photorealDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.92 });
+
+  assert.ok(closer.scale > baseline.scale);
+  assert.equal(baseline.scale, 1);
+  assert.ok(farther.scale < baseline.scale);
+});
