@@ -49,7 +49,12 @@ export class ElevenLabsTTS implements TTSAdapter {
       body: JSON.stringify({
         text: opts.text,
         model_id: MODEL_ID,
-        voice_settings: { stability: 0.45, similarity_boost: 0.75 },
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.78,
+          style: 0.16,
+          use_speaker_boost: false,
+        },
       }),
       signal: ac.signal,
     })
