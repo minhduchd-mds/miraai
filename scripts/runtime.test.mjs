@@ -143,6 +143,45 @@ test('speech director raises energy subtly for successful completion', () => {
   assert.ok(plan.rateMultiplier > 1);
 });
 
+test('gentle voice profile is the default', () => {
+  assert.equal(voice.voicePrefs.persona, 'gentle');
+  assert.equal(voice.voicePrefs.rate, 0.96);
+  const normal = voice.SPEEDS.find((item) => item.id === 'normal');
+  assert.ok(normal);
+  assert.equal(normal.rate, 0.96);
+  assert.equal(normal.label, 'Êm');
+});
+
+test('Vietnamese speech director keeps a soft gentle baseline', () => {
+  const plan = director.directVietnameseSpeech('Em nghe anh. Mình nói chuyện một chút nhé.');
+  assert.equal(plan.performance, 'warm');
+  assert.match(plan.instructions, /dịu dàng/);
+  assert.match(plan.instructions, /Âm đầu mềm/);
+  assert.match(plan.instructions, /cuối câu thường hạ nhẹ/);
+  assert.ok(plan.rateMultiplier < 1);
+});
+
+test('neural TTS gateway keeps restrained gentle prosody', () => {
+  const source = readFileSync('api/tts.js', 'utf8');
+  for (const token of [
+    'Giọng nữ mềm, hiền, ấm và gần gũi',
+    'stability: 0.5',
+    'style: 0.16',
+    'use_speaker_boost: false',
+  ]) {
+    assert.ok(source.includes(token));
+  }
+});
+
+test('Pages TTS can use explicitly configured secure neural endpoints', () => {
+  const source = readFileSync('src/core/tts/index.ts', 'utf8');
+  assert.ok(source.includes("const secureRemote = /^https:\\/\\//i.test"));
+  assert.ok(source.includes("cfg.engine === 'vieneu' && secureRemote"));
+  assert.ok(source.includes("cfg.engine === 'edge' && secureRemote"));
+  assert.ok(source.includes("cfg.engine === 'cloud' && secureRemote"));
+  assert.ok(source.includes('return new PiperLocalTTS()'));
+});
+
 test('semantic pauses are longer for quiet/serious delivery than warm delivery', () => {
   const warm = director.semanticPauseMs('Em xem xong rồi.', 'warm');
   const serious = director.semanticPauseMs('Có một lỗi nghiêm trọng.', 'serious');
