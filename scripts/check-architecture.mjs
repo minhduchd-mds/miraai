@@ -167,7 +167,7 @@ for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_
 for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
-for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", "import('./photoreal-camera-depth')", "import('./photoreal-environment')", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'cameraDepthRuntimeRef', 'environmentControllerRef', 'environmentRef', 'cameraPoseRef', 'cameraBaselineDistanceRef', 'cameraSmoothing', '--pm-camera-room-x', '--pm-camera-rotate-y', '--pm-camera-scale', 'pm-env-window-light', 'pm-env-practical-light', 'pm-env-reflection', 'pm-env-dust', 'pm-env-vignette', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
+for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", "import('./photoreal-camera-depth')", "import('./photoreal-environment')", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'cameraDepthControllerRef', 'environmentControllerRef', 'environmentRef', 'cameraPoseRef', 'pm-env-window-light', 'pm-env-practical-light', 'pm-env-reflection', 'pm-env-dust', 'pm-env-vignette', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira v21/v22/v23/v24 depth-copy integration missing: ${token}`);
 }
 if (photoreal.includes('<span className="pm-clean-copy-scrim"')) failures.push('clean canonical scene must not reintroduce a baked-copy masking scrim');
@@ -181,7 +181,7 @@ for (const token of ['resolvePhotorealVisualQuality', 'clarityProfile', 'compute
 if (/localStorage|sessionStorage|indexedDB/.test(photorealDepth)) failures.push('photoreal depth quality state must remain session-only');
 
 const photorealCameraDepth = readFileSync('src/presence/photoreal-camera-depth.ts', 'utf8');
-for (const token of ['computeCameraSpatialFrame', 'PhotorealCameraSpatialFrame', 'baselineDistanceM', 'confidence < 0.42', 'presentation-only', 'lite: 0', 'balanced: 0.56', 'high: 0.8', 'ultra: 1']) {
+for (const token of ['computeCameraSpatialFrame', 'PhotorealCameraSpatialFrame', 'PhotorealCameraDepthController', 'baselineDistanceM', 'confidence < 0.42', 'smoothing = input.reducedMotion ? 1 : 0.085', "--pm-camera-room-x", "--pm-camera-rotate-y", "--pm-atmosphere-x", "--pm-contact-shadow-x", 'presentation-only', 'lite: 0', 'balanced: 0.56', 'high: 0.8', 'ultra: 1']) {
   if (!photorealCameraDepth.includes(token)) failures.push(`camera photoreal depth runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealCameraDepth)) failures.push('camera photoreal depth state must remain session-only');
