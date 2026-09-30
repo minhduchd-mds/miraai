@@ -1,4 +1,5 @@
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
+import { isRecoverableGpuDelegateError, visionInferenceErrorMessage } from '../vision/vision-delegate-fallback';
 
 // Điều khiển bằng BÀN TAY qua webcam (MediaPipe GestureRecognizer — cùng @mediapipe/tasks-vision với face).
 // FREE, chạy trong trình duyệt, không GPU server. Lazy-load. Xuất handData để App đọc mỗi frame:
@@ -51,6 +52,9 @@ let stopped = true;
 let busy = false;
 let lastError: string | null = null;
 let lastInferenceAt = 0;
+let activeDelegate: 'GPU' | 'CPU' | 'unknown' = 'unknown';
+let delegateFailoverPromise: Promise<boolean> | null = null;
+let consecutiveInferenceFailures = 0;
 
 const SMOOTH = 0.4;
 const MOBILE_INFERENCE_MS = 42;
@@ -106,8 +110,50 @@ function detectWave(): boolean {
   return reversals >= 3 && max - min > 0.1; // tay lia qua lại nhiều lần + biên độ đủ rộng
 }
 
+async function createGestureRecognizer(delegate: 'GPU' | 'CPU'): Promise<any> {
+  const vision = await import('@mediapipe/tasks-vision');
+  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
+  return vision.GestureRecognizer.createFromOptions(resolver, {
+    baseOptions: { modelAssetPath: GESTURE_MODEL, delegate },
+    runningMode: 'VIDEO',
+    numHands: 2,
+  });
+}
+
+async function fallbackGestureToCpu(reason: unknown): Promise<boolean> {
+  if (delegateFailoverPromise) return delegateFailoverPromise;
+  delegateFailoverPromise = (async () => {
+    const previous = recognizer;
+    recognizer = null;
+    try { previous?.close?.(); } catch { /* noop */ }
+    try {
+      const cpu = await createGestureRecognizer('CPU');
+      if (stopped) {
+        try { cpu?.close?.(); } catch { /* noop */ }
+        return false;
+      }
+      recognizer = cpu;
+      activeDelegate = 'CPU';
+      consecutiveInferenceFailures = 0;
+      lastError = null;
+      console.warn('[Mira Hand] GPU inference failed; switched to CPU delegate.', visionInferenceErrorMessage(reason));
+      return true;
+    } catch (error) {
+      lastError = visionInferenceErrorMessage(error);
+      return false;
+    }
+  })().finally(() => {
+    delegateFailoverPromise = null;
+  });
+  return delegateFailoverPromise;
+}
+
 function readFrame(): void {
-  if (stopped || !recognizer || !video) return;
+  if (stopped || !video) return;
+  if (!recognizer || delegateFailoverPromise) {
+    raf = requestAnimationFrame(readFrame);
+    return;
+  }
 
   const now = performance.now();
   if (now - lastInferenceAt < inferenceIntervalMs()) {
@@ -119,8 +165,16 @@ function readFrame(): void {
   let res: any = null;
   try {
     res = recognizer.recognizeForVideo(video, now);
-  } catch {
+    consecutiveInferenceFailures = 0;
+  } catch (error) {
     res = null;
+    consecutiveInferenceFailures += 1;
+    if (
+      activeDelegate === 'GPU' &&
+      (isRecoverableGpuDelegateError(error) || consecutiveInferenceFailures >= 2)
+    ) {
+      void fallbackGestureToCpu(error);
+    }
   }
 
   const allLandmarks = Array.isArray(res?.landmarks) ? res.landmarks.slice(0, 2) : [];
@@ -191,13 +245,14 @@ export async function startGestureTracking(): Promise<boolean> {
   busy = true;
   lastError = null;
   try {
-    const vision = await import('@mediapipe/tasks-vision');
-    const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
-    recognizer = await vision.GestureRecognizer.createFromOptions(resolver, {
-      baseOptions: { modelAssetPath: GESTURE_MODEL, delegate: 'GPU' },
-      runningMode: 'VIDEO',
-      numHands: 2,
-    });
+    try {
+      recognizer = await createGestureRecognizer('GPU');
+      activeDelegate = 'GPU';
+    } catch {
+      recognizer = await createGestureRecognizer('CPU');
+      activeDelegate = 'CPU';
+    }
+    consecutiveInferenceFailures = 0;
     video = await acquireVisionCamera('gesture');
     stopped = false;
     handData.active = true;
@@ -224,6 +279,9 @@ export function stopGestureTracking(): void {
     /* noop */
   }
   recognizer = null;
+  activeDelegate = 'unknown';
+  delegateFailoverPromise = null;
+  consecutiveInferenceFailures = 0;
   handData.active = false;
   handData.present = false;
   handData.gesture = 'None';
