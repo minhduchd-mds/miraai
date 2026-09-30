@@ -38,7 +38,7 @@ const jsBytes = [...initialFiles].filter((file) => file.endsWith('.js')).reduce(
 const cssBytes = [...initialCss].reduce((sum, file) => sum + sizeOf(file), 0);
 const forbidden = [...initialFiles].filter((file) => /MiraStage|gaussian-splats|vision_bundle|(^|\/)App-/i.test(basename(file)));
 const INITIAL_JS_BUDGET = 160 * 1024;
-const APPV2_DEFERRED_JS_BUDGET = 320 * 1024;
+const APPV2_DEFERRED_JS_BUDGET = 300 * 1024;
 const CSS_BUDGET = 120 * 1024;
 const failures = [];
 
