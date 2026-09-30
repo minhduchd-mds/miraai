@@ -11,6 +11,16 @@ export interface PhotorealDepthWarpControl {
   fpsCap: number;
 }
 
+export interface PhotorealViewRefinementControl {
+  active: boolean;
+  viewX: number;
+  viewY: number;
+  warpStrength: number;
+  relightStrength: number;
+  occlusionStrength: number;
+  fpsCap: number;
+}
+
 /**
  * Continuous authored depth field used by the single-pass scene shader.
  *
@@ -75,5 +85,56 @@ export function computePhotorealDepthWarpControl(
     viewY,
     strength,
     fpsCap: 30,
+  };
+}
+
+/**
+ * v28 view refinement layers micro-relighting and edge occlusion on top of the
+ * v27 warp. It is still presentation-only and uses the same authored depth
+ * field; no normals, geometry or physical light sources are inferred.
+ */
+export function computePhotorealViewRefinementControl(
+  frame: Pick<PhotorealCameraSpatialFrame, 'rotateXDeg' | 'rotateYDeg' | 'intensity'>,
+  quality: PhotorealVisualQuality,
+  performanceTier: PhotorealPerformanceTier,
+  reducedMotion: boolean,
+): PhotorealViewRefinementControl {
+  const base = computePhotorealDepthWarpControl(
+    frame,
+    quality,
+    performanceTier,
+    reducedMotion,
+  );
+
+  const fullQuality = !reducedMotion
+    && performanceTier === 'full'
+    && (quality === 'high' || quality === 'ultra')
+    && frame.intensity >= 0.18;
+
+  if (!fullQuality) {
+    return {
+      active: false,
+      viewX: 0,
+      viewY: 0,
+      warpStrength: 0,
+      relightStrength: 0,
+      occlusionStrength: 0,
+      fpsCap: 0,
+    };
+  }
+
+  const viewX = clamp(frame.rotateYDeg / 3.1, -1, 1);
+  const viewY = clamp(-frame.rotateXDeg / 1.9, -1, 1);
+  const intensity = clamp(frame.intensity, 0, 1);
+  const ultra = quality === 'ultra';
+
+  return {
+    active: true,
+    viewX,
+    viewY,
+    warpStrength: base.active ? base.strength : 0,
+    relightStrength: clamp(intensity * (ultra ? 0.22 : 0.12), 0, 0.22),
+    occlusionStrength: clamp(intensity * (ultra ? 0.18 : 0.1), 0, 0.18),
+    fpsCap: ultra ? 30 : 24,
   };
 }
