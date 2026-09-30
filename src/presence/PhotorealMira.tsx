@@ -5,11 +5,11 @@ import type { ObservedMood } from '../intelligence/affect/mood-engine';
 import { audioLevel } from '../core/audio-level';
 import {
   clarityProfile,
-  computeCameraSpatialFrame,
   computePhotorealDepthFrame,
   resolvePhotorealVisualQuality,
   type PhotorealVisualQuality,
 } from './photoreal-depth';
+import type { PhotorealCameraSpatialFrame } from './photoreal-camera-depth';
 import './photoreal-mira.css';
 
 interface Props {
@@ -78,6 +78,20 @@ const STATE_LABEL: Record<MiraState, string> = {
 
 const PRELOAD = [...new Set(Object.values(SCENE_BY_STATE))];
 const WAVE_BARS = Array.from({ length: 31 }, (_, index) => index);
+const ZERO_CAMERA_FRAME: PhotorealCameraSpatialFrame = {
+  roomX: 0,
+  roomY: 0,
+  subjectX: 0,
+  subjectY: 0,
+  foregroundX: 0,
+  foregroundY: 0,
+  rotateXDeg: 0,
+  rotateYDeg: 0,
+  rollDeg: 0,
+  scale: 1,
+  shadowX: 0,
+  intensity: 0,
+};
 
 export default function PhotorealMira({
   state,
@@ -126,6 +140,7 @@ export default function PhotorealMira({
     distanceM: 0,
     confidence: 0,
   });
+  const cameraDepthRuntimeRef = useRef<typeof import('./photoreal-camera-depth') | null>(null);
   const cameraBaselineDistanceRef = useRef(0);
   const reducedMotionRef = useRef(false);
   const [visualQuality, setVisualQuality] = useState<PhotorealVisualQuality>('balanced');
@@ -157,6 +172,14 @@ export default function PhotorealMira({
       attention: attentionLevel,
     };
   }, [affectActive, affectFollowing, attention, eyeContact, gazeX, gazeY, moodConfidence, presenceContinuity]);
+
+  useEffect(() => {
+    if (cameraPoseEnabled && visualQuality !== 'lite' && !cameraDepthRuntimeRef.current) {
+      void import('./photoreal-camera-depth').then((runtime) => {
+        cameraDepthRuntimeRef.current = runtime;
+      }).catch(() => {});
+    }
+  }, [cameraPoseEnabled, visualQuality]);
 
   useEffect(() => {
     const confidence = Math.max(0, Math.min(1, Number(cameraPoseConfidence) || 0));
@@ -263,18 +286,10 @@ export default function PhotorealMira({
             quality: visualQuality,
           });
 
-      const cameraTarget = reducedMotionRef.current
-        ? computeCameraSpatialFrame({
-            enabled: false,
-            yaw: 0,
-            pitch: 0,
-            roll: 0,
-            distanceM: 0,
-            baselineDistanceM: 0,
-            confidence: 0,
-            quality: 'lite',
-          })
-        : computeCameraSpatialFrame({
+      const cameraRuntime = cameraDepthRuntimeRef.current;
+      const cameraTarget = reducedMotionRef.current || !cameraRuntime
+        ? ZERO_CAMERA_FRAME
+        : cameraRuntime.computeCameraSpatialFrame({
             ...cameraPoseRef.current,
             baselineDistanceM: cameraBaselineDistanceRef.current,
             quality: visualQuality,
