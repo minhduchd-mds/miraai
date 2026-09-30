@@ -10,8 +10,8 @@ export interface VoicePrefs {
 }
 
 export const voicePrefs: VoicePrefs = {
-  rate: 1.0,
-  persona: 'friendly',
+  rate: 0.96,
+  persona: 'gentle',
   responseLength: 'auto',
 };
 
@@ -43,9 +43,9 @@ export function saveVoicePrefs(p: Partial<VoicePrefs>): void {
 }
 
 export const SPEEDS: { id: string; label: string; rate: number }[] = [
-  { id: 'slow', label: 'Chậm', rate: 0.85 },
-  { id: 'normal', label: 'Bình thường', rate: 1.0 },
-  { id: 'fast', label: 'Nhanh', rate: 1.18 },
+  { id: 'slow', label: 'Chậm', rate: 0.86 },
+  { id: 'normal', label: 'Êm', rate: 0.96 },
+  { id: 'fast', label: 'Nhanh', rate: 1.08 },
 ];
 
 export const RESPONSE_LENGTHS: { id: ResponseLength; label: string; description: string }[] = [
