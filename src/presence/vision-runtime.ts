@@ -79,14 +79,21 @@ export async function startVision(): Promise<{ ok: boolean; error: string }> {
       faceRecoveryTimer = window.setTimeout(() => {
         faceRecoveryTimer = null;
         if (session !== visionSession || !holisticTrackerActive()) return;
+
         const face = holisticFaceHealthSnapshot();
+        const performance = holisticPerformanceSnapshot();
         if (face.lastSeenAt > 0 || face.landmarkCount >= 100) return;
 
-        // Holistic is alive but face output never became usable. Restart on the proven
-        // dedicated trackers instead of leaving the camera stuck on "Đang quét khuôn mặt".
+        // A healthy Holistic graph can legitimately report no face when the user is
+        // outside the camera ROI. Do not tear it down just because face landmarks are
+        // absent: that would boot a second Face/Hand/Pose stack, duplicate inference,
+        // and re-initialize MediaPipe graphs unnecessarily.
+        if (performance.processedFrames >= 6 && !holisticTrackerError()) return;
+
+        // Fallback only when Holistic failed to produce a usable processing loop.
         stopHolisticTracking();
         void startLegacyVision(session);
-      }, 4_500);
+      }, 8_000);
     }
     return { ok: true, error: '' };
   }
