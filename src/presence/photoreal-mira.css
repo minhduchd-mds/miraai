@@ -1717,6 +1717,7 @@
     149px 83px,
     167px 91px,
     191px 97px;
+  background-repeat:no-repeat;
   mix-blend-mode:screen;
   filter:blur(.55px);
   will-change:transform,opacity;
