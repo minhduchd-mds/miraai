@@ -10,7 +10,7 @@ import {
   resolvePhotorealVisualQuality,
   type PhotorealVisualQuality,
 } from './photoreal-depth';
-import type { PhotorealCameraSpatialFrame } from './photoreal-camera-depth';
+import type { PhotorealCameraDepthController } from './photoreal-camera-depth';
 import type { PhotorealEnvironmentController } from './photoreal-environment';
 import './photoreal-mira.css';
 
@@ -82,20 +82,6 @@ const STATE_LABEL: Record<MiraState, string> = {
 
 const PRELOAD = [...new Set(Object.values(SCENE_BY_STATE))];
 const WAVE_BARS = Array.from({ length: 31 }, (_, index) => index);
-const ZERO_CAMERA_FRAME: PhotorealCameraSpatialFrame = {
-  roomX: 0,
-  roomY: 0,
-  subjectX: 0,
-  subjectY: 0,
-  foregroundX: 0,
-  foregroundY: 0,
-  rotateXDeg: 0,
-  rotateYDeg: 0,
-  rollDeg: 0,
-  scale: 1,
-  shadowX: 0,
-  intensity: 0,
-};
 
 export default function PhotorealMira({
   state,
@@ -146,13 +132,12 @@ export default function PhotorealMira({
     distanceM: 0,
     confidence: 0,
   });
-  const cameraDepthRuntimeRef = useRef<typeof import('./photoreal-camera-depth') | null>(null);
+  const cameraDepthControllerRef = useRef<PhotorealCameraDepthController | null>(null);
   const environmentControllerRef = useRef<PhotorealEnvironmentController | null>(null);
   const environmentRef = useRef({
     label: 'unknown' as EnvironmentLabel,
     confidence: 0,
   });
-  const cameraBaselineDistanceRef = useRef(0);
   const reducedMotionRef = useRef(false);
   const [visualQuality, setVisualQuality] = useState<PhotorealVisualQuality>('balanced');
   const deviceDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
@@ -185,9 +170,9 @@ export default function PhotorealMira({
   }, [affectActive, affectFollowing, attention, eyeContact, gazeX, gazeY, moodConfidence, presenceContinuity]);
 
   useEffect(() => {
-    if (cameraPoseEnabled && visualQuality !== 'lite' && !cameraDepthRuntimeRef.current) {
+    if (cameraPoseEnabled && visualQuality !== 'lite' && !cameraDepthControllerRef.current) {
       void import('./photoreal-camera-depth').then((runtime) => {
-        cameraDepthRuntimeRef.current = runtime;
+        cameraDepthControllerRef.current = new runtime.PhotorealCameraDepthController();
       }).catch(() => {});
     }
   }, [cameraPoseEnabled, visualQuality]);
@@ -208,26 +193,14 @@ export default function PhotorealMira({
 
   useEffect(() => {
     const confidence = Math.max(0, Math.min(1, Number(cameraPoseConfidence) || 0));
-    const distanceM = Number(cameraDistanceM || 0);
-    const enabled = Boolean(cameraPoseEnabled && confidence >= 0.42);
     cameraPoseRef.current = {
-      enabled,
+      enabled: Boolean(cameraPoseEnabled && confidence >= 0.42),
       yaw: Number(headYaw || 0),
       pitch: Number(headPitch || 0),
       roll: Number(headRoll || 0),
-      distanceM,
+      distanceM: Number(cameraDistanceM || 0),
       confidence,
     };
-
-    if (enabled && distanceM > 0.12) {
-      if (cameraBaselineDistanceRef.current <= 0.12) {
-        cameraBaselineDistanceRef.current = distanceM;
-      } else if (Math.abs(distanceM - cameraBaselineDistanceRef.current) < 0.12) {
-        cameraBaselineDistanceRef.current += (distanceM - cameraBaselineDistanceRef.current) * 0.004;
-      }
-    } else if (!cameraPoseEnabled) {
-      cameraBaselineDistanceRef.current = 0;
-    }
   }, [cameraDistanceM, cameraPoseConfidence, cameraPoseEnabled, headPitch, headRoll, headYaw]);
 
   useEffect(() => {
@@ -281,13 +254,6 @@ export default function PhotorealMira({
       nearX: 0, nearY: 0,
       tiltXDeg: 0, tiltYDeg: 0,
     };
-    const cameraCurrent = {
-      roomX: 0, roomY: 0,
-      subjectX: 0, subjectY: 0,
-      foregroundX: 0, foregroundY: 0,
-      rotateXDeg: 0, rotateYDeg: 0, rollDeg: 0,
-      scale: 1, shadowX: 0, intensity: 0,
-    };
     const frame = (now: number) => {
       const node = rootRef.current;
       if (!node) return;
@@ -310,22 +276,9 @@ export default function PhotorealMira({
             quality: visualQuality,
           });
 
-      const cameraRuntime = cameraDepthRuntimeRef.current;
-      const cameraTarget = reducedMotionRef.current || !cameraRuntime
-        ? ZERO_CAMERA_FRAME
-        : cameraRuntime.computeCameraSpatialFrame({
-            ...cameraPoseRef.current,
-            baselineDistanceM: cameraBaselineDistanceRef.current,
-            quality: visualQuality,
-          });
-
       const smoothing = reducedMotionRef.current ? 1 : 0.11;
-      const cameraSmoothing = reducedMotionRef.current ? 1 : 0.085;
       for (const key of Object.keys(current) as Array<keyof typeof current>) {
         current[key] += (target[key] - current[key]) * smoothing;
-      }
-      for (const key of Object.keys(cameraCurrent) as Array<keyof typeof cameraCurrent>) {
-        cameraCurrent[key] += (cameraTarget[key] - cameraCurrent[key]) * cameraSmoothing;
       }
       node.style.setProperty('--pm-depth-back-x', `${current.backX.toFixed(2)}px`);
       node.style.setProperty('--pm-depth-back-y', `${current.backY.toFixed(2)}px`);
@@ -337,31 +290,19 @@ export default function PhotorealMira({
       node.style.setProperty('--pm-depth-tilt-y', `${current.tiltYDeg.toFixed(3)}deg`);
       node.style.setProperty('--pm-scene-x', `${current.midX.toFixed(2)}px`);
       node.style.setProperty('--pm-scene-y', `${current.midY.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-room-x', `${cameraCurrent.roomX.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-room-y', `${cameraCurrent.roomY.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-subject-x', `${cameraCurrent.subjectX.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-subject-y', `${cameraCurrent.subjectY.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-foreground-x', `${cameraCurrent.foregroundX.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-foreground-y', `${cameraCurrent.foregroundY.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-rotate-x', `${cameraCurrent.rotateXDeg.toFixed(3)}deg`);
-      node.style.setProperty('--pm-camera-rotate-y', `${cameraCurrent.rotateYDeg.toFixed(3)}deg`);
-      node.style.setProperty('--pm-camera-roll', `${cameraCurrent.rollDeg.toFixed(3)}deg`);
-      node.style.setProperty('--pm-camera-scale', cameraCurrent.scale.toFixed(4));
-      node.style.setProperty('--pm-camera-shadow-x', `${cameraCurrent.shadowX.toFixed(2)}px`);
-      node.style.setProperty('--pm-camera-depth-intensity', cameraCurrent.intensity.toFixed(3));
+      const cameraIntensity = cameraDepthControllerRef.current?.update({
+        ...cameraPoseRef.current,
+        quality: visualQuality,
+        reducedMotion: reducedMotionRef.current,
+      }, node, current) || 0;
       environmentControllerRef.current?.update({
         label: environmentRef.current.label,
         confidence: environmentRef.current.confidence,
         attention: gazeDepthRef.current.attention,
-        cameraIntensity: cameraCurrent.intensity,
+        cameraIntensity,
         quality: visualQuality,
         reducedMotion: reducedMotionRef.current,
       }, node, now);
-      node.style.setProperty('--pm-atmosphere-x', `${(current.backX * .45 + cameraCurrent.roomX * .35).toFixed(2)}px`);
-      node.style.setProperty('--pm-atmosphere-y', `${(current.backY * .45 + cameraCurrent.roomY * .35).toFixed(2)}px`);
-      node.style.setProperty('--pm-relight-x', `${(current.midX * .28 + cameraCurrent.subjectX * .24).toFixed(2)}px`);
-      node.style.setProperty('--pm-relight-y', `${(current.midY * .2 + cameraCurrent.subjectY * .18).toFixed(2)}px`);
-      node.style.setProperty('--pm-contact-shadow-x', `${(current.nearX * .16 + cameraCurrent.shadowX).toFixed(2)}px`);
       raf = requestAnimationFrame(frame);
     };
 
