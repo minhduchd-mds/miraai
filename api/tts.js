@@ -6,7 +6,7 @@ const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini-tts';
 const OPENAI_DEFAULT_VOICE = 'marin';
 const ELEVEN_DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL';
 const DEFAULT_VI_INSTRUCTIONS =
-  'Nói tiếng Việt tự nhiên như một cuộc trò chuyện riêng tư. Giọng ấm, gần gũi, tự tin, nhịp vừa phải, phát âm rõ theo phong cách miền Bắc nhưng không cường điệu. Có ngắt nghỉ nhẹ theo ý nghĩa câu, thay đổi ngữ điệu tinh tế, tránh chất giọng phát thanh viên và tuyệt đối không đọc máy móc.';
+  'Nói tiếng Việt tự nhiên như một cuộc trò chuyện riêng tư. Giọng nữ mềm, hiền, ấm và gần gũi; âm đầu nhẹ, không sắc, không bật năng lượng đột ngột. Nhịp chậm vừa đủ, phát âm rõ theo phong cách miền Bắc nhưng không cường điệu. Có nhịp thở và ngắt nghỉ tự nhiên theo ý nghĩa câu; cuối câu thường hạ nhẹ, êm và ấm. Tránh chất giọng phát thanh viên, quảng cáo, đọc tài liệu hoặc cố diễn đáng yêu. Tuyệt đối không đọc máy móc.';
 
 function parseBody(req) {
   let body = req.body;
@@ -80,10 +80,10 @@ async function elevenSpeech({ key, text, voice }) {
         text,
         model_id: process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2',
         voice_settings: {
-          stability: 0.32,
+          stability: 0.5,
           similarity_boost: 0.78,
-          style: 0.34,
-          use_speaker_boost: true,
+          style: 0.16,
+          use_speaker_boost: false,
         },
       }),
     },
