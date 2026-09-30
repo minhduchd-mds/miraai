@@ -412,8 +412,12 @@ export default function PhotorealMira({
         <span className="pm-depth-relight" />
         <span className="pm-depth-contact-shadow" />
         <span className="pm-env-window-light" />
+        <span className="pm-env-city-bokeh" />
+        <span className="pm-env-light-rays" />
         <span className="pm-env-practical-light" />
+        <span className="pm-env-bed-bounce" />
         <span className="pm-env-reflection" />
+        <span className="pm-env-edge-occlusion" />
         <span className="pm-env-dust" />
         <span className="pm-env-vignette" />
         <span className="pm-depth-grain" />
