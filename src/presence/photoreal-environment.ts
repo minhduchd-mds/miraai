@@ -22,6 +22,10 @@ export interface PhotorealEnvironmentFrame {
   shadow: number;
   dust: number;
   vignette: number;
+  cityBokeh: number;
+  lightRays: number;
+  bedBounce: number;
+  edgeOcclusion: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -78,6 +82,10 @@ export function computePhotorealEnvironmentFrame(
     shadow: clamp01((0.42 + cameraIntensity * 0.08) * gain),
     dust: clamp01((0.08 + attention * 0.04) * gain),
     vignette: clamp01((0.22 + (1 - attention) * 0.08) * gain),
+    cityBokeh: clamp01((0.18 + tone.window * 0.42 + cameraIntensity * 0.05) * evidence * gain),
+    lightRays: clamp01((0.14 + tone.cool * 0.18 + attention * 0.05) * evidence * gain),
+    bedBounce: clamp01((0.2 + tone.warm * 0.36 + cameraIntensity * 0.05) * evidence * gain),
+    edgeOcclusion: clamp01((0.26 + cameraIntensity * 0.06) * gain),
   };
 }
 
@@ -157,6 +165,10 @@ export class PhotorealEnvironmentController {
     shadow: 0,
     dust: 0,
     vignette: 0,
+    cityBokeh: 0,
+    lightRays: 0,
+    bedBounce: 0,
+    edgeOcclusion: 0,
   };
   private tier: PhotorealPerformanceTier = 'full';
   private previousFrameAt = 0;
@@ -183,6 +195,7 @@ export class PhotorealEnvironmentController {
       ? {
           warm: 0, cool: 0, practicalLight: 0, windowGlow: 0, reflection: 0,
           haze: 0, shadow: 0, dust: 0, vignette: 0,
+          cityBokeh: 0, lightRays: 0, bedBounce: 0, edgeOcclusion: 0,
         }
       : computePhotorealEnvironmentFrame({
           label: input.label,
@@ -207,6 +220,10 @@ export class PhotorealEnvironmentController {
     node.style.setProperty('--pm-env-shadow', this.current.shadow.toFixed(3));
     node.style.setProperty('--pm-env-dust', this.current.dust.toFixed(3));
     node.style.setProperty('--pm-env-vignette', this.current.vignette.toFixed(3));
+    node.style.setProperty('--pm-env-city-bokeh', this.current.cityBokeh.toFixed(3));
+    node.style.setProperty('--pm-env-light-rays', this.current.lightRays.toFixed(3));
+    node.style.setProperty('--pm-env-bed-bounce', this.current.bedBounce.toFixed(3));
+    node.style.setProperty('--pm-env-edge-occlusion', this.current.edgeOcclusion.toFixed(3));
     return this.tier;
   }
 
