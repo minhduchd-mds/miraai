@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
+import { isRecoverableGpuDelegateError, visionInferenceErrorMessage } from '../vision/vision-delegate-fallback';
 import { inferFacialGesture, type FacialGesture } from './facial-gesture';
 import { EMPTY_FACS_PROXY, facsProxyFromBlendshapes, type FACSProxy } from './facs-proxy';
 import { blendshapeMap, normalizeFaceLandmarks } from '../vision/face-frame-guard';
