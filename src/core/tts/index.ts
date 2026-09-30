@@ -54,12 +54,21 @@ export function saveTTSConfig(cfg: TTSConfig): void {
 
 export function createTTS(): MiraTTS {
   const cfg = loadTTSConfig();
-  if (isGitHubPagesRuntime()) return new PiperLocalTTS();
+
+  if (isGitHubPagesRuntime()) {
+    const secureRemote = /^https:\/\//i.test(cfg.serverUrl || '');
+    if (cfg.engine === 'edge' && secureRemote) return new EdgeTTS(cfg.serverUrl);
+    if (cfg.engine === 'vieneu' && secureRemote) return new VieNeuTTS(cfg.serverUrl);
+    if (cfg.engine === 'cloud' && secureRemote) return new CloudTTS(cfg.serverUrl);
+    if (cfg.engine === 'system') return new WebSpeechTTS();
+    return new PiperLocalTTS();
+  }
+
   if (cfg.engine === 'edge') return new EdgeTTS(cfg.serverUrl || EDGE_DEFAULT_URL);
   if (cfg.engine === 'vieneu') return new VieNeuTTS(cfg.serverUrl || VIENEU_DEFAULT_URL);
   if (cfg.engine === 'elevenlabs' && cfg.apiKey) return new ElevenLabsTTS(cfg.apiKey);
   if (cfg.engine === 'system') return new WebSpeechTTS();
-  return new CloudTTS();
+  return new CloudTTS(cfg.serverUrl || '/api');
 }
 
 export { VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL };
