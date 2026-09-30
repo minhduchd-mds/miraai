@@ -1985,3 +1985,52 @@
     display:none;
   }
 }
+
+
+/* Spatial Visual v27 — single-pass continuous GPU depth warp.
+   The GPU scene canvas bends UVs using an authored continuous depth field.
+   It only activates on Ultra + full performance; segmented overlays become
+   subtler while warp is active to avoid double-image artifacts. */
+.photo-mira[data-depth-warp="true"] .pm-scene-canvas {
+  opacity:1;
+}
+
+.photo-mira[data-depth-warp="true"] .pm-depth-mid,
+.photo-mira[data-depth-warp="true"] .pm-depth-near {
+  opacity:.022;
+}
+
+.photo-mira[data-depth-warp="true"] .pm-scene-segment-window {
+  opacity:.26;
+}
+
+.photo-mira[data-depth-warp="true"] .pm-scene-segment-pillow {
+  opacity:.24;
+}
+
+.photo-mira[data-depth-warp="true"] .pm-scene-segment-subject {
+  opacity:.42;
+}
+
+.photo-mira[data-depth-warp="true"] .pm-scene-segment-bed {
+  opacity:.31;
+}
+
+.photo-mira[data-depth-warp="true"] .pm-scene-segment-foreground {
+  opacity:.36;
+}
+
+.photo-mira[data-performance-tier="reduced"] {
+  --pm-depth-warp-strength:0;
+}
+
+.photo-mira[data-performance-tier="minimal"] {
+  --pm-depth-warp-strength:0;
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .photo-mira[data-depth-warp="true"] .pm-depth-mid,
+  .photo-mira[data-depth-warp="true"] .pm-depth-near {
+    opacity:0;
+  }
+}
