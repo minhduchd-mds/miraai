@@ -167,7 +167,7 @@ for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_
 for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
-for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", "import('./photoreal-camera-depth')", "import('./photoreal-environment')", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'cameraDepthControllerRef', 'environmentControllerRef', 'environmentRef', 'cameraPoseRef', 'pm-env-window-light', 'pm-env-practical-light', 'pm-env-reflection', 'pm-env-dust', 'pm-env-vignette', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
+for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", "import('./photoreal-camera-depth')", "import('./photoreal-environment')", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'cameraDepthControllerRef', 'environmentControllerRef', 'environmentRef', 'cameraPoseRef', 'pm-env-window-light', 'pm-env-city-bokeh', 'pm-env-light-rays', 'pm-env-practical-light', 'pm-env-bed-bounce', 'pm-env-reflection', 'pm-env-edge-occlusion', 'pm-env-dust', 'pm-env-vignette', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira v21/v22/v23/v24 depth-copy integration missing: ${token}`);
 }
 if (photoreal.includes('<span className="pm-clean-copy-scrim"')) failures.push('clean canonical scene must not reintroduce a baked-copy masking scrim');
@@ -187,7 +187,7 @@ for (const token of ['computeCameraSpatialFrame', 'PhotorealCameraSpatialFrame',
 if (/localStorage|sessionStorage|indexedDB/.test(photorealCameraDepth)) failures.push('camera photoreal depth state must remain session-only');
 
 const photorealEnvironment = readFileSync('src/presence/photoreal-environment.ts', 'utf8');
-for (const token of ['computePhotorealEnvironmentFrame', 'PhotorealPerformanceGovernor', 'PhotorealEnvironmentController', 'ENVIRONMENT_TONE', "full: 1", "reduced: 0.66", "minimal: 0.32", 'samples.length > 45', 'p80 > 22', 'dataset.performanceTier', "--pm-env-practical", "--pm-env-window", 'presentation-only']) {
+for (const token of ['computePhotorealEnvironmentFrame', 'PhotorealPerformanceGovernor', 'PhotorealEnvironmentController', 'ENVIRONMENT_TONE', "full: 1", "reduced: 0.66", "minimal: 0.32", 'samples.length > 45', 'p80 > 22', 'dataset.performanceTier', "--pm-env-practical", "--pm-env-window", "--pm-env-city-bokeh", "--pm-env-light-rays", "--pm-env-bed-bounce", "--pm-env-edge-occlusion", 'presentation-only']) {
   if (!photorealEnvironment.includes(token)) failures.push(`photoreal environment runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealEnvironment)) failures.push('photoreal environment/performance state must remain session-only');
@@ -198,10 +198,13 @@ for (const token of ['webgl', 'u_sharpness', 'haloGuard', 'coverUv', 'maxRenderP
 }
 
 const photorealCss = readFileSync('src/presence/photoreal-mira.css', 'utf8');
-for (const token of ['Spatial Visual v21', 'Spatial Visual v22', 'Spatial Visual v23', 'Spatial Visual v24', '--pm-depth-back-x', '--pm-depth-mid-x', '--pm-depth-near-x', '--pm-camera-room-x', '--pm-camera-subject-x', '--pm-camera-foreground-x', '--pm-camera-rotate-x', '--pm-camera-rotate-y', '--pm-camera-scale', '--pm-env-practical', '--pm-env-window', '--pm-env-reflection', '--pm-env-haze', '.pm-env-window-light', '.pm-env-practical-light', '.pm-env-reflection', '.pm-env-dust', '.pm-env-vignette', '[data-performance-tier="reduced"]', '[data-performance-tier="minimal"]', '--pm-clarity-contrast', '.pm-scene-canvas[data-ready="true"]', '.pm-depth-mid', '.pm-depth-near', '.pm-depth-atmosphere', '.pm-depth-relight', '.pm-depth-contact-shadow', '.pm-hero-copy', '[data-hero-state="listening"]', '@keyframes pmHeroLineIn', '[data-visual-quality="lite"]']) {
+for (const token of ['Spatial Visual v21', 'Spatial Visual v22', 'Spatial Visual v23', 'Spatial Visual v24', 'Spatial Visual v25', '--pm-depth-back-x', '--pm-depth-mid-x', '--pm-depth-near-x', '--pm-camera-room-x', '--pm-camera-subject-x', '--pm-camera-foreground-x', '--pm-camera-rotate-x', '--pm-camera-rotate-y', '--pm-camera-scale', '--pm-env-practical', '--pm-env-window', '--pm-env-reflection', '--pm-env-haze', '--pm-env-city-bokeh', '--pm-env-light-rays', '--pm-env-bed-bounce', '--pm-env-edge-occlusion', '.pm-env-window-light', '.pm-env-city-bokeh', '.pm-env-light-rays', '.pm-env-practical-light', '.pm-env-bed-bounce', '.pm-env-reflection', '.pm-env-edge-occlusion', '.pm-env-dust', '.pm-env-vignette', '[data-performance-tier="reduced"]', '[data-performance-tier="minimal"]', '--pm-clarity-contrast', '.pm-scene-canvas[data-ready="true"]', '.pm-depth-mid', '.pm-depth-near', '.pm-depth-atmosphere', '.pm-depth-relight', '.pm-depth-contact-shadow', '.pm-hero-copy', '[data-hero-state="listening"]', '@keyframes pmHeroLineIn', '[data-visual-quality="lite"]']) {
   if (!photorealCss.includes(token)) failures.push(`photoreal v21/v22/v23/v24 CSS missing: ${token}`);
 }
 if (/filter\s*:\s*blur\([^)]*--pm-camera|backdrop-filter[^;]*--pm-camera/.test(photorealCss)) failures.push('camera-driven v23 must keep per-frame motion on compositor transforms, not animated blur/backdrop-filter');
+if (!photorealCss.includes('[data-performance-tier="minimal"] .pm-env-city-bokeh') || !photorealCss.includes('[data-performance-tier="reduced"] .pm-env-light-rays')) {
+  failures.push('v25 environmental depth layers must degrade under frame pressure');
+}
 
 const photorealRestore = readFileSync('scripts/restore-photoreal-assets.mjs', 'utf8');
 for (const token of ['PART_COUNT = 11', 'EXPECTED_SHA256', 'Buffer.from(encoded, \'base64\')', 'RIFF', 'WEBP', 'writeFileSync']) {
