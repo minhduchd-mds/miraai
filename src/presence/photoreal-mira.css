@@ -1431,9 +1431,9 @@
       calc(var(--pm-depth-back-y) + var(--pm-camera-room-y)),
       -14px
     )
-    rotateX(calc(var(--pm-depth-tilt-x) + var(--pm-camera-rotate-x) * .48))
-    rotateY(calc(var(--pm-depth-tilt-y) + var(--pm-camera-rotate-y) * .48))
-    rotateZ(calc(var(--pm-camera-roll) * .22))
+    rotateX(var(--pm-camera-rotate-x))
+    rotateY(var(--pm-camera-rotate-y))
+    rotateZ(var(--pm-camera-roll))
     scale(1.026)
     scale(var(--pm-camera-scale));
 }
@@ -1445,9 +1445,9 @@
       calc(var(--pm-depth-back-y) + var(--pm-camera-room-y)),
       -9px
     )
-    rotateX(calc(var(--pm-depth-tilt-x) + var(--pm-camera-rotate-x) * .52))
-    rotateY(calc(var(--pm-depth-tilt-y) + var(--pm-camera-rotate-y) * .52))
-    rotateZ(calc(var(--pm-camera-roll) * .24))
+    rotateX(var(--pm-camera-rotate-x))
+    rotateY(var(--pm-camera-rotate-y))
+    rotateZ(var(--pm-camera-roll))
     scale(1.024)
     scale(var(--pm-camera-scale));
 }
@@ -1457,11 +1457,11 @@
     translate3d(
       calc(var(--pm-depth-mid-x) + var(--pm-camera-subject-x)),
       calc(var(--pm-depth-mid-y) + var(--pm-camera-subject-y)),
-      calc(9px + var(--pm-camera-depth-intensity) * 4px)
+      11px
     )
-    rotateX(calc(var(--pm-camera-rotate-x) * .86))
-    rotateY(calc(var(--pm-camera-rotate-y) * .9))
-    rotateZ(calc(var(--pm-camera-roll) * .42))
+    rotateX(var(--pm-camera-rotate-x))
+    rotateY(var(--pm-camera-rotate-y))
+    rotateZ(var(--pm-camera-roll))
     scale(1.018)
     scale(var(--pm-camera-scale));
 }
@@ -1471,13 +1471,13 @@
     translate3d(
       calc(var(--pm-depth-near-x) + var(--pm-camera-foreground-x)),
       calc(var(--pm-depth-near-y) + var(--pm-camera-foreground-y)),
-      calc(19px + var(--pm-camera-depth-intensity) * 7px)
+      22px
     )
     rotateX(var(--pm-camera-rotate-x))
     rotateY(var(--pm-camera-rotate-y))
-    rotateZ(calc(var(--pm-camera-roll) * .58))
+    rotateZ(var(--pm-camera-roll))
     scale(1.017)
-    scale(calc(1 + (var(--pm-camera-scale) - 1) * 1.12));
+    scale(var(--pm-camera-scale));
 }
 
 .bedroom-presence .pm-depth-atmosphere {
@@ -1494,7 +1494,7 @@
     calc(var(--pm-depth-mid-y) * .2 + var(--pm-camera-subject-y) * .18),
     0
   );
-  opacity: calc(.1 + var(--pm-attention) * .07 + var(--pm-camera-depth-intensity) * .025);
+  opacity: calc(.1 + var(--pm-attention) * .07);
 }
 
 .bedroom-presence .pm-depth-contact-shadow {
@@ -1504,7 +1504,7 @@
       0,
       18px
     )
-    scaleX(calc(1.08 + var(--pm-camera-depth-intensity) * .035));
+    scaleX(1.08);
 }
 
 .photo-mira[data-visual-quality="balanced"] {
