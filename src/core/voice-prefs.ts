@@ -24,9 +24,25 @@ export function isResponseLength(value: unknown): value is ResponseLength {
 export function loadVoicePrefs(): VoicePrefs {
   try {
     const c = JSON.parse(localStorage.getItem(LS) || '{}');
-    if (typeof c.rate === 'number') voicePrefs.rate = c.rate;
-    if (typeof c.persona === 'string') voicePrefs.persona = c.persona;
-    if (isResponseLength(c.responseLength)) voicePrefs.responseLength = c.responseLength;
+    const legacyDefaultProfile = Number(c.voiceProfileVersion || 0) < 2
+      && (c.persona == null || c.persona === 'friendly')
+      && (c.rate == null || Math.abs(Number(c.rate) - 1) < 0.001);
+
+    if (legacyDefaultProfile) {
+      voicePrefs.rate = 0.96;
+      voicePrefs.persona = 'gentle';
+      if (isResponseLength(c.responseLength)) voicePrefs.responseLength = c.responseLength;
+      localStorage.setItem(LS, JSON.stringify({
+        ...c,
+        rate: voicePrefs.rate,
+        persona: voicePrefs.persona,
+        voiceProfileVersion: 2,
+      }));
+    } else {
+      if (typeof c.rate === 'number') voicePrefs.rate = c.rate;
+      if (typeof c.persona === 'string') voicePrefs.persona = c.persona;
+      if (isResponseLength(c.responseLength)) voicePrefs.responseLength = c.responseLength;
+    }
   } catch {
     /* noop */
   }
@@ -36,7 +52,7 @@ export function loadVoicePrefs(): VoicePrefs {
 export function saveVoicePrefs(p: Partial<VoicePrefs>): void {
   Object.assign(voicePrefs, p);
   try {
-    localStorage.setItem(LS, JSON.stringify(voicePrefs));
+    localStorage.setItem(LS, JSON.stringify({ ...voicePrefs, voiceProfileVersion: 2 }));
   } catch {
     /* noop */
   }
