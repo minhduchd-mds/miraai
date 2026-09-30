@@ -1,3 +1,4 @@
+import { voicePrefs } from '../voice-prefs';
 export type SpeechPerformance = 'warm' | 'focused' | 'serious' | 'excited' | 'quiet';
 export type SpeechTurnRole =
   | 'opening'
@@ -30,17 +31,17 @@ export interface DirectedVietnameseTurn extends DirectedVietnameseSpeech {
 const PERFORMANCE_RATE: Record<SpeechPerformance, number> = {
   warm: 0.98,
   focused: 0.97,
-  serious: 0.94,
-  excited: 1.03,
-  quiet: 0.93,
+  serious: 0.93,
+  excited: 1.015,
+  quiet: 0.91,
 };
 
 const PERFORMANCE_GUIDANCE: Record<SpeechPerformance, string> = {
-  warm: 'Ấm áp, gần gũi, tự nhiên. Nhịp vừa phải, cuối câu mềm, không phát thanh viên.',
-  focused: 'Tập trung và rõ ý. Chậm nhẹ trước kết luận, nhấn đúng từ khóa, không đều đều như đọc tài liệu.',
-  serious: 'Bình tĩnh, chắc, hơi chậm. Hạ năng lượng, nhấn cảnh báo vừa đủ, không kịch tính hóa.',
-  excited: 'Tươi và có năng lượng hơn một chút. Nói gọn, sáng, vẫn giữ sự tinh tế và không reo quá mức.',
-  quiet: 'Nhẹ, riêng tư, chậm hơn một chút. Giữ âm lượng cảm nhận mềm và khoảng nghỉ tự nhiên.',
+  warm: 'Ấm, mượt và gần gũi. Vào câu nhẹ, giữ âm lượng cảm nhận mềm, cuối câu hạ tự nhiên; không phát thanh viên.',
+  focused: 'Rõ ý nhưng vẫn mềm. Chậm nhẹ trước kết luận, nhấn đúng từ khóa rồi thả giọng ngay, không đều đều như đọc tài liệu.',
+  serious: 'Bình tĩnh, chắc nhưng không lạnh. Hạ năng lượng và tốc độ, nhấn cảnh báo vừa đủ, không kịch tính hóa.',
+  excited: 'Tươi hơn một chút nhưng vẫn dịu. Không bật âm đầu quá mạnh, không reo, không đẩy tốc độ lên cao.',
+  quiet: 'Rất nhẹ, riêng tư và gần. Chậm hơn một chút, âm lượng cảm nhận mềm, khoảng nghỉ tự nhiên, không thì thầm gượng.',
 };
 
 const ROLE_GUIDANCE: Record<SpeechTurnRole, string> = {
@@ -124,8 +125,13 @@ function extractEmphasis(text: string): string {
 }
 
 function buildInstructions(performance: SpeechPerformance, emphasis: string): string {
+  const gentleProfile = voicePrefs.persona === 'gentle'
+    ? 'Giữ chất giọng nữ tính dịu dàng, mượt, hiền và gần gũi. Âm đầu mềm, không sắc; không nâng năng lượng đột ngột; cuối câu thường hạ nhẹ và ấm. Tránh cảm giác đọc quảng cáo, đọc bản tin hoặc cố tỏ ra đáng yêu.'
+    : '';
+
   const lines = [
     'Nói tiếng Việt hội thoại tự nhiên, thiên nhịp miền Bắc nhưng không cường điệu vùng miền.',
+    gentleProfile,
     'Đây là lời nói trực tiếp, không phải đọc văn bản: chia câu thành các cụm ý ngắn, có nhịp thở và khoảng nghỉ theo nghĩa.',
     'Không đọc markdown, ký hiệu định dạng, tiêu đề hay cấu trúc danh sách như một tài liệu.',
     'Không kéo dài mọi dấu chấm, không nhấn đều từng từ, không dùng chất giọng phát thanh viên.',
@@ -133,7 +139,7 @@ function buildInstructions(performance: SpeechPerformance, emphasis: string): st
     PERFORMANCE_GUIDANCE[performance],
   ];
   if (emphasis) lines.push(`Nhấn nhẹ cụm quan trọng “${emphasis}”, rồi hạ giọng tự nhiên sau cụm đó.`);
-  return lines.join(' ');
+  return lines.filter(Boolean).join(' ');
 }
 
 function splitSemanticUnits(text: string): string[] {
