@@ -4921,3 +4921,90 @@ test('photoreal depth warp shader carries authored depth regions', () => {
     assert.ok(shader.includes(token));
   }
 });
+
+
+test('photoreal view refinement enables relight before full warp', () => {
+  const frame = { rotateXDeg: -0.8, rotateYDeg: 1.7, intensity: 0.72 };
+  const high = photorealDepthWarp.computePhotorealViewRefinementControl(
+    frame,
+    'high',
+    'full',
+    false,
+  );
+  assert.equal(high.active, true);
+  assert.equal(high.warpStrength, 0);
+  assert.ok(high.relightStrength > 0 && high.relightStrength <= 0.12);
+  assert.ok(high.occlusionStrength > 0 && high.occlusionStrength <= 0.1);
+  assert.equal(high.fpsCap, 24);
+
+  const ultra = photorealDepthWarp.computePhotorealViewRefinementControl(
+    frame,
+    'ultra',
+    'full',
+    false,
+  );
+  assert.equal(ultra.active, true);
+  assert.ok(ultra.warpStrength > 0);
+  assert.ok(ultra.relightStrength > high.relightStrength);
+  assert.ok(ultra.occlusionStrength > high.occlusionStrength);
+  assert.equal(ultra.fpsCap, 30);
+});
+
+test('photoreal view refinement disables under frame pressure or reduced motion', () => {
+  const frame = { rotateXDeg: -1.1, rotateYDeg: 2.2, intensity: 0.88 };
+  for (const [quality, tier, reducedMotion] of [
+    ['ultra', 'reduced', false],
+    ['high', 'minimal', false],
+    ['ultra', 'full', true],
+    ['balanced', 'full', false],
+  ]) {
+    const control = photorealDepthWarp.computePhotorealViewRefinementControl(
+      frame,
+      quality,
+      tier,
+      reducedMotion,
+    );
+    assert.deepEqual(control, {
+      active: false,
+      viewX: 0,
+      viewY: 0,
+      warpStrength: 0,
+      relightStrength: 0,
+      occlusionStrength: 0,
+      fpsCap: 0,
+    });
+  }
+});
+
+test('photoreal view refinement clamps relight and occlusion strengths', () => {
+  const control = photorealDepthWarp.computePhotorealViewRefinementControl(
+    { rotateXDeg: -99, rotateYDeg: 99, intensity: 9 },
+    'ultra',
+    'full',
+    false,
+  );
+  assert.equal(control.viewX, 1);
+  assert.equal(control.viewY, 1);
+  assert.equal(control.warpStrength, 1);
+  assert.equal(control.relightStrength, 0.22);
+  assert.equal(control.occlusionStrength, 0.18);
+});
+
+test('photoreal shader exposes depth-gradient refinement terms', () => {
+  const source = await readFile(
+    new URL('../src/presence/PhotorealSceneCanvas.tsx', import.meta.url),
+    'utf8',
+  );
+  for (const token of [
+    'u_relight_strength',
+    'u_occlusion_strength',
+    'depthGradient',
+    'edgeStrength',
+    'microLight',
+    'microOcclusion',
+    'subjectWeight',
+    'data.viewRefinement',
+  ]) {
+    assert.ok(source.includes(token));
+  }
+});
