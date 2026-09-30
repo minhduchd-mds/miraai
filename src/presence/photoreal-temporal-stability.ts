@@ -30,7 +30,7 @@ function boundedApproach(
 }
 
 /**
- * Presentation-only temporal stabilizer for the v28 view refinement controls.
+ * presentation-only temporal stabilizer for the v28 view refinement controls.
  *
  * It suppresses short camera-pose spikes and fast direction reversals before
  * they reach the shader. It never changes face/hand perception and never
