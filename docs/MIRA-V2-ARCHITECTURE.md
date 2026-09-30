@@ -365,6 +365,16 @@ The same runtime contains a frame-time governor with `full`, `reduced` and `mini
 
 The environment runtime is dynamically loaded, session-only and downstream of perception. It does not write environment telemetry to durable memory and does not claim that the rendered bedroom is a reconstruction of the user's physical room.
 
+### Spatial Visual v26 scene-segmentation boundary
+
+The canonical bedroom source now has an authored semantic presentation profile in `photoreal-scene-segmentation.ts`. It defines normalized polygons for window/city, pillow, subject, bed and foreground blanket, ordered by presentation depth.
+
+`PhotorealSceneSegments.tsx` is lazy-loaded only for high/ultra visual tiers. It reuses the same source image and clips it into scene-specific depth planes that consume the existing camera-driven room/subject/foreground transform variables.
+
+This is deliberately not another realtime segmentation model. The source is static, so authored masks avoid competing with face/hand/pose inference for CPU/GPU. The existing frame-time governor removes segment layers on reduced/minimal tiers.
+
+The regions are presentation masks only: they are not metric depth, reconstructed geometry or persistent world state. Changing the canonical bedroom source requires reviewing the authored profile.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
