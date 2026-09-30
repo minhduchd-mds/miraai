@@ -1683,22 +1683,13 @@ export default function AppV2() {
         pitch: Number(face?.pitch || 0),
       });
       setGazeTelemetry({ x: calibrated.gazeX, y: calibrated.gazeY });
-      const nextCameraPose = {
+      setCameraPoseTelemetry({
         yaw: calibrated.yaw,
         pitch: calibrated.pitch,
         roll: Number(face?.roll || 0),
         distanceM: Number(spatial.distanceM || 0),
         confidence: faceConfidence,
-      };
-      setCameraPoseTelemetry((current) => (
-        Math.abs(current.yaw - nextCameraPose.yaw) < 0.006 &&
-        Math.abs(current.pitch - nextCameraPose.pitch) < 0.006 &&
-        Math.abs(current.roll - nextCameraPose.roll) < 0.008 &&
-        Math.abs(current.distanceM - nextCameraPose.distanceM) < 0.012 &&
-        Math.abs(current.confidence - nextCameraPose.confidence) < 0.02
-          ? current
-          : nextCameraPose
-      ));
+      });
       const interaction = interactionTrackerRef.current.update({
         facePresent: Boolean(face?.present),
         faceConfidence,
