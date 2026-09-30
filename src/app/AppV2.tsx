@@ -537,6 +537,13 @@ export default function AppV2() {
   const [faceSocialCue, setFaceSocialCue] = useState<FaceSocialCue>('none');
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
+  const [cameraPoseTelemetry, setCameraPoseTelemetry] = useState({
+    yaw: 0,
+    pitch: 0,
+    roll: 0,
+    distanceM: 0,
+    confidence: 0,
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
@@ -830,6 +837,7 @@ export default function AppV2() {
     setPresenceContinuity({ ...EMPTY_PRESENCE_CONTINUITY });
     setFaceSocialCue('none');
     setGazeTelemetry({ x: 0, y: 0 });
+    setCameraPoseTelemetry({ yaw: 0, pitch: 0, roll: 0, distanceM: 0, confidence: 0 });
     setFaceLandmarks([]);
     sceneGraphTrackerRef.current.reset();
     objectInteractionTrackerRef.current.reset();
@@ -1675,6 +1683,22 @@ export default function AppV2() {
         pitch: Number(face?.pitch || 0),
       });
       setGazeTelemetry({ x: calibrated.gazeX, y: calibrated.gazeY });
+      const nextCameraPose = {
+        yaw: calibrated.yaw,
+        pitch: calibrated.pitch,
+        roll: Number(face?.roll || 0),
+        distanceM: Number(spatial.distanceM || 0),
+        confidence: faceConfidence,
+      };
+      setCameraPoseTelemetry((current) => (
+        Math.abs(current.yaw - nextCameraPose.yaw) < 0.006 &&
+        Math.abs(current.pitch - nextCameraPose.pitch) < 0.006 &&
+        Math.abs(current.roll - nextCameraPose.roll) < 0.008 &&
+        Math.abs(current.distanceM - nextCameraPose.distanceM) < 0.012 &&
+        Math.abs(current.confidence - nextCameraPose.confidence) < 0.02
+          ? current
+          : nextCameraPose
+      ));
       const interaction = interactionTrackerRef.current.update({
         facePresent: Boolean(face?.present),
         faceConfidence,
@@ -3079,6 +3103,12 @@ export default function AppV2() {
             eyeContact={interactionTelemetry.eyeContact}
             gazeX={gazeTelemetry.x}
             gazeY={gazeTelemetry.y}
+            cameraPoseEnabled={visionOn && faceSeen}
+            headYaw={cameraPoseTelemetry.yaw}
+            headPitch={cameraPoseTelemetry.pitch}
+            headRoll={cameraPoseTelemetry.roll}
+            cameraDistanceM={cameraPoseTelemetry.distanceM}
+            cameraPoseConfidence={cameraPoseTelemetry.confidence}
             socialCue={faceSocialCue}
             presenceMode={presenceContinuity.mode}
             presenceCue={presenceContinuity.cue}
