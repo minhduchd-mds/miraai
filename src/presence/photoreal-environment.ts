@@ -130,3 +130,92 @@ export class PhotorealPerformanceGovernor {
     this.lastTierChangeAt = 0;
   }
 }
+
+
+export interface PhotorealEnvironmentControllerInput {
+  label: EnvironmentLabel;
+  confidence: number;
+  attention: number;
+  cameraIntensity: number;
+  quality: PhotorealVisualQuality;
+  reducedMotion: boolean;
+}
+
+/**
+ * Lazy environment presenter. Keeps frame-governor state, interpolation and DOM
+ * custom-property writes out of the initial application chunk.
+ */
+export class PhotorealEnvironmentController {
+  private governor = new PhotorealPerformanceGovernor();
+  private current: PhotorealEnvironmentFrame = {
+    warm: 0,
+    cool: 0,
+    practicalLight: 0,
+    windowGlow: 0,
+    reflection: 0,
+    haze: 0,
+    shadow: 0,
+    dust: 0,
+    vignette: 0,
+  };
+  private tier: PhotorealPerformanceTier = 'full';
+  private previousFrameAt = 0;
+
+  update(
+    input: PhotorealEnvironmentControllerInput,
+    node: HTMLElement,
+    now = performance.now(),
+  ): PhotorealPerformanceTier {
+    const frameMs = this.previousFrameAt > 0
+      ? clamp(now - this.previousFrameAt, 4, 80)
+      : 16.7;
+    this.previousFrameAt = now;
+
+    const nextTier = input.reducedMotion
+      ? 'minimal'
+      : this.governor.update(frameMs, now);
+    if (nextTier !== this.tier || node.dataset.performanceTier !== nextTier) {
+      this.tier = nextTier;
+      node.dataset.performanceTier = nextTier;
+    }
+
+    const target = input.reducedMotion
+      ? {
+          warm: 0, cool: 0, practicalLight: 0, windowGlow: 0, reflection: 0,
+          haze: 0, shadow: 0, dust: 0, vignette: 0,
+        }
+      : computePhotorealEnvironmentFrame({
+          label: input.label,
+          confidence: input.confidence,
+          attention: input.attention,
+          cameraIntensity: input.cameraIntensity,
+          quality: input.quality,
+          performanceTier: this.tier,
+        });
+
+    const smoothing = input.reducedMotion ? 1 : 0.055;
+    for (const key of Object.keys(this.current) as Array<keyof PhotorealEnvironmentFrame>) {
+      this.current[key] += (target[key] - this.current[key]) * smoothing;
+    }
+
+    node.style.setProperty('--pm-env-warm', this.current.warm.toFixed(3));
+    node.style.setProperty('--pm-env-cool', this.current.cool.toFixed(3));
+    node.style.setProperty('--pm-env-practical', this.current.practicalLight.toFixed(3));
+    node.style.setProperty('--pm-env-window', this.current.windowGlow.toFixed(3));
+    node.style.setProperty('--pm-env-reflection', this.current.reflection.toFixed(3));
+    node.style.setProperty('--pm-env-haze', this.current.haze.toFixed(3));
+    node.style.setProperty('--pm-env-shadow', this.current.shadow.toFixed(3));
+    node.style.setProperty('--pm-env-dust', this.current.dust.toFixed(3));
+    node.style.setProperty('--pm-env-vignette', this.current.vignette.toFixed(3));
+    return this.tier;
+  }
+
+  reset(): void {
+    this.governor.reset();
+    this.previousFrameAt = 0;
+    this.tier = 'full';
+    for (const key of Object.keys(this.current) as Array<keyof PhotorealEnvironmentFrame>) {
+      this.current[key] = 0;
+    }
+  }
+}
