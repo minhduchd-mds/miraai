@@ -537,13 +537,6 @@ export default function AppV2() {
   const [faceSocialCue, setFaceSocialCue] = useState<FaceSocialCue>('none');
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
-  const [cameraPoseTelemetry, setCameraPoseTelemetry] = useState({
-    yaw: 0,
-    pitch: 0,
-    roll: 0,
-    distanceM: 0,
-    confidence: 0,
-  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
@@ -706,7 +699,8 @@ export default function AppV2() {
   } | null>(null);
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
-    gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
+    gazeX: 0, gazeY: 0, yaw: 0, pitch: 0, roll: 0, distanceM: 0, confidence: 0,
+    headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
     muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
   });
 
@@ -837,7 +831,6 @@ export default function AppV2() {
     setPresenceContinuity({ ...EMPTY_PRESENCE_CONTINUITY });
     setFaceSocialCue('none');
     setGazeTelemetry({ x: 0, y: 0 });
-    setCameraPoseTelemetry({ yaw: 0, pitch: 0, roll: 0, distanceM: 0, confidence: 0 });
     setFaceLandmarks([]);
     sceneGraphTrackerRef.current.reset();
     objectInteractionTrackerRef.current.reset();
@@ -876,7 +869,8 @@ export default function AppV2() {
     mira.observeAffect(neutral);
     setFaceTelemetry({
       smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
-      gazeX: 0, gazeY: 0, headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
+      gazeX: 0, gazeY: 0, yaw: 0, pitch: 0, roll: 0, distanceM: 0, confidence: 0,
+      headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
   }, [mira.observeAffect]);
@@ -1683,13 +1677,6 @@ export default function AppV2() {
         pitch: Number(face?.pitch || 0),
       });
       setGazeTelemetry({ x: calibrated.gazeX, y: calibrated.gazeY });
-      setCameraPoseTelemetry({
-        yaw: calibrated.yaw,
-        pitch: calibrated.pitch,
-        roll: Number(face?.roll || 0),
-        distanceM: Number(spatial.distanceM || 0),
-        confidence: faceConfidence,
-      });
       const interaction = interactionTrackerRef.current.update({
         facePresent: Boolean(face?.present),
         faceConfidence,
@@ -2663,6 +2650,11 @@ export default function AppV2() {
         browDown: Number(face?.browDown || 0),
         gazeX: Number(face?.gazeX || 0),
         gazeY: Number(face?.gazeY || 0),
+        yaw: calibrated.yaw,
+        pitch: calibrated.pitch,
+        roll: Number(face?.roll || 0),
+        distanceM: Number(spatial.distanceM || 0),
+        confidence: faceConfidence,
         headGesture: String(face?.headGesture || 'none'),
         faceGesture: String(face?.faceGesture || 'none'),
         faceGestureConfidence: Number(face?.faceGestureConfidence || 0),
@@ -3095,11 +3087,11 @@ export default function AppV2() {
             gazeX={gazeTelemetry.x}
             gazeY={gazeTelemetry.y}
             cameraPoseEnabled={visionOn && faceSeen}
-            headYaw={cameraPoseTelemetry.yaw}
-            headPitch={cameraPoseTelemetry.pitch}
-            headRoll={cameraPoseTelemetry.roll}
-            cameraDistanceM={cameraPoseTelemetry.distanceM}
-            cameraPoseConfidence={cameraPoseTelemetry.confidence}
+            headYaw={faceTelemetry.yaw}
+            headPitch={faceTelemetry.pitch}
+            headRoll={faceTelemetry.roll}
+            cameraDistanceM={faceTelemetry.distanceM}
+            cameraPoseConfidence={faceTelemetry.confidence}
             socialCue={faceSocialCue}
             presenceMode={presenceContinuity.mode}
             presenceCue={presenceContinuity.cue}
