@@ -5132,3 +5132,74 @@ test('photoreal scene canvas exposes temporal stability diagnostics', () => {
     assert.ok(source.includes(token));
   }
 });
+
+
+test('photoreal warp safety envelope preserves stable interior motion', () => {
+  const safe = photorealDepthWarp.computePhotorealWarpSafetyEnvelope({
+    edgeStrength: 0.04,
+    depthMismatch: 0.01,
+    sourceEdgeDistance: 0.2,
+    stability: 1,
+  });
+  assert.ok(safe > 0.9);
+});
+
+test('photoreal warp safety envelope suppresses disocclusion risk', () => {
+  const safe = photorealDepthWarp.computePhotorealWarpSafetyEnvelope({
+    edgeStrength: 0.05,
+    depthMismatch: 0.01,
+    sourceEdgeDistance: 0.2,
+    stability: 1,
+  });
+  const risky = photorealDepthWarp.computePhotorealWarpSafetyEnvelope({
+    edgeStrength: 0.92,
+    depthMismatch: 0.34,
+    sourceEdgeDistance: 0.006,
+    stability: 0.3,
+  });
+  assert.ok(risky < 0.12);
+  assert.ok(risky < safe);
+});
+
+test('photoreal warp safety envelope respects source edges and temporal stability', () => {
+  const stableCenter = photorealDepthWarp.computePhotorealWarpSafetyEnvelope({
+    edgeStrength: 0.2,
+    depthMismatch: 0.04,
+    sourceEdgeDistance: 0.18,
+    stability: 1,
+  });
+  const unstableCenter = photorealDepthWarp.computePhotorealWarpSafetyEnvelope({
+    edgeStrength: 0.2,
+    depthMismatch: 0.04,
+    sourceEdgeDistance: 0.18,
+    stability: 0.2,
+  });
+  const sourceEdge = photorealDepthWarp.computePhotorealWarpSafetyEnvelope({
+    edgeStrength: 0.2,
+    depthMismatch: 0.04,
+    sourceEdgeDistance: 0.004,
+    stability: 1,
+  });
+
+  assert.ok(stableCenter > unstableCenter);
+  assert.equal(sourceEdge, 0);
+});
+
+test('photoreal shader guards warp against depth discontinuity and source edges', () => {
+  const source = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
+  for (const token of [
+    'u_temporal_stability',
+    'candidateUv',
+    'candidateDepth',
+    'depthMismatch',
+    'sourceEdgeDistance',
+    'depthBoundaryGuard',
+    'continuityGuard',
+    'sourceEdgeGuard',
+    'temporalGuard',
+    'warpConfidence',
+    'mix(baseUv, candidateUv, warpConfidence)',
+  ]) {
+    assert.ok(source.includes(token));
+  }
+});
