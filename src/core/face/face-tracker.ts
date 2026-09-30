@@ -83,6 +83,9 @@ export const faceData: FaceData = {
 
 let landmarker: { detectForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
+let activeDelegate: 'GPU' | 'CPU' | 'unknown' = 'unknown';
+let delegateFailoverPromise: Promise<boolean> | null = null;
+let consecutiveInferenceFailures = 0;
 let raf = 0;
 let stopped = true;
 let busy = false;
@@ -175,8 +178,52 @@ function updateEmotion(bs: Record<string, number>): void {
   };
 }
 
+async function createFaceLandmarker(delegate: 'GPU' | 'CPU'): Promise<any> {
+  const vision = await import('@mediapipe/tasks-vision');
+  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
+  return vision.FaceLandmarker.createFromOptions(resolver, {
+    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+    runningMode: 'VIDEO',
+    numFaces: 1,
+    outputFaceBlendshapes: true,
+    outputFacialTransformationMatrixes: true,
+  });
+}
+
+async function fallbackFaceToCpu(reason: unknown): Promise<boolean> {
+  if (delegateFailoverPromise) return delegateFailoverPromise;
+  delegateFailoverPromise = (async () => {
+    const previous = landmarker;
+    landmarker = null;
+    try { previous?.close?.(); } catch { /* noop */ }
+    try {
+      const cpu = await createFaceLandmarker('CPU');
+      if (stopped) {
+        try { cpu?.close?.(); } catch { /* noop */ }
+        return false;
+      }
+      landmarker = cpu;
+      activeDelegate = 'CPU';
+      consecutiveInferenceFailures = 0;
+      lastError = null;
+      console.warn('[Mira Face] GPU inference failed; switched to CPU delegate.', visionInferenceErrorMessage(reason));
+      return true;
+    } catch (error) {
+      lastError = visionInferenceErrorMessage(error);
+      return false;
+    }
+  })().finally(() => {
+    delegateFailoverPromise = null;
+  });
+  return delegateFailoverPromise;
+}
+
 function readFrame(): void {
-  if (stopped || !landmarker || !video) return;
+  if (stopped || !video) return;
+  if (!landmarker || delegateFailoverPromise) {
+    raf = requestAnimationFrame(readFrame);
+    return;
+  }
   const now = performance.now();
   if (now - lastInferenceAt < inferenceIntervalMs()) {
     raf = requestAnimationFrame(readFrame);
@@ -187,8 +234,16 @@ function readFrame(): void {
   let res: any = null;
   try {
     res = landmarker.detectForVideo(video, now);
-  } catch {
+    consecutiveInferenceFailures = 0;
+  } catch (error) {
     res = null;
+    consecutiveInferenceFailures += 1;
+    if (
+      activeDelegate === 'GPU' &&
+      (isRecoverableGpuDelegateError(error) || consecutiveInferenceFailures >= 2)
+    ) {
+      void fallbackFaceToCpu(error);
+    }
   }
 
   const landmarks = normalizeFaceLandmarks(res?.faceLandmarks?.[0]);
@@ -304,25 +359,14 @@ export async function startFaceTracking(): Promise<boolean> {
   busy = true;
   lastError = null;
   try {
-    const vision = await import('@mediapipe/tasks-vision');
-    const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
     try {
-      landmarker = await vision.FaceLandmarker.createFromOptions(resolver, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: true,
-      });
+      landmarker = await createFaceLandmarker('GPU');
+      activeDelegate = 'GPU';
     } catch {
-      landmarker = await vision.FaceLandmarker.createFromOptions(resolver, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: true,
-      });
+      landmarker = await createFaceLandmarker('CPU');
+      activeDelegate = 'CPU';
     }
+    consecutiveInferenceFailures = 0;
     video = await acquireVisionCamera('face');
     stopped = false;
     faceData.active = true;
@@ -346,6 +390,9 @@ export function stopFaceTracking(): void {
   video = null;
   try { landmarker?.close?.(); } catch { /* noop */ }
   landmarker = null;
+  activeDelegate = 'unknown';
+  delegateFailoverPromise = null;
+  consecutiveInferenceFailures = 0;
   faceData.active = false;
   faceData.present = false;
   faceData.landmarks = [];
