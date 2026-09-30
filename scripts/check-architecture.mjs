@@ -204,13 +204,19 @@ for (const token of ['PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealDepthWarpCon
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealDepthWarp)) failures.push('photoreal depth warp control must remain session-only');
 
+const photorealTemporalStability = readFileSync('src/presence/photoreal-temporal-stability.ts', 'utf8');
+for (const token of ['PhotorealTemporalStabilizer', 'PhotorealTemporalRefinementState', 'reversingFast', 'motionSpeed', 'boundedApproach', 'stabilityTarget', 'maxViewStep', 'recovering', 'presentation-only', 'never changes face/hand perception']) {
+  if (!photorealTemporalStability.includes(token)) failures.push(`photoreal v29 temporal stabilizer missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(photorealTemporalStability)) failures.push('photoreal temporal stability must remain session-only');
+
 const photorealSceneSegments = readFileSync('src/presence/PhotorealSceneSegments.tsx', 'utf8');
 for (const token of ['pm-scene-segments', 'pm-scene-segment', 'data-depth-rank', 'sceneSegmentPolygon', 'MIRA_BEDROOM_SEGMENTS']) {
   if (!photorealSceneSegments.includes(token)) failures.push(`photoreal v26 segment renderer missing: ${token}`);
 }
 
 const photorealCanvas = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
-for (const token of ['webgl', 'u_sharpness', 'u_view', 'u_depth_strength', 'u_relight_strength', 'u_occlusion_strength', 'PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealViewRefinementControl', 'updateDepthWarp', 'textureUploaded', 'depthGradient', 'edgeStrength', 'microLight', 'microOcclusion', 'subjectWeight', 'dataset.viewRefinement', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'same WebGL context', 'does not claim']) {
+for (const token of ['webgl', 'u_sharpness', 'u_view', 'u_depth_strength', 'u_relight_strength', 'u_occlusion_strength', 'PHOTOREAL_DEPTH_FIELD_GLSL', 'computePhotorealViewRefinementControl', 'PhotorealTemporalStabilizer', 'temporalStabilizerRef', 'dataset.depthStability', 'dataset.depthRecovering', 'updateDepthWarp', 'textureUploaded', 'depthGradient', 'edgeStrength', 'microLight', 'microOcclusion', 'subjectWeight', 'dataset.viewRefinement', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'same WebGL context', 'does not claim']) {
   if (!photorealCanvas.includes(token)) failures.push(`photoreal GPU clarity pass missing: ${token}`);
 }
 
