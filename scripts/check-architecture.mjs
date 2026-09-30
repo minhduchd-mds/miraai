@@ -412,8 +412,12 @@ const visionPerformance = readFileSync('src/core/vision/vision-performance.ts', 
 for (const token of ['VisionPerformanceGovernor', 'detectVisionTier', 'baseIntervalForTier', 'hidden', 'inferenceMs', 'landmarkCount', 'postprocess', 'postprocessMs', 'setPostprocess']) {
   if (!visionPerformance.includes(token)) failures.push(`vision performance governor missing: ${token}`);
 }
+const visionDelegateFallback = readFileSync('src/core/vision/vision-delegate-fallback.ts', 'utf8');
+for (const token of ['isRecoverableGpuDelegateError', 'visionInferenceErrorMessage', 'UNIMPLEMENTED', 'GPU DELEGATE', 'DEQUANTIZE', 'STRIDED_SLICE', 'SHRINK_AXIS_MASK', 'CALCULATORGRAPH::RUN', 'INFERENCECALCULATOR']) {
+  if (!visionDelegateFallback.includes(token)) failures.push(`vision GPU runtime fallback classifier missing: ${token}`);
+}
 const holisticTracker = readFileSync('src/core/vision/holistic-tracker.ts', 'utf8');
-for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'readFaceFrame', 'blendshapesReady', 'holisticFaceHealthSnapshot', 'updateFace', 'submitPostprocess', 'VisionPostprocessWorkerClient', 'VisionPerformanceGovernor', 'video.readyState < 2', 'minFaceDetectionConfidence: 0.32', 'minFacePresenceConfidence: 0.32']) {
+for (const token of ['HolisticLandmarker', 'holistic_landmarker.task', "acquireVisionCamera('holistic')", 'outputFaceBlendshapes', 'readFaceFrame', 'blendshapesReady', 'holisticFaceHealthSnapshot', 'updateFace', 'submitPostprocess', 'VisionPostprocessWorkerClient', 'VisionPerformanceGovernor', 'fallbackHolisticToCpu', 'isRecoverableGpuDelegateError', "activeDelegate === 'GPU'", "createLandmarker('CPU')", 'video.readyState < 2', 'minFaceDetectionConfidence: 0.32', 'minFacePresenceConfidence: 0.32']) {
   if (!holisticTracker.includes(token)) failures.push(`holistic vision runtime missing: ${token}`);
 }
 const faceFrameGuard = readFileSync('src/core/vision/face-frame-guard.ts', 'utf8');
@@ -628,7 +632,7 @@ for (const token of ['isDeicticObjectQuestion', 'extractVisualTarget', 'deicticV
   if (!deicticVision.includes(token)) failures.push(`deictic visual bridge missing: ${token}`);
 }
 const postureTracker = readFileSync('src/core/vision/posture-tracker.ts', 'utf8');
-for (const token of ['PoseLandmarker', 'pose_landmarker_lite', "acquireVisionCamera('pose')", 'motionEma']) {
+for (const token of ['PoseLandmarker', 'pose_landmarker_lite', "acquireVisionCamera('pose')", 'motionEma', 'fallbackPostureToCpu', 'isRecoverableGpuDelegateError', "activeDelegate === 'GPU'", "createPostureLandmarker('CPU')"]) {
   if (!postureTracker.includes(token)) failures.push(`posture runtime missing: ${token}`);
 }
 const rppgSignal = readFileSync('src/core/vision/rppg-signal.ts', 'utf8');
@@ -640,8 +644,12 @@ for (const token of ['startRppgMonitoring', "acquireVisionCamera('rppg')", 'rela
   if (!rppgMonitor.includes(token)) failures.push(`rPPG runtime missing: ${token}`);
 }
 const faceTracker = readFileSync('src/core/face/face-tracker.ts', 'utf8');
-for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'microExpression', 'MicroExpressionTracker', 'facsProxyFromBlendshapes', 'muscles', 'gazeX']) {
+for (const token of ['faceLandmarks', 'emotionConfidence', 'headGesture', 'faceGesture', 'faceGestureConfidence', 'actionUnits', 'microExpression', 'MicroExpressionTracker', 'facsProxyFromBlendshapes', 'muscles', 'gazeX', 'fallbackFaceToCpu', 'isRecoverableGpuDelegateError', "activeDelegate === 'GPU'", "createFaceLandmarker('CPU')"]) {
   if (!faceTracker.includes(token)) failures.push(`face landmark/affect runtime missing: ${token}`);
+}
+const gestureTracker = readFileSync('src/core/face/gesture-tracker.ts', 'utf8');
+for (const token of ['GestureRecognizer', 'fallbackGestureToCpu', 'isRecoverableGpuDelegateError', "activeDelegate === 'GPU'", "createGestureRecognizer('CPU')"]) {
+  if (!gestureTracker.includes(token)) failures.push(`gesture runtime fallback missing: ${token}`);
 }
 const presenceContinuity = readFileSync('src/intelligence/social/presence-continuity.ts', 'utf8');
 for (const token of ['PresenceContinuityTracker', 'presenceContinuityPrompt', 'session-local', "'reconnect'", "'quiet'"]) {
