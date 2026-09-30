@@ -67,6 +67,7 @@ const photorealCameraDepth = await importTypeScript('src/presence/photoreal-came
 const photorealEnvironment = await importTypeScript('src/presence/photoreal-environment.ts');
 const photorealSceneSegmentation = await importTypeScript('src/presence/photoreal-scene-segmentation.ts');
 const photorealDepthWarp = await importTypeScript('src/presence/photoreal-depth-warp.ts');
+const photorealTemporalStability = await importTypeScript('src/presence/photoreal-temporal-stability.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -5001,6 +5002,132 @@ test('photoreal shader exposes depth-gradient refinement terms', () => {
     'microOcclusion',
     'subjectWeight',
     'dataset.viewRefinement',
+  ]) {
+    assert.ok(source.includes(token));
+  }
+});
+
+
+test('photoreal temporal stabilizer limits sudden viewpoint jumps', () => {
+  const stabilizer = new photorealTemporalStability.PhotorealTemporalStabilizer();
+  const base = {
+    active: true,
+    viewX: 0,
+    viewY: 0,
+    warpStrength: 0.9,
+    relightStrength: 0.2,
+    occlusionStrength: 0.16,
+    fpsCap: 30,
+  };
+
+  const first = stabilizer.update(base, 1000);
+  assert.equal(first.stability, 1);
+
+  const spike = stabilizer.update({
+    ...base,
+    viewX: 0.92,
+    viewY: -0.84,
+  }, 1016);
+
+  assert.equal(spike.recovering, true);
+  assert.ok(spike.stability < 0.9);
+  assert.ok(Math.abs(spike.viewX - first.viewX) <= 0.0321);
+  assert.ok(Math.abs(spike.viewY - first.viewY) <= 0.0321);
+  assert.ok(spike.warpStrength < base.warpStrength);
+  assert.ok(spike.relightStrength < base.relightStrength);
+  assert.ok(spike.occlusionStrength < base.occlusionStrength);
+});
+
+test('photoreal temporal stabilizer recovers on stable input', () => {
+  const stabilizer = new photorealTemporalStability.PhotorealTemporalStabilizer();
+  const target = {
+    active: true,
+    viewX: 0.34,
+    viewY: -0.18,
+    warpStrength: 0.82,
+    relightStrength: 0.18,
+    occlusionStrength: 0.14,
+    fpsCap: 30,
+  };
+
+  stabilizer.update(target, 1000);
+  stabilizer.update({ ...target, viewX: -0.8, viewY: 0.8 }, 1016);
+  let current = stabilizer.snapshot();
+  for (let index = 0; index < 80; index += 1) {
+    current = stabilizer.update(target, 1032 + index * 33);
+  }
+
+  assert.ok(current.stability > 0.94);
+  assert.equal(current.recovering, false);
+  assert.ok(Math.abs(current.viewX - target.viewX) < 0.03);
+  assert.ok(Math.abs(current.viewY - target.viewY) < 0.03);
+});
+
+test('photoreal temporal stabilizer dampens fast direction reversal', () => {
+  const stabilizer = new photorealTemporalStability.PhotorealTemporalStabilizer();
+  const base = {
+    active: true,
+    viewX: 0,
+    viewY: 0,
+    warpStrength: 0.8,
+    relightStrength: 0.17,
+    occlusionStrength: 0.13,
+    fpsCap: 30,
+  };
+
+  stabilizer.update(base, 1000);
+  stabilizer.update({ ...base, viewX: 0.18 }, 1040);
+  const reversal = stabilizer.update({ ...base, viewX: -0.18 }, 1080);
+
+  assert.equal(reversal.recovering, true);
+  assert.ok(reversal.stability < 0.8);
+  assert.ok(reversal.motionSpeed > 1);
+});
+
+test('photoreal temporal stabilizer resets immediately when refinement disables', () => {
+  const stabilizer = new photorealTemporalStability.PhotorealTemporalStabilizer();
+  stabilizer.update({
+    active: true,
+    viewX: 0.5,
+    viewY: 0.2,
+    warpStrength: 0.9,
+    relightStrength: 0.2,
+    occlusionStrength: 0.16,
+    fpsCap: 30,
+  }, 1000);
+
+  const neutral = stabilizer.update({
+    active: false,
+    viewX: 0,
+    viewY: 0,
+    warpStrength: 0,
+    relightStrength: 0,
+    occlusionStrength: 0,
+    fpsCap: 0,
+  }, 1033);
+
+  assert.deepEqual(neutral, {
+    active: false,
+    viewX: 0,
+    viewY: 0,
+    warpStrength: 0,
+    relightStrength: 0,
+    occlusionStrength: 0,
+    fpsCap: 0,
+    stability: 1,
+    motionSpeed: 0,
+    recovering: false,
+  });
+});
+
+test('photoreal scene canvas exposes temporal stability diagnostics', () => {
+  const source = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
+  for (const token of [
+    'PhotorealTemporalStabilizer',
+    'temporalStabilizerRef',
+    'dataset.depthStability',
+    'dataset.depthRecovering',
+    'temporalStabilizerRef.current.reset()',
   ]) {
     assert.ok(source.includes(token));
   }
