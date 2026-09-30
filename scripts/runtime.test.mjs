@@ -34,6 +34,7 @@ const presenceContinuity = await importTypeScript('src/intelligence/social/prese
 const behaviorTimeline = await importTypeScript('src/intelligence/social/behavior-timeline.ts');
 const handGestureLite = await importTypeScript('src/core/vision/hand-gesture-lite.ts');
 const visionPerformance = await importTypeScript('src/core/vision/vision-performance.ts');
+const visionDelegateFallback = await importTypeScript('src/core/vision/vision-delegate-fallback.ts');
 const gazeCalibration = await importTypeScript('src/intelligence/social/gaze-head-calibration.ts');
 const gestureIntent = await importTypeScript('src/core/vision/gesture-intent.ts');
 const environmentModel = await importTypeScript('src/core/vision/environment-model.ts');
@@ -4774,4 +4775,28 @@ test('photoreal environment v25 depth-light channels degrade with performance ti
     assert.ok(full[key] > reduced[key]);
     assert.ok(reduced[key] > minimal[key]);
   }
+});
+
+
+test('vision GPU delegate runtime failure classifier catches MediaPipe unsupported ops', () => {
+  for (const message of [
+    'UNIMPLEMENTED: CalculatorGraph::Run() failed',
+    'ERROR: Following operations are not supported by GPU delegate: DEQUANTIZE',
+    'STRIDED_SLICE: Slice does not support shrink_axis_mask parameter.',
+    'InferenceCalculator failed: No support of const tensor',
+  ]) {
+    assert.equal(visionDelegateFallback.isRecoverableGpuDelegateError(new Error(message)), true);
+  }
+});
+
+test('vision GPU delegate runtime failure classifier ignores ordinary camera absence', () => {
+  assert.equal(
+    visionDelegateFallback.isRecoverableGpuDelegateError(new Error('Camera API is not available in this browser.')),
+    false,
+  );
+  assert.equal(
+    visionDelegateFallback.isRecoverableGpuDelegateError(new Error('Permission denied')),
+    false,
+  );
+  assert.equal(visionDelegateFallback.visionInferenceErrorMessage(new Error('boom')), 'boom');
 });
