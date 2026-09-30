@@ -6,6 +6,7 @@ import {
   computePhotorealViewRefinementControl,
   type PhotorealPerformanceTier,
 } from './photoreal-depth-warp';
+import { PhotorealTemporalStabilizer } from './photoreal-temporal-stability';
 
 interface Props {
   src: string;
@@ -172,16 +173,18 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
     occlusionStrength: 0,
     lastDrawAt: 0,
   });
+  const temporalStabilizerRef = useRef(new PhotorealTemporalStabilizer());
 
   useImperativeHandle(ref, () => ({
     updateDepthWarp(frame, quality, performanceTier, reducedMotion) {
-      const control = computePhotorealViewRefinementControl(
+      const rawControl = computePhotorealViewRefinementControl(
         frame,
         quality,
         performanceTier,
         reducedMotion,
       );
       const now = performance.now();
+      const control = temporalStabilizerRef.current.update(rawControl, now);
       const minInterval = control.fpsCap > 0 ? 1000 / control.fpsCap : 0;
       const previous = lastControlRef.current;
       const changed = Math.abs(previous.viewX - control.viewX) > 0.002
@@ -201,6 +204,11 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
         occlusionStrength: control.occlusionStrength,
         lastDrawAt: now,
       };
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.dataset.depthStability = control.stability.toFixed(3);
+        canvas.dataset.depthRecovering = control.recovering ? 'true' : 'false';
+      }
       drawRef.current?.(
         control.viewX,
         control.viewY,
@@ -355,6 +363,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
     return () => {
       disposed = true;
       drawRef.current = null;
+      temporalStabilizerRef.current.reset();
       observer?.disconnect();
       window.removeEventListener('resize', handleResize);
       image?.removeEventListener('load', handleLoad);
