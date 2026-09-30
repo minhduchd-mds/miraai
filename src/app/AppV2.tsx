@@ -29,7 +29,7 @@ import {
 } from '../core/vision/spatial-anchor';
 import { micProsodySnapshot } from '../core/audio-level';
 import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
-import { EMPTY_ENVIRONMENT, environmentPrompt } from '../core/vision/environment-model';
+import { EMPTY_ENVIRONMENT, environmentPrompt, type EnvironmentLabel } from '../core/vision/environment-model';
 import {
   SpatialSceneGraphTracker,
   spatialScenePrompt,
@@ -700,7 +700,7 @@ export default function AppV2() {
   const [faceTelemetry, setFaceTelemetry] = useState({
     smile: 0, frown: 0, jaw: 0, browUp: 0, browDown: 0,
     gazeX: 0, gazeY: 0, yaw: 0, pitch: 0, roll: 0, distanceM: 0, confidence: 0,
-    environmentLabel: 'unknown',
+    environmentLabel: 'unknown' as EnvironmentLabel,
     environmentConfidence: 0,
     headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
     muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
@@ -2659,7 +2659,7 @@ export default function AppV2() {
         roll: Number(face?.roll || 0),
         distanceM: Number(spatial.distanceM || 0),
         confidence: faceConfidence,
-        environmentLabel: String(environmentContext.label || 'unknown'),
+        environmentLabel: (environmentContext.label || 'unknown') as EnvironmentLabel,
         environmentConfidence: Number(environmentContext.confidence || 0),
         headGesture: String(face?.headGesture || 'none'),
         faceGesture: String(face?.faceGesture || 'none'),
