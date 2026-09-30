@@ -4728,3 +4728,50 @@ test('photoreal performance governor can recover after sustained healthy frames'
   }
   assert.equal(tier, 'full');
 });
+
+
+test('photoreal environment v25 adds coherent depth-light channels', () => {
+  const frame = photorealEnvironment.computePhotorealEnvironmentFrame({
+    label: 'rest_area',
+    confidence: 0.94,
+    attention: 0.82,
+    cameraIntensity: 0.76,
+    quality: 'ultra',
+    performanceTier: 'full',
+  });
+
+  for (const key of ['cityBokeh', 'lightRays', 'bedBounce', 'edgeOcclusion']) {
+    assert.ok(frame[key] >= 0 && frame[key] <= 1);
+  }
+  assert.ok(frame.cityBokeh > 0);
+  assert.ok(frame.lightRays > 0);
+  assert.ok(frame.bedBounce > 0);
+  assert.ok(frame.edgeOcclusion > 0);
+});
+
+test('photoreal environment v25 depth-light channels degrade with performance tier', () => {
+  const input = {
+    label: 'rest_area',
+    confidence: 1,
+    attention: 1,
+    cameraIntensity: 1,
+    quality: 'ultra',
+  };
+  const full = photorealEnvironment.computePhotorealEnvironmentFrame({
+    ...input,
+    performanceTier: 'full',
+  });
+  const reduced = photorealEnvironment.computePhotorealEnvironmentFrame({
+    ...input,
+    performanceTier: 'reduced',
+  });
+  const minimal = photorealEnvironment.computePhotorealEnvironmentFrame({
+    ...input,
+    performanceTier: 'minimal',
+  });
+
+  for (const key of ['cityBokeh', 'lightRays', 'bedBounce', 'edgeOcclusion']) {
+    assert.ok(full[key] > reduced[key]);
+    assert.ok(reduced[key] > minimal[key]);
+  }
+});
