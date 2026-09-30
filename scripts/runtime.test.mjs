@@ -63,6 +63,7 @@ const spatialXRBimanual = await importTypeScript('src/core/vision/spatial-xr-bim
 const spatialXRRigidBody = await importTypeScript('src/core/vision/spatial-xr-rigid-body.ts');
 const photorealDepth = await importTypeScript('src/presence/photoreal-depth.ts');
 const photorealCameraDepth = await importTypeScript('src/presence/photoreal-camera-depth.ts');
+const photorealEnvironment = await importTypeScript('src/presence/photoreal-environment.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4634,4 +4635,96 @@ test('camera-driven photoreal zoom is relative to session baseline', () => {
   assert.ok(closer.scale > baseline.scale);
   assert.equal(baseline.scale, 1);
   assert.ok(farther.scale < baseline.scale);
+});
+
+
+test('photoreal environment maps context into restrained room-light cues', () => {
+  const rest = photorealEnvironment.computePhotorealEnvironmentFrame({
+    label: 'rest_area',
+    confidence: 0.92,
+    attention: 0.8,
+    cameraIntensity: 0.7,
+    quality: 'ultra',
+    performanceTier: 'full',
+  });
+  const workspace = photorealEnvironment.computePhotorealEnvironmentFrame({
+    label: 'workspace',
+    confidence: 0.92,
+    attention: 0.8,
+    cameraIntensity: 0.7,
+    quality: 'ultra',
+    performanceTier: 'full',
+  });
+
+  for (const frame of [rest, workspace]) {
+    for (const value of Object.values(frame)) {
+      assert.ok(value >= 0 && value <= 1);
+    }
+  }
+  assert.ok(rest.warm > workspace.warm);
+  assert.ok(workspace.cool > rest.cool);
+  assert.ok(rest.practicalLight > 0);
+  assert.ok(workspace.windowGlow > 0);
+});
+
+test('photoreal environment degrades decorative cues with performance tier', () => {
+  const input = {
+    label: 'rest_area',
+    confidence: 1,
+    attention: 1,
+    cameraIntensity: 1,
+    quality: 'high',
+  };
+  const full = photorealEnvironment.computePhotorealEnvironmentFrame({
+    ...input,
+    performanceTier: 'full',
+  });
+  const reduced = photorealEnvironment.computePhotorealEnvironmentFrame({
+    ...input,
+    performanceTier: 'reduced',
+  });
+  const minimal = photorealEnvironment.computePhotorealEnvironmentFrame({
+    ...input,
+    performanceTier: 'minimal',
+  });
+
+  assert.ok(full.reflection > reduced.reflection);
+  assert.ok(reduced.reflection > minimal.reflection);
+  assert.ok(full.dust > reduced.dust);
+  assert.ok(reduced.dust > minimal.dust);
+});
+
+test('photoreal performance governor steps down after sustained slow frames', () => {
+  const governor = new photorealEnvironment.PhotorealPerformanceGovernor();
+  let tier = 'full';
+
+  for (let index = 0; index < 50; index += 1) {
+    tier = governor.update(30, 100 + index * 100);
+  }
+  assert.ok(tier === 'reduced' || tier === 'minimal');
+
+  for (let index = 0; index < 50; index += 1) {
+    tier = governor.update(34, 6_000 + index * 100);
+  }
+  assert.equal(tier, 'minimal');
+});
+
+test('photoreal performance governor can recover after sustained healthy frames', () => {
+  const governor = new photorealEnvironment.PhotorealPerformanceGovernor();
+  let tier = 'full';
+
+  for (let index = 0; index < 60; index += 1) {
+    tier = governor.update(34, 100 + index * 100);
+  }
+  assert.equal(tier, 'minimal');
+
+  for (let index = 0; index < 80; index += 1) {
+    tier = governor.update(16.2, 8_000 + index * 100);
+  }
+  assert.ok(tier === 'reduced' || tier === 'full');
+
+  for (let index = 0; index < 80; index += 1) {
+    tier = governor.update(16, 18_000 + index * 100);
+  }
+  assert.equal(tier, 'full');
 });
