@@ -375,6 +375,14 @@ This is deliberately not another realtime segmentation model. The source is stat
 
 The regions are presentation masks only: they are not metric depth, reconstructed geometry or persistent world state. Changing the canonical bedroom source requires reviewing the authored profile.
 
+### Spatial Visual v27 GPU-warp boundary
+
+The canonical bedroom scene now has an optional continuous authored depth-field warp in `photoreal-depth-warp.ts`. `PhotorealSceneCanvas` reuses its existing WebGL context to apply this UV warp before the existing sharpening pass.
+
+The warp consumes only the already-smoothed camera viewpoint frame from `PhotorealCameraDepthController.snapshot()`. It activates only on `ultra` quality while the frame-time tier is `full`, with reduced-motion disabled and reliable camera-depth intensity present. Redraw is capped at 30 FPS.
+
+The depth field is relative presentation depth specific to the current bedroom composition. It is not metric depth, inferred geometry, persistent world state, or a replacement for WebXR metric geometry. No second WebGL context or additional perception model is introduced.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
