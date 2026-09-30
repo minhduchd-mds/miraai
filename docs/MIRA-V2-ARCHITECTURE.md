@@ -401,6 +401,14 @@ The stabilizer tracks recent view input, normalized viewpoint velocity, directio
 
 The implementation lives inside the lazy `PhotorealSceneCanvas` path, adds no React state, no model inference and no additional WebGL pass. Its diagnostic values are exposed on the canvas as session-only data attributes and must not enter durable memory.
 
+### Spatial Visual v30 warp-safety boundary
+
+The single-pass GPU bedroom renderer now applies a per-pixel warp-safety envelope before accepting v27 UV displacement. The envelope combines authored depth-boundary strength, candidate-vs-source depth continuity, distance from source-texture edges and the v29 temporal stability score.
+
+Risky pixels are blended back toward their original UV instead of synthesizing hidden content. This is deliberate: the canonical bedroom is a single source view, so v30 must not invent disoccluded pixels or claim scene reconstruction.
+
+The implementation adds shader arithmetic only. It introduces no extra model, texture, React state, DOM layer, WebGL context or render pass. Camera/depth state remains session-only.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
