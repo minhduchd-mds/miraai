@@ -65,6 +65,7 @@ const spatialXRRigidBody = await importTypeScript('src/core/vision/spatial-xr-ri
 const photorealDepth = await importTypeScript('src/presence/photoreal-depth.ts');
 const photorealCameraDepth = await importTypeScript('src/presence/photoreal-camera-depth.ts');
 const photorealEnvironment = await importTypeScript('src/presence/photoreal-environment.ts');
+const photorealSceneSegmentation = await importTypeScript('src/presence/photoreal-scene-segmentation.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4799,4 +4800,64 @@ test('vision GPU delegate runtime failure classifier ignores ordinary camera abs
     false,
   );
   assert.equal(visionDelegateFallback.visionInferenceErrorMessage(new Error('boom')), 'boom');
+});
+
+
+test('photoreal scene segmentation profile is ordered and bounded', () => {
+  const segments = photorealSceneSegmentation.MIRA_BEDROOM_SEGMENTS;
+  assert.equal(photorealSceneSegmentation.validateSceneSegments(segments), true);
+  assert.ok(segments.length >= 5);
+  assert.deepEqual(segments.map((segment) => segment.id), [
+    'window', 'pillow', 'subject', 'bed', 'foreground',
+  ]);
+  for (let index = 1; index < segments.length; index += 1) {
+    assert.ok(segments[index].depthRank > segments[index - 1].depthRank);
+  }
+});
+
+test('photoreal scene segmentation polygon stays normalized', () => {
+  for (const segment of photorealSceneSegmentation.MIRA_BEDROOM_SEGMENTS) {
+    const polygon = photorealSceneSegmentation.sceneSegmentPolygon(segment);
+    assert.ok(polygon.startsWith('polygon('));
+    assert.ok(polygon.endsWith(')'));
+    for (const [x, y] of segment.points) {
+      assert.ok(x >= 0 && x <= 100);
+      assert.ok(y >= 0 && y <= 100);
+      assert.ok(polygon.includes(`${x}% ${y}%`));
+    }
+  }
+});
+
+test('photoreal scene segmentation rejects invalid or unordered profiles', () => {
+  const invalid = [
+    {
+      id: 'subject',
+      depthRank: 0.6,
+      opacity: 0.7,
+      transformOrigin: '50% 50%',
+      points: [[0, 0], [100, 0], [100, 100], [0, 100]],
+    },
+    {
+      id: 'foreground',
+      depthRank: 0.4,
+      opacity: 0.7,
+      transformOrigin: '50% 50%',
+      points: [[0, 0], [100, 0], [100, 100], [0, 100]],
+    },
+    {
+      id: 'bed',
+      depthRank: 0.8,
+      opacity: 0.7,
+      transformOrigin: '50% 50%',
+      points: [[0, 0], [100, 0], [100, 100], [0, 100]],
+    },
+    {
+      id: 'window',
+      depthRank: 0.9,
+      opacity: 0.7,
+      transformOrigin: '50% 50%',
+      points: [[0, 0], [100, 0], [100, 100], [0, 100]],
+    },
+  ];
+  assert.equal(photorealSceneSegmentation.validateSceneSegments(invalid), false);
 });
