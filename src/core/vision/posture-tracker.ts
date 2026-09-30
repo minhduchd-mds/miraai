@@ -1,4 +1,5 @@
 import { acquireVisionCamera, releaseVisionCamera } from './camera-manager';
+import { isRecoverableGpuDelegateError, visionInferenceErrorMessage } from './vision-delegate-fallback';
 import { derivePosture, EMPTY_POSTURE, type PosePoint, type PostureEstimate, type PostureLabel } from './posture-model';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
@@ -25,6 +26,9 @@ let stopped = true;
 let busy = false;
 let lastError: string | null = null;
 let lastInferenceAt = 0;
+let activeDelegate: 'GPU' | 'CPU' | 'unknown' = 'unknown';
+let delegateFailoverPromise: Promise<boolean> | null = null;
+let consecutiveInferenceFailures = 0;
 let previousCenter = { x: 0.5, y: 0.5 };
 let motionEma = 0;
 
@@ -50,8 +54,53 @@ function clearPose(): void {
   postureData.landmarks = [];
 }
 
+async function createPostureLandmarker(delegate: 'GPU' | 'CPU'): Promise<any> {
+  const vision = await import('@mediapipe/tasks-vision');
+  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
+  return vision.PoseLandmarker.createFromOptions(resolver, {
+    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+    runningMode: 'VIDEO',
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.45,
+    minPosePresenceConfidence: 0.45,
+    minTrackingConfidence: 0.45,
+  } as any);
+}
+
+async function fallbackPostureToCpu(reason: unknown): Promise<boolean> {
+  if (delegateFailoverPromise) return delegateFailoverPromise;
+  delegateFailoverPromise = (async () => {
+    const previous = landmarker;
+    landmarker = null;
+    try { previous?.close?.(); } catch { /* noop */ }
+    try {
+      const cpu = await createPostureLandmarker('CPU');
+      if (stopped) {
+        try { cpu?.close?.(); } catch { /* noop */ }
+        return false;
+      }
+      landmarker = cpu;
+      activeDelegate = 'CPU';
+      consecutiveInferenceFailures = 0;
+      lastError = null;
+      console.warn('[Mira Posture] GPU inference failed; switched to CPU delegate.', visionInferenceErrorMessage(reason));
+      return true;
+    } catch (error) {
+      lastError = visionInferenceErrorMessage(error);
+      return false;
+    }
+  })().finally(() => {
+    delegateFailoverPromise = null;
+  });
+  return delegateFailoverPromise;
+}
+
 function readFrame(): void {
-  if (stopped || !landmarker || !video) return;
+  if (stopped || !video) return;
+  if (!landmarker || delegateFailoverPromise) {
+    raf = requestAnimationFrame(readFrame);
+    return;
+  }
   const now = performance.now();
   if (now - lastInferenceAt < intervalMs()) {
     raf = requestAnimationFrame(readFrame);
@@ -61,6 +110,7 @@ function readFrame(): void {
 
   try {
     const result = landmarker.detectForVideo(video, now);
+    consecutiveInferenceFailures = 0;
     const raw = result?.landmarks?.[0];
     if (Array.isArray(raw) && raw.length >= 25) {
       const landmarks: PosePoint[] = raw.slice(0, 33).map((p: any) => ({
@@ -86,8 +136,15 @@ function readFrame(): void {
     } else {
       clearPose();
     }
-  } catch {
+  } catch (error) {
     clearPose();
+    consecutiveInferenceFailures += 1;
+    if (
+      activeDelegate === 'GPU' &&
+      (isRecoverableGpuDelegateError(error) || consecutiveInferenceFailures >= 2)
+    ) {
+      void fallbackPostureToCpu(error);
+    }
   }
 
   raf = requestAnimationFrame(readFrame);
@@ -99,22 +156,14 @@ export async function startPostureTracking(): Promise<boolean> {
   busy = true;
   lastError = null;
   try {
-    const vision = await import('@mediapipe/tasks-vision');
-    const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
-    const create = (delegate: 'GPU' | 'CPU') => vision.PoseLandmarker.createFromOptions(resolver, {
-      baseOptions: { modelAssetPath: MODEL_URL, delegate },
-      runningMode: 'VIDEO',
-      numPoses: 1,
-      minPoseDetectionConfidence: 0.45,
-      minPosePresenceConfidence: 0.45,
-      minTrackingConfidence: 0.45,
-    } as any);
-
     try {
-      landmarker = await create('GPU');
+      landmarker = await createPostureLandmarker('GPU');
+      activeDelegate = 'GPU';
     } catch {
-      landmarker = await create('CPU');
+      landmarker = await createPostureLandmarker('CPU');
+      activeDelegate = 'CPU';
     }
+    consecutiveInferenceFailures = 0;
 
     video = await acquireVisionCamera('pose');
     stopped = false;
@@ -141,6 +190,9 @@ export function stopPostureTracking(): void {
   video = null;
   try { landmarker?.close?.(); } catch { /* noop */ }
   landmarker = null;
+  activeDelegate = 'unknown';
+  delegateFailoverPromise = null;
+  consecutiveInferenceFailures = 0;
   postureData.active = false;
   clearPose();
   previousCenter = { x: 0.5, y: 0.5 };
