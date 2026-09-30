@@ -383,6 +383,16 @@ The warp consumes only the already-smoothed camera viewpoint frame from `Photore
 
 The depth field is relative presentation depth specific to the current bedroom composition. It is not metric depth, inferred geometry, persistent world state, or a replacement for WebXR metric geometry. No second WebGL context or additional perception model is introduced.
 
+### Spatial Visual v28 view-refinement boundary
+
+The existing single-pass GPU bedroom renderer now performs bounded viewpoint-dependent micro-relighting and edge occlusion from the local gradient of the authored v27 depth field.
+
+This refinement is visual-only. It does not infer true surface normals, material properties, physical illumination or metric geometry. `PhotorealSceneCanvas` reuses the same WebGL context used by cover-resampling, v27 warp, sharpening and halo protection.
+
+`computePhotorealViewRefinementControl` enables refinement only on `high`/`ultra` visual quality while the frame-time tier remains `full`, with reduced-motion disabled and reliable camera-depth intensity available. High is capped at 24 FPS and uses lighting/occlusion only; Ultra is capped at 30 FPS and may combine v27 warp with v28 refinement.
+
+No camera pose, view-lighting control or depth-gradient state is persisted to durable memory.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
