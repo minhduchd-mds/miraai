@@ -11,7 +11,7 @@ import {
   type PhotorealVisualQuality,
 } from './photoreal-depth';
 import type { PhotorealCameraSpatialFrame } from './photoreal-camera-depth';
-import type { PhotorealEnvironmentFrame, PhotorealPerformanceTier } from './photoreal-environment';
+import type { PhotorealEnvironmentController } from './photoreal-environment';
 import './photoreal-mira.css';
 
 interface Props {
@@ -96,17 +96,6 @@ const ZERO_CAMERA_FRAME: PhotorealCameraSpatialFrame = {
   shadowX: 0,
   intensity: 0,
 };
-const ZERO_ENVIRONMENT_FRAME: PhotorealEnvironmentFrame = {
-  warm: 0,
-  cool: 0,
-  practicalLight: 0,
-  windowGlow: 0,
-  reflection: 0,
-  haze: 0,
-  shadow: 0,
-  dust: 0,
-  vignette: 0,
-};
 
 export default function PhotorealMira({
   state,
@@ -158,11 +147,7 @@ export default function PhotorealMira({
     confidence: 0,
   });
   const cameraDepthRuntimeRef = useRef<typeof import('./photoreal-camera-depth') | null>(null);
-  const environmentRuntimeRef = useRef<typeof import('./photoreal-environment') | null>(null);
-  const performanceGovernorRef = useRef<{
-    update: (frameMs: number, now?: number) => PhotorealPerformanceTier;
-    reset: () => void;
-  } | null>(null);
+  const environmentControllerRef = useRef<PhotorealEnvironmentController | null>(null);
   const environmentRef = useRef({
     label: 'unknown' as EnvironmentLabel,
     confidence: 0,
@@ -208,10 +193,9 @@ export default function PhotorealMira({
   }, [cameraPoseEnabled, visualQuality]);
 
   useEffect(() => {
-    if (visualQuality === 'lite' || environmentRuntimeRef.current) return;
+    if (visualQuality === 'lite' || environmentControllerRef.current) return;
     void import('./photoreal-environment').then((runtime) => {
-      environmentRuntimeRef.current = runtime;
-      performanceGovernorRef.current = new runtime.PhotorealPerformanceGovernor();
+      environmentControllerRef.current = new runtime.PhotorealEnvironmentController();
     }).catch(() => {});
   }, [visualQuality]);
 
@@ -304,10 +288,6 @@ export default function PhotorealMira({
       rotateXDeg: 0, rotateYDeg: 0, rollDeg: 0,
       scale: 1, shadowX: 0, intensity: 0,
     };
-    const environmentCurrent = { ...ZERO_ENVIRONMENT_FRAME };
-    let performanceTier: PhotorealPerformanceTier = 'full';
-    let previousFrameAt = performance.now();
-
     const frame = (now: number) => {
       const node = rootRef.current;
       if (!node) return;
@@ -339,40 +319,14 @@ export default function PhotorealMira({
             quality: visualQuality,
           });
 
-      const environmentRuntime = environmentRuntimeRef.current;
-      const frameMs = Math.max(4, Math.min(80, now - previousFrameAt));
-      previousFrameAt = now;
-      const nextPerformanceTier = reducedMotionRef.current
-        ? 'minimal'
-        : performanceGovernorRef.current?.update(frameMs, now) || 'full';
-      if (nextPerformanceTier !== performanceTier) {
-        performanceTier = nextPerformanceTier;
-        node.dataset.performanceTier = performanceTier;
-      }
-      const environmentTarget = reducedMotionRef.current || !environmentRuntime
-        ? ZERO_ENVIRONMENT_FRAME
-        : environmentRuntime.computePhotorealEnvironmentFrame({
-            label: environmentRef.current.label,
-            confidence: environmentRef.current.confidence,
-            attention: gazeDepthRef.current.attention,
-            cameraIntensity: cameraCurrent.intensity,
-            quality: visualQuality,
-            performanceTier,
-          });
-
       const smoothing = reducedMotionRef.current ? 1 : 0.11;
       const cameraSmoothing = reducedMotionRef.current ? 1 : 0.085;
-      const environmentSmoothing = reducedMotionRef.current ? 1 : 0.055;
       for (const key of Object.keys(current) as Array<keyof typeof current>) {
         current[key] += (target[key] - current[key]) * smoothing;
       }
       for (const key of Object.keys(cameraCurrent) as Array<keyof typeof cameraCurrent>) {
         cameraCurrent[key] += (cameraTarget[key] - cameraCurrent[key]) * cameraSmoothing;
       }
-      for (const key of Object.keys(environmentCurrent) as Array<keyof typeof environmentCurrent>) {
-        environmentCurrent[key] += (environmentTarget[key] - environmentCurrent[key]) * environmentSmoothing;
-      }
-
       node.style.setProperty('--pm-depth-back-x', `${current.backX.toFixed(2)}px`);
       node.style.setProperty('--pm-depth-back-y', `${current.backY.toFixed(2)}px`);
       node.style.setProperty('--pm-depth-mid-x', `${current.midX.toFixed(2)}px`);
@@ -395,15 +349,14 @@ export default function PhotorealMira({
       node.style.setProperty('--pm-camera-scale', cameraCurrent.scale.toFixed(4));
       node.style.setProperty('--pm-camera-shadow-x', `${cameraCurrent.shadowX.toFixed(2)}px`);
       node.style.setProperty('--pm-camera-depth-intensity', cameraCurrent.intensity.toFixed(3));
-      node.style.setProperty('--pm-env-warm', environmentCurrent.warm.toFixed(3));
-      node.style.setProperty('--pm-env-cool', environmentCurrent.cool.toFixed(3));
-      node.style.setProperty('--pm-env-practical', environmentCurrent.practicalLight.toFixed(3));
-      node.style.setProperty('--pm-env-window', environmentCurrent.windowGlow.toFixed(3));
-      node.style.setProperty('--pm-env-reflection', environmentCurrent.reflection.toFixed(3));
-      node.style.setProperty('--pm-env-haze', environmentCurrent.haze.toFixed(3));
-      node.style.setProperty('--pm-env-shadow', environmentCurrent.shadow.toFixed(3));
-      node.style.setProperty('--pm-env-dust', environmentCurrent.dust.toFixed(3));
-      node.style.setProperty('--pm-env-vignette', environmentCurrent.vignette.toFixed(3));
+      environmentControllerRef.current?.update({
+        label: environmentRef.current.label,
+        confidence: environmentRef.current.confidence,
+        attention: gazeDepthRef.current.attention,
+        cameraIntensity: cameraCurrent.intensity,
+        quality: visualQuality,
+        reducedMotion: reducedMotionRef.current,
+      }, node, now);
       node.style.setProperty('--pm-atmosphere-x', `${(current.backX * .45 + cameraCurrent.roomX * .35).toFixed(2)}px`);
       node.style.setProperty('--pm-atmosphere-y', `${(current.backY * .45 + cameraCurrent.roomY * .35).toFixed(2)}px`);
       node.style.setProperty('--pm-relight-x', `${(current.midX * .28 + cameraCurrent.subjectX * .24).toFixed(2)}px`);
