@@ -193,6 +193,10 @@ export class PhotorealCameraDepthController {
     return this.current.intensity;
   }
 
+  snapshot(): Readonly<PhotorealCameraSpatialFrame> {
+    return this.current;
+  }
+
   reset(): void {
     this.baselineDistanceM = 0;
   }
