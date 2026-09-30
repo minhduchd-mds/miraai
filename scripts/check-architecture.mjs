@@ -309,6 +309,9 @@ for (const token of [
   "'conclusion'",
   "'question'",
   'hội thoại tự nhiên',
+  'dịu dàng',
+  'Âm đầu mềm',
+  'cuối câu thường hạ nhẹ',
 ]) {
   if (!speechDirector.includes(token)) failures.push(`Vietnamese speech director missing: ${token}`);
 }
@@ -365,12 +368,19 @@ const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8')
 if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
 
 const tts = readFileSync('api/tts.js', 'utf8');
-for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs', 'body.instructions', 'payload.instructions', 'mergeInstructions']) {
+for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs', 'body.instructions', 'payload.instructions', 'mergeInstructions', 'Giọng nữ mềm, hiền, ấm và gần gũi', 'stability: 0.5', 'style: 0.16', 'use_speaker_boost: false']) {
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 
+const voicePrefsSource = readFileSync('src/core/voice-prefs.ts', 'utf8');
+for (const token of ["rate: 0.96", "persona: 'gentle'", "label: 'Êm'", 'voiceProfileVersion: 2']) {
+  if (!voicePrefsSource.includes(token)) failures.push(`gentle voice defaults missing: ${token}`);
+}
+
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
-if (!localTts.includes('PiperLocalTTS')) failures.push('GitHub Pages must use local neural Piper TTS');
+for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote"]) {
+  if (!localTts.includes(token)) failures.push(`GitHub Pages TTS routing missing: ${token}`);
+}
 const brain = readFileSync('src/core/brain/index.ts', 'utf8');
 if (!brain.includes('LocalWebLLMBrain')) failures.push('GitHub Pages must expose a real local WebLLM brain');
 if (brain.includes('VITE_LLM_API_KEY')) failures.push('production brain source must not read VITE_LLM_API_KEY');
