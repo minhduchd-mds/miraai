@@ -4991,10 +4991,7 @@ test('photoreal view refinement clamps relight and occlusion strengths', () => {
 });
 
 test('photoreal shader exposes depth-gradient refinement terms', () => {
-  const source = await readFile(
-    new URL('../src/presence/PhotorealSceneCanvas.tsx', import.meta.url),
-    'utf8',
-  );
+  const source = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
   for (const token of [
     'u_relight_strength',
     'u_occlusion_strength',
