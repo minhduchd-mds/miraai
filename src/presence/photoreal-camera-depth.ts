@@ -152,7 +152,6 @@ export class PhotorealCameraDepthController {
 
     const target = input.reducedMotion
       ? {
-          objectId: '',
           roomX: 0, roomY: 0, subjectX: 0, subjectY: 0,
           foregroundX: 0, foregroundY: 0, rotateXDeg: 0, rotateYDeg: 0,
           rollDeg: 0, scale: 1, shadowX: 0, intensity: 0,
