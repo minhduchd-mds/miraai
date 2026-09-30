@@ -21,6 +21,13 @@ export interface PhotorealViewRefinementControl {
   fpsCap: number;
 }
 
+export interface PhotorealWarpSafetyInput {
+  edgeStrength: number;
+  depthMismatch: number;
+  sourceEdgeDistance: number;
+  stability: number;
+}
+
 /**
  * Continuous authored depth field used by the single-pass scene shader.
  *
@@ -137,4 +144,32 @@ export function computePhotorealViewRefinementControl(
     occlusionStrength: clamp(intensity * (ultra ? 0.18 : 0.1), 0, 0.18),
     fpsCap: ultra ? 30 : 24,
   };
+}
+
+
+/**
+ * Mirrors the v30 shader safety envelope for deterministic tests and tuning.
+ *
+ * This never invents hidden pixels. It only reduces warp where a static source
+ * is likely to stretch or ghost: strong depth boundaries, depth mismatch,
+ * source-image edges, or unstable camera motion.
+ */
+export function computePhotorealWarpSafetyEnvelope(
+  input: PhotorealWarpSafetyInput,
+): number {
+  const edgeStrength = clamp(input.edgeStrength, 0, 1);
+  const depthMismatch = clamp(input.depthMismatch, 0, 1);
+  const sourceEdgeDistance = clamp(input.sourceEdgeDistance, 0, 0.5);
+  const stability = clamp(input.stability, 0, 1);
+
+  const depthBoundaryGuard = 1 - edgeStrength * 0.52;
+  const continuityGuard = 1 - clamp((depthMismatch - 0.06) / 0.2, 0, 1) * 0.72;
+  const sourceEdgeGuard = clamp((sourceEdgeDistance - 0.004) / 0.028, 0, 1);
+  const temporalGuard = 0.42 + stability * 0.58;
+
+  return clamp(
+    depthBoundaryGuard * continuityGuard * sourceEdgeGuard * temporalGuard,
+    0,
+    1,
+  );
 }
