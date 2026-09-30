@@ -363,7 +363,7 @@ for (const token of ['verifyLocalCapsule', 'localMemory.exportSnapshot', 'localM
   if (!capsuleClient.includes(token)) failures.push(`GitHub Pages Identity Capsule fallback missing: ${token}`);
 }
 const faceRecoveryRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
-for (const token of ['faceRecoveryTimer', 'face.lastSeenAt > 0', 'startLegacyVision(session)', '4_500']) {
+for (const token of ['faceRecoveryTimer', 'face.lastSeenAt > 0', 'performance.processedFrames >= 6', '!holisticTrackerError()', 'startLegacyVision(session)', '8_000', 'duplicate inference']) {
   if (!faceRecoveryRuntime.includes(token)) failures.push(`face recovery watchdog missing: ${token}`);
 }
 const cameraSurfaceStart = Math.max(
