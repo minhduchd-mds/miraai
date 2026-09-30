@@ -1417,6 +1417,20 @@
   --pm-camera-scale: 1;
   --pm-camera-shadow-x: 0px;
   --pm-camera-depth-intensity: 0;
+  --pm-env-warm: 0;
+  --pm-env-cool: 0;
+  --pm-env-practical: 0;
+  --pm-env-window: 0;
+  --pm-env-reflection: 0;
+  --pm-env-haze: 0;
+  --pm-env-shadow: 0;
+  --pm-env-dust: 0;
+  --pm-env-vignette: 0;
+  --pm-atmosphere-x: 0px;
+  --pm-atmosphere-y: 0px;
+  --pm-relight-x: 0px;
+  --pm-relight-y: 0px;
+  --pm-contact-shadow-x: 0px;
 }
 
 .bedroom-presence .pm-scene-shell {
@@ -1481,29 +1495,17 @@
 }
 
 .bedroom-presence .pm-depth-atmosphere {
-  transform: translate3d(
-    calc(var(--pm-depth-back-x) * .45 + var(--pm-camera-room-x) * .35),
-    calc(var(--pm-depth-back-y) * .45 + var(--pm-camera-room-y) * .35),
-    0
-  );
+  transform: translate3d(var(--pm-atmosphere-x), var(--pm-atmosphere-y), 0);
 }
 
 .bedroom-presence .pm-depth-relight {
-  transform: translate3d(
-    calc(var(--pm-depth-mid-x) * .28 + var(--pm-camera-subject-x) * .24),
-    calc(var(--pm-depth-mid-y) * .2 + var(--pm-camera-subject-y) * .18),
-    0
-  );
+  transform: translate3d(var(--pm-relight-x), var(--pm-relight-y), 0);
   opacity: calc(.1 + var(--pm-attention) * .07);
 }
 
 .bedroom-presence .pm-depth-contact-shadow {
   transform:
-    translate3d(
-      calc(var(--pm-depth-near-x) * .16 + var(--pm-camera-shadow-x)),
-      0,
-      18px
-    )
+    translate3d(var(--pm-contact-shadow-x), 0, 18px)
     scaleX(1.08);
 }
 
@@ -1525,5 +1527,146 @@
   .bedroom-presence .pm-depth-mid,
   .bedroom-presence .pm-depth-near {
     rotate: none;
+  }
+}
+
+
+/* Spatial Visual v24 — adaptive environmental realism.
+   Light and atmosphere remain presentation-only and degrade under frame pressure. */
+.bedroom-presence .pm-env-window-light,
+.bedroom-presence .pm-env-practical-light,
+.bedroom-presence .pm-env-reflection,
+.bedroom-presence .pm-env-dust,
+.bedroom-presence .pm-env-vignette {
+  position:absolute;
+  inset:0;
+  z-index:5;
+  pointer-events:none;
+  contain:paint;
+}
+
+.bedroom-presence .pm-env-window-light {
+  z-index:3;
+  opacity:var(--pm-env-window);
+  background:
+    radial-gradient(ellipse 28% 68% at 72% 32%, rgba(87,111,255,.18), transparent 72%),
+    linear-gradient(90deg, transparent 53%, rgba(73,94,228,.08) 68%, rgba(111,89,238,.1) 78%, transparent 94%);
+  mix-blend-mode:screen;
+}
+
+.bedroom-presence .pm-env-window-light::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  opacity:var(--pm-env-cool);
+  background:
+    radial-gradient(ellipse 18% 52% at 78% 30%, rgba(119,149,255,.26), transparent 74%);
+  mix-blend-mode:screen;
+}
+
+.bedroom-presence .pm-env-practical-light {
+  z-index:4;
+}
+
+.bedroom-presence .pm-env-practical-light::before,
+.bedroom-presence .pm-env-practical-light::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+.bedroom-presence .pm-env-practical-light::before {
+  opacity:var(--pm-env-practical);
+  background:
+    radial-gradient(circle at 68% 42%, rgba(255,195,116,.24) 0 1.2%, rgba(255,174,92,.12) 3.8%, transparent 12%),
+    radial-gradient(ellipse 30% 44% at 61% 48%, rgba(255,151,90,.08), transparent 70%);
+  mix-blend-mode:screen;
+}
+
+.bedroom-presence .pm-env-practical-light::after {
+  opacity:var(--pm-env-warm);
+  background:
+    radial-gradient(ellipse 46% 56% at 48% 58%, rgba(255,178,136,.1), transparent 72%);
+  mix-blend-mode:soft-light;
+}
+
+.bedroom-presence .pm-env-reflection {
+  z-index:5;
+  inset:48% 4% 0;
+  opacity:var(--pm-env-reflection);
+  background:
+    radial-gradient(ellipse 43% 36% at 61% 28%, rgba(255,189,147,.11), transparent 70%),
+    radial-gradient(ellipse 38% 28% at 82% 23%, rgba(105,121,255,.08), transparent 76%);
+  filter:blur(10px);
+  mix-blend-mode:screen;
+}
+
+.bedroom-presence .pm-env-dust {
+  z-index:6;
+  opacity:var(--pm-env-dust);
+  background-image:
+    radial-gradient(circle at 22% 31%, rgba(255,244,229,.72) 0 .55px, transparent .75px),
+    radial-gradient(circle at 64% 26%, rgba(255,242,226,.62) 0 .45px, transparent .65px),
+    radial-gradient(circle at 78% 58%, rgba(219,225,255,.54) 0 .5px, transparent .7px);
+  background-size:173px 131px,211px 149px,257px 179px;
+  mix-blend-mode:screen;
+  animation:pmEnvDustDrift 18s linear infinite alternate;
+}
+
+.bedroom-presence .pm-env-vignette {
+  z-index:8;
+  opacity:var(--pm-env-vignette);
+  background:
+    radial-gradient(ellipse 78% 72% at 52% 48%, transparent 54%, rgba(5,4,18,.24) 84%, rgba(2,2,10,.52) 100%);
+}
+
+.bedroom-presence .pm-depth-atmosphere::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  opacity:var(--pm-env-haze);
+  background:
+    linear-gradient(180deg, rgba(103,112,191,.08), transparent 38%, transparent 68%, rgba(39,24,65,.07)),
+    radial-gradient(ellipse 60% 50% at 66% 33%, rgba(137,151,238,.07), transparent 74%);
+  mix-blend-mode:screen;
+}
+
+.bedroom-presence .pm-depth-contact-shadow::after {
+  content:"";
+  position:absolute;
+  inset:-12% -8%;
+  border-radius:50%;
+  opacity:var(--pm-env-shadow);
+  background:radial-gradient(ellipse, rgba(0,0,0,.13), transparent 68%);
+}
+
+.photo-mira[data-performance-tier="reduced"] .pm-env-dust {
+  display:none;
+}
+
+.photo-mira[data-performance-tier="reduced"] .pm-env-reflection {
+  filter:blur(7px);
+}
+
+.photo-mira[data-performance-tier="minimal"] .pm-env-dust,
+.photo-mira[data-performance-tier="minimal"] .pm-env-reflection {
+  display:none;
+}
+
+.photo-mira[data-performance-tier="minimal"] .pm-env-window-light,
+.photo-mira[data-performance-tier="minimal"] .pm-env-practical-light {
+  opacity:.16;
+}
+
+@keyframes pmEnvDustDrift {
+  from { transform:translate3d(-2px,-1px,0); }
+  to { transform:translate3d(3px,2px,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bedroom-presence .pm-env-dust {
+    animation:none !important;
+    display:none;
   }
 }
