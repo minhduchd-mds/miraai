@@ -46,6 +46,7 @@ uniform vec2 u_view;
 uniform float u_depth_strength;
 uniform float u_relight_strength;
 uniform float u_occlusion_strength;
+uniform float u_temporal_stability;
 varying vec2 v_uv;
 
 ${PHOTOREAL_DEPTH_FIELD_GLSL}
@@ -58,8 +59,7 @@ void main() {
   vec2 baseUv = u_uv_offset + v_uv * u_uv_scale;
   float depth = authoredDepth(baseUv);
   float centeredDepth = depth - 0.48;
-  vec2 warp = u_view * centeredDepth * 0.018 * u_depth_strength;
-  vec2 uv = clamp(baseUv + warp, vec2(0.002), vec2(0.998));
+  vec2 rawWarp = u_view * centeredDepth * 0.018 * u_depth_strength;
 
   float depthEast = authoredDepth(clamp(baseUv + vec2(u_texel.x * 5.0, 0.0), vec2(0.0), vec2(1.0)));
   float depthWest = authoredDepth(clamp(baseUv - vec2(u_texel.x * 5.0, 0.0), vec2(0.0), vec2(1.0)));
@@ -68,8 +68,27 @@ void main() {
   vec2 depthGradient = vec2(depthEast - depthWest, depthNorth - depthSouth);
   float edgeStrength = smoothstep(0.006, 0.085, length(depthGradient));
   vec2 viewDirection = length(u_view) > 0.001 ? normalize(u_view) : vec2(0.0);
+
+  vec2 candidateUv = clamp(baseUv + rawWarp, vec2(0.002), vec2(0.998));
+  float candidateDepth = authoredDepth(candidateUv);
+  float depthMismatch = abs(candidateDepth - depth);
+  float sourceEdgeDistance = min(
+    min(baseUv.x, 1.0 - baseUv.x),
+    min(baseUv.y, 1.0 - baseUv.y)
+  );
+  float depthBoundaryGuard = 1.0 - edgeStrength * 0.52;
+  float continuityGuard = 1.0 - smoothstep(0.06, 0.26, depthMismatch) * 0.72;
+  float sourceEdgeGuard = smoothstep(0.004, 0.032, sourceEdgeDistance);
+  float temporalGuard = 0.42 + clamp(u_temporal_stability, 0.0, 1.0) * 0.58;
+  float warpConfidence = clamp(
+    depthBoundaryGuard * continuityGuard * sourceEdgeGuard * temporalGuard,
+    0.0,
+    1.0
+  );
+  vec2 uv = mix(baseUv, candidateUv, warpConfidence);
+
   float facing = dot(depthGradient, viewDirection);
-  float microLight = max(0.0, facing) * edgeStrength * u_relight_strength;
+  float microLight = max(0.0, facing) * edgeStrength * u_relight_strength * warpConfidence;
   float microOcclusion = max(0.0, -facing) * edgeStrength * u_occlusion_strength;
 
   vec3 center = sampleScene(uv);
@@ -164,7 +183,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
   className = '',
 }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawRef = useRef<((viewX: number, viewY: number, warpStrength: number, relightStrength: number, occlusionStrength: number, force?: boolean) => void) | null>(null);
+  const drawRef = useRef<((viewX: number, viewY: number, warpStrength: number, relightStrength: number, occlusionStrength: number, temporalStability: number, force?: boolean) => void) | null>(null);
   const lastControlRef = useRef({
     viewX: 0,
     viewY: 0,
@@ -215,6 +234,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
         control.warpStrength,
         control.relightStrength,
         control.occlusionStrength,
+        control.stability,
       );
     },
   }), []);
@@ -246,6 +266,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
     const depthStrengthLocation = gl.getUniformLocation(program, 'u_depth_strength');
     const relightStrengthLocation = gl.getUniformLocation(program, 'u_relight_strength');
     const occlusionStrengthLocation = gl.getUniformLocation(program, 'u_occlusion_strength');
+    const temporalStabilityLocation = gl.getUniformLocation(program, 'u_temporal_stability');
 
     const buffer = gl.createBuffer();
     const texture = gl.createTexture();
@@ -280,6 +301,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
       warpStrength = 0,
       relightStrength = 0,
       occlusionStrength = 0,
+      temporalStability = 1,
       force = false,
     ) => {
       if (disposed || !image || !image.naturalWidth || !image.naturalHeight) return;
@@ -324,6 +346,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
       gl.uniform1f(depthStrengthLocation, Math.max(0, Math.min(1, warpStrength)));
       gl.uniform1f(relightStrengthLocation, Math.max(0, Math.min(0.22, relightStrength)));
       gl.uniform1f(occlusionStrengthLocation, Math.max(0, Math.min(0.18, occlusionStrength)));
+      gl.uniform1f(temporalStabilityLocation, Math.max(0, Math.min(1, temporalStability)));
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       canvas.dataset.ready = 'true';
       canvas.dataset.depthWarp = warpStrength > 0.01 ? 'true' : 'false';
@@ -331,7 +354,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
     };
 
     drawRef.current = draw;
-    const handleLoad = () => draw(0, 0, 0, 0, 0, true);
+    const handleLoad = () => draw(0, 0, 0, 0, 0, 1, true);
     if (image.complete && image.naturalWidth) handleLoad();
     else image.addEventListener('load', handleLoad, { once: true });
 
@@ -344,6 +367,7 @@ const PhotorealSceneCanvas = forwardRef<PhotorealSceneCanvasHandle, Props>(funct
             current.warpStrength,
             current.relightStrength,
             current.occlusionStrength,
+            temporalStabilizerRef.current.snapshot().stability,
           );
         })
       : null;
