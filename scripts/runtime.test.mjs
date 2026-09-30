@@ -66,6 +66,7 @@ const photorealDepth = await importTypeScript('src/presence/photoreal-depth.ts')
 const photorealCameraDepth = await importTypeScript('src/presence/photoreal-camera-depth.ts');
 const photorealEnvironment = await importTypeScript('src/presence/photoreal-environment.ts');
 const photorealSceneSegmentation = await importTypeScript('src/presence/photoreal-scene-segmentation.ts');
+const photorealDepthWarp = await importTypeScript('src/presence/photoreal-depth-warp.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4860,4 +4861,63 @@ test('photoreal scene segmentation rejects invalid or unordered profiles', () =>
     },
   ];
   assert.equal(photorealSceneSegmentation.validateSceneSegments(invalid), false);
+});
+
+
+test('photoreal depth warp activates only on ultra full camera depth', () => {
+  const frame = { rotateXDeg: -1.2, rotateYDeg: 2.4, intensity: 0.82 };
+  const active = photorealDepthWarp.computePhotorealDepthWarpControl(
+    frame, 'ultra', 'full', false,
+  );
+  assert.equal(active.active, true);
+  assert.ok(active.viewX > 0 && active.viewX <= 1);
+  assert.ok(active.viewY > 0 && active.viewY <= 1);
+  assert.ok(active.strength > 0.8 && active.strength <= 1);
+  assert.equal(active.fpsCap, 30);
+
+  for (const [quality, tier, reducedMotion] of [
+    ['high', 'full', false],
+    ['ultra', 'reduced', false],
+    ['ultra', 'minimal', false],
+    ['ultra', 'full', true],
+  ]) {
+    const control = photorealDepthWarp.computePhotorealDepthWarpControl(
+      frame, quality, tier, reducedMotion,
+    );
+    assert.deepEqual(control, {
+      active: false,
+      viewX: 0,
+      viewY: 0,
+      strength: 0,
+      fpsCap: 0,
+    });
+  }
+});
+
+test('photoreal depth warp clamps camera view and confidence strength', () => {
+  const control = photorealDepthWarp.computePhotorealDepthWarpControl(
+    { rotateXDeg: -99, rotateYDeg: 99, intensity: 4 },
+    'ultra',
+    'full',
+    false,
+  );
+  assert.equal(control.active, true);
+  assert.equal(control.viewX, 1);
+  assert.equal(control.viewY, 1);
+  assert.equal(control.strength, 1);
+});
+
+test('photoreal depth warp shader carries authored depth regions', () => {
+  const shader = photorealDepthWarp.PHOTOREAL_DEPTH_FIELD_GLSL;
+  for (const token of [
+    'ellipseMask',
+    'windowMask',
+    'pillowMask',
+    'subjectMask',
+    'bedDepth',
+    'foregroundDepth',
+    'return clamp(depth, 0.12, 0.94)',
+  ]) {
+    assert.ok(shader.includes(token));
+  }
 });
