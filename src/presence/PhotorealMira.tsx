@@ -12,6 +12,7 @@ import {
 } from './photoreal-depth';
 import type { PhotorealCameraDepthController } from './photoreal-camera-depth';
 import type { PhotorealEnvironmentController } from './photoreal-environment';
+import type { PhotorealSceneCanvasHandle } from './PhotorealSceneCanvas';
 import './photoreal-mira.css';
 
 interface Props {
@@ -135,6 +136,7 @@ export default function PhotorealMira({
   });
   const cameraDepthControllerRef = useRef<PhotorealCameraDepthController | null>(null);
   const environmentControllerRef = useRef<PhotorealEnvironmentController | null>(null);
+  const sceneCanvasRef = useRef<PhotorealSceneCanvasHandle | null>(null);
   const environmentRef = useRef({
     label: 'unknown' as EnvironmentLabel,
     confidence: 0,
@@ -304,6 +306,28 @@ export default function PhotorealMira({
         quality: visualQuality,
         reducedMotion: reducedMotionRef.current,
       }, node, now);
+
+      const cameraFrame = cameraDepthControllerRef.current?.snapshot();
+      const performanceTier = (
+        node.dataset.performanceTier === 'reduced'
+        || node.dataset.performanceTier === 'minimal'
+      ) ? node.dataset.performanceTier : 'full';
+      const depthWarpActive = Boolean(
+        cameraFrame
+        && visualQuality === 'ultra'
+        && performanceTier === 'full'
+        && cameraFrame.intensity >= 0.18
+        && !reducedMotionRef.current
+      );
+      node.dataset.depthWarp = depthWarpActive ? 'true' : 'false';
+      if (cameraFrame) {
+        sceneCanvasRef.current?.updateDepthWarp(
+          cameraFrame,
+          visualQuality,
+          performanceTier,
+          reducedMotionRef.current,
+        );
+      }
       raf = requestAnimationFrame(frame);
     };
 
@@ -388,6 +412,7 @@ export default function PhotorealMira({
         {visualProfile.sharpness > 0 && (
           <Suspense fallback={null}>
             <PhotorealSceneCanvas
+              ref={sceneCanvasRef}
               className="pm-scene-canvas"
               src={SCENE_BY_STATE[state]}
               renderDpr={visualProfile.renderDpr}
