@@ -1,4 +1,3 @@
-import { voicePrefs } from '../voice-prefs';
 export type SpeechPerformance = 'warm' | 'focused' | 'serious' | 'excited' | 'quiet';
 export type SpeechTurnRole =
   | 'opening'
@@ -125,13 +124,9 @@ function extractEmphasis(text: string): string {
 }
 
 function buildInstructions(performance: SpeechPerformance, emphasis: string): string {
-  const gentleProfile = voicePrefs.persona === 'gentle'
-    ? 'Giữ chất giọng nữ tính dịu dàng, mượt, hiền và gần gũi. Âm đầu mềm, không sắc; không nâng năng lượng đột ngột; cuối câu thường hạ nhẹ và ấm. Tránh cảm giác đọc quảng cáo, đọc bản tin hoặc cố tỏ ra đáng yêu.'
-    : '';
-
   const lines = [
     'Nói tiếng Việt hội thoại tự nhiên, thiên nhịp miền Bắc nhưng không cường điệu vùng miền.',
-    gentleProfile,
+    'Giữ chất giọng nữ tính dịu dàng, mượt, hiền và gần gũi. Âm đầu mềm, không sắc; không nâng năng lượng đột ngột; cuối câu thường hạ nhẹ và ấm. Tránh cảm giác đọc quảng cáo, đọc bản tin hoặc cố tỏ ra đáng yêu.',
     'Đây là lời nói trực tiếp, không phải đọc văn bản: chia câu thành các cụm ý ngắn, có nhịp thở và khoảng nghỉ theo nghĩa.',
     'Không đọc markdown, ký hiệu định dạng, tiêu đề hay cấu trúc danh sách như một tài liệu.',
     'Không kéo dài mọi dấu chấm, không nhấn đều từng từ, không dùng chất giọng phát thanh viên.',
