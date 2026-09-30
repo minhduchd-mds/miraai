@@ -1670,3 +1670,165 @@
     display:none;
   }
 }
+
+
+/* Spatial Visual v25 — physically coherent room depth and lighting.
+   These are presentation-only room cues. Motion uses compositor transforms;
+   expensive decorative layers are removed by the frame-time governor. */
+.photo-mira {
+  --pm-env-city-bokeh: 0;
+  --pm-env-light-rays: 0;
+  --pm-env-bed-bounce: 0;
+  --pm-env-edge-occlusion: 0;
+}
+
+.bedroom-presence .pm-env-city-bokeh,
+.bedroom-presence .pm-env-light-rays,
+.bedroom-presence .pm-env-bed-bounce,
+.bedroom-presence .pm-env-edge-occlusion {
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  contain:paint;
+  backface-visibility:hidden;
+}
+
+.bedroom-presence .pm-env-city-bokeh {
+  z-index:3;
+  opacity:var(--pm-env-city-bokeh);
+  transform:
+    translate3d(
+      calc(var(--pm-camera-room-x) * .42),
+      calc(var(--pm-camera-room-y) * .28),
+      -16px
+    )
+    scale(1.015);
+  background:
+    radial-gradient(circle at 71% 28%, rgba(124,151,255,.88) 0 1.2px, transparent 2.3px),
+    radial-gradient(circle at 75% 34%, rgba(255,190,112,.84) 0 1.1px, transparent 2.4px),
+    radial-gradient(circle at 81% 25%, rgba(149,126,255,.76) 0 1.4px, transparent 2.7px),
+    radial-gradient(circle at 84% 38%, rgba(255,208,135,.72) 0 1.2px, transparent 2.5px),
+    radial-gradient(circle at 89% 29%, rgba(111,164,255,.7) 0 1.1px, transparent 2.4px),
+    radial-gradient(circle at 93% 41%, rgba(255,180,111,.68) 0 1.3px, transparent 2.6px);
+  background-size:
+    97px 61px,
+    121px 73px,
+    137px 79px,
+    149px 83px,
+    167px 91px,
+    191px 97px;
+  mix-blend-mode:screen;
+  filter:blur(.55px);
+  will-change:transform,opacity;
+}
+
+.bedroom-presence .pm-env-light-rays {
+  z-index:4;
+  opacity:var(--pm-env-light-rays);
+  transform:
+    translate3d(
+      calc(var(--pm-camera-room-x) * .28),
+      calc(var(--pm-camera-room-y) * .22),
+      -4px
+    )
+    rotateY(var(--pm-camera-rotate-y));
+  transform-origin:76% 27%;
+  background:
+    linear-gradient(116deg,
+      transparent 0 59%,
+      rgba(120,144,255,.045) 62%,
+      rgba(130,151,255,.085) 67%,
+      transparent 76%),
+    linear-gradient(106deg,
+      transparent 0 68%,
+      rgba(255,203,149,.04) 71%,
+      rgba(255,192,132,.07) 74%,
+      transparent 81%);
+  mix-blend-mode:screen;
+  will-change:transform,opacity;
+}
+
+.bedroom-presence .pm-env-bed-bounce {
+  z-index:5;
+  inset:42% 6% 0;
+  opacity:var(--pm-env-bed-bounce);
+  transform:
+    translate3d(
+      calc(var(--pm-camera-foreground-x) * .16),
+      calc(var(--pm-camera-foreground-y) * .08),
+      12px
+    );
+  background:
+    radial-gradient(ellipse 48% 36% at 49% 58%, rgba(255,188,159,.105), transparent 72%),
+    radial-gradient(ellipse 36% 26% at 72% 44%, rgba(112,119,255,.07), transparent 78%);
+  mix-blend-mode:soft-light;
+  will-change:transform,opacity;
+}
+
+.bedroom-presence .pm-env-edge-occlusion {
+  z-index:7;
+  opacity:var(--pm-env-edge-occlusion);
+  transform:
+    translate3d(
+      calc(var(--pm-camera-foreground-x) * .08),
+      0,
+      20px
+    );
+  background:
+    linear-gradient(90deg, rgba(4,3,13,.14), transparent 11%, transparent 87%, rgba(4,3,13,.16)),
+    linear-gradient(180deg, rgba(2,2,10,.08), transparent 15%, transparent 82%, rgba(2,2,10,.2));
+  mix-blend-mode:multiply;
+  will-change:transform,opacity;
+}
+
+.bedroom-presence .pm-env-window-light,
+.bedroom-presence .pm-env-practical-light {
+  transform:
+    translate3d(
+      calc(var(--pm-camera-room-x) * .18),
+      calc(var(--pm-camera-room-y) * .12),
+      0
+    );
+  will-change:transform,opacity;
+}
+
+.bedroom-presence .pm-env-reflection {
+  transform:
+    translate3d(
+      calc(var(--pm-camera-subject-x) * .12),
+      calc(var(--pm-camera-subject-y) * .08),
+      0
+    );
+  will-change:transform,opacity;
+}
+
+.photo-mira[data-performance-tier="reduced"] .pm-env-light-rays {
+  display:none;
+}
+
+.photo-mira[data-performance-tier="reduced"] .pm-env-city-bokeh {
+  opacity:calc(var(--pm-env-city-bokeh) * .58);
+}
+
+.photo-mira[data-performance-tier="minimal"] .pm-env-city-bokeh,
+.photo-mira[data-performance-tier="minimal"] .pm-env-light-rays,
+.photo-mira[data-performance-tier="minimal"] .pm-env-bed-bounce,
+.photo-mira[data-performance-tier="minimal"] .pm-env-edge-occlusion {
+  display:none;
+}
+
+.photo-mira[data-visual-quality="lite"] .pm-env-city-bokeh,
+.photo-mira[data-visual-quality="lite"] .pm-env-light-rays,
+.photo-mira[data-visual-quality="lite"] .pm-env-bed-bounce,
+.photo-mira[data-visual-quality="lite"] .pm-env-edge-occlusion {
+  display:none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bedroom-presence .pm-env-city-bokeh,
+  .bedroom-presence .pm-env-light-rays,
+  .bedroom-presence .pm-env-bed-bounce,
+  .bedroom-presence .pm-env-edge-occlusion {
+    transform:none !important;
+  }
+}
