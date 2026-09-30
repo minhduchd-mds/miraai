@@ -181,7 +181,7 @@ for (const token of ['resolvePhotorealVisualQuality', 'clarityProfile', 'compute
 if (/localStorage|sessionStorage|indexedDB/.test(photorealDepth)) failures.push('photoreal depth quality state must remain session-only');
 
 const photorealCameraDepth = readFileSync('src/presence/photoreal-camera-depth.ts', 'utf8');
-for (const token of ['computeCameraSpatialFrame', 'PhotorealCameraSpatialFrame', 'baselineDistanceM', 'confidence < 0.42', 'presentation-only', "'lite'", "'balanced'", "'high'", "'ultra'"]) {
+for (const token of ['computeCameraSpatialFrame', 'PhotorealCameraSpatialFrame', 'baselineDistanceM', 'confidence < 0.42', 'presentation-only', 'lite: 0', 'balanced: 0.56', 'high: 0.8', 'ultra: 1']) {
   if (!photorealCameraDepth.includes(token)) failures.push(`camera photoreal depth runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealCameraDepth)) failures.push('camera photoreal depth state must remain session-only');
