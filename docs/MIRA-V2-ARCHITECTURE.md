@@ -357,6 +357,14 @@ The mapping runtime is isolated in `photoreal-camera-depth.ts` and dynamically i
 
 The transform loop writes compositor-friendly CSS transforms only. Camera motion must not animate blur/backdrop-filter or enter durable memory. Reduced-motion and low-confidence pose collapse the camera frame back to neutral.
 
+### Spatial Visual v24 environment realism boundary
+
+The photoreal scene now consumes the existing probabilistic environment label/confidence only as a presentation hint. `photoreal-environment.ts` maps that context to bounded warm/cool room light, window glow, reflection, haze, shadow, dust and vignette weights.
+
+The same runtime contains a frame-time governor with `full`, `reduced` and `minimal` tiers. It samples the existing photoreal requestAnimationFrame loop and may reduce decorative layers after sustained slow frames. It must never reduce face/hand perception, speech, interaction, camera tracking or core scene visibility.
+
+The environment runtime is dynamically loaded, session-only and downstream of perception. It does not write environment telemetry to durable memory and does not claim that the rendered bedroom is a reconstruction of the user's physical room.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
