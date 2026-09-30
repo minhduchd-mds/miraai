@@ -1400,3 +1400,130 @@
   filter:blur(18px);
   opacity:.62;
 }
+
+
+/* Spatial Visual v23 — camera-driven 3D viewpoint.
+   Only compositor-friendly transforms are animated per frame. */
+.photo-mira {
+  --pm-camera-room-x: 0px;
+  --pm-camera-room-y: 0px;
+  --pm-camera-subject-x: 0px;
+  --pm-camera-subject-y: 0px;
+  --pm-camera-foreground-x: 0px;
+  --pm-camera-foreground-y: 0px;
+  --pm-camera-rotate-x: 0deg;
+  --pm-camera-rotate-y: 0deg;
+  --pm-camera-roll: 0deg;
+  --pm-camera-scale: 1;
+  --pm-camera-shadow-x: 0px;
+  --pm-camera-depth-intensity: 0;
+}
+
+.bedroom-presence .pm-scene-shell {
+  perspective: 1380px;
+  perspective-origin: 50% 47%;
+}
+
+.bedroom-presence .pm-scene-fallback {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-back-x) + var(--pm-camera-room-x)),
+      calc(var(--pm-depth-back-y) + var(--pm-camera-room-y)),
+      -14px
+    )
+    rotateX(calc(var(--pm-depth-tilt-x) + var(--pm-camera-rotate-x) * .48))
+    rotateY(calc(var(--pm-depth-tilt-y) + var(--pm-camera-rotate-y) * .48))
+    rotateZ(calc(var(--pm-camera-roll) * .22))
+    scale(1.026)
+    scale(var(--pm-camera-scale));
+}
+
+.bedroom-presence .pm-scene-canvas {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-back-x) + var(--pm-camera-room-x)),
+      calc(var(--pm-depth-back-y) + var(--pm-camera-room-y)),
+      -9px
+    )
+    rotateX(calc(var(--pm-depth-tilt-x) + var(--pm-camera-rotate-x) * .52))
+    rotateY(calc(var(--pm-depth-tilt-y) + var(--pm-camera-rotate-y) * .52))
+    rotateZ(calc(var(--pm-camera-roll) * .24))
+    scale(1.024)
+    scale(var(--pm-camera-scale));
+}
+
+.bedroom-presence .pm-depth-mid {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-mid-x) + var(--pm-camera-subject-x)),
+      calc(var(--pm-depth-mid-y) + var(--pm-camera-subject-y)),
+      calc(9px + var(--pm-camera-depth-intensity) * 4px)
+    )
+    rotateX(calc(var(--pm-camera-rotate-x) * .86))
+    rotateY(calc(var(--pm-camera-rotate-y) * .9))
+    rotateZ(calc(var(--pm-camera-roll) * .42))
+    scale(1.018)
+    scale(var(--pm-camera-scale));
+}
+
+.bedroom-presence .pm-depth-near {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-near-x) + var(--pm-camera-foreground-x)),
+      calc(var(--pm-depth-near-y) + var(--pm-camera-foreground-y)),
+      calc(19px + var(--pm-camera-depth-intensity) * 7px)
+    )
+    rotateX(var(--pm-camera-rotate-x))
+    rotateY(var(--pm-camera-rotate-y))
+    rotateZ(calc(var(--pm-camera-roll) * .58))
+    scale(1.017)
+    scale(calc(1 + (var(--pm-camera-scale) - 1) * 1.12));
+}
+
+.bedroom-presence .pm-depth-atmosphere {
+  transform: translate3d(
+    calc(var(--pm-depth-back-x) * .45 + var(--pm-camera-room-x) * .35),
+    calc(var(--pm-depth-back-y) * .45 + var(--pm-camera-room-y) * .35),
+    0
+  );
+}
+
+.bedroom-presence .pm-depth-relight {
+  transform: translate3d(
+    calc(var(--pm-depth-mid-x) * .28 + var(--pm-camera-subject-x) * .24),
+    calc(var(--pm-depth-mid-y) * .2 + var(--pm-camera-subject-y) * .18),
+    0
+  );
+  opacity: calc(.1 + var(--pm-attention) * .07 + var(--pm-camera-depth-intensity) * .025);
+}
+
+.bedroom-presence .pm-depth-contact-shadow {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-near-x) * .16 + var(--pm-camera-shadow-x)),
+      0,
+      18px
+    )
+    scaleX(calc(1.08 + var(--pm-camera-depth-intensity) * .035));
+}
+
+.photo-mira[data-visual-quality="balanced"] {
+  --pm-camera-depth-intensity-cap: .56;
+}
+
+.photo-mira[data-visual-quality="high"] {
+  --pm-camera-depth-intensity-cap: .8;
+}
+
+.photo-mira[data-visual-quality="ultra"] {
+  --pm-camera-depth-intensity-cap: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bedroom-presence .pm-scene-fallback,
+  .bedroom-presence .pm-scene-canvas,
+  .bedroom-presence .pm-depth-mid,
+  .bedroom-presence .pm-depth-near {
+    rotate: none;
+  }
+}
