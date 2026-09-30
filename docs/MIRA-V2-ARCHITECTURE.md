@@ -393,6 +393,14 @@ This refinement is visual-only. It does not infer true surface normals, material
 
 No camera pose, view-lighting control or depth-gradient state is persisted to durable memory.
 
+### Spatial Visual v29 temporal-stability boundary
+
+The lazy GPU renderer now includes a short-lived temporal stabilizer for camera-driven view refinement. It operates only on bounded presentation controls from v28 and never changes the underlying face/hand/pose perception pipeline.
+
+The stabilizer tracks recent view input, normalized viewpoint velocity, direction reversal and a recovery score. Sudden jumps or fast reversals temporarily reduce warp/relight/occlusion strength and limit the maximum per-update view step; stable input gradually restores the full v28 control.
+
+The implementation lives inside the lazy `PhotorealSceneCanvas` path, adds no React state, no model inference and no additional WebGL pass. Its diagnostic values are exposed on the canvas as session-only data attributes and must not enter durable memory.
+
 ## 9. Backend boundaries
 
 Two runtimes stay separate intentionally:
