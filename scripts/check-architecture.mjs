@@ -113,7 +113,7 @@ if (entry.includes("import './ui/styles.css';")) failures.push('legacy styles.cs
 if (!entry.includes("import './ui/base-v2.css';")) failures.push('AppV2 base stylesheet missing');
 
 const viteConfig = readFileSync('vite.config.ts', 'utf8');
-for (const token of ["target: 'es2022'", "minify: 'esbuild'", "cssMinify: 'esbuild'", "modulePreload: { polyfill: false }"]) {
+for (const token of ["target: 'es2022'", "minify: 'oxc'", "cssMinify: 'lightningcss'", "modulePreload: { polyfill: false }"]) {
   if (!viteConfig.includes(token)) failures.push(`modern Vite compression target missing: ${token}`);
 }
 
