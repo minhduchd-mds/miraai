@@ -167,7 +167,7 @@ for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_
 for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira observed-expression response missing: ${token}`);
 }
-for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'computeCameraSpatialFrame', 'cameraPoseRef', 'cameraBaselineDistanceRef', 'cameraSmoothing', '--pm-camera-room-x', '--pm-camera-rotate-y', '--pm-camera-scale', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
+for (const token of ["lazy(() => import('./PhotorealSceneCanvas'))", "import('./photoreal-camera-depth')", 'PhotorealSceneCanvas', 'visualProfile.sharpness > 0', 'resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'cameraDepthRuntimeRef', 'cameraPoseRef', 'cameraBaselineDistanceRef', 'cameraSmoothing', '--pm-camera-room-x', '--pm-camera-rotate-y', '--pm-camera-scale', 'data-visual-quality', 'pm-depth-mid', 'pm-depth-near', 'pm-depth-atmosphere', 'pm-depth-relight', 'pm-depth-contact-shadow', 'pm-hero-copy', 'data-hero-state={state}', 'key={\`hero-\${state}\`}', 'STATE_LABEL[state]', 'pm-hero-capabilities', 'pm-hero-story', '--pm-depth-back-x']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira v21/v22/v23 depth-copy integration missing: ${token}`);
 }
 if (photoreal.includes('<span className="pm-clean-copy-scrim"')) failures.push('clean canonical scene must not reintroduce a baked-copy masking scrim');
@@ -175,10 +175,16 @@ if (photoreal.includes('pm-runtime')) failures.push('PhotorealMira must not rend
 if (photoreal.includes('pm-character')) failures.push('PhotorealMira must not overlay the old standing character on the bedroom scene');
 
 const photorealDepth = readFileSync('src/presence/photoreal-depth.ts', 'utf8');
-for (const token of ['resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', 'computeCameraSpatialFrame', 'PhotorealCameraSpatialFrame', 'baselineDistanceM', 'confidence < 0.42', "'lite'", "'balanced'", "'high'", "'ultra'", 'renderDpr', 'sharpness', 'farBlurPx', 'presentation-only', 'motion sickness']) {
+for (const token of ['resolvePhotorealVisualQuality', 'clarityProfile', 'computePhotorealDepthFrame', "'lite'", "'balanced'", "'high'", "'ultra'", 'renderDpr', 'sharpness', 'farBlurPx', 'presentation-only', 'motion sickness']) {
   if (!photorealDepth.includes(token)) failures.push(`photoreal depth runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealDepth)) failures.push('photoreal depth quality state must remain session-only');
+
+const photorealCameraDepth = readFileSync('src/presence/photoreal-camera-depth.ts', 'utf8');
+for (const token of ['computeCameraSpatialFrame', 'PhotorealCameraSpatialFrame', 'baselineDistanceM', 'confidence < 0.42', 'presentation-only', "'lite'", "'balanced'", "'high'", "'ultra'"]) {
+  if (!photorealCameraDepth.includes(token)) failures.push(`camera photoreal depth runtime missing: ${token}`);
+}
+if (/localStorage|sessionStorage|indexedDB/.test(photorealCameraDepth)) failures.push('camera photoreal depth state must remain session-only');
 
 const photorealCanvas = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
 for (const token of ['webgl', 'u_sharpness', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'does not claim', 'reconstruct detail']) {
