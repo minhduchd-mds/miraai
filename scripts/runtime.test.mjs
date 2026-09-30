@@ -5000,7 +5000,7 @@ test('photoreal shader exposes depth-gradient refinement terms', () => {
     'microLight',
     'microOcclusion',
     'subjectWeight',
-    'data.viewRefinement',
+    'dataset.viewRefinement',
   ]) {
     assert.ok(source.includes(token));
   }
