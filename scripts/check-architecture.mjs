@@ -179,7 +179,6 @@ for (const token of ['resolvePhotorealVisualQuality', 'clarityProfile', 'compute
   if (!photorealDepth.includes(token)) failures.push(`photoreal depth runtime missing: ${token}`);
 }
 if (/localStorage|sessionStorage|indexedDB/.test(photorealDepth)) failures.push('photoreal depth quality state must remain session-only');
-if (/filter\s*:\s*blur\([^)]*--pm-camera|backdrop-filter[^;]*--pm-camera/.test(photorealCss || '')) failures.push('camera-driven v23 must keep per-frame motion on compositor transforms, not animated blur/backdrop-filter');
 
 const photorealCanvas = readFileSync('src/presence/PhotorealSceneCanvas.tsx', 'utf8');
 for (const token of ['webgl', 'u_sharpness', 'haloGuard', 'coverUv', 'maxRenderPixels = 12_000_000', 'does not claim', 'reconstruct detail']) {
@@ -190,6 +189,7 @@ const photorealCss = readFileSync('src/presence/photoreal-mira.css', 'utf8');
 for (const token of ['Spatial Visual v21', 'Spatial Visual v22', 'Spatial Visual v23', '--pm-depth-back-x', '--pm-depth-mid-x', '--pm-depth-near-x', '--pm-camera-room-x', '--pm-camera-subject-x', '--pm-camera-foreground-x', '--pm-camera-rotate-x', '--pm-camera-rotate-y', '--pm-camera-scale', '--pm-clarity-contrast', '.pm-scene-canvas[data-ready="true"]', '.pm-depth-mid', '.pm-depth-near', '.pm-depth-atmosphere', '.pm-depth-relight', '.pm-depth-contact-shadow', '.pm-hero-copy', '[data-hero-state="listening"]', '@keyframes pmHeroLineIn', '[data-visual-quality="lite"]']) {
   if (!photorealCss.includes(token)) failures.push(`photoreal v21/v22/v23 CSS missing: ${token}`);
 }
+if (/filter\s*:\s*blur\([^)]*--pm-camera|backdrop-filter[^;]*--pm-camera/.test(photorealCss)) failures.push('camera-driven v23 must keep per-frame motion on compositor transforms, not animated blur/backdrop-filter');
 
 const photorealRestore = readFileSync('scripts/restore-photoreal-assets.mjs', 'utf8');
 for (const token of ['PART_COUNT = 11', 'EXPECTED_SHA256', 'Buffer.from(encoded, \'base64\')', 'RIFF', 'WEBP', 'writeFileSync']) {
