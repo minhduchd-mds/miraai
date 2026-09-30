@@ -62,6 +62,7 @@ const spatialXRManipulation = await importTypeScript('src/core/vision/spatial-xr
 const spatialXRBimanual = await importTypeScript('src/core/vision/spatial-xr-bimanual.ts');
 const spatialXRRigidBody = await importTypeScript('src/core/vision/spatial-xr-rigid-body.ts');
 const photorealDepth = await importTypeScript('src/presence/photoreal-depth.ts');
+const photorealCameraDepth = await importTypeScript('src/presence/photoreal-camera-depth.ts');
 const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-hand-kinematics.ts');
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
@@ -4559,7 +4560,7 @@ test('lite photoreal depth disables motion layers deterministically', () => {
 
 
 test('camera-driven photoreal 3D stays bounded and directionally layered', () => {
-  const frame = photorealDepth.computeCameraSpatialFrame({
+  const frame = photorealCameraDepth.computeCameraSpatialFrame({
     enabled: true,
     yaw: 0.68,
     pitch: -0.52,
@@ -4594,12 +4595,12 @@ test('camera-driven photoreal 3D disables on low confidence and lite quality', (
     distanceM: 0.5,
     baselineDistanceM: 0.7,
   };
-  const lowConfidence = photorealDepth.computeCameraSpatialFrame({
+  const lowConfidence = photorealCameraDepth.computeCameraSpatialFrame({
     ...base,
     confidence: 0.3,
     quality: 'ultra',
   });
-  const lite = photorealDepth.computeCameraSpatialFrame({
+  const lite = photorealCameraDepth.computeCameraSpatialFrame({
     ...base,
     confidence: 0.95,
     quality: 'lite',
@@ -4626,9 +4627,9 @@ test('camera-driven photoreal zoom is relative to session baseline', () => {
     confidence: 1,
     quality: 'high',
   };
-  const closer = photorealDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.48 });
-  const baseline = photorealDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.7 });
-  const farther = photorealDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.92 });
+  const closer = photorealCameraDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.48 });
+  const baseline = photorealCameraDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.7 });
+  const farther = photorealCameraDepth.computeCameraSpatialFrame({ ...common, distanceM: 0.92 });
 
   assert.ok(closer.scale > baseline.scale);
   assert.equal(baseline.scale, 1);
