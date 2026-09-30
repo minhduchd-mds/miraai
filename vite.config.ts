@@ -21,8 +21,8 @@ export default defineConfig({
     // Modern production target keeps emitted JS compact; Mira already requires
     // secure-context browser APIs such as Web Speech, WebGL and MediaDevices.
     target: 'es2022',
-    minify: 'esbuild',
-    cssMinify: 'esbuild',
+    minify: 'oxc',
+    cssMinify: 'lightningcss',
     modulePreload: { polyfill: false },
     // Manifest lets CI distinguish the initial graph from intentionally-heavy dynamic Labs/3D chunks.
     manifest: true,
