@@ -1833,3 +1833,155 @@
     transform:none !important;
   }
 }
+
+
+/* Spatial Visual v26 — authored semantic segmentation depth planes.
+   These masks are scene-specific presentation regions, not measured depth or
+   ML segmentation output. They reuse the same decoded source and are lazy
+   mounted only on high/ultra visual tiers. */
+.bedroom-presence .pm-scene-segments {
+  position:absolute;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  transform-style:preserve-3d;
+  contain:paint;
+}
+
+.bedroom-presence .pm-scene-segment {
+  position:absolute;
+  left:-8px;
+  top:-8px;
+  width:calc(100% + 16px);
+  height:calc(100% + 16px);
+  object-fit:cover;
+  object-position:center center;
+  pointer-events:none;
+  user-select:none;
+  backface-visibility:hidden;
+  opacity:var(--pm-segment-opacity,.5);
+  will-change:transform,opacity;
+}
+
+.bedroom-presence .pm-scene-segment-window {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-back-x) + var(--pm-camera-room-x)),
+      calc(var(--pm-depth-back-y) + var(--pm-camera-room-y)),
+      -24px
+    )
+    rotateZ(var(--pm-camera-roll))
+    scale(1.02);
+  -webkit-mask-image:
+    radial-gradient(ellipse 72% 66% at 78% 25%,#000 0 52%,rgba(0,0,0,.78) 66%,transparent 88%);
+  mask-image:
+    radial-gradient(ellipse 72% 66% at 78% 25%,#000 0 52%,rgba(0,0,0,.78) 66%,transparent 88%);
+}
+
+.bedroom-presence .pm-scene-segment-pillow {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-mid-x) + var(--pm-camera-room-x)),
+      calc(var(--pm-depth-mid-y) + var(--pm-camera-room-y)),
+      5px
+    )
+    rotateY(var(--pm-camera-rotate-y))
+    scale(1.016);
+  -webkit-mask-image:
+    radial-gradient(ellipse 78% 82% at 18% 36%,#000 0 54%,rgba(0,0,0,.72) 69%,transparent 91%);
+  mask-image:
+    radial-gradient(ellipse 78% 82% at 18% 36%,#000 0 54%,rgba(0,0,0,.72) 69%,transparent 91%);
+}
+
+.bedroom-presence .pm-scene-segment-subject {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-mid-x) + var(--pm-camera-subject-x)),
+      calc(var(--pm-depth-mid-y) + var(--pm-camera-subject-y)),
+      26px
+    )
+    rotateX(var(--pm-camera-rotate-x))
+    rotateY(var(--pm-camera-rotate-y))
+    rotateZ(var(--pm-camera-roll))
+    scale(var(--pm-camera-scale));
+  -webkit-mask-image:
+    radial-gradient(ellipse 61% 79% at 50% 46%,#000 0 56%,rgba(0,0,0,.84) 68%,rgba(0,0,0,.28) 82%,transparent 95%);
+  mask-image:
+    radial-gradient(ellipse 61% 79% at 50% 46%,#000 0 56%,rgba(0,0,0,.84) 68%,rgba(0,0,0,.28) 82%,transparent 95%);
+}
+
+.bedroom-presence .pm-scene-segment-bed {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-near-x) + var(--pm-camera-foreground-x)),
+      calc(var(--pm-depth-near-y) + var(--pm-camera-foreground-y)),
+      36px
+    )
+    rotateX(var(--pm-camera-rotate-x))
+    rotateY(var(--pm-camera-rotate-y))
+    scale(var(--pm-camera-scale));
+  -webkit-mask-image:
+    linear-gradient(180deg,transparent 0 42%,rgba(0,0,0,.18) 52%,rgba(0,0,0,.82) 67%,#000 87% 100%);
+  mask-image:
+    linear-gradient(180deg,transparent 0 42%,rgba(0,0,0,.18) 52%,rgba(0,0,0,.82) 67%,#000 87% 100%);
+}
+
+.bedroom-presence .pm-scene-segment-foreground {
+  transform:
+    translate3d(
+      calc(var(--pm-depth-near-x) + var(--pm-camera-foreground-x)),
+      calc(var(--pm-depth-near-y) + var(--pm-camera-foreground-y)),
+      48px
+    )
+    rotateX(var(--pm-camera-rotate-x))
+    rotateY(var(--pm-camera-rotate-y))
+    rotateZ(var(--pm-camera-roll))
+    scale(var(--pm-camera-scale));
+  -webkit-mask-image:
+    linear-gradient(180deg,transparent 0 54%,rgba(0,0,0,.14) 62%,rgba(0,0,0,.88) 78%,#000 100%);
+  mask-image:
+    linear-gradient(180deg,transparent 0 54%,rgba(0,0,0,.14) 62%,rgba(0,0,0,.88) 78%,#000 100%);
+}
+
+.photo-mira[data-visual-quality="high"] .pm-scene-segment-window,
+.photo-mira[data-visual-quality="high"] .pm-scene-segment-pillow {
+  display:none;
+}
+
+.photo-mira[data-visual-quality="high"] .pm-depth-mid,
+.photo-mira[data-visual-quality="high"] .pm-depth-near,
+.photo-mira[data-visual-quality="ultra"] .pm-depth-mid,
+.photo-mira[data-visual-quality="ultra"] .pm-depth-near {
+  opacity:.045;
+}
+
+.photo-mira[data-performance-tier="reduced"] .pm-scene-segment-window,
+.photo-mira[data-performance-tier="reduced"] .pm-scene-segment-pillow,
+.photo-mira[data-performance-tier="reduced"] .pm-scene-segment-bed {
+  display:none;
+}
+
+.photo-mira[data-performance-tier="reduced"] .pm-scene-segment-subject {
+  opacity:.54;
+}
+
+.photo-mira[data-performance-tier="minimal"] .pm-scene-segments {
+  display:none;
+}
+
+@media (max-width:900px) {
+  .bedroom-presence .pm-scene-segment-window,
+  .bedroom-presence .pm-scene-segment-pillow {
+    display:none;
+  }
+
+  .bedroom-presence .pm-scene-segment-subject {
+    opacity:.5;
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .bedroom-presence .pm-scene-segments {
+    display:none;
+  }
+}
