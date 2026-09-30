@@ -10,6 +10,7 @@ import { derivePosture } from './posture-model';
 import { inferLiteGesture, type HandPoint } from './hand-gesture-lite';
 import { VisionPostprocessWorkerClient } from './vision-worker-client';
 import type { VisionWorkerResult, WorkerHandResult } from './vision-worker-protocol';
+import { isRecoverableGpuDelegateError, visionInferenceErrorMessage } from './vision-delegate-fallback';
 import {
   VisionPerformanceGovernor,
   EMPTY_VISION_PERFORMANCE,
@@ -54,6 +55,9 @@ let raf = 0;
 let stopped = true;
 let busy = false;
 let lastError: string | null = null;
+let activeDelegate: Delegate | 'unknown' = 'unknown';
+let delegateFailoverPromise: Promise<boolean> | null = null;
+let consecutiveInferenceFailures = 0;
 let lastFaceSeenAt = 0;
 let lastPoseCenter = { x: 0.5, y: 0.5 };
 let postureMotionEma = 0;
@@ -506,8 +510,50 @@ function clearAllSignals(): void {
   postureMotionEma = 0;
 }
 
+async function fallbackHolisticToCpu(reason: unknown): Promise<boolean> {
+  if (delegateFailoverPromise) return delegateFailoverPromise;
+
+  delegateFailoverPromise = (async () => {
+    const failedMessage = visionInferenceErrorMessage(reason);
+    const previous = landmarker;
+    landmarker = null;
+    try { previous?.close?.(); } catch { /* noop */ }
+
+    try {
+      const cpuLandmarker = await createLandmarker('CPU');
+      if (stopped) {
+        try { cpuLandmarker?.close?.(); } catch { /* noop */ }
+        return false;
+      }
+      landmarker = cpuLandmarker;
+      activeDelegate = 'CPU';
+      governor = new VisionPerformanceGovernor('holistic', 'CPU');
+      holisticRuntimeData.delegate = 'CPU';
+      holisticRuntimeData.error = null;
+      holisticRuntimeData.performance = governor.snapshot();
+      consecutiveInferenceFailures = 0;
+      lastError = null;
+      console.warn('[Mira Holistic] GPU inference failed; switched to CPU delegate.', failedMessage);
+      return true;
+    } catch (cpuError) {
+      lastError = visionInferenceErrorMessage(cpuError) || failedMessage;
+      holisticRuntimeData.error = lastError;
+      console.warn('[Mira Holistic] CPU fallback failed.', lastError);
+      return false;
+    }
+  })().finally(() => {
+    delegateFailoverPromise = null;
+  });
+
+  return delegateFailoverPromise;
+}
+
 function readFrame(): void {
-  if (stopped || !landmarker || !video) return;
+  if (stopped || !video) return;
+  if (!landmarker || delegateFailoverPromise) {
+    raf = requestAnimationFrame(readFrame);
+    return;
+  }
   if (video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) {
     raf = requestAnimationFrame(readFrame);
     return;
@@ -522,8 +568,16 @@ function readFrame(): void {
   let result: any = null;
   try {
     result = landmarker.detectForVideo(video, now);
+    consecutiveInferenceFailures = 0;
   } catch (error) {
-    lastError = error instanceof Error ? error.message : String(error);
+    lastError = visionInferenceErrorMessage(error);
+    consecutiveInferenceFailures += 1;
+    if (
+      activeDelegate === 'GPU' &&
+      (isRecoverableGpuDelegateError(error) || consecutiveInferenceFailures >= 2)
+    ) {
+      void fallbackHolisticToCpu(error);
+    }
   }
 
   let landmarkCount = 0;
@@ -589,6 +643,8 @@ export async function startHolisticTracking(): Promise<boolean> {
       landmarker = await createLandmarker('CPU');
     }
 
+    activeDelegate = delegate;
+    consecutiveInferenceFailures = 0;
     governor = new VisionPerformanceGovernor('holistic', delegate);
     const workerActive = postprocessWorker.start();
     governor.setPostprocess(workerActive ? 'worker' : 'main', 0);
@@ -623,6 +679,9 @@ export function stopHolisticTracking(): void {
   landmarker = null;
   holisticRuntimeData.active = false;
   holisticRuntimeData.delegate = 'unknown';
+  activeDelegate = 'unknown';
+  delegateFailoverPromise = null;
+  consecutiveInferenceFailures = 0;
   holisticRuntimeData.face = {
     status: 'scanning',
     landmarkCount: 0,
