@@ -159,7 +159,10 @@ export default function PhotorealMira({
   });
   const cameraDepthRuntimeRef = useRef<typeof import('./photoreal-camera-depth') | null>(null);
   const environmentRuntimeRef = useRef<typeof import('./photoreal-environment') | null>(null);
-  const performanceGovernorRef = useRef<InstanceType<typeof import('./photoreal-environment')['PhotorealPerformanceGovernor']> | null>(null);
+  const performanceGovernorRef = useRef<{
+    update: (frameMs: number, now?: number) => PhotorealPerformanceTier;
+    reset: () => void;
+  } | null>(null);
   const environmentRef = useRef({
     label: 'unknown' as EnvironmentLabel,
     confidence: 0,
