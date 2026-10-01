@@ -8,6 +8,8 @@ export interface ServerTTSOptions {
   fallbackVoice: VoiceOption;
   sampleText?: string;
   fallback?: TTSAdapter & { unlock?: () => void };
+  failureThreshold?: number;
+  cooldownMs?: number;
 }
 
 const DEFAULT_SAMPLE = 'Xin chào anh, em là Mira. Đây là giọng nói tiếng Việt của em đó ạ.';
@@ -25,6 +27,10 @@ export class ServerTTS implements TTSAdapter {
   private cancelled = false;
   private voices: VoiceOption[];
   private fallbackTTS: (TTSAdapter & { unlock?: () => void }) | null;
+  private failureThreshold: number;
+  private cooldownMs: number;
+  private consecutiveFailures = 0;
+  private circuitOpenUntil = 0;
 
   constructor(opts: ServerTTSOptions) {
     this.serverUrl = (opts.serverUrl || '').replace(/\/$/, '');
@@ -32,6 +38,8 @@ export class ServerTTS implements TTSAdapter {
     this.sampleText = opts.sampleText || DEFAULT_SAMPLE;
     this.voices = [opts.fallbackVoice];
     this.fallbackTTS = opts.fallback ?? null;
+    this.failureThreshold = Math.max(1, Math.floor(opts.failureThreshold ?? 2));
+    this.cooldownMs = Math.max(5_000, Math.floor(opts.cooldownMs ?? 30_000));
     fetch(`${this.serverUrl}/voices`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
@@ -51,7 +59,7 @@ export class ServerTTS implements TTSAdapter {
   private speakFallback(opts: TTSSpeakOptions, reason: unknown): boolean {
     if (!this.fallbackTTS || this.cancelled) return false;
     this.lastError = reason instanceof Error ? reason.message : String(reason || 'server_tts_failed');
-    console.warn(`[Mira TTS·${this.label}] chuyển sang giọng hệ thống.`, this.lastError);
+    console.warn(`[Mira TTS·${this.label}] chuyển sang giọng dự phòng.`, this.lastError);
     // Voice ID của cloud/ElevenLabs không tồn tại trong Web Speech. Bỏ ID để fallback tự chọn vi-VN.
     this.fallbackTTS.speak({ ...opts, voiceURI: undefined });
     return true;
@@ -60,6 +68,14 @@ export class ServerTTS implements TTSAdapter {
   speak(opts: TTSSpeakOptions): void {
     this.cancel();
     this.cancelled = false;
+
+    if (Date.now() < this.circuitOpenUntil) {
+      if (!this.speakFallback(opts, 'server_tts_cooldown')) {
+        opts.onError?.('server_tts_cooldown');
+      }
+      return;
+    }
+
     const ac = new AbortController();
     this.abortCtl = ac;
     this.fetching = true;
@@ -87,6 +103,8 @@ export class ServerTTS implements TTSAdapter {
         this.fetching = false;
         if (this.cancelled) return;
         if (!blob.size) throw new Error('empty_audio');
+        this.consecutiveFailures = 0;
+        this.circuitOpenUntil = 0;
         const url = URL.createObjectURL(blob);
         this.objectUrl = url;
         const a = new Audio(url);
@@ -105,6 +123,12 @@ export class ServerTTS implements TTSAdapter {
       .catch((error: any) => {
         this.fetching = false;
         if (this.cancelled || error?.name === 'AbortError') return;
+
+        this.consecutiveFailures += 1;
+        if (this.consecutiveFailures >= this.failureThreshold) {
+          this.circuitOpenUntil = Date.now() + this.cooldownMs;
+        }
+
         if (!this.speakFallback(opts, error)) {
           const msg = error instanceof Error ? error.message : String(error);
           this.lastError = msg;
