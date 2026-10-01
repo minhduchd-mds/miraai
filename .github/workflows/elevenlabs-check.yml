@@ -16,25 +16,58 @@ jobs:
     runs-on: ubuntu-latest
     environment: elevenlabs
     steps:
-      - name: Check secret is configured
+      - name: Resolve ElevenLabs secret alias
+        id: resolve
         env:
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          KEY_PRIMARY: ${{ secrets.ELEVENLABS_API_KEY }}
+          KEY_LEGACY: ${{ secrets.elevenlabs_api_key }}
+          KEY_SHORT: ${{ secrets.ELEVENLABS }}
+          KEY_SHORT_LOWER: ${{ secrets.elevenlabs }}
         shell: bash
         run: |
           set +x
-          if [ -z "$ELEVENLABS_API_KEY" ]; then
-            echo "ELEVENLABS_API_KEY: missing"
+
+          source_name=""
+          selected=""
+
+          if [ -n "$KEY_PRIMARY" ]; then
+            source_name="ELEVENLABS_API_KEY"
+            selected="$KEY_PRIMARY"
+          elif [ -n "$KEY_LEGACY" ]; then
+            source_name="elevenlabs_api_key"
+            selected="$KEY_LEGACY"
+          elif [ -n "$KEY_SHORT" ]; then
+            source_name="ELEVENLABS"
+            selected="$KEY_SHORT"
+          elif [ -n "$KEY_SHORT_LOWER" ]; then
+            source_name="elevenlabs"
+            selected="$KEY_SHORT_LOWER"
+          fi
+
+          if [ -z "$selected" ]; then
+            echo "ElevenLabs secret: missing"
             exit 1
           fi
-          echo "ELEVENLABS_API_KEY: configured"
+
+          echo "::add-mask::$selected"
+          echo "ElevenLabs secret alias detected: $source_name"
+          {
+            echo "api_key<<MIRA_SECRET"
+            echo "$selected"
+            echo "MIRA_SECRET"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Verify ElevenLabs authentication
         env:
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ steps.resolve.outputs.api_key }}
         shell: bash
         run: |
           set +x
-          status="$(curl --silent --show-error             --output /tmp/elevenlabs-user.json             --write-out "%{http_code}"             --header "xi-api-key: $ELEVENLABS_API_KEY"             "https://api.elevenlabs.io/v1/user")"
+          status="$(curl --silent --show-error \
+            --output /tmp/elevenlabs-user.json \
+            --write-out "%{http_code}" \
+            --header "xi-api-key: $ELEVENLABS_API_KEY" \
+            "https://api.elevenlabs.io/v1/user")"
 
           if [ "$status" = "200" ]; then
             echo "ElevenLabs API: authenticated"
