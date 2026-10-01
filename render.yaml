@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: miraai-tts
+    runtime: node
+    plan: free
+    region: singapore
+    repo: https://github.com/minhduchd-mds/miraai
+    branch: main
+    buildCommand: echo ready
+    startCommand: node server/tts-gateway.mjs
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: MIRA_TTS_ALLOWED_ORIGIN
+        value: https://minhduchd-mds.github.io
+      - key: ELEVENLABS_TTS_MODEL
+        value: eleven_multilingual_v2
+      - key: ELEVENLABS_TTS_VOICE
+        value: EXAVITQu4vr4xnSDxMaL
+      - key: ELEVENLABS_API_KEY
+        sync: false
