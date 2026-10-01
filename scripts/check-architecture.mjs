@@ -388,8 +388,17 @@ if (/ELEVENLABS_API_KEY|elevenlabs_api_key/.test(browserTtsFiles)) {
 if (!browserTtsFiles.includes('VITE_MIRA_TTS_URL')) failures.push('browser TTS gateway URL contract missing');
 
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
-for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote"]) {
+for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote", 'new CloudTTS(configuredUrl, new PiperLocalTTS())']) {
   if (!localTts.includes(token)) failures.push(`GitHub Pages TTS routing missing: ${token}`);
+}
+
+const cloudTts = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
+for (const token of ['failureThreshold: 2', 'cooldownMs: 30_000']) {
+  if (!cloudTts.includes(token)) failures.push(`resilient cloud TTS policy missing: ${token}`);
+}
+
+for (const token of ['consecutiveFailures', 'circuitOpenUntil', 'server_tts_cooldown', 'Date.now() < this.circuitOpenUntil', 'this.consecutiveFailures >= this.failureThreshold']) {
+  if (!serverTts.includes(token)) failures.push(`server TTS circuit-breaker missing: ${token}`);
 }
 const brain = readFileSync('src/core/brain/index.ts', 'utf8');
 if (!brain.includes('LocalWebLLMBrain')) failures.push('GitHub Pages must expose a real local WebLLM brain');
