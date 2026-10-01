@@ -25,6 +25,9 @@ jobs:
           HAS_CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
           HAS_RAILWAY: ${{ secrets.RAILWAY_TOKEN != '' }}
           HAS_FLY: ${{ secrets.FLY_API_TOKEN != '' }}
+          HAS_NEON_KEY: ${{ secrets.NEON_API_KEY != '' }}
+          HAS_NEON_PROJECT_SECRET: ${{ secrets.NEON_PROJECT_ID != '' }}
+          HAS_NEON_PROJECT_VAR: ${{ vars.NEON_PROJECT_ID != '' }}
           HAS_TTS_URL: ${{ vars.MIRA_TTS_URL != '' }}
         shell: bash
         run: |
@@ -36,4 +39,7 @@ jobs:
           echo "CLOUDFLARE_ACCOUNT_ID=$HAS_CF_ACCOUNT"
           echo "RAILWAY_TOKEN=$HAS_RAILWAY"
           echo "FLY_API_TOKEN=$HAS_FLY"
+          echo "NEON_API_KEY=$HAS_NEON_KEY"
+          echo "NEON_PROJECT_ID_SECRET=$HAS_NEON_PROJECT_SECRET"
+          echo "NEON_PROJECT_ID_VAR=$HAS_NEON_PROJECT_VAR"
           echo "MIRA_TTS_URL=$HAS_TTS_URL"
