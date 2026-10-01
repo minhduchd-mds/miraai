@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: elevenlabs
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -31,7 +32,24 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_MIRA_TTS_URL: ${{ vars.MIRA_TTS_URL }}
         run: npm run build
+
+      - name: Neural TTS gateway smoke
+        if: ${{ vars.MIRA_TTS_URL != '' }}
+        env:
+          MIRA_TTS_URL: ${{ vars.MIRA_TTS_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="${MIRA_TTS_URL%/}/health"
+          status="$(curl --silent --show-error --output /tmp/mira-tts-health.json --write-out "%{http_code}" "$url")"
+          if [ "$status" != "200" ]; then
+            echo "Mira TTS gateway health failed (HTTP $status)"
+            exit 1
+          fi
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/mira-tts-health.json','utf8')); if(!j.ok) process.exit(1); console.log('Mira TTS gateway: reachable; provider='+(j.provider||'unknown')+'; configured='+Boolean(j.configured));"
 
       - name: Prune heavy Labs assets
         run: npm run prune:pages
