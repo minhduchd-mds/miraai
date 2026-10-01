@@ -61,9 +61,9 @@ export function createTTS(): MiraTTS {
     const secureRemote = /^https:\/\//i.test(configuredUrl);
     if (cfg.engine === 'edge' && secureRemote) return new EdgeTTS(configuredUrl);
     if (cfg.engine === 'vieneu' && secureRemote) return new VieNeuTTS(configuredUrl);
-    if (cfg.engine === 'cloud' && secureRemote) return new CloudTTS(configuredUrl);
+    if (cfg.engine === 'cloud' && secureRemote) return new CloudTTS(configuredUrl, new PiperLocalTTS());
     if (cfg.engine === 'system') return new WebSpeechTTS();
-    if (secureRemote) return new CloudTTS(configuredUrl);
+    if (secureRemote) return new CloudTTS(configuredUrl, new PiperLocalTTS());
     return new PiperLocalTTS();
   }
 
