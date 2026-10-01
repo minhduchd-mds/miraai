@@ -377,6 +377,16 @@ for (const token of ["rate: 0.96", "persona: 'gentle'", "label: 'Êm'", 'voicePr
   if (!voicePrefsSource.includes(token)) failures.push(`gentle voice defaults missing: ${token}`);
 }
 
+const browserTtsFiles = [
+  'src/core/tts/index.ts',
+  'src/core/tts/cloud-tts.ts',
+  'src/core/tts/server-tts.ts',
+].map((path) => readFileSync(path, 'utf8')).join('\n');
+if (/ELEVENLABS_API_KEY|elevenlabs_api_key/.test(browserTtsFiles)) {
+  failures.push('browser TTS source must never read ELEVENLABS_API_KEY');
+}
+if (!browserTtsFiles.includes('VITE_MIRA_TTS_URL')) failures.push('browser TTS gateway URL contract missing');
+
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
 for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote"]) {
   if (!localTts.includes(token)) failures.push(`GitHub Pages TTS routing missing: ${token}`);
