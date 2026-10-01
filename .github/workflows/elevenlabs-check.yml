@@ -1,0 +1,45 @@
+name: Verify ElevenLabs Environment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/elevenlabs-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify ElevenLabs secret
+    runs-on: ubuntu-latest
+    environment: elevenlabs
+    steps:
+      - name: Check secret is configured
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        shell: bash
+        run: |
+          set +x
+          if [ -z "$ELEVENLABS_API_KEY" ]; then
+            echo "ELEVENLABS_API_KEY: missing"
+            exit 1
+          fi
+          echo "ELEVENLABS_API_KEY: configured"
+
+      - name: Verify ElevenLabs authentication
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        shell: bash
+        run: |
+          set +x
+          status="$(curl --silent --show-error             --output /tmp/elevenlabs-user.json             --write-out "%{http_code}"             --header "xi-api-key: $ELEVENLABS_API_KEY"             "https://api.elevenlabs.io/v1/user")"
+
+          if [ "$status" = "200" ]; then
+            echo "ElevenLabs API: authenticated"
+            exit 0
+          fi
+
+          echo "ElevenLabs API: authentication failed (HTTP $status)"
+          exit 1
