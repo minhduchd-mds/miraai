@@ -20,6 +20,7 @@ export interface TTSConfig {
 }
 
 const LS_KEY = 'mira.tts.config';
+const BUILD_TTS_URL = String(import.meta.env.VITE_MIRA_TTS_URL || '').trim().replace(/\/$/, '');
 
 function isGitHubPagesRuntime(): boolean {
   return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
@@ -42,7 +43,7 @@ export function loadTTSConfig(): TTSConfig {
       };
     }
   } catch { /* noop */ }
-  return { engine: 'cloud', apiKey: '', voiceId: '', serverUrl: '' };
+  return { engine: 'cloud', apiKey: '', voiceId: '', serverUrl: BUILD_TTS_URL };
 }
 
 export function saveTTSConfig(cfg: TTSConfig): void {
@@ -56,11 +57,13 @@ export function createTTS(): MiraTTS {
   const cfg = loadTTSConfig();
 
   if (isGitHubPagesRuntime()) {
-    const secureRemote = /^https:\/\//i.test(cfg.serverUrl || '');
-    if (cfg.engine === 'edge' && secureRemote) return new EdgeTTS(cfg.serverUrl);
-    if (cfg.engine === 'vieneu' && secureRemote) return new VieNeuTTS(cfg.serverUrl);
-    if (cfg.engine === 'cloud' && secureRemote) return new CloudTTS(cfg.serverUrl);
+    const configuredUrl = cfg.serverUrl || BUILD_TTS_URL;
+    const secureRemote = /^https:\/\//i.test(configuredUrl);
+    if (cfg.engine === 'edge' && secureRemote) return new EdgeTTS(configuredUrl);
+    if (cfg.engine === 'vieneu' && secureRemote) return new VieNeuTTS(configuredUrl);
+    if (cfg.engine === 'cloud' && secureRemote) return new CloudTTS(configuredUrl);
     if (cfg.engine === 'system') return new WebSpeechTTS();
+    if (secureRemote) return new CloudTTS(configuredUrl);
     return new PiperLocalTTS();
   }
 
