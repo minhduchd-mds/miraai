@@ -5242,3 +5242,32 @@ test('photoreal shader guards warp against depth discontinuity and source edges'
     assert.ok(source.includes(token));
   }
 });
+
+
+test('Pages neural TTS falls back to Piper with cooldown protection', () => {
+  const indexSource = readFileSync('src/core/tts/index.ts', 'utf8');
+  const cloudSource = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
+  const serverSource = readFileSync('src/core/tts/server-tts.ts', 'utf8');
+
+  assert.ok(indexSource.includes("new CloudTTS(configuredUrl, new PiperLocalTTS())"));
+  assert.ok(cloudSource.includes('failureThreshold: 2'));
+  assert.ok(cloudSource.includes('cooldownMs: 30_000'));
+
+  for (const token of [
+    'consecutiveFailures',
+    'circuitOpenUntil',
+    'server_tts_cooldown',
+    'Date.now() < this.circuitOpenUntil',
+    'this.consecutiveFailures >= this.failureThreshold',
+    'this.circuitOpenUntil = Date.now() + this.cooldownMs',
+    'this.consecutiveFailures = 0',
+  ]) {
+    assert.ok(serverSource.includes(token));
+  }
+});
+
+test('server TTS fallback wording is provider-agnostic', () => {
+  const source = readFileSync('src/core/tts/server-tts.ts', 'utf8');
+  assert.ok(source.includes('chuyển sang giọng dự phòng'));
+  assert.ok(!source.includes('chuyển sang giọng hệ thống.'));
+});
