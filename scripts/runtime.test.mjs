@@ -5271,3 +5271,65 @@ test('server TTS fallback wording is provider-agnostic', () => {
   assert.ok(source.includes('chuyển sang giọng dự phòng'));
   assert.ok(!source.includes('chuyển sang giọng hệ thống.'));
 });
+
+
+test('Neon Mira TTS function exposes health and voices safely', async () => {
+  const mod = await import(new URL('../functions/miratts/index.mjs', import.meta.url));
+  const handler = mod.default.fetch;
+
+  const health = await handler(new Request('https://example.neon.tech/health', {
+    headers: { origin: 'https://minhduchd-mds.github.io' },
+  }));
+  assert.equal(health.status, 200);
+  const healthJson = await health.json();
+  assert.equal(healthJson.ok, true);
+  assert.equal(healthJson.provider, 'elevenlabs');
+  assert.equal(healthJson.runtime, 'neon-function');
+  assert.equal(typeof healthJson.configured, 'boolean');
+
+  const voices = await handler(new Request('https://example.neon.tech/voices', {
+    headers: { origin: 'https://minhduchd-mds.github.io' },
+  }));
+  assert.equal(voices.status, 200);
+  const voicesJson = await voices.json();
+  assert.ok(Array.isArray(voicesJson.voices));
+  assert.ok(voicesJson.voices.length >= 3);
+  assert.ok(voicesJson.voices.some((voice) => /Sarah/.test(voice.label)));
+});
+
+test('Neon Mira TTS function rejects untrusted origins and invalid speech input', async () => {
+  const mod = await import(new URL('../functions/miratts/index.mjs', import.meta.url));
+  const handler = mod.default.fetch;
+
+  const blocked = await handler(new Request('https://example.neon.tech/health', {
+    headers: { origin: 'https://evil.example' },
+  }));
+  assert.equal(blocked.status, 403);
+
+  const missing = await handler(new Request('https://example.neon.tech/tts', {
+    method: 'POST',
+    headers: {
+      origin: 'https://minhduchd-mds.github.io',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ text: '' }),
+  }));
+  assert.equal(missing.status, 400);
+  assert.deepEqual(await missing.json(), { error: 'text_required' });
+});
+
+test('Neon Mira TTS function keeps ElevenLabs credentials server-side', () => {
+  const source = readFileSync('functions/miratts/index.mjs', 'utf8');
+  for (const token of [
+    'process.env.ELEVENLABS_API_KEY',
+    'process.env.elevenlabs_api_key',
+    'xi-api-key',
+    'AbortSignal.timeout(18_000)',
+    'origin_not_allowed',
+    'MAX_TEXT_LENGTH = 1600',
+    'use_speaker_boost: false',
+  ]) {
+    assert.ok(source.includes(token));
+  }
+  assert.ok(!/VITE_.*ELEVENLABS|localStorage.*ELEVENLABS_API_KEY/.test(source));
+});
