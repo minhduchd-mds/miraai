@@ -16,6 +16,22 @@ jobs:
     runs-on: ubuntu-latest
     environment: elevenlabs
     steps:
+      - name: Detect misplaced Environment variable
+        env:
+          HAS_PRIMARY_VAR: ${{ vars.ELEVENLABS_API_KEY != '' }}
+          HAS_LEGACY_VAR: ${{ vars.elevenlabs_api_key != '' }}
+          HAS_SHORT_VAR: ${{ vars.ELEVENLABS != '' }}
+          HAS_SHORT_LOWER_VAR: ${{ vars.elevenlabs != '' }}
+        shell: bash
+        run: |
+          set +x
+          if [ "$HAS_PRIMARY_VAR" = "true" ] || [ "$HAS_LEGACY_VAR" = "true" ] || [ "$HAS_SHORT_VAR" = "true" ] || [ "$HAS_SHORT_LOWER_VAR" = "true" ]; then
+            echo "ElevenLabs key appears to be stored as an Environment variable, not a secret."
+            echo "Move it to Environment -> Secrets before using it."
+          else
+            echo "No common ElevenLabs Environment variable alias detected."
+          fi
+
       - name: Resolve ElevenLabs secret alias
         id: resolve
         env:
