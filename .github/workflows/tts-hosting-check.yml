@@ -1,0 +1,39 @@
+name: Detect TTS Hosting Credentials
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/tts-hosting-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect available hosting credentials
+    runs-on: ubuntu-latest
+    environment: elevenlabs
+    steps:
+      - name: Detect credentials safely
+        env:
+          HAS_ELEVEN: ${{ secrets.ELEVENLABS_API_KEY != '' }}
+          HAS_VERCEL: ${{ secrets.VERCEL_TOKEN != '' }}
+          HAS_RENDER: ${{ secrets.RENDER_API_KEY != '' }}
+          HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+          HAS_RAILWAY: ${{ secrets.RAILWAY_TOKEN != '' }}
+          HAS_FLY: ${{ secrets.FLY_API_TOKEN != '' }}
+          HAS_TTS_URL: ${{ vars.MIRA_TTS_URL != '' }}
+        shell: bash
+        run: |
+          set +x
+          echo "ELEVENLABS_API_KEY=$HAS_ELEVEN"
+          echo "VERCEL_TOKEN=$HAS_VERCEL"
+          echo "RENDER_API_KEY=$HAS_RENDER"
+          echo "CLOUDFLARE_API_TOKEN=$HAS_CF_TOKEN"
+          echo "CLOUDFLARE_ACCOUNT_ID=$HAS_CF_ACCOUNT"
+          echo "RAILWAY_TOKEN=$HAS_RAILWAY"
+          echo "FLY_API_TOKEN=$HAS_FLY"
+          echo "MIRA_TTS_URL=$HAS_TTS_URL"
