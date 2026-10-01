@@ -387,6 +387,22 @@ if (/ELEVENLABS_API_KEY|elevenlabs_api_key/.test(browserTtsFiles)) {
 }
 if (!browserTtsFiles.includes('VITE_MIRA_TTS_URL')) failures.push('browser TTS gateway URL contract missing');
 
+const neonTtsGateway = readFileSync('functions/miratts/index.mjs', 'utf8');
+for (const token of [
+  'process.env.ELEVENLABS_API_KEY',
+  'xi-api-key',
+  'origin_not_allowed',
+  'MAX_TEXT_LENGTH = 1600',
+  'AbortSignal.timeout(18_000)',
+  'use_speaker_boost: false',
+  "runtime: 'neon-function'",
+]) {
+  if (!neonTtsGateway.includes(token)) failures.push(`Neon TTS gateway missing safety contract: ${token}`);
+}
+if (/VITE_.*ELEVENLABS_API_KEY|localStorage.*ELEVENLABS_API_KEY/.test(neonTtsGateway)) {
+  failures.push('Neon TTS gateway must keep ElevenLabs credentials server-side');
+}
+
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
 for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote", 'new CloudTTS(configuredUrl, new PiperLocalTTS())']) {
   if (!localTts.includes(token)) failures.push(`GitHub Pages TTS routing missing: ${token}`);
