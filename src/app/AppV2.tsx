@@ -3186,6 +3186,7 @@ export default function AppV2() {
             voiceURI={mira.voiceURI}
             onSelectVoice={mira.selectVoice}
             onTestVoice={mira.testVoice}
+            getVoiceDiagnostics={mira.ttsDiagnostics}
             onOpenLabs={openLabs}
           />
         </Suspense>
