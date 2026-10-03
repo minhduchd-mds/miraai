@@ -5249,7 +5249,7 @@ test('Pages neural TTS falls back to Piper with cooldown protection', () => {
   const cloudSource = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
   const serverSource = readFileSync('src/core/tts/server-tts.ts', 'utf8');
 
-  assert.ok(indexSource.includes("new CloudTTS(configuredUrl, new PiperLocalTTS())"));
+  assert.ok(indexSource.includes("new CloudTTS(configuredUrl, new PiperLocalTTS(), 'Piper Local')"));
   assert.ok(cloudSource.includes('failureThreshold: 2'));
   assert.ok(cloudSource.includes('cooldownMs: 30_000'));
 
@@ -5380,4 +5380,46 @@ test('remote serverless TTS endpoints enforce Pages CORS contract', () => {
 test('remote neural providers use bounded upstream timeouts', () => {
   const source = readFileSync('api/tts.js', 'utf8');
   assert.ok((source.match(/AbortSignal\.timeout\(18_000\)/g) || []).length >= 2);
+});
+
+
+test('voice runtime diagnostics expose active provider and fallback status', () => {
+  const web = readFileSync('src/core/tts/webspeech-tts.ts', 'utf8');
+  const piper = readFileSync('src/core/tts/piper-local-tts.ts', 'utf8');
+  const server = readFileSync('src/core/tts/server-tts.ts', 'utf8');
+  const cloud = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
+  const settings = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+
+  for (const token of [
+    'provider?: string',
+    "health?: 'unknown' | 'healthy' | 'unhealthy'",
+    'fallbackActive?: boolean',
+    "provider: 'Hệ thống'",
+  ]) assert.ok(web.includes(token));
+
+  for (const token of [
+    'usingFallback',
+    "provider: this.usingFallback ? 'Hệ thống' : 'Piper Local'",
+    'fallbackActive: this.usingFallback',
+  ]) assert.ok(piper.includes(token));
+
+  for (const token of [
+    'fallbackLabel',
+    'fallbackActive:',
+    'provider:',
+    'health:',
+  ]) assert.ok(server.includes(token));
+
+  assert.ok(cloud.includes("fallbackLabel = 'Hệ thống'"));
+  assert.ok(settings.includes('getVoiceDiagnostics'));
+  assert.ok(settings.includes('v2-voice-runtime'));
+  assert.ok(app.includes('getVoiceDiagnostics={mira.ttsDiagnostics}'));
+});
+
+test('voice settings status keeps fallback wording compact', () => {
+  const source = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
+  for (const token of ["'Dự phòng'", "'Sẵn sàng'", "'Đang phục hồi'", "'Đang kiểm tra'"]) {
+    assert.ok(source.includes(token));
+  }
 });
