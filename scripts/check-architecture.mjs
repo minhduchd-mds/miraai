@@ -413,7 +413,7 @@ for (const token of ['failureThreshold: 2', 'cooldownMs: 30_000']) {
   if (!cloudTts.includes(token)) failures.push(`resilient cloud TTS policy missing: ${token}`);
 }
 
-for (const token of ['consecutiveFailures', 'circuitOpenUntil', 'server_tts_cooldown', 'Date.now() < this.circuitOpenUntil', 'this.consecutiveFailures >= this.failureThreshold']) {
+for (const token of ['consecutiveFailures', 'circuitOpenUntil', 'server_tts_cooldown', 'now < this.circuitOpenUntil', 'this.consecutiveFailures >= this.failureThreshold']) {
   if (!serverTts.includes(token)) failures.push(`server TTS circuit-breaker missing: ${token}`);
 }
 
