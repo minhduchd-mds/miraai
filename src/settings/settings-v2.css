@@ -44,6 +44,14 @@
 .v2-field { display: grid; gap: 8px; color: var(--dim); font-size: 10.5px; }
 .v2-field select, .v2-memory-fact input { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid var(--stroke); border-radius: 11px; background: var(--bg); color: var(--text); outline: none; }
 .v2-field select:focus-visible, .v2-memory-fact input:focus-visible { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 24%, transparent); outline-offset: 2px; }
+.v2-voice-runtime { margin-top: 10px; min-height: 40px; padding: 0 11px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--stroke); border-radius: 11px; background: color-mix(in srgb, var(--bg) 84%, transparent); }
+.v2-voice-runtime > i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--faint); box-shadow: 0 0 0 4px color-mix(in srgb, var(--faint) 12%, transparent); }
+.v2-voice-runtime > span { min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; width: 100%; }
+.v2-voice-runtime b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
+.v2-voice-runtime small { flex: 0 0 auto; color: var(--faint); font-size: 9.5px; }
+.v2-voice-runtime[data-health="healthy"] > i { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent); }
+.v2-voice-runtime[data-health="unhealthy"] > i,
+.v2-voice-runtime[data-fallback="true"] > i { background: #f2b96f; box-shadow: 0 0 0 4px rgba(242,185,111,.12); }
 .v2-choice-block { margin-top: 14px; display: grid; gap: 8px; color: var(--dim); font-size: 10.5px; }
 .v2-segmented { display: flex; gap: 5px; padding: 4px; border: 1px solid var(--stroke); border-radius: 12px; background: var(--bg); }
 .v2-segmented button { flex: 1; min-height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--dim); cursor: pointer; }
