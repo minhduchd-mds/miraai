@@ -8,6 +8,7 @@ export class CloudTTS extends ServerTTS {
   constructor(
     serverUrl: string = '/api',
     fallback: (TTSAdapter & { unlock?: () => void }) = new WebSpeechTTS(),
+    fallbackLabel = 'Hệ thống',
   ) {
     super({
       serverUrl: serverUrl || '/api',
@@ -15,6 +16,7 @@ export class CloudTTS extends ServerTTS {
       fallbackVoice: { name: 'Mira Natural · Tự động', voiceURI: 'auto', lang: 'vi-VN' },
       sampleText: 'Em nghe anh. Em sẽ nói chậm vừa đủ, mềm và gần anh hơn một chút nhé.',
       fallback,
+      fallbackLabel,
       failureThreshold: 2,
       cooldownMs: 30_000,
     });
