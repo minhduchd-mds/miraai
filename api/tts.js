@@ -1,3 +1,19 @@
+const ALLOWED_ORIGIN = process.env.MIRA_TTS_ALLOWED_ORIGIN || 'https://minhduchd-mds.github.io';
+
+function applyCors(req, res) {
+  const origin = String(req.headers?.origin || '');
+  res.setHeader('access-control-allow-origin', origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN);
+  res.setHeader('access-control-allow-methods', 'POST,OPTIONS');
+  res.setHeader('access-control-allow-headers', 'content-type');
+  res.setHeader('access-control-max-age', '86400');
+  res.setHeader('vary', 'Origin');
+}
+
+function originAllowed(req) {
+  const origin = String(req.headers?.origin || '');
+  return !origin || origin === ALLOWED_ORIGIN;
+}
+
 // Mira server-side neural TTS gateway.
 // Priority: OpenAI natural speech -> ElevenLabs -> client-side Web Speech fallback.
 // Provider keys stay on the server and are never returned to the browser.
@@ -56,6 +72,7 @@ async function openAISpeech({ key, text, voice, instructions }) {
 
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
+    signal: AbortSignal.timeout(18_000),
     headers: {
       'content-type': 'application/json',
       authorization: `Bearer ${key}`,
@@ -75,6 +92,7 @@ async function elevenSpeech({ key, text, voice }) {
     `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(selectedVoice)}?output_format=mp3_44100_64`,
     {
       method: 'POST',
+      signal: AbortSignal.timeout(18_000),
       headers: { 'content-type': 'application/json', 'xi-api-key': key },
       body: JSON.stringify({
         text,
@@ -96,6 +114,9 @@ async function elevenSpeech({ key, text, voice }) {
 }
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   const body = parseBody(req);
