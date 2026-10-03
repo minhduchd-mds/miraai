@@ -145,6 +145,16 @@ for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPa
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
+if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
+
+const settingsPanel = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
+for (const token of ['getVoiceDiagnostics', 'voiceDiagnostics', 'v2-voice-runtime', 'data-health', 'data-fallback', "'Dự phòng'", "'Sẵn sàng'", "'Đang phục hồi'"]) {
+  if (!settingsPanel.includes(token)) failures.push(`voice runtime Settings status missing: ${token}`);
+}
+const settingsCss = readFileSync('src/settings/settings-v2.css', 'utf8');
+for (const token of ['.v2-voice-runtime', '[data-health="healthy"]', '[data-health="unhealthy"]', '[data-fallback="true"]']) {
+  if (!settingsCss.includes(token)) failures.push(`voice runtime status CSS missing: ${token}`);
+}
 for (const token of ['resolveAirTarget', 'v2-air-layer', 'grabActive', 'spatialTransformActive', 'setGestureIntentTelemetry', 'setSpatialHands', 'setAirPoint']) {
   if (v2.includes(token)) failures.push(`dead Air Control UI leaked into AppV2: ${token}`);
 }
@@ -404,7 +414,7 @@ if (/VITE_.*ELEVENLABS_API_KEY|localStorage.*ELEVENLABS_API_KEY/.test(neonTtsGat
 }
 
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
-for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote", 'new CloudTTS(configuredUrl, new PiperLocalTTS())']) {
+for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote", "new CloudTTS(configuredUrl, new PiperLocalTTS(), 'Piper Local')"]) {
   if (!localTts.includes(token)) failures.push(`GitHub Pages TTS routing missing: ${token}`);
 }
 
@@ -419,6 +429,17 @@ for (const token of ['consecutiveFailures', 'circuitOpenUntil', 'server_tts_cool
 
 for (const token of ["healthState: 'unknown' | 'healthy' | 'unhealthy'", 'nextHealthProbeAt', 'healthProbePromise', 'probeHealth(force = false)', "body?.configured !== false", "this.healthState === 'unhealthy'", 'server_tts_unhealthy', "this.healthState = 'healthy'"]) {
   if (!serverTts.includes(token)) failures.push(`server TTS health-aware recovery missing: ${token}`);
+}
+for (const token of ['fallbackLabel', "provider:", "health:", "fallbackActive:"]) {
+  if (!serverTts.includes(token)) failures.push(`server TTS provider diagnostics missing: ${token}`);
+}
+const webSpeechTts = readFileSync('src/core/tts/webspeech-tts.ts', 'utf8');
+for (const token of ['provider?: string', "health?: 'unknown' | 'healthy' | 'unhealthy'", 'fallbackActive?: boolean', "provider: 'Hệ thống'"]) {
+  if (!webSpeechTts.includes(token)) failures.push(`TTS diagnostics schema missing: ${token}`);
+}
+const piperTts = readFileSync('src/core/tts/piper-local-tts.ts', 'utf8');
+for (const token of ['usingFallback', "provider: this.usingFallback ? 'Hệ thống' : 'Piper Local'", 'fallbackActive: this.usingFallback']) {
+  if (!piperTts.includes(token)) failures.push(`Piper diagnostics missing: ${token}`);
 }
 
 const apiHealth = readFileSync('api/health.js', 'utf8');
