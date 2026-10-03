@@ -416,6 +416,23 @@ for (const token of ['failureThreshold: 2', 'cooldownMs: 30_000']) {
 for (const token of ['consecutiveFailures', 'circuitOpenUntil', 'server_tts_cooldown', 'Date.now() < this.circuitOpenUntil', 'this.consecutiveFailures >= this.failureThreshold']) {
   if (!serverTts.includes(token)) failures.push(`server TTS circuit-breaker missing: ${token}`);
 }
+
+for (const token of ["healthState: 'unknown' | 'healthy' | 'unhealthy'", 'nextHealthProbeAt', 'healthProbePromise', 'probeHealth(force = false)', "body?.configured !== false", "this.healthState === 'unhealthy'", 'server_tts_unhealthy', "this.healthState = 'healthy'"]) {
+  if (!serverTts.includes(token)) failures.push(`server TTS health-aware recovery missing: ${token}`);
+}
+
+const apiHealth = readFileSync('api/health.js', 'utf8');
+for (const token of ['MIRA_TTS_ALLOWED_ORIGIN', 'origin_not_allowed', 'configuredProviders', "runtime: 'serverless-api'"]) {
+  if (!apiHealth.includes(token)) failures.push(`serverless TTS health endpoint missing: ${token}`);
+}
+
+for (const path of ['api/tts.js', 'api/voices.js', 'api/health.js']) {
+  const source = readFileSync(path, 'utf8');
+  for (const token of ['https://minhduchd-mds.github.io', 'access-control-allow-origin', 'origin_not_allowed']) {
+    if (!source.includes(token)) failures.push(`${path} TTS CORS contract missing: ${token}`);
+  }
+}
+
 const brain = readFileSync('src/core/brain/index.ts', 'utf8');
 if (!brain.includes('LocalWebLLMBrain')) failures.push('GitHub Pages must expose a real local WebLLM brain');
 if (brain.includes('VITE_LLM_API_KEY')) failures.push('production brain source must not read VITE_LLM_API_KEY');
