@@ -10,3 +10,7 @@ dist-ssr
 .DS_Store
 .vite
 .idea/
+
+# Neon CLI local project context
+.neon
+.neon/
