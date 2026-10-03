@@ -8,6 +8,9 @@ export interface TTSDiagnostics {
   paused: boolean;
   unlocked: boolean;
   lastError: string | null;
+  provider?: string;
+  health?: 'unknown' | 'healthy' | 'unhealthy';
+  fallbackActive?: boolean;
 }
 
 // TTS bằng Web Speech API (speechSynthesis) — miễn phí, có giọng vi-VN trên hầu hết máy.
@@ -176,6 +179,9 @@ export class WebSpeechTTS implements TTSAdapter {
       paused: !!this.synth?.paused,
       unlocked: this.unlocked,
       lastError: this.lastError,
+      provider: 'Hệ thống',
+      health: this.synth ? 'healthy' : 'unhealthy',
+      fallbackActive: false,
     };
   }
 
