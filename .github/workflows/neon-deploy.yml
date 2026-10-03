@@ -1,0 +1,44 @@
+name: Deploy Neon Backend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Neon CLI
+        run: npm i -g neon@latest
+
+      - name: Verify Neon credential
+        shell: bash
+        run: |
+          set +x
+          if [ -z "$NEON_API_KEY" ]; then
+            echo "NEON_API_KEY is missing."
+            exit 1
+          fi
+          echo "NEON_API_KEY is configured."
+
+      - name: Link Neon project
+        run: neon link --project-id mute-lake-16028787 --branch production -y
+
+      - name: Deploy neon.ts
+        run: neon deploy
