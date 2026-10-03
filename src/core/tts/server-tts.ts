@@ -8,6 +8,7 @@ export interface ServerTTSOptions {
   fallbackVoice: VoiceOption;
   sampleText?: string;
   fallback?: TTSAdapter & { unlock?: () => void };
+  fallbackLabel?: string;
   failureThreshold?: number;
   cooldownMs?: number;
 }
@@ -27,6 +28,7 @@ export class ServerTTS implements TTSAdapter {
   private cancelled = false;
   private voices: VoiceOption[];
   private fallbackTTS: (TTSAdapter & { unlock?: () => void }) | null;
+  private fallbackLabel: string;
   private failureThreshold: number;
   private cooldownMs: number;
   private consecutiveFailures = 0;
@@ -41,6 +43,7 @@ export class ServerTTS implements TTSAdapter {
     this.sampleText = opts.sampleText || DEFAULT_SAMPLE;
     this.voices = [opts.fallbackVoice];
     this.fallbackTTS = opts.fallback ?? null;
+    this.fallbackLabel = opts.fallbackLabel || 'Hệ thống';
     this.failureThreshold = Math.max(1, Math.floor(opts.failureThreshold ?? 2));
     this.cooldownMs = Math.max(5_000, Math.floor(opts.cooldownMs ?? 30_000));
     void this.probeHealth().catch(() => false);
@@ -233,6 +236,11 @@ export class ServerTTS implements TTSAdapter {
       paused: !!this.audio?.paused && !this.fetching,
       unlocked: true,
       lastError: this.lastError || healthNote,
+      provider: this.healthState === 'unhealthy' || Date.now() < this.circuitOpenUntil
+        ? this.fallbackLabel
+        : this.label,
+      health: this.healthState,
+      fallbackActive: this.healthState === 'unhealthy' || Date.now() < this.circuitOpenUntil,
     };
   }
 }
