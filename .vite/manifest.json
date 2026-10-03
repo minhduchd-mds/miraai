@@ -1,0 +1,187 @@
+{
+  "_avatar-config-BuKfZXNk.js": {
+    "file": "assets/avatar-config-BuKfZXNk.js",
+    "name": "avatar-config"
+  },
+  "_gesture-tracker-AdaduKxg.js": {
+    "file": "assets/gesture-tracker-AdaduKxg.js",
+    "name": "gesture-tracker",
+    "imports": [
+      "index.html"
+    ],
+    "dynamicImports": [
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs"
+    ]
+  },
+  "_useMira-ChGEtpJA.js": {
+    "file": "assets/useMira-ChGEtpJA.js",
+    "name": "useMira",
+    "imports": [
+      "index.html"
+    ],
+    "dynamicImports": [
+      "node_modules/@ricky0123/vad-web/dist/index.js"
+    ]
+  },
+  "index.html": {
+    "file": "assets/index-RD9UzXm2.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "dynamicImports": [
+      "src/app/AppV2.tsx",
+      "src/App.tsx"
+    ],
+    "css": [
+      "assets/index-DXCu-pGy.css"
+    ]
+  },
+  "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs": {
+    "file": "assets/vision_bundle-ByqjItTP.js",
+    "name": "vision_bundle",
+    "src": "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js": {
+    "file": "assets/gaussian-splats-3d.module-DV6H9AUi.js",
+    "name": "gaussian-splats-3d.module",
+    "src": "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_gesture-tracker-AdaduKxg.js",
+      "src/App.tsx"
+    ]
+  },
+  "node_modules/@ricky0123/vad-web/dist/index.js": {
+    "file": "assets/dist-BVvzzH2T.js",
+    "name": "dist",
+    "src": "node_modules/@ricky0123/vad-web/dist/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/App.tsx": {
+    "file": "assets/App-BfLGNUxD.js",
+    "name": "App",
+    "src": "src/App.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_gesture-tracker-AdaduKxg.js",
+      "_useMira-ChGEtpJA.js",
+      "_avatar-config-BuKfZXNk.js",
+      "src/ui/ContentPanel.tsx"
+    ],
+    "dynamicImports": [
+      "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js"
+    ]
+  },
+  "src/app/AppV2.tsx": {
+    "file": "assets/AppV2-D0sRufd7.js",
+    "name": "AppV2",
+    "src": "src/app/AppV2.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_useMira-ChGEtpJA.js"
+    ],
+    "dynamicImports": [
+      "src/presence/PhotorealSceneCanvas.tsx",
+      "src/presence/PhotorealSceneSegments.tsx",
+      "src/presence/photoreal-camera-depth.ts",
+      "src/presence/photoreal-environment.ts",
+      "src/ui/ContentPanel.tsx",
+      "src/settings/SettingsPanel.tsx",
+      "src/presence/vision-runtime.ts"
+    ],
+    "css": [
+      "assets/AppV2-C-iDcimg.css"
+    ]
+  },
+  "src/presence/PhotorealSceneCanvas.tsx": {
+    "file": "assets/PhotorealSceneCanvas-YGJ2OVzc.js",
+    "name": "PhotorealSceneCanvas",
+    "src": "src/presence/PhotorealSceneCanvas.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/presence/PhotorealSceneSegments.tsx": {
+    "file": "assets/PhotorealSceneSegments-DLRO7CFb.js",
+    "name": "PhotorealSceneSegments",
+    "src": "src/presence/PhotorealSceneSegments.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/presence/photoreal-camera-depth.ts": {
+    "file": "assets/photoreal-camera-depth-Cdl6xSad.js",
+    "name": "photoreal-camera-depth",
+    "src": "src/presence/photoreal-camera-depth.ts",
+    "isDynamicEntry": true
+  },
+  "src/presence/photoreal-environment.ts": {
+    "file": "assets/photoreal-environment-DniX-6QU.js",
+    "name": "photoreal-environment",
+    "src": "src/presence/photoreal-environment.ts",
+    "isDynamicEntry": true
+  },
+  "src/presence/vision-runtime.ts": {
+    "file": "assets/vision-runtime-CNRDYsRt.js",
+    "name": "vision-runtime",
+    "src": "src/presence/vision-runtime.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_gesture-tracker-AdaduKxg.js",
+      "src/app/AppV2.tsx"
+    ],
+    "dynamicImports": [
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs"
+    ],
+    "assets": [
+      "assets/vision-postprocess-worker-CK2HsPi0.js"
+    ]
+  },
+  "src/settings/SettingsPanel.tsx": {
+    "file": "assets/SettingsPanel-BRlBiaAu.js",
+    "name": "SettingsPanel",
+    "src": "src/settings/SettingsPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_useMira-ChGEtpJA.js",
+      "_avatar-config-BuKfZXNk.js"
+    ],
+    "css": [
+      "assets/SettingsPanel-DOH5gAHk.css"
+    ]
+  },
+  "src/ui/ContentPanel.tsx": {
+    "file": "assets/ContentPanel-CB2Twflu.js",
+    "name": "ContentPanel",
+    "src": "src/ui/ContentPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_useMira-ChGEtpJA.js"
+    ],
+    "css": [
+      "assets/ContentPanel-CpxSsqXW.css"
+    ]
+  },
+  "src/ui/styles.css": {
+    "file": "assets/styles-sin_nFZ8.css",
+    "src": "src/ui/styles.css"
+  },
+  "src/ui/vision-v2.css": {
+    "file": "assets/vision-v2-oXc0IRFg.css",
+    "src": "src/ui/vision-v2.css"
+  }
+}
