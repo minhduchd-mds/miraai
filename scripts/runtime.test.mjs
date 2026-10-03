@@ -5257,7 +5257,7 @@ test('Pages neural TTS falls back to Piper with cooldown protection', () => {
     'consecutiveFailures',
     'circuitOpenUntil',
     'server_tts_cooldown',
-    'Date.now() < this.circuitOpenUntil',
+    'now < this.circuitOpenUntil',
     'this.consecutiveFailures >= this.failureThreshold',
     'this.circuitOpenUntil = Date.now() + this.cooldownMs',
     'this.consecutiveFailures = 0',
