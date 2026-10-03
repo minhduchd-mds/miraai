@@ -35,6 +35,7 @@ export class PiperLocalTTS implements TTSAdapter {
   private unlocked = false;
   private lastError: string | null = null;
   private preparing = false;
+  private usingFallback = false;
 
   get available(): boolean {
     if (typeof window === 'undefined' || typeof Audio === 'undefined') return false;
@@ -100,6 +101,7 @@ export class PiperLocalTTS implements TTSAdapter {
       const mod = await this.loadModule();
       const wav = await mod.predict({ text, voiceId: DEFAULT_VOICE });
       if (token !== this.token) return;
+      this.usingFallback = false;
 
       const url = URL.createObjectURL(wav);
       this.objectUrl = url;
@@ -134,6 +136,7 @@ export class PiperLocalTTS implements TTSAdapter {
 
   private fallbackSpeak(opts: TTSSpeakOptions, token: number): void {
     if (token !== this.token) return;
+    this.usingFallback = true;
     this.fallback.speak({
       ...opts,
       voiceURI: undefined,
@@ -186,6 +189,9 @@ export class PiperLocalTTS implements TTSAdapter {
       paused: !!this.audio?.paused,
       unlocked: this.unlocked,
       lastError: this.lastError,
+      provider: this.usingFallback ? 'Hệ thống' : 'Piper Local',
+      health: this.lastError ? 'unhealthy' : this.available ? 'healthy' : 'unhealthy',
+      fallbackActive: this.usingFallback,
     };
   }
 }
