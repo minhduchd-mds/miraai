@@ -31,6 +31,9 @@ export class ServerTTS implements TTSAdapter {
   private cooldownMs: number;
   private consecutiveFailures = 0;
   private circuitOpenUntil = 0;
+  private healthState: 'unknown' | 'healthy' | 'unhealthy' = 'unknown';
+  private nextHealthProbeAt = 0;
+  private healthProbePromise: Promise<boolean> | null = null;
 
   constructor(opts: ServerTTSOptions) {
     this.serverUrl = (opts.serverUrl || '').replace(/\/$/, '');
@@ -40,6 +43,7 @@ export class ServerTTS implements TTSAdapter {
     this.fallbackTTS = opts.fallback ?? null;
     this.failureThreshold = Math.max(1, Math.floor(opts.failureThreshold ?? 2));
     this.cooldownMs = Math.max(5_000, Math.floor(opts.cooldownMs ?? 30_000));
+    void this.probeHealth().catch(() => false);
     fetch(`${this.serverUrl}/voices`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
@@ -56,6 +60,47 @@ export class ServerTTS implements TTSAdapter {
     this.fallbackTTS?.unlock?.();
   }
 
+  private probeHealth(force = false): Promise<boolean> {
+    const now = Date.now();
+    if (!force && now < this.nextHealthProbeAt) {
+      return Promise.resolve(this.healthState === 'healthy');
+    }
+    if (this.healthProbePromise) return this.healthProbePromise;
+
+    this.healthProbePromise = (async () => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 4_000);
+      try {
+        const response = await fetch(`${this.serverUrl}/health`, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`health_${response.status}`);
+        const body = await response.json().catch(() => ({}));
+        const healthy = body?.ok === true && body?.configured !== false;
+        this.healthState = healthy ? 'healthy' : 'unhealthy';
+        this.nextHealthProbeAt = Date.now() + (healthy ? 120_000 : 15_000);
+        if (healthy) {
+          this.consecutiveFailures = 0;
+          this.circuitOpenUntil = 0;
+          this.lastError = null;
+        }
+        return healthy;
+      } catch (error) {
+        this.healthState = 'unhealthy';
+        this.nextHealthProbeAt = Date.now() + 15_000;
+        this.lastError = error instanceof Error ? error.message : String(error);
+        return false;
+      } finally {
+        window.clearTimeout(timer);
+        this.healthProbePromise = null;
+      }
+    })();
+
+    return this.healthProbePromise;
+  }
+
   private speakFallback(opts: TTSSpeakOptions, reason: unknown): boolean {
     if (!this.fallbackTTS || this.cancelled) return false;
     this.lastError = reason instanceof Error ? reason.message : String(reason || 'server_tts_failed');
@@ -69,7 +114,17 @@ export class ServerTTS implements TTSAdapter {
     this.cancel();
     this.cancelled = false;
 
-    if (Date.now() < this.circuitOpenUntil) {
+    const now = Date.now();
+    if (this.healthState === 'unhealthy') {
+      if (now >= this.nextHealthProbeAt) void this.probeHealth(true);
+      if (!this.speakFallback(opts, 'server_tts_unhealthy')) {
+        opts.onError?.('server_tts_unhealthy');
+      }
+      return;
+    }
+
+    if (now < this.circuitOpenUntil) {
+      if (now >= this.nextHealthProbeAt) void this.probeHealth(true);
       if (!this.speakFallback(opts, 'server_tts_cooldown')) {
         opts.onError?.('server_tts_cooldown');
       }
@@ -105,6 +160,8 @@ export class ServerTTS implements TTSAdapter {
         if (!blob.size) throw new Error('empty_audio');
         this.consecutiveFailures = 0;
         this.circuitOpenUntil = 0;
+        this.healthState = 'healthy';
+        this.nextHealthProbeAt = Date.now() + 120_000;
         const url = URL.createObjectURL(blob);
         this.objectUrl = url;
         const a = new Audio(url);
@@ -127,6 +184,8 @@ export class ServerTTS implements TTSAdapter {
         this.consecutiveFailures += 1;
         if (this.consecutiveFailures >= this.failureThreshold) {
           this.circuitOpenUntil = Date.now() + this.cooldownMs;
+          this.healthState = 'unhealthy';
+          this.nextHealthProbeAt = this.circuitOpenUntil;
         }
 
         if (!this.speakFallback(opts, error)) {
@@ -163,6 +222,17 @@ export class ServerTTS implements TTSAdapter {
   listVoices(_langPrefix?: string): VoiceOption[] { return this.voices; }
   test(voiceURI?: string): void { this.unlock(); this.speak({ text: this.sampleText, lang: 'vi-VN', voiceURI }); }
   diagnostics(): TTSDiagnostics {
-    return { voices: this.voices.length, viVoices: this.voices.length, speaking: !!this.audio && !this.audio.paused, pending: this.fetching, paused: !!this.audio?.paused && !this.fetching, unlocked: true, lastError: this.lastError };
+    const healthNote = this.healthState === 'healthy'
+      ? null
+      : `gateway_${this.healthState}`;
+    return {
+      voices: this.voices.length,
+      viVoices: this.voices.length,
+      speaking: !!this.audio && !this.audio.paused,
+      pending: this.fetching || !!this.healthProbePromise,
+      paused: !!this.audio?.paused && !this.fetching,
+      unlocked: true,
+      lastError: this.lastError || healthNote,
+    };
   }
 }
