@@ -5333,3 +5333,51 @@ test('Neon Mira TTS function keeps ElevenLabs credentials server-side', () => {
   }
   assert.ok(!/VITE_.*ELEVENLABS|localStorage.*ELEVENLABS_API_KEY/.test(source));
 });
+
+
+test('server TTS health probe recovers neural routing without reload', () => {
+  const source = readFileSync('src/core/tts/server-tts.ts', 'utf8');
+  for (const token of [
+    "healthState: 'unknown' | 'healthy' | 'unhealthy'",
+    'nextHealthProbeAt',
+    'healthProbePromise',
+    'probeHealth(force = false)',
+    "body?.configured !== false",
+    "this.healthState = healthy ? 'healthy' : 'unhealthy'",
+    "Date.now() + (healthy ? 120_000 : 15_000)",
+    "this.healthState === 'unhealthy'",
+    "server_tts_unhealthy",
+    "this.healthState = 'healthy'",
+  ]) {
+    assert.ok(source.includes(token));
+  }
+});
+
+test('serverless TTS health endpoint exposes status but never secrets', () => {
+  const source = readFileSync('api/health.js', 'utf8');
+  for (const token of [
+    "MIRA_TTS_ALLOWED_ORIGIN",
+    "origin_not_allowed",
+    "configuredProviders",
+    "configured: configuredProviders.length > 0",
+    "runtime: 'serverless-api'",
+  ]) {
+    assert.ok(source.includes(token));
+  }
+  assert.ok(!source.includes('process.env.ELEVENLABS_API_KEY || process.env.OPENAI_API_KEY'));
+  assert.ok(!source.includes('apiKey:'));
+});
+
+test('remote serverless TTS endpoints enforce Pages CORS contract', () => {
+  for (const path of ['api/tts.js', 'api/voices.js', 'api/health.js']) {
+    const source = readFileSync(path, 'utf8');
+    assert.ok(source.includes("https://minhduchd-mds.github.io"));
+    assert.ok(source.includes('access-control-allow-origin'));
+    assert.ok(source.includes('origin_not_allowed'));
+  }
+});
+
+test('remote neural providers use bounded upstream timeouts', () => {
+  const source = readFileSync('api/tts.js', 'utf8');
+  assert.ok((source.match(/AbortSignal\.timeout\(18_000\)/g) || []).length >= 2);
+});
