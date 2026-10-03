@@ -160,6 +160,9 @@ export class ElevenLabsTTS implements TTSAdapter {
       paused: !!this.audio?.paused && !this.fetching,
       unlocked: true,
       lastError: this.lastError,
+      provider: 'ElevenLabs',
+      health: this.lastError ? 'unhealthy' : this.available ? 'healthy' : 'unhealthy',
+      fallbackActive: false,
     };
   }
 }
