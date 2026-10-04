@@ -4,12 +4,20 @@ export type MiraPresenceScene =
   | 'home-evening'
   | 'bedtime';
 
+export interface PresenceReturnSample {
+  dayKey: string;
+  weekday: number;
+  minuteOfDay: number;
+  at: number;
+}
+
 export interface PresenceSceneInput {
-  hour: number;
+  now?: Date | number;
   presenceCue?: 'none' | 'return' | 'focus' | 'smile' | 'brow';
   presenceMode?: 'ambient' | 'attentive' | 'quiet' | 'reconnect';
   interactionState?: 'engaged' | 'focused' | 'looking_away' | 'returning' | 'absent' | 'uncertain';
-  override?: MiraPresenceScene | null;
+  expectedReturnMinute?: number;
+  recentReturnAt?: number | null;
 }
 
 export const PRESENCE_SCENE_LABEL: Record<MiraPresenceScene, string> = {
@@ -38,18 +46,182 @@ export const PRESENCE_SCENE_COPY: Record<MiraPresenceScene, { title: string; sub
   },
 };
 
-export function resolvePresenceScene(input: PresenceSceneInput): MiraPresenceScene {
-  if (input.override) return input.override;
+export const PRESENCE_SCHEDULE = {
+  wakeMinute: 6 * 60,
+  fallbackReturnMinute: 18 * 60,
+  returnLearningMinMinute: 15 * 60 + 30,
+  returnLearningMaxMinute: 21 * 60 + 30,
+  welcomeLeadMinutes: 25,
+  welcomeHoldMinutes: 75,
+  recentReturnHoldMs: 90 * 60 * 1000,
+  eveningWeekendMinute: 17 * 60,
+  bedtimeMinute: 22 * 60 + 30,
+  maxSamples: 14,
+} as const;
 
-  if (input.presenceCue === 'return' || input.interactionState === 'returning' || input.presenceMode === 'reconnect') {
+function clampMinute(value: number): number {
+  return Math.max(0, Math.min(23 * 60 + 59, Math.round(Number.isFinite(value) ? value : 0)));
+}
+
+export function presenceMinuteOfDay(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+export function presenceDayKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function isPresenceWorkday(weekday: number): boolean {
+  return weekday >= 1 && weekday <= 5;
+}
+
+export function sanitizePresenceReturnSamples(input: unknown): PresenceReturnSample[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((item: any) =>
+      item &&
+      typeof item.dayKey === 'string' &&
+      Number.isFinite(item.weekday) &&
+      Number.isFinite(item.minuteOfDay) &&
+      Number.isFinite(item.at)
+    )
+    .map((item: any) => ({
+      dayKey: item.dayKey.slice(0, 10),
+      weekday: Math.max(0, Math.min(6, Math.round(item.weekday))),
+      minuteOfDay: clampMinute(item.minuteOfDay),
+      at: Math.max(0, Number(item.at)),
+    }))
+    .sort((a, b) => a.at - b.at)
+    .slice(-PRESENCE_SCHEDULE.maxSamples);
+}
+
+export function appendPresenceReturnSample(
+  samples: PresenceReturnSample[],
+  date: Date,
+): PresenceReturnSample[] {
+  const weekday = date.getDay();
+  const minuteOfDay = presenceMinuteOfDay(date);
+
+  if (!isPresenceWorkday(weekday)) return samples;
+  if (
+    minuteOfDay < PRESENCE_SCHEDULE.returnLearningMinMinute ||
+    minuteOfDay > PRESENCE_SCHEDULE.returnLearningMaxMinute
+  ) return samples;
+
+  const dayKey = presenceDayKey(date);
+  const existingIndex = samples.findIndex((sample) => sample.dayKey === dayKey);
+  const sample: PresenceReturnSample = {
+    dayKey,
+    weekday,
+    minuteOfDay,
+    at: date.getTime(),
+  };
+
+  const next = existingIndex >= 0
+    ? samples.map((item, index) => index === existingIndex ? sample : item)
+    : [...samples, sample];
+
+  return sanitizePresenceReturnSamples(next);
+}
+
+function median(values: number[]): number {
+  if (!values.length) return PRESENCE_SCHEDULE.fallbackReturnMinute;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+}
+
+export function learnedPresenceReturnMinute(
+  samples: PresenceReturnSample[],
+): number {
+  const workdayValues = sanitizePresenceReturnSamples(samples)
+    .filter((sample) => isPresenceWorkday(sample.weekday))
+    .slice(-10)
+    .map((sample) => sample.minuteOfDay);
+
+  if (!workdayValues.length) return PRESENCE_SCHEDULE.fallbackReturnMinute;
+
+  if (workdayValues.length === 1) {
+    return clampMinute(
+      PRESENCE_SCHEDULE.fallbackReturnMinute * 0.7 +
+      workdayValues[0] * 0.3,
+    );
+  }
+
+  return Math.max(
+    16 * 60 + 30,
+    Math.min(20 * 60 + 30, median(workdayValues)),
+  );
+}
+
+export function resolvePresenceScene(input: PresenceSceneInput): MiraPresenceScene {
+  const now = input.now instanceof Date
+    ? input.now
+    : new Date(typeof input.now === 'number' ? input.now : Date.now());
+
+  const nowMs = now.getTime();
+  const minuteOfDay = presenceMinuteOfDay(now);
+  const weekday = now.getDay();
+
+  const recentReturn = Number(input.recentReturnAt || 0);
+  if (
+    recentReturn > 0 &&
+    nowMs >= recentReturn &&
+    nowMs - recentReturn <= PRESENCE_SCHEDULE.recentReturnHoldMs
+  ) {
     return 'welcome-home';
   }
 
-  const hour = Number.isFinite(input.hour)
-    ? Math.max(0, Math.min(23, Math.floor(input.hour)))
-    : 20;
+  if (
+    input.presenceCue === 'return' ||
+    input.interactionState === 'returning' ||
+    input.presenceMode === 'reconnect'
+  ) {
+    return 'welcome-home';
+  }
 
-  if (hour >= 22 || hour < 6) return 'bedtime';
-  if (hour >= 17) return 'home-evening';
+  if (
+    minuteOfDay >= PRESENCE_SCHEDULE.bedtimeMinute ||
+    minuteOfDay < PRESENCE_SCHEDULE.wakeMinute
+  ) {
+    return 'bedtime';
+  }
+
+  if (isPresenceWorkday(weekday)) {
+    const expectedReturn = clampMinute(
+      input.expectedReturnMinute ?? PRESENCE_SCHEDULE.fallbackReturnMinute,
+    );
+    const welcomeStart = Math.max(
+      PRESENCE_SCHEDULE.wakeMinute,
+      expectedReturn - PRESENCE_SCHEDULE.welcomeLeadMinutes,
+    );
+    const welcomeEnd = Math.min(
+      PRESENCE_SCHEDULE.bedtimeMinute,
+      expectedReturn + PRESENCE_SCHEDULE.welcomeHoldMinutes,
+    );
+
+    if (minuteOfDay >= welcomeStart && minuteOfDay <= welcomeEnd) {
+      return 'welcome-home';
+    }
+
+    if (minuteOfDay > welcomeEnd && minuteOfDay < PRESENCE_SCHEDULE.bedtimeMinute) {
+      return 'home-evening';
+    }
+
+    return 'daytime';
+  }
+
+  if (
+    minuteOfDay >= PRESENCE_SCHEDULE.eveningWeekendMinute &&
+    minuteOfDay < PRESENCE_SCHEDULE.bedtimeMinute
+  ) {
+    return 'home-evening';
+  }
+
   return 'daytime';
 }

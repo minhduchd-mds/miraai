@@ -106,7 +106,14 @@ import {
   type SpatialPlacementPreview,
   type SpatialWorldAnchor,
 } from '../core/vision/spatial-world';
-import { PRESENCE_SCENE_LABEL, resolvePresenceScene, type MiraPresenceScene } from '../presence/presence-scene';
+import {
+  PRESENCE_SCENE_LABEL,
+  appendPresenceReturnSample,
+  learnedPresenceReturnMinute,
+  resolvePresenceScene,
+  sanitizePresenceReturnSamples,
+  type PresenceReturnSample,
+} from '../presence/presence-scene';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -123,6 +130,7 @@ const STATE_COPY: Record<MiraState, string> = {
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
 const VOICE_HANDSHAKE_TEXT = 'Em nghe anh. Chế độ trò chuyện liên tục đã bật.';
 const VOICE_HANDSHAKE_TIMEOUT = 5000;
+const PRESENCE_RETURN_STORAGE = 'mira.presence.return-samples.v1';
 
 
 type SpatialWindowId = 'result' | 'camera';
@@ -524,6 +532,24 @@ function loadAffectFollowing(): boolean {
   }
 }
 
+function loadPresenceReturnSamples(): PresenceReturnSample[] {
+  try {
+    const raw = localStorage.getItem(PRESENCE_RETURN_STORAGE);
+    if (!raw) return [];
+    return sanitizePresenceReturnSamples(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function savePresenceReturnSamples(samples: PresenceReturnSample[]): void {
+  try {
+    localStorage.setItem(PRESENCE_RETURN_STORAGE, JSON.stringify(samples));
+  } catch {
+    // local-only learning is best effort
+  }
+}
+
 export default function AppV2() {
   const mira = useMira();
   const [theme, setTheme] = useState<Theme>(loadTheme);
@@ -539,7 +565,10 @@ export default function AppV2() {
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [presenceSceneOverride, setPresenceSceneOverride] = useState<MiraPresenceScene | null>(null);
+  const [presenceClockMs, setPresenceClockMs] = useState(() => Date.now());
+  const [presenceReturnSamples, setPresenceReturnSamples] = useState<PresenceReturnSample[]>(loadPresenceReturnSamples);
+  const [recentReturnAt, setRecentReturnAt] = useState<number | null>(null);
+  const previousReturnSignalRef = useRef(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
   const bootPendingRef = useRef(false);
@@ -740,6 +769,42 @@ export default function AppV2() {
   useEffect(() => {
     try { localStorage.setItem('mira.affect.follow', affectFollowing ? '1' : '0'); } catch { /* noop */ }
   }, [affectFollowing]);
+
+  useEffect(() => {
+    let timer = 0;
+    const scheduleNextMinute = () => {
+      const now = Date.now();
+      const delay = Math.max(1_000, 60_000 - (now % 60_000) + 24);
+      timer = window.setTimeout(() => {
+        setPresenceClockMs(Date.now());
+        scheduleNextMinute();
+      }, delay);
+    };
+    scheduleNextMinute();
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const returnSignal = (
+      presenceContinuity.cue === 'return' ||
+      presenceContinuity.mode === 'reconnect' ||
+      interactionTelemetry.state === 'returning'
+    );
+
+    if (returnSignal && !previousReturnSignalRef.current) {
+      const now = new Date();
+      const at = now.getTime();
+      setRecentReturnAt(at);
+      setPresenceClockMs(at);
+      setPresenceReturnSamples((previous) => {
+        const next = appendPresenceReturnSample(previous, now);
+        if (next !== previous) savePresenceReturnSamples(next);
+        return next;
+      });
+    }
+
+    previousReturnSignalRef.current = returnSignal;
+  }, [interactionTelemetry.state, presenceContinuity.cue, presenceContinuity.mode]);
 
   useEffect(() => () => {
     if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
@@ -2931,12 +2996,14 @@ export default function AppV2() {
     mira.caption,
   ].join(' ');
 
+  const expectedReturnMinute = learnedPresenceReturnMinute(presenceReturnSamples);
   const presenceScene = resolvePresenceScene({
-    hour: new Date().getHours(),
+    now: presenceClockMs,
     presenceCue: presenceContinuity.cue,
     presenceMode: presenceContinuity.mode,
     interactionState: interactionTelemetry.state,
-    override: presenceSceneOverride,
+    expectedReturnMinute,
+    recentReturnAt,
   });
   const cameraConnected = Boolean(
     webXRSnapshot.active ||
@@ -3180,27 +3247,9 @@ export default function AppV2() {
         feedback={spatialFeedback}
       />
 
-      <nav className="v2-presence-scenes" aria-label="Ngữ cảnh hiện diện của Mira">
-        <button
-          type="button"
-          className={presenceSceneOverride === null ? 'active' : ''}
-          onClick={() => setPresenceSceneOverride(null)}
-          aria-pressed={presenceSceneOverride === null}
-        >Tự động</button>
-        {(['welcome-home', 'home-evening', 'bedtime'] as MiraPresenceScene[]).map((scene) => (
-          <button
-            key={scene}
-            type="button"
-            className={presenceScene === scene && presenceSceneOverride === scene ? 'active' : ''}
-            onClick={() => setPresenceSceneOverride(scene)}
-            aria-pressed={presenceSceneOverride === scene}
-          >{PRESENCE_SCENE_LABEL[scene]}</button>
-        ))}
-      </nav>
-
       <div className={`voice-footer state-${mira.state}${mira.live ? ' is-live' : ''}`}>
         <div className="voice-session-caption" role="status" aria-live="polite" aria-atomic="true">
-          <small>{mira.state === 'idle' ? PRESENCE_SCENE_LABEL[presenceScene] : STATE_COPY[mira.state]}</small>
+          <small>{mira.state === 'idle' ? `Tự động · ${PRESENCE_SCENE_LABEL[presenceScene]}` : STATE_COPY[mira.state]}</small>
           <span>{mira.caption}</span>
         </div>
         <div className="voice-control-dock">

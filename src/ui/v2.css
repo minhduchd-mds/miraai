@@ -280,40 +280,6 @@
 
 
 /* Mira v16 — voice-first companion controls. No text composer. */
-.v2-presence-scenes {
-  position: fixed;
-  z-index: 83;
-  left: max(18px, env(safe-area-inset-left));
-  bottom: max(20px, env(safe-area-inset-bottom));
-  display: flex;
-  gap: 6px;
-  padding: 5px;
-  border: 1px solid rgba(169, 187, 240, .11);
-  border-radius: 14px;
-  background: rgba(4, 8, 24, .28);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 12px 36px rgba(0,0,0,.16);
-}
-.v2-presence-scenes button {
-  min-height: 28px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: rgba(214, 224, 250, .48);
-  font: 650 9px/1 'Inter', system-ui, sans-serif;
-  cursor: pointer;
-  transition: color .16s ease, background .16s ease, transform .16s ease;
-}
-.v2-presence-scenes button:hover {
-  color: rgba(242, 247, 255, .9);
-  background: rgba(130, 153, 226, .08);
-}
-.v2-presence-scenes button.active {
-  color: rgba(239, 248, 255, .94);
-  background: color-mix(in srgb, var(--accent) 13%, rgba(12, 18, 45, .52));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-}
 
 .voice-footer {
   min-width: min(480px, calc(100vw - 32px));
@@ -431,13 +397,6 @@
 }
 
 @media (max-width: 760px) {
-  .v2-presence-scenes {
-    left: 10px;
-    right: 10px;
-    bottom: 92px;
-    justify-content: center;
-  }
-  .v2-presence-scenes button { padding: 0 7px; font-size: 8px; }
   .voice-footer { min-width: calc(100vw - 24px); bottom: 10px; }
   .voice-session-caption { width: calc(100vw - 36px); }
   .voice-wave-mini { width: 62px; }

@@ -14,29 +14,56 @@ async function importTypeScript(path) {
 
 const presence = await importTypeScript('src/presence/presence-scene.ts');
 
-test('v16 presence uses bedtime after 22:00 and before 06:00', () => {
-  assert.equal(presence.resolvePresenceScene({ hour: 23 }), 'bedtime');
-  assert.equal(presence.resolvePresenceScene({ hour: 3 }), 'bedtime');
+test('v16.1 bedtime follows minute-level local schedule', () => {
+  assert.equal(presence.resolvePresenceScene({ now: new Date(2026, 9, 5, 22, 30) }), 'bedtime');
+  assert.equal(presence.resolvePresenceScene({ now: new Date(2026, 9, 6, 5, 59) }), 'bedtime');
+  assert.equal(presence.resolvePresenceScene({ now: new Date(2026, 9, 6, 6, 0) }), 'daytime');
 });
 
-test('v16 presence recognizes return-home context before clock defaults', () => {
+test('v16.1 workday return scene follows learned expected arrival without a UI tab', () => {
+  const expectedReturnMinute = 18 * 60 + 10;
   assert.equal(
-    presence.resolvePresenceScene({ hour: 10, presenceCue: 'return' }),
+    presence.resolvePresenceScene({ now: new Date(2026, 9, 5, 17, 50), expectedReturnMinute }),
     'welcome-home',
   );
   assert.equal(
-    presence.resolvePresenceScene({ hour: 14, interactionState: 'returning' }),
+    presence.resolvePresenceScene({ now: new Date(2026, 9, 5, 20, 0), expectedReturnMinute }),
+    'home-evening',
+  );
+});
+
+test('v16.1 weekend evening does not pretend the user just returned from work', () => {
+  assert.equal(
+    presence.resolvePresenceScene({ now: new Date(2026, 9, 4, 18, 15) }),
+    'home-evening',
+  );
+});
+
+test('v16.1 a real return event holds welcome-home outside the predicted window', () => {
+  const arrivedAt = new Date(2026, 9, 5, 20, 20).getTime();
+  assert.equal(
+    presence.resolvePresenceScene({ now: new Date(2026, 9, 5, 20, 45), recentReturnAt: arrivedAt }),
     'welcome-home',
   );
-});
-
-test('v16 presence selects evening home context after work hours', () => {
-  assert.equal(presence.resolvePresenceScene({ hour: 19 }), 'home-evening');
-});
-
-test('v16 manual presence scene wins without persistence', () => {
   assert.equal(
-    presence.resolvePresenceScene({ hour: 12, override: 'bedtime' }),
-    'bedtime',
+    presence.resolvePresenceScene({ now: new Date(2026, 9, 5, 22, 5), recentReturnAt: arrivedAt }),
+    'home-evening',
   );
+});
+
+test('v16.1 learns weekday return time locally and deduplicates one sample per day', () => {
+  let samples = [];
+  samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 5, 18, 20));
+  samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 5, 18, 35));
+  samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 6, 18, 10));
+  samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 7, 18, 30));
+  assert.equal(samples.length, 3);
+  assert.equal(presence.learnedPresenceReturnMinute(samples), 18 * 60 + 30);
+});
+
+test('v16.1 ignores weekend and implausible return samples', () => {
+  let samples = [];
+  samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 4, 18, 0));
+  samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 5, 12, 0));
+  assert.equal(samples.length, 0);
 });
