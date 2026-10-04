@@ -41,6 +41,9 @@ jobs:
       - name: Runtime unit tests
         run: npm test
 
+      - name: Functional benchmark gate
+        run: npm run benchmark:functional
+
       - name: Build (Vite)
         run: npm run build
 
