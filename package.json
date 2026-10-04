@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "node scripts/restore-photoreal-assets.mjs && vite build",
     "preview": "vite preview",
-    "test": "node --test scripts/runtime.test.mjs",
+    "test": "node --test scripts/runtime.test.mjs scripts/capability-policy.test.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:skills": "node scripts/check-skills.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",

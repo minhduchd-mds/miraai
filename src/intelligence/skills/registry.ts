@@ -1,4 +1,5 @@
 import type { MiraSkill, SkillContext, SkillResult } from './types';
+import { evaluateSkillCapabilityPolicy } from '../../runtime/capability-policy';
 import { weatherSkill } from './weather-skill';
 import { imageSkill } from './image-skill';
 
@@ -30,16 +31,16 @@ export class SkillRegistry {
     return this.list().map((skill) => `${skill.id} [${skill.risk}] — ${skill.description}`);
   }
 
-  private allowed(skill: MiraSkill, context: SkillContext): boolean {
-    if (skill.risk !== 'write' && skill.risk !== 'sensitive') return true;
-    return context.approvedSkillIds?.includes(skill.id) === true;
-  }
-
   private async run(skill: MiraSkill, input: string, context: SkillContext): Promise<SkillResult | null> {
-    if (!this.allowed(skill, context)) {
-      console.warn(`[Mira Skill] blocked unapproved ${skill.risk} skill: ${skill.id}`);
+    const decision = evaluateSkillCapabilityPolicy(skill, context);
+    if (!decision.allowed) {
+      const blocked = decision.blocked.length ? ` (${decision.blocked.join(', ')})` : '';
+      console.warn(
+        `[Mira Capability] blocked ${skill.id}: ${decision.reason}${blocked}`,
+      );
       return null;
     }
+
     try {
       return await skill.execute(input, context);
     } catch (error) {

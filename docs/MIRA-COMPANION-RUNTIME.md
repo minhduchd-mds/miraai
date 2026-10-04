@@ -10,6 +10,19 @@
 - Affect adaptation: speech rate, visual energy, prompt context and conservative proactive prompts.
 - Proactive companion loop for stable expression signals, long silence, resume/wake events and late-night context.
 - PWA + Screen Wake Lock + visibility/focus recovery for the strongest background behavior available to a web app.
+- Capability-policy gate for skills. Existing read paths stay backward-compatible; write/sensitive skills still require per-skill approval and can additionally be constrained by a runtime capability allow-list.
+
+## Capability boundary
+
+Mira now treats skill execution as a capability decision rather than a direct registry call.
+
+- Capabilities are explicit when a skill declares them and conservatively inferred for legacy skills.
+- A runtime policy can allow-list host, storage, network and sensitive capabilities.
+- Write/sensitive capabilities use a two-key gate when a runtime policy is active: the skill itself and the concrete capability must both be approved.
+- `denyNetwork` is an emergency circuit breaker and overrides the capability allow-list.
+- Omitting the runtime policy preserves current behavior, so existing UI/voice flows do not break while stricter hosts adopt the boundary incrementally.
+
+This is a policy layer, not an operating-system sandbox. Desktop/server hosts should enforce the same decision at the actual process/network boundary as a second line of defense.
 
 ## Privacy
 
