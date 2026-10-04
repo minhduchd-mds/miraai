@@ -972,14 +972,6 @@ export default function AppV2() {
       const on = result.ok;
       setVisionOn(on);
 
-      const stream = modules.visionStream();
-      if (on && stream && cameraPreviewRef.current) {
-        cameraPreviewRef.current.srcObject = stream;
-        cameraPreviewRef.current.muted = true;
-        cameraPreviewRef.current.playsInline = true;
-        await cameraPreviewRef.current.play().catch(() => {});
-      }
-
       if (!on) {
         setVisionError(result.error || 'Không mở được camera. Hãy kiểm tra quyền Camera của trình duyệt.');
       }
@@ -990,6 +982,18 @@ export default function AppV2() {
       setVisionBooting(false);
     }
   }, [loadVisionModules, stopVision, visionBooting, visionOn]);
+
+  useEffect(() => {
+    if (!visionOn) return;
+    const preview = cameraPreviewRef.current;
+    const stream = visionModulesRef.current?.visionStream();
+    if (!preview || !stream) return;
+
+    preview.srcObject = stream;
+    preview.muted = true;
+    preview.playsInline = true;
+    void preview.play().catch(() => {});
+  }, [visionOn]);
 
   useEffect(() => {
     if (!webXRSnapshot.active) return;
@@ -2871,12 +2875,6 @@ export default function AppV2() {
     url.searchParams.set('legacy', '1');
     window.location.assign(url.toString());
   };
-  const toggleLive = () => {
-    mira.unlockAudio();
-    setVoiceReady(true);
-    mira.toggleLive();
-  };
-
   useEffect(() => {
     const resumeIfNeeded = () => {
       if (document.visibilityState !== 'visible' || !mira.live) return;
