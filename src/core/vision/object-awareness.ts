@@ -7,6 +7,15 @@ import {
   type ObjectObservation,
   type TrackedObject,
 } from './environment-model';
+import { holisticPerformanceSnapshot } from './holistic-tracker';
+import {
+  OnnxAcceleratorLab,
+  acceleratorComparisonEnabled,
+  acceleratorLabEnabled,
+  type AcceleratorComparison,
+  type AcceleratorPrediction,
+} from './onnx-accelerator-lab';
+import type { AcceleratorProvider } from './accelerator-selection';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
@@ -21,8 +30,25 @@ export interface ObjectAwarenessData {
   inferenceMs: number;
   intervalMs: number;
   processedFrames: number;
+  scheduler: 'video-frame' | 'animation-frame';
+  primaryPressureMs: number;
   objects: TrackedObject[];
   environment: EnvironmentContext;
+  accelerator: {
+    enabled: boolean;
+    status: 'off' | 'loading' | 'ready' | 'running' | 'error';
+    provider: AcceleratorProvider | null;
+    runtimeVersion: string;
+    model: string;
+    loadMs: number;
+    preprocessMs: number;
+    inferenceMs: number;
+    endToEndMs: number;
+    label: string;
+    confidence: number;
+    benchmark: AcceleratorComparison | null;
+    error: string | null;
+  };
   error: string | null;
 }
 
@@ -33,19 +59,41 @@ export const objectAwarenessData: ObjectAwarenessData = {
   inferenceMs: 0,
   intervalMs: 950,
   processedFrames: 0,
+  scheduler: 'animation-frame',
+  primaryPressureMs: 0,
   objects: [],
   environment: { ...EMPTY_ENVIRONMENT },
+  accelerator: {
+    enabled: false,
+    status: 'off',
+    provider: null,
+    runtimeVersion: '1.30.0',
+    model: 'squeezenet1.1-7',
+    loadMs: 0,
+    preprocessMs: 0,
+    inferenceMs: 0,
+    endToEndMs: 0,
+    label: '',
+    confidence: 0,
+    benchmark: null,
+    error: null,
+  },
   error: null,
 };
 
 let detector: { detectForVideo: (video: HTMLVideoElement, timestamp: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
-let raf = 0;
+let frameRequestId = 0;
+let timerId = 0;
+let frameScheduler: 'video-frame' | 'animation-frame' = 'animation-frame';
 let stopped = true;
 let busy = false;
 let session = 0;
 let lastInferenceAt = 0;
 const tracker = new ObjectTemporalTracker();
+const acceleratorLab = new OnnxAcceleratorLab();
+let acceleratorTimerId = 0;
+let acceleratorBusy = false;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
@@ -93,29 +141,77 @@ function toObservations(result: any, width: number, height: number): ObjectObser
   return output.sort((a, b) => b.score - a.score).slice(0, 10);
 }
 
-function cadenceFromInference(inferenceMs: number): number {
+function cadenceFromInference(inferenceMs: number, primaryPressureMs = 0): number {
   const base = baseIntervalMs();
-  if (inferenceMs >= 180) return Math.min(1_900, base + inferenceMs * 2.2);
-  if (inferenceMs >= 95) return Math.min(1_550, base + inferenceMs * 1.35);
-  return base;
+  const primaryPenalty = primaryPressureMs >= 55 ? 620 : primaryPressureMs >= 36 ? 320 : 0;
+  if (inferenceMs >= 180) return Math.min(2_300, base + inferenceMs * 2.2 + primaryPenalty);
+  if (inferenceMs >= 95) return Math.min(1_900, base + inferenceMs * 1.35 + primaryPenalty);
+  return Math.min(1_700, base + primaryPenalty);
 }
 
-function readFrame(): void {
+function cancelFrameSchedule(): void {
+  if (timerId && typeof window !== 'undefined') window.clearTimeout(timerId);
+  timerId = 0;
+
+  if (!frameRequestId) return;
+  const frameVideo = video as (HTMLVideoElement & {
+    cancelVideoFrameCallback?: (id: number) => void;
+  }) | null;
+  if (frameScheduler === 'video-frame' && typeof frameVideo?.cancelVideoFrameCallback === 'function') {
+    frameVideo.cancelVideoFrameCallback(frameRequestId);
+  } else {
+    cancelAnimationFrame(frameRequestId);
+  }
+  frameRequestId = 0;
+}
+
+function scheduleReadFrame(delayMs = 0): void {
+  if (stopped || !video) return;
+
+  if (delayMs > 18 && typeof window !== 'undefined') {
+    timerId = window.setTimeout(() => {
+      timerId = 0;
+      scheduleReadFrame(0);
+    }, Math.min(2_500, Math.max(0, delayMs)));
+    return;
+  }
+
+  const frameVideo = video as HTMLVideoElement & {
+    requestVideoFrameCallback?: (
+      callback: (now: number, metadata: { expectedDisplayTime?: number }) => void,
+    ) => number;
+  };
+
+  if (typeof frameVideo.requestVideoFrameCallback === 'function') {
+    frameScheduler = 'video-frame';
+    objectAwarenessData.scheduler = 'video-frame';
+    frameRequestId = frameVideo.requestVideoFrameCallback((now) => readFrame(now));
+    return;
+  }
+
+  frameScheduler = 'animation-frame';
+  objectAwarenessData.scheduler = 'animation-frame';
+  frameRequestId = requestAnimationFrame((now) => readFrame(now));
+}
+
+function readFrame(callbackNow = performance.now()): void {
   if (stopped || !detector || !video) return;
-  const now = performance.now();
+  const now = Number.isFinite(callbackNow) ? callbackNow : performance.now();
   const hidden = typeof document !== 'undefined' && document.hidden;
   const interval = hidden ? Math.max(2_400, objectAwarenessData.intervalMs) : objectAwarenessData.intervalMs;
+  const elapsed = Math.max(0, now - lastInferenceAt);
 
-  if (now - lastInferenceAt < interval) {
-    raf = requestAnimationFrame(readFrame);
+  if (elapsed < interval) {
+    scheduleReadFrame(interval - elapsed);
     return;
   }
-  lastInferenceAt = now;
 
   if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
-    raf = requestAnimationFrame(readFrame);
+    scheduleReadFrame(80);
     return;
   }
+
+  lastInferenceAt = now;
 
   try {
     const started = performance.now();
@@ -124,9 +220,16 @@ function readFrame(): void {
     const observations = toObservations(result, video.videoWidth, video.videoHeight);
     const objects = tracker.update(observations, now);
     const environment = inferEnvironment(objects, now);
+    const primary = holisticPerformanceSnapshot();
+    const primaryPressureMs = Math.max(0, primary.inferenceMs + primary.postprocessMs);
 
     objectAwarenessData.inferenceMs += (inferenceMs - objectAwarenessData.inferenceMs) * 0.28;
-    objectAwarenessData.intervalMs = cadenceFromInference(objectAwarenessData.inferenceMs);
+    objectAwarenessData.primaryPressureMs +=
+      (primaryPressureMs - objectAwarenessData.primaryPressureMs) * 0.24;
+    objectAwarenessData.intervalMs = cadenceFromInference(
+      objectAwarenessData.inferenceMs,
+      objectAwarenessData.primaryPressureMs,
+    );
     objectAwarenessData.processedFrames += 1;
     objectAwarenessData.objects = objects;
     objectAwarenessData.environment = environment;
@@ -137,7 +240,99 @@ function readFrame(): void {
     objectAwarenessData.status = 'error';
   }
 
-  raf = requestAnimationFrame(readFrame);
+  scheduleReadFrame(objectAwarenessData.intervalMs);
+}
+
+function clearAcceleratorTimer(): void {
+  if (acceleratorTimerId && typeof window !== 'undefined') window.clearTimeout(acceleratorTimerId);
+  acceleratorTimerId = 0;
+}
+
+function resetAcceleratorState(enabled = acceleratorLabEnabled()): void {
+  Object.assign(objectAwarenessData.accelerator, {
+    enabled,
+    status: enabled ? 'loading' : 'off',
+    provider: null,
+    runtimeVersion: '1.30.0',
+    model: 'squeezenet1.1-7',
+    loadMs: 0,
+    preprocessMs: 0,
+    inferenceMs: 0,
+    endToEndMs: 0,
+    label: '',
+    confidence: 0,
+    benchmark: null,
+    error: null,
+  });
+}
+
+function applyAcceleratorPrediction(prediction: AcceleratorPrediction): void {
+  Object.assign(objectAwarenessData.accelerator, {
+    status: 'ready',
+    provider: prediction.provider,
+    preprocessMs: prediction.preprocessMs,
+    inferenceMs: prediction.inferenceMs,
+    endToEndMs: prediction.endToEndMs,
+    label: prediction.label,
+    confidence: prediction.confidence,
+    error: null,
+  });
+}
+
+function scheduleAcceleratorCycle(currentSession: number, delayMs = 2_500): void {
+  clearAcceleratorTimer();
+  if (!objectAwarenessData.accelerator.enabled || stopped || currentSession !== session) return;
+  if (typeof window === 'undefined') return;
+  acceleratorTimerId = window.setTimeout(() => {
+    acceleratorTimerId = 0;
+    void runAcceleratorCycle(currentSession);
+  }, Math.max(250, delayMs));
+}
+
+async function runAcceleratorCycle(currentSession: number): Promise<void> {
+  if (
+    acceleratorBusy ||
+    stopped ||
+    currentSession !== session ||
+    !video ||
+    !objectAwarenessData.accelerator.enabled
+  ) return;
+
+  if (typeof document !== 'undefined' && document.hidden) {
+    scheduleAcceleratorCycle(currentSession, 8_000);
+    return;
+  }
+
+  acceleratorBusy = true;
+  objectAwarenessData.accelerator.status = 'running';
+  try {
+    if (acceleratorComparisonEnabled() && !objectAwarenessData.accelerator.benchmark) {
+      const benchmark = await acceleratorLab.compare(video, 3);
+      if (currentSession !== session || stopped) return;
+      objectAwarenessData.accelerator.benchmark = benchmark;
+      objectAwarenessData.accelerator.provider = benchmark.selected;
+    }
+
+    let provider = objectAwarenessData.accelerator.provider;
+    if (!provider) provider = await acceleratorLab.openBest();
+    if (currentSession !== session || stopped) return;
+
+    const runtime = acceleratorLab.snapshot();
+    objectAwarenessData.accelerator.provider = provider;
+    objectAwarenessData.accelerator.loadMs = runtime.loadMs;
+    const prediction = await acceleratorLab.predict(video, provider);
+    if (currentSession !== session || stopped) return;
+    applyAcceleratorPrediction(prediction);
+    scheduleAcceleratorCycle(currentSession, 8_000);
+  } catch (error) {
+    if (currentSession !== session || stopped) return;
+    objectAwarenessData.accelerator.status = 'error';
+    objectAwarenessData.accelerator.error = error instanceof Error ? error.message : String(error);
+    acceleratorLab.close();
+    scheduleAcceleratorCycle(currentSession, 30_000);
+  } finally {
+    acceleratorBusy = false;
+  }
 }
 
 async function createDetector(delegate: 'GPU' | 'CPU'): Promise<any> {
@@ -195,9 +390,13 @@ export async function startObjectAwareness(): Promise<boolean> {
     objectAwarenessData.delegate = delegate;
     objectAwarenessData.intervalMs = baseIntervalMs();
     objectAwarenessData.processedFrames = 0;
+    objectAwarenessData.scheduler = 'animation-frame';
+    objectAwarenessData.primaryPressureMs = 0;
     objectAwarenessData.objects = [];
     objectAwarenessData.environment = { ...EMPTY_ENVIRONMENT };
-    raf = requestAnimationFrame(readFrame);
+    resetAcceleratorState(acceleratorLabEnabled());
+    scheduleReadFrame(0);
+    if (objectAwarenessData.accelerator.enabled) scheduleAcceleratorCycle(thisSession);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -214,7 +413,10 @@ export async function startObjectAwareness(): Promise<boolean> {
 export function stopObjectAwareness(): void {
   session += 1;
   stopped = true;
-  cancelAnimationFrame(raf);
+  cancelFrameSchedule();
+  clearAcceleratorTimer();
+  acceleratorBusy = false;
+  acceleratorLab.close();
   releaseVisionCamera('object');
   video = null;
   try { detector?.close?.(); } catch { /* noop */ }
@@ -227,8 +429,25 @@ export function stopObjectAwareness(): void {
     inferenceMs: 0,
     intervalMs: baseIntervalMs(),
     processedFrames: 0,
+    scheduler: 'animation-frame',
+    primaryPressureMs: 0,
     objects: [],
     environment: { ...EMPTY_ENVIRONMENT },
+    accelerator: {
+      enabled: false,
+      status: 'off',
+      provider: null,
+      runtimeVersion: '1.30.0',
+      model: 'squeezenet1.1-7',
+      loadMs: 0,
+      preprocessMs: 0,
+      inferenceMs: 0,
+      endToEndMs: 0,
+      label: '',
+      confidence: 0,
+      benchmark: null,
+      error: null,
+    },
     error: null,
   });
 }
@@ -238,5 +457,14 @@ export function objectAwarenessSnapshot(): ObjectAwarenessData {
     ...objectAwarenessData,
     objects: objectAwarenessData.objects.map((object) => ({ ...object, box: { ...object.box } })),
     environment: { ...objectAwarenessData.environment, evidence: [...objectAwarenessData.environment.evidence] },
+    accelerator: {
+      ...objectAwarenessData.accelerator,
+      benchmark: objectAwarenessData.accelerator.benchmark
+        ? {
+            ...objectAwarenessData.accelerator.benchmark,
+            summaries: objectAwarenessData.accelerator.benchmark.summaries.map((item) => ({ ...item })),
+          }
+        : null,
+    },
   };
 }

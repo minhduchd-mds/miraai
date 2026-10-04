@@ -38,6 +38,8 @@ const mustExist = [
   'src/intelligence/social/presence-continuity.ts',
   'src/core/vision/environment-model.ts',
   'src/core/vision/object-awareness.ts',
+  'src/core/vision/accelerator-selection.ts',
+  'src/core/vision/onnx-accelerator-lab.ts',
   'src/core/vision/spatial-scene-graph.ts',
   'src/core/vision/object-interaction.ts',
   'src/core/vision/action-sequence.ts',
@@ -602,7 +604,7 @@ for (const token of ['ObjectTemporalTracker', 'objectIoU', 'inferEnvironment', '
   if (!environmentModel.includes(token)) failures.push(`environment context model missing: ${token}`);
 }
 const objectAwareness = readFileSync('src/core/vision/object-awareness.ts', 'utf8');
-for (const token of ['ObjectDetector', 'efficientdet_lite0', "acquireVisionCamera('object')", 'scoreThreshold', 'cadenceFromInference', 'ObjectTemporalTracker']) {
+for (const token of ['ObjectDetector', 'efficientdet_lite0', "acquireVisionCamera('object')", 'scoreThreshold', 'cadenceFromInference', 'ObjectTemporalTracker', 'requestVideoFrameCallback', 'primaryPressureMs', 'OnnxAcceleratorLab', 'acceleratorLabEnabled']) {
   if (!objectAwareness.includes(token)) failures.push(`object awareness runtime missing: ${token}`);
 }
 const objectOverlay = readFileSync('src/presence/ObjectAwarenessOverlay.tsx', 'utf8');
@@ -824,6 +826,15 @@ if (existsSync('.idea/workspace.xml')) failures.push('IDE workspace state must n
 const machine = readFileSync('src/runtime/conversation-machine.ts', 'utf8');
 for (const state of ['idle', 'listening', 'thinking', 'speaking', 'interrupted', 'error']) {
   if (!machine.includes(`${state}:`)) failures.push(`conversation machine missing state: ${state}`);
+}
+
+const acceleratorSelection = readFileSync('src/core/vision/accelerator-selection.ts', 'utf8');
+for (const token of ['webgpu', 'webnn-npu', 'webnn-gpu', 'wasm', 'chooseMeasuredAccelerator', 'p95EndToEndMs']) {
+  if (!acceleratorSelection.includes(token)) failures.push(`accelerator v15.3 selection contract missing: ${token}`);
+}
+const acceleratorLab = readFileSync('src/core/vision/onnx-accelerator-lab.ts', 'utf8');
+for (const token of ['1.30.0', 'ort.all.min.mjs', 'squeezenet1.1-7.onnx', '@vite-ignore', 'enableGraphCapture', 'accelerator-benchmark']) {
+  if (!acceleratorLab.includes(token)) failures.push(`accelerator v15.3 runtime missing: ${token}`);
 }
 
 if (failures.length) {
