@@ -716,3 +716,28 @@
     0 0 0 1px color-mix(in srgb,var(--accent) 36%,transparent),
     0 0 24px color-mix(in srgb,var(--accent) 18%,transparent);
 }
+
+
+/* Mira v16 — camera preview appears only after vision control has a live subject/hand signal. */
+.v2-vision-monitor {
+  top: max(74px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
+  bottom: auto;
+  transition: opacity .22s ease, transform .22s ease, filter .22s ease;
+}
+.v2-vision-monitor.camera-awaiting {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.v2-vision-monitor:not(.camera-awaiting) {
+  opacity: 1;
+  visibility: visible;
+}
+@media (max-width: 760px) {
+  .v2-vision-monitor {
+    top: max(58px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: auto;
+  }
+}

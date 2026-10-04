@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
-import { IconCamera, IconCameraOff, IconSettings } from '../ui/app-shell-icons';
+import { IconCamera, IconCameraOff, IconMic, IconPhoneOff, IconSettings } from '../ui/app-shell-icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import PhotorealMira from '../presence/PhotorealMira';
 import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
@@ -106,6 +106,7 @@ import {
   type SpatialPlacementPreview,
   type SpatialWorldAnchor,
 } from '../core/vision/spatial-world';
+import { PRESENCE_SCENE_LABEL, resolvePresenceScene, type MiraPresenceScene } from '../presence/presence-scene';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -538,6 +539,7 @@ export default function AppV2() {
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [presenceSceneOverride, setPresenceSceneOverride] = useState<MiraPresenceScene | null>(null);
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
   const bootPendingRef = useRef(false);
@@ -2931,9 +2933,28 @@ export default function AppV2() {
     mira.caption,
   ].join(' ');
 
+  const presenceScene = resolvePresenceScene({
+    hour: new Date().getHours(),
+    presenceCue: presenceContinuity.cue,
+    presenceMode: presenceContinuity.mode,
+    interactionState: interactionTelemetry.state,
+    override: presenceSceneOverride,
+  });
+  const cameraConnected = Boolean(
+    webXRSnapshot.active ||
+    (visionOn && (faceSeen || handSeen)),
+  );
+  const voiceSessionActive = Boolean(
+    mira.live ||
+    voiceReady ||
+    mira.state === 'listening' ||
+    mira.state === 'thinking' ||
+    mira.state === 'speaking',
+  );
+
   return (
     <div
-      className={`mira-v2 voice-only holographic-ui user-mood-${faceAffect.mood}${voiceBooting ? ' voice-booting' : ''}${webXRSnapshot.active ? ' xr-active' : ''}${mira.content ? ' has-result' : ''}`}
+      className={`mira-v2 voice-only holographic-ui presence-${presenceScene} user-mood-${faceAffect.mood}${voiceBooting ? ' voice-booting' : ''}${webXRSnapshot.active ? ' xr-active' : ''}${mira.content ? ' has-result' : ''}`}
       data-xr-hands={webXRSnapshot.hands.length}
       data-xr-hit={webXRSnapshot.hit ? 'true' : 'false'}
       data-xr-depth={webXRSnapshot.depth.available ? 'true' : 'false'}
@@ -2986,8 +3007,9 @@ export default function AppV2() {
 
       {(visionOn || webXRSnapshot.active) && (
         <div
-          className={`v2-vision-monitor${webXRSnapshot.active && !visionOn ? ' xr-spatial-monitor' : ''}`}
+          className={`v2-vision-monitor${webXRSnapshot.active && !visionOn ? ' xr-spatial-monitor' : ''}${visionOn && !cameraConnected ? ' camera-awaiting' : ''}`}
           aria-live="polite"
+          aria-hidden={visionOn && !cameraConnected ? 'true' : undefined}
           style={spatialWindowStyle(
             spatialWindows.camera,
             xrWindowDepthScale.camera,
@@ -3058,7 +3080,6 @@ export default function AppV2() {
                 {faceActionFeedback && <div className="v2-face-action-feedback" role="status">{faceActionFeedback}</div>}
               </>
             )}
-            {visionOn && !faceSeen && <div className="v2-face-scan-hint">Đưa khuôn mặt vào giữa khung hình</div>}
           </div>
           <div
             className="v2-spatial-window-bar"
@@ -3104,6 +3125,7 @@ export default function AppV2() {
             presenceMode={presenceContinuity.mode}
             presenceCue={presenceContinuity.cue}
             presenceContinuity={presenceContinuity.continuity}
+            presenceScene={presenceScene}
             spatialCoreStyle={spatialObjectStyle(
               spatialObjects.find((object) => object.id === 'mira.core') || null,
               xrObjectDepthScale['mira.core'] || 1,
@@ -3160,19 +3182,57 @@ export default function AppV2() {
         feedback={spatialFeedback}
       />
 
-      <div className="voice-footer">
+      <nav className="v2-presence-scenes" aria-label="Ngữ cảnh hiện diện của Mira">
         <button
           type="button"
-          className={`voice-live${mira.live ? ' active' : ''}`}
-          onClick={toggleLive}
-          aria-pressed={mira.live}
-          aria-label={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
-          title={mira.live ? 'Tắt trò chuyện rảnh tay' : 'Bật trò chuyện rảnh tay'}
-          data-spatial-action="voice.live"
-          data-spatial-label={mira.live ? 'Tắt live voice' : 'Bật live voice'}
-        >
-          <span aria-hidden="true" />
-        </button>
+          className={presenceSceneOverride === null ? 'active' : ''}
+          onClick={() => setPresenceSceneOverride(null)}
+          aria-pressed={presenceSceneOverride === null}
+        >Tự động</button>
+        {(['welcome-home', 'home-evening', 'bedtime'] as MiraPresenceScene[]).map((scene) => (
+          <button
+            key={scene}
+            type="button"
+            className={presenceScene === scene && presenceSceneOverride === scene ? 'active' : ''}
+            onClick={() => setPresenceSceneOverride(scene)}
+            aria-pressed={presenceSceneOverride === scene}
+          >{PRESENCE_SCENE_LABEL[scene]}</button>
+        ))}
+      </nav>
+
+      <div className={`voice-footer state-${mira.state}${mira.live ? ' is-live' : ''}`}>
+        <div className="voice-session-caption" role="status" aria-live="polite" aria-atomic="true">
+          <small>{mira.state === 'idle' ? PRESENCE_SCENE_LABEL[presenceScene] : STATE_COPY[mira.state]}</small>
+          <span>{mira.caption}</span>
+        </div>
+        <div className="voice-control-dock">
+          <span className="voice-wave-mini" aria-hidden="true">
+            {Array.from({ length: 9 }, (_, index) => <i key={index} />)}
+          </span>
+          <button
+            type="button"
+            className={`voice-primary state-${mira.state}${voiceSessionActive ? ' active' : ''}`}
+            onClick={mira.live ? mira.toggleMic : activateVoice}
+            aria-label={mira.live ? 'Điều khiển micro Mira' : 'Bắt đầu trò chuyện bằng giọng nói'}
+            title={mira.live ? STATE_COPY[mira.state] : 'Nói với Mira'}
+            data-spatial-action="voice.primary"
+            data-spatial-label="Nói với Mira"
+          >
+            <IconMic />
+          </button>
+          <button
+            type="button"
+            className="voice-end"
+            onClick={mira.stopLive}
+            disabled={!mira.live}
+            aria-label="Kết thúc trò chuyện"
+            title="Kết thúc trò chuyện"
+            data-spatial-action="voice.end"
+            data-spatial-label="Kết thúc trò chuyện"
+          >
+            <IconPhoneOff />
+          </button>
+        </div>
       </div>
 
       {settingsOpen && (

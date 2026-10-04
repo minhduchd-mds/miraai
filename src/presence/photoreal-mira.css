@@ -2034,3 +2034,138 @@
     opacity:0;
   }
 }
+
+
+/* Mira v16 — contextual home presence. */
+.bedroom-presence .pm-hero-copy {
+  z-index: 15;
+  left: clamp(24px, 5vw, 76px);
+  bottom: clamp(132px, 17vh, 180px);
+  width: min(410px, 34vw);
+}
+.bedroom-presence .pm-hero-capabilities {
+  display: none;
+}
+.bedroom-presence .pm-hero-story {
+  display: grid;
+  gap: 8px;
+}
+.bedroom-presence .pm-hero-story strong {
+  color: rgba(250, 247, 247, .97);
+  font-size: clamp(30px, 3.2vw, 52px);
+  line-height: 1.02;
+  letter-spacing: -.045em;
+  font-weight: 560;
+  text-shadow: 0 12px 34px rgba(3, 4, 12, .42);
+}
+.bedroom-presence .pm-hero-story em {
+  max-width: 330px;
+  color: rgba(236, 231, 239, .7);
+  font: 500 12px/1.55 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  text-shadow: 0 8px 24px rgba(2, 3, 10, .5);
+}
+.bedroom-presence .pm-hero-kicker {
+  color: rgba(233, 224, 244, .52);
+}
+.pm-presence-character-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+}
+.pm-presence-character {
+  position: absolute;
+  left: 59%;
+  bottom: -3vh;
+  height: min(91dvh, 980px);
+  max-width: 62vw;
+  object-fit: contain;
+  object-position: center bottom;
+  transform: translateX(-50%) translate3d(calc(var(--pm-depth-near-x) * .3), calc(var(--pm-depth-near-y) * .22), 0);
+  filter: drop-shadow(0 28px 38px rgba(0,0,0,.38));
+  user-select: none;
+  will-change: transform;
+}
+.scene-daytime .pm-presence-character {
+  left: 61%;
+  height: min(88dvh, 930px);
+}
+.scene-welcome-home .pm-presence-character {
+  left: 60%;
+  bottom: -2vh;
+  height: min(93dvh, 990px);
+  transform: translateX(-50%) translate3d(calc(var(--pm-depth-near-x) * .34), calc(var(--pm-depth-near-y) * .26), 0) scale(1.02);
+}
+.scene-home-evening .pm-presence-character {
+  left: 62%;
+  height: min(90dvh, 960px);
+}
+.scene-bedtime .pm-presence-character-zone {
+  display: none;
+}
+
+.scene-daytime .pm-scene-fallback,
+.scene-daytime .pm-scene-canvas,
+.scene-daytime .pm-depth-layer {
+  object-position: 46% center;
+}
+.scene-welcome-home .pm-scene-fallback,
+.scene-welcome-home .pm-scene-canvas,
+.scene-welcome-home .pm-depth-layer,
+.scene-home-evening .pm-scene-fallback,
+.scene-home-evening .pm-scene-canvas,
+.scene-home-evening .pm-depth-layer {
+  object-position: center center;
+}
+.scene-daytime .pm-bedroom-tint {
+  background:
+    linear-gradient(90deg, rgba(5,8,22,.55), transparent 46%),
+    radial-gradient(circle at 64% 42%, rgba(126, 160, 255, .08), transparent 34%);
+}
+.scene-welcome-home .pm-bedroom-tint,
+.scene-home-evening .pm-bedroom-tint {
+  background:
+    linear-gradient(90deg, rgba(18, 9, 15, .46), transparent 48%),
+    radial-gradient(circle at 70% 42%, rgba(255, 190, 132, .14), transparent 34%);
+}
+.scene-bedtime .pm-bedroom-tint {
+  background:
+    linear-gradient(90deg, rgba(9, 6, 19, .5), transparent 46%),
+    radial-gradient(circle at 63% 46%, rgba(205, 160, 255, .1), transparent 38%);
+}
+
+.bedroom-presence .pm-live-pill {
+  top: 74px;
+  bottom: auto;
+}
+.bedroom-presence .pm-wave {
+  bottom: 126px;
+  opacity: .28;
+}
+
+@media (max-width: 760px) {
+  .bedroom-presence .pm-hero-copy {
+    left: 18px;
+    right: 18px;
+    bottom: 166px;
+    width: auto;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .bedroom-presence .pm-hero-story strong { font-size: clamp(28px, 8vw, 38px); }
+  .bedroom-presence .pm-hero-story em { max-width: 270px; font-size: 10px; }
+  .pm-presence-character {
+    left: 63%;
+    max-width: 96vw;
+    height: min(72dvh, 700px);
+    bottom: 7vh;
+    opacity: .92;
+  }
+  .bedroom-presence .pm-live-pill {
+    top: 60px;
+    bottom: auto;
+  }
+  .bedroom-presence .pm-wave { display: none; }
+}

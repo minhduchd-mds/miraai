@@ -13,6 +13,7 @@ import {
 import type { PhotorealCameraDepthController } from './photoreal-camera-depth';
 import type { PhotorealEnvironmentController } from './photoreal-environment';
 import type { PhotorealSceneCanvasHandle } from './PhotorealSceneCanvas';
+import { PRESENCE_SCENE_COPY, type MiraPresenceScene } from './presence-scene';
 import './photoreal-mira.css';
 
 interface Props {
@@ -57,20 +58,26 @@ interface Props {
   spatialNodePhysicsMode?: 'idle' | 'grabbed' | 'inertia';
   spatialNodeDepth?: number;
   spatialCoreActive?: boolean;
+  presenceScene?: MiraPresenceScene;
 }
 
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
 const PhotorealSceneCanvas = lazy(() => import('./PhotorealSceneCanvas'));
 const PhotorealSceneSegments = lazy(() => import('./PhotorealSceneSegments'));
 const MIRA_BEDROOM = asset('scenes/mira-bedroom.webp');
+const MIRA_HOME = asset('scenes/home.png');
+const MIRA_OFFICE = asset('scenes/office.png');
+const MIRA_HOME_IDOL = asset('avatars/female/mira_female_01_idol_nova.webp');
+const MIRA_HOME_SWEATER = asset('avatars/female/mira_female_02_lavender_lounge.webp');
 
-const SCENE_BY_STATE: Record<MiraState, string> = {
-  idle: MIRA_BEDROOM,
-  listening: MIRA_BEDROOM,
-  thinking: MIRA_BEDROOM,
-  speaking: MIRA_BEDROOM,
-  interrupted: MIRA_BEDROOM,
-  error: MIRA_BEDROOM,
+const PRESENCE_VISUAL: Record<MiraPresenceScene, {
+  scene: string;
+  character: string | null;
+}> = {
+  daytime: { scene: MIRA_OFFICE, character: MIRA_HOME_IDOL },
+  'welcome-home': { scene: MIRA_HOME, character: MIRA_HOME_SWEATER },
+  'home-evening': { scene: MIRA_HOME, character: MIRA_HOME_IDOL },
+  bedtime: { scene: MIRA_BEDROOM, character: null },
 };
 
 const STATE_LABEL: Record<MiraState, string> = {
@@ -82,7 +89,6 @@ const STATE_LABEL: Record<MiraState, string> = {
   error: 'CHECK',
 };
 
-const PRELOAD = [...new Set(Object.values(SCENE_BY_STATE))];
 const WAVE_BARS = Array.from({ length: 31 }, (_, index) => index);
 
 export default function PhotorealMira({
@@ -122,6 +128,7 @@ export default function PhotorealMira({
   spatialNodePhysicsMode = 'idle',
   spatialNodeDepth = 0,
   spatialCoreActive = false,
+  presenceScene = 'home-evening',
 }: Props) {
   const rootRef = useRef<HTMLButtonElement>(null);
   const pointerDepthRef = useRef({ x: 0, y: 0 });
@@ -145,6 +152,9 @@ export default function PhotorealMira({
   const [visualQuality, setVisualQuality] = useState<PhotorealVisualQuality>('balanced');
   const deviceDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const visualProfile = clarityProfile(visualQuality, deviceDpr, attention);
+  const presenceVisual = PRESENCE_VISUAL[presenceScene];
+  const presenceCopy = PRESENCE_SCENE_COPY[presenceScene];
+  const sceneAsset = presenceVisual.scene;
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
   const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bật Mira 24/7';
 
@@ -336,12 +346,15 @@ export default function PhotorealMira({
   }, [visualQuality]);
 
   useEffect(() => {
-    PRELOAD.forEach((src) => {
-      const image = new Image();
-      image.decoding = 'async';
-      image.src = src;
-    });
-  }, []);
+    const active = new Image();
+    active.decoding = 'async';
+    active.src = sceneAsset;
+    if (presenceVisual.character) {
+      const character = new Image();
+      character.decoding = 'async';
+      character.src = presenceVisual.character;
+    }
+  }, [presenceVisual.character, sceneAsset]);
 
   useEffect(() => {
     let raf = 0;
@@ -394,8 +407,9 @@ export default function PhotorealMira({
     <button
       ref={rootRef}
       type="button"
-      className={`photo-mira bedroom-presence state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue} presence-${presenceMode} presence-cue-${presenceCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}${spatialCoreActive ? ' spatial-core-active' : ''}`}
+      className={`photo-mira bedroom-presence scene-${presenceScene} state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue} presence-${presenceMode} presence-cue-${presenceCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}${spatialCoreActive ? ' spatial-core-active' : ''}`}
       data-visual-quality={visualQuality}
+      data-presence-scene={presenceScene}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
       onPointerLeave={resetPointer}
@@ -404,7 +418,7 @@ export default function PhotorealMira({
       <span className="pm-scene-shell" aria-hidden="true">
         <img
           className="pm-scene pm-bedroom-scene pm-scene-fallback"
-          src={SCENE_BY_STATE[state]}
+          src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
@@ -414,7 +428,7 @@ export default function PhotorealMira({
             <PhotorealSceneCanvas
               ref={sceneCanvasRef}
               className="pm-scene-canvas"
-              src={SCENE_BY_STATE[state]}
+              src={sceneAsset}
               renderDpr={visualProfile.renderDpr}
               sharpness={visualProfile.sharpness}
             />
@@ -422,21 +436,21 @@ export default function PhotorealMira({
         )}
         <img
           className="pm-depth-layer pm-depth-mid"
-          src={SCENE_BY_STATE[state]}
+          src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
         />
         <img
           className="pm-depth-layer pm-depth-near"
-          src={SCENE_BY_STATE[state]}
+          src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
         />
-        {(visualQuality === 'high' || visualQuality === 'ultra') && (
+        {presenceScene === 'bedtime' && (visualQuality === 'high' || visualQuality === 'ultra') && (
           <Suspense fallback={null}>
-            <PhotorealSceneSegments src={SCENE_BY_STATE[state]} />
+            <PhotorealSceneSegments src={sceneAsset} />
           </Suspense>
         )}
         <span className="pm-depth-atmosphere" />
@@ -456,25 +470,31 @@ export default function PhotorealMira({
 
       <span className="pm-bedroom-tint" aria-hidden="true" />
 
+      {presenceVisual.character && (
+        <span className="pm-presence-character-zone" aria-hidden="true">
+          <img
+            className="pm-presence-character"
+            src={presenceVisual.character}
+            alt=""
+            draggable={false}
+            decoding="async"
+          />
+        </span>
+      )}
+
       <span
         key={`hero-${state}`}
         className="pm-hero-copy"
         data-hero-state={state}
         aria-hidden="true"
       >
-        <span className="pm-hero-capabilities">
-          <span><i />VOICE</span>
-          <span><i />MEMORY</span>
-          <span><i />VISION</span>
-          <span><i />SPATIAL AI</span>
+        <span className="pm-hero-capabilities" aria-hidden="true">
+          <span><i />VOICE FIRST</span>
         </span>
         <span className="pm-hero-story">
           <span className="pm-hero-kicker">MIRA <i /> {STATE_LABEL[state]}</span>
-          <strong>
-            <span>Always here,</span>
-            <span>in your space</span>
-          </strong>
-          <em>Voice, memory, vision, and spatial presence — quietly ready when you are.</em>
+          <strong>{presenceCopy.title}</strong>
+          <em>{presenceCopy.subtitle}</em>
         </span>
       </span>
 

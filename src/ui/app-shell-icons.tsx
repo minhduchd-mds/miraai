@@ -45,3 +45,19 @@ export const IconSettings = (props: SVGProps<SVGSVGElement>) => (
     <circle cx="8" cy="17" r="2" />
   </ShellSvg>
 );
+
+
+export const IconMic = (props: SVGProps<SVGSVGElement>) => (
+  <ShellSvg {...props}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 10.5a6.5 6.5 0 0 0 13 0" />
+    <path d="M12 17v4M8.5 21h7" />
+  </ShellSvg>
+);
+
+export const IconPhoneOff = (props: SVGProps<SVGSVGElement>) => (
+  <ShellSvg {...props}>
+    <path d="M5 14.5c4.3-3.3 9.7-3.3 14 0" />
+    <path d="M7.2 13.1l-1.4 3.3M16.8 13.1l1.4 3.3" />
+  </ShellSvg>
+);
