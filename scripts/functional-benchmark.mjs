@@ -3,12 +3,24 @@ import { readFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import ts from 'typescript';
 
-async function importTypeScript(path) {
+function transpileTypeScript(path) {
   const source = readFileSync(path, 'utf8');
-  const output = ts.transpileModule(source, {
+  return ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
     fileName: path,
   }).outputText;
+}
+
+async function importTypeScript(path) {
+  let output = transpileTypeScript(path);
+  if (output.includes("from './object-identity-hypothesis'")) {
+    const dependency = transpileTypeScript('src/core/vision/object-identity-hypothesis.ts');
+    const dependencyUrl = `data:text/javascript;base64,${Buffer.from(dependency).toString('base64')}`;
+    output = output.replace(
+      "from './object-identity-hypothesis'",
+      `from '${dependencyUrl}'`,
+    );
+  }
   return import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
 }
 
