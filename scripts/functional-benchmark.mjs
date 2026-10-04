@@ -9,7 +9,7 @@ async function importTypeScript(path) {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
     fileName: path,
   }).outputText;
-  return import(\`data:text/javascript;base64,\${Buffer.from(output).toString('base64')}\`);
+  return import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
 }
 
 const gestureIntent = await importTypeScript('src/core/vision/gesture-intent.ts');
@@ -219,7 +219,7 @@ function benchmarkWorldModel() {
       event.type === 'identity_rebind' && event.worldObjectId === ambiguousState.objects.find((item) => item.sourceObjectId === 'cup-c')?.id
     ),
   };
-  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, \`world model gate failed: \${name}\`);
+  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, `world model gate failed: ${name}`);
   return checks;
 }
 
@@ -283,7 +283,7 @@ function benchmarkActionSequence() {
       reboundState.identityRebound === true &&
       reboundState.objectId === 'new-cup-id',
   };
-  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, \`action sequence gate failed: \${name}\`);
+  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, `action sequence gate failed: ${name}`);
   return checks;
 }
 
@@ -310,7 +310,7 @@ function benchmarkVisionGovernor() {
     ].every(Number.isFinite),
     hiddenTabThrottled: governor.shouldProcess(now + 50, true) === false,
   };
-  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, \`vision governor gate failed: \${name}\`);
+  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, `vision governor gate failed: ${name}`);
   return { baseIntervalMs: base, loadedIntervalMs: loaded.intervalMs, recoveredIntervalMs: recovered.intervalMs, checks };
 }
 
@@ -350,7 +350,7 @@ function benchmarkSpatialPhysics() {
     boundsPreserved: Math.abs(pose.position.x) <= 0.480001,
     edgeCollisionContained: edge.collided === true && Math.abs(edge.pose.position.x) <= 0.480001,
   };
-  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, \`spatial physics gate failed: \${name}\`);
+  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, `spatial physics gate failed: ${name}`);
   return { releaseSpeed: release.speed, finalSpeed: state.speed, finalPosition: pose.position, checks };
 }
 
@@ -395,7 +395,7 @@ function benchmarkConversationTiming() {
       timing.resumeListeningDelayMs('Em đã kiểm tra xong toàn bộ phần này và hiện chưa có cảnh báo nghiêm trọng nào.'),
     bargeInRecoveryBounded: timing.interruptionRecoveryDelayMs() <= 180,
   };
-  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, \`conversation timing gate failed: \${name}\`);
+  for (const [name, passed] of Object.entries(checks)) assert.equal(passed, true, `conversation timing gate failed: ${name}`);
   return {
     fastCueDelayMs: fast.audibleCueDelayMs,
     slowCueDelayMs: slow.audibleCueDelayMs,
