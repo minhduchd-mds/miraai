@@ -1,2 +1,9 @@
 export { SkillRegistry, createDefaultSkillRegistry } from './registry';
-export type { MiraSkill, SkillContext, SkillResult } from './types';
+export type {
+  MiraCapability,
+  MiraSkill,
+  RuntimeCapabilityPolicy,
+  SkillContext,
+  SkillPolicyAuditEvent,
+  SkillResult,
+} from './types';
