@@ -13,7 +13,14 @@ import {
 import type { PhotorealCameraDepthController } from './photoreal-camera-depth';
 import type { PhotorealEnvironmentController } from './photoreal-environment';
 import type { PhotorealSceneCanvasHandle } from './PhotorealSceneCanvas';
-import { PRESENCE_SCENE_COPY, type MiraPresenceScene } from './presence-scene';
+import {
+  PRESENCE_IMAGE,
+  PRESENCE_SCENE_COPY,
+  expressionAssetUrl,
+  nextPresenceScene,
+  resolvePresenceExpression,
+  type MiraPresenceScene,
+} from './presence-scene';
 import './photoreal-mira.css';
 
 interface Props {
@@ -74,10 +81,10 @@ const PRESENCE_VISUAL: Record<MiraPresenceScene, {
   scene: string;
   character: string | null;
 }> = {
-  daytime: { scene: MIRA_OFFICE, character: MIRA_HOME_IDOL },
-  'welcome-home': { scene: MIRA_HOME, character: MIRA_HOME_SWEATER },
-  'home-evening': { scene: MIRA_HOME, character: MIRA_HOME_IDOL },
-  bedtime: { scene: MIRA_BEDROOM, character: null },
+  daytime: { scene: asset(PRESENCE_IMAGE.daytime), character: null },
+  'welcome-home': { scene: asset(PRESENCE_IMAGE['welcome-home']), character: null },
+  'home-evening': { scene: asset(PRESENCE_IMAGE['home-evening']), character: null },
+  bedtime: { scene: asset(PRESENCE_IMAGE.bedtime), character: null },
 };
 
 const STATE_LABEL: Record<MiraState, string> = {
@@ -155,6 +162,15 @@ export default function PhotorealMira({
   const presenceVisual = PRESENCE_VISUAL[presenceScene];
   const presenceCopy = PRESENCE_SCENE_COPY[presenceScene];
   const sceneAsset = presenceVisual.scene;
+  const nextSceneAsset = PRESENCE_VISUAL[nextPresenceScene(presenceScene)].scene;
+  const expressionName = resolvePresenceExpression({
+    state,
+    mood: observedMood,
+    scene: presenceScene,
+    socialCue,
+  });
+  const expressionAsset = asset(expressionAssetUrl(expressionName));
+  const showAffectionFx = observedMood === 'happy' && moodConfidence >= 0.45;
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
   const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bật Mira 24/7';
 
@@ -349,12 +365,18 @@ export default function PhotorealMira({
     const active = new Image();
     active.decoding = 'async';
     active.src = sceneAsset;
+    const upcoming = new Image();
+    upcoming.decoding = 'async';
+    upcoming.src = nextSceneAsset;
+    const expression = new Image();
+    expression.decoding = 'async';
+    expression.src = expressionAsset;
     if (presenceVisual.character) {
       const character = new Image();
       character.decoding = 'async';
       character.src = presenceVisual.character;
     }
-  }, [presenceVisual.character, sceneAsset]);
+  }, [expressionAsset, nextSceneAsset, presenceVisual.character, sceneAsset]);
 
   useEffect(() => {
     let raf = 0;
@@ -480,6 +502,33 @@ export default function PhotorealMira({
             decoding="async"
           />
         </span>
+      )}
+
+      <img
+        className="pm-expression-card"
+        src={expressionAsset}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        decoding="async"
+      />
+      {showAffectionFx && (
+        <img
+          className="pm-fx pm-fx-hearts"
+          src={asset('/mira-assets/effects/fx_heart_particles.png')}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
+      )}
+      {state === 'listening' && (
+        <img
+          className="pm-fx pm-fx-mic-ring"
+          src={asset('/mira-assets/effects/fx_mic_ring_neon.png')}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
       )}
 
       <span

@@ -27,6 +27,74 @@ export const PRESENCE_SCENE_LABEL: Record<MiraPresenceScene, string> = {
   bedtime: 'Đi ngủ',
 };
 
+export const PRESENCE_IMAGE: Record<MiraPresenceScene, string> = {
+  daytime: '/mira-assets/scenes/scene_home_main.png',
+  'welcome-home': '/mira-assets/scenes/scene_welcome_home.png',
+  'home-evening': '/mira-assets/scenes/scene_relax_sofa.png',
+  bedtime: '/mira-assets/scenes/scene_bedtime.png',
+};
+
+export const PRESENCE_SUBSCENE_IMAGE = {
+  'cooking-together': '/mira-assets/scenes/scene_cooking_together.png',
+  'work-together': '/mira-assets/scenes/scene_work_together.png',
+  'bed-close': '/mira-assets/scenes/scene_bed_close.png',
+  sleep: '/mira-assets/scenes/scene_sleep.png',
+  morning: '/mira-assets/scenes/scene_morning.png',
+} as const;
+
+export const EXPRESSION_ASSET = {
+  gentle: 'expr_01_gentle.png',
+  smile: 'expr_02_smile.png',
+  wink: 'expr_03_wink.png',
+  kiss: 'expr_04_kiss.png',
+  shy: 'expr_05_shy.png',
+  surprise: 'expr_06_surprise.png',
+  sad: 'expr_07_sad_soft.png',
+  pout: 'expr_08_pout.png',
+  cute: 'expr_09_cute.png',
+  focus: 'expr_10_focus.png',
+  calm: 'expr_11_calm.png',
+  sleepy: 'expr_12_sleepy.png',
+} as const;
+
+export type MiraExpression = keyof typeof EXPRESSION_ASSET;
+
+export function expressionAssetUrl(name: MiraExpression): string {
+  return `/mira-assets/expressions/${EXPRESSION_ASSET[name]}`;
+}
+
+export function nextPresenceScene(scene: MiraPresenceScene): MiraPresenceScene {
+  if (scene === 'daytime') return 'welcome-home';
+  if (scene === 'welcome-home') return 'home-evening';
+  if (scene === 'home-evening') return 'bedtime';
+  return 'daytime';
+}
+
+export function resolvePresenceExpression(input: {
+  state?: 'idle' | 'listening' | 'thinking' | 'speaking' | 'interrupted' | 'error';
+  mood?: 'happy' | 'sad' | 'tired' | 'angry' | 'surprised' | 'neutral';
+  scene?: MiraPresenceScene;
+  socialCue?: 'none' | 'wink_left' | 'wink_right' | 'brow_raise' | 'smile';
+}): MiraExpression {
+  const mood = input.mood || 'neutral';
+  const state = input.state || 'idle';
+  const scene = input.scene || 'home-evening';
+  const cue = input.socialCue || 'none';
+
+  if (cue === 'wink_left' || cue === 'wink_right') return 'wink';
+  if (cue === 'smile' && mood === 'happy') return 'smile';
+  if (mood === 'surprised' || cue === 'brow_raise') return 'surprise';
+  if (mood === 'sad') return 'sad';
+  if (mood === 'angry') return 'pout';
+  if (mood === 'tired') return 'sleepy';
+  if (state === 'thinking') return 'focus';
+  if (state === 'listening') return 'gentle';
+  if (state === 'speaking' && mood === 'happy') return 'smile';
+  if (mood === 'happy') return 'smile';
+  if (scene === 'bedtime') return 'calm';
+  return 'gentle';
+}
+
 export const PRESENCE_SCENE_COPY: Record<MiraPresenceScene, { title: string; subtitle: string }> = {
   daytime: {
     title: 'Em ở đây cùng anh.',
