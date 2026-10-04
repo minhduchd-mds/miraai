@@ -20,6 +20,11 @@ import {
   currentPerceptionRuntimePlan,
   type PerceptionRuntimePlan,
 } from './perception-runtime';
+import {
+  PerceptionTraceRecorder,
+  type PerceptionFrameScheduler,
+  type PerceptionTraceSession,
+} from './perception-trace';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
@@ -57,7 +62,8 @@ export const holisticRuntimeData: HolisticRuntimeData = {
 
 let landmarker: { detectForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
 let video: HTMLVideoElement | null = null;
-let raf = 0;
+let frameRequestId = 0;
+let frameScheduler: PerceptionFrameScheduler = 'animation-frame';
 let stopped = true;
 let busy = false;
 let lastError: string | null = null;
@@ -74,6 +80,7 @@ let headGestureUntil = 0;
 let governor = new VisionPerformanceGovernor('holistic');
 const postprocessWorker = new VisionPostprocessWorkerClient();
 let lastWorkerSeq = 0;
+const perceptionTrace = new PerceptionTraceRecorder();
 
 const FACE_SMOOTH = 0.4;
 
@@ -554,19 +561,58 @@ async function fallbackHolisticToCpu(reason: unknown): Promise<boolean> {
   return delegateFailoverPromise;
 }
 
-function readFrame(): void {
+function scheduleReadFrame(): void {
   if (stopped || !video) return;
+  const frameVideo = video as HTMLVideoElement & {
+    requestVideoFrameCallback?: (
+      callback: (now: number, metadata: { expectedDisplayTime?: number }) => void
+    ) => number;
+  };
+
+  if (typeof frameVideo.requestVideoFrameCallback === 'function') {
+    frameScheduler = 'video-frame';
+    frameRequestId = frameVideo.requestVideoFrameCallback((now, metadata) => readFrame(now, metadata));
+    return;
+  }
+
+  frameScheduler = 'animation-frame';
+  frameRequestId = requestAnimationFrame((now) => readFrame(now));
+}
+
+function cancelReadFrame(): void {
+  if (!frameRequestId) return;
+  const frameVideo = video as (HTMLVideoElement & {
+    cancelVideoFrameCallback?: (id: number) => void;
+  }) | null;
+  if (frameScheduler === 'video-frame' && typeof frameVideo?.cancelVideoFrameCallback === 'function') {
+    frameVideo.cancelVideoFrameCallback(frameRequestId);
+  } else {
+    cancelAnimationFrame(frameRequestId);
+  }
+  frameRequestId = 0;
+}
+
+function readFrame(
+  callbackNow = performance.now(),
+  metadata?: { expectedDisplayTime?: number },
+): void {
+  if (stopped || !video) return;
+  const frameLatenessMs = metadata?.expectedDisplayTime == null
+    ? 0
+    : Math.max(0, callbackNow - Number(metadata.expectedDisplayTime));
+  governor.setFrameScheduler(frameScheduler, frameLatenessMs);
+
   if (!landmarker || delegateFailoverPromise) {
-    raf = requestAnimationFrame(readFrame);
+    scheduleReadFrame();
     return;
   }
   if (video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) {
-    raf = requestAnimationFrame(readFrame);
+    scheduleReadFrame();
     return;
   }
   const now = performance.now();
   if (!governor.shouldProcess(now, typeof document !== 'undefined' && document.hidden)) {
-    raf = requestAnimationFrame(readFrame);
+    scheduleReadFrame();
     return;
   }
 
@@ -593,9 +639,26 @@ function readFrame(): void {
   }
   const inferenceMs = performance.now() - started;
   governor.noteFrame(now, inferenceMs, landmarkCount);
+  governor.setFrameScheduler(frameScheduler, frameLatenessMs);
   holisticRuntimeData.performance = governor.snapshot();
 
-  raf = requestAnimationFrame(readFrame);
+  const primaryHand = handData.hands.find((hand) => hand.handedness === 'Right') || handData.hands[0];
+  perceptionTrace.record({
+    at: now,
+    inferenceMs,
+    landmarkCount,
+    facePresent: faceData.present,
+    handPresent: handData.present,
+    gesture: handData.gesture,
+    gestureScore: handData.score,
+    pinching: Boolean(primaryHand?.pinching),
+    scheduler: frameScheduler,
+    frameLatenessMs,
+    width: video.videoWidth,
+    height: video.videoHeight,
+  });
+
+  scheduleReadFrame();
 }
 
 async function createLandmarker(delegate: Delegate): Promise<any> {
@@ -639,6 +702,18 @@ export function holisticProviderPlanSnapshot(): PerceptionRuntimePlan {
   };
 }
 
+export function startHolisticTraceCapture(now = performance.now()): void {
+  perceptionTrace.start(now);
+}
+
+export function stopHolisticTraceCapture(now = performance.now()): PerceptionTraceSession {
+  return perceptionTrace.stop(now);
+}
+
+export function holisticTraceSnapshot(now = performance.now()): PerceptionTraceSession {
+  return perceptionTrace.snapshot(now);
+}
+
 export async function startHolisticTracking(): Promise<boolean> {
   if (!stopped) return true;
   if (busy) return false;
@@ -671,7 +746,7 @@ export async function startHolisticTracking(): Promise<boolean> {
     faceData.active = true;
     handData.active = true;
     postureData.active = true;
-    raf = requestAnimationFrame(readFrame);
+    scheduleReadFrame();
     return true;
   } catch (error) {
     lastError = error instanceof Error ? error.message : String(error);
@@ -686,7 +761,7 @@ export async function startHolisticTracking(): Promise<boolean> {
 
 export function stopHolisticTracking(): void {
   stopped = true;
-  cancelAnimationFrame(raf);
+  cancelReadFrame();
   releaseVisionCamera('holistic');
   video = null;
   try { landmarker?.close?.(); } catch { /* noop */ }

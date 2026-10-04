@@ -12,6 +12,8 @@ export interface VisionPerformanceState {
   droppedFrames: number;
   postprocess: 'worker' | 'main';
   postprocessMs: number;
+  scheduler: 'video-frame' | 'animation-frame';
+  frameLatenessMs: number;
 }
 
 export const EMPTY_VISION_PERFORMANCE: VisionPerformanceState = {
@@ -26,6 +28,8 @@ export const EMPTY_VISION_PERFORMANCE: VisionPerformanceState = {
   droppedFrames: 0,
   postprocess: 'main',
   postprocessMs: 0,
+  scheduler: 'animation-frame',
+  frameLatenessMs: 0,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -114,6 +118,15 @@ export class VisionPerformanceGovernor {
   setPostprocess(mode: VisionPerformanceState['postprocess'], processingMs = 0): void {
     this.state.postprocess = mode;
     this.state.postprocessMs += (Math.max(0, processingMs) - this.state.postprocessMs) * 0.22;
+  }
+
+  setFrameScheduler(
+    scheduler: VisionPerformanceState['scheduler'],
+    frameLatenessMs = 0,
+  ): void {
+    this.state.scheduler = scheduler;
+    const lateness = Math.max(0, Number.isFinite(frameLatenessMs) ? frameLatenessMs : 0);
+    this.state.frameLatenessMs += (lateness - this.state.frameLatenessMs) * 0.22;
   }
 
   snapshot(): VisionPerformanceState {

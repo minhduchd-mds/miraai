@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
+import { startProductPerformanceMonitoring } from './runtime/product-performance';
 import './ui/base-v2.css';
 import './ui/v2.css';
 
@@ -20,6 +21,8 @@ const app = legacy ? (
     <AppV2 />
   </Suspense>
 );
+
+startProductPerformanceMonitoring();
 
 // Không bọc StrictMode: Web Speech/rAF có side-effect và double-invoke trong dev dễ gây lặp mic/TTS.
 createRoot(document.getElementById('root')!).render(app);
