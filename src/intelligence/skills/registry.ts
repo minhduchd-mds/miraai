@@ -33,6 +33,18 @@ export class SkillRegistry {
 
   private async run(skill: MiraSkill, input: string, context: SkillContext): Promise<SkillResult | null> {
     const decision = evaluateSkillCapabilityPolicy(skill, context);
+    try {
+      context.onPolicyDecision?.({
+        skillId: skill.id,
+        allowed: decision.allowed,
+        reason: decision.reason,
+        required: decision.required,
+        blocked: decision.blocked,
+      });
+    } catch {
+      // Audit hooks are observational only; they must never change execution.
+    }
+
     if (!decision.allowed) {
       const blocked = decision.blocked.length ? ` (${decision.blocked.join(', ')})` : '';
       console.warn(

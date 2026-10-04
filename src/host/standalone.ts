@@ -1,12 +1,23 @@
-import type { HostActionDescriptor, HostActionResult, HostBridge, HostContext } from './types';
+import type {
+  HostActionAuthorization,
+  HostActionDescriptor,
+  HostActionResult,
+  HostBridge,
+  HostContext,
+} from './types';
 
 declare global {
   interface Window {
     /** Host applications (for example Soi) may inject current product/project/screen context. */
     __MIRA_HOST_CONTEXT__?: Partial<HostContext>;
-    /** Same-window hosts may expose read/write actions without coupling Mira core to that product. */
+    /** Same-window hosts may expose actions without coupling Mira core to that product. */
     __MIRA_HOST_ACTIONS__?: {
       actions: HostActionDescriptor[];
+      authorize?: (
+        descriptor: HostActionDescriptor,
+        input: string,
+        context: HostContext,
+      ) => HostActionAuthorization | Promise<HostActionAuthorization>;
       execute: (id: string, input: string, context: HostContext) => Promise<HostActionResult | null>;
     };
   }
@@ -32,6 +43,20 @@ export class StandaloneHostBridge implements HostBridge {
   listActions(): HostActionDescriptor[] {
     if (typeof window === 'undefined') return [];
     return Array.isArray(window.__MIRA_HOST_ACTIONS__?.actions) ? window.__MIRA_HOST_ACTIONS__!.actions : [];
+  }
+
+  async authorizeAction(
+    descriptor: HostActionDescriptor,
+    input: string,
+    context: HostContext,
+  ): Promise<HostActionAuthorization> {
+    const runtime = typeof window !== 'undefined' ? window.__MIRA_HOST_ACTIONS__ : undefined;
+    if (!runtime?.authorize) {
+      return descriptor.risk === 'read'
+        ? { allowed: true, reason: 'read-default' }
+        : { allowed: false, reason: 'explicit-host-approval-required' };
+    }
+    return runtime.authorize(descriptor, input, context);
   }
 
   async executeAction(id: string, input: string, context: HostContext): Promise<HostActionResult | null> {

@@ -14,6 +14,7 @@ export function setHostBridge(next: HostBridge): void {
 }
 
 export type {
+  HostActionAuthorization,
   HostActionDescriptor,
   HostActionResult,
   HostActionRisk,

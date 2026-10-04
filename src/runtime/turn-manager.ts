@@ -4,7 +4,9 @@ import { assembleBrainContext } from '../intelligence/context/context-assembler'
 import { ownerIdentityReply } from '../intelligence/identity/owner-profile';
 import { deicticVisualReply } from '../intelligence/vision/deictic-vision';
 import { MemoryService } from '../intelligence/memory/memory-service';
-import type { SkillRegistry, SkillResult } from '../intelligence/skills';
+import type { SkillPolicyAuditEvent, SkillRegistry, SkillResult } from '../intelligence/skills';
+import { authorizeHostAction } from './host-action-policy';
+import { runtimeAuditTrail } from './runtime-audit';
 
 export interface TurnResult {
   reply: BrainReply;
@@ -32,6 +34,23 @@ export class TurnManager {
     private readonly host: HostBridge,
   ) {}
 
+  private skillContext(host: HostContext) {
+    return {
+      locale: host.locale || 'vi-VN',
+      host,
+      onPolicyDecision: (event: SkillPolicyAuditEvent) => {
+        runtimeAuditTrail.record({
+          kind: 'skill',
+          id: event.skillId,
+          outcome: event.allowed ? 'allowed' : 'blocked',
+          reason: event.reason,
+          capabilities: event.required,
+          hostId: host.id,
+        });
+      },
+    };
+  }
+
   private async listHostActions(): Promise<HostActionDescriptor[]> {
     if (!this.host.listActions) return [];
     try {
@@ -49,7 +68,17 @@ export class TurnManager {
     context: HostContext,
     onSkill?: (result: SkillResult) => void,
   ): Promise<void> {
-    if (descriptor.risk !== 'read') {
+    const authorization = await authorizeHostAction(this.host, descriptor, input, context);
+    runtimeAuditTrail.record({
+      kind: 'host',
+      id: descriptor.id,
+      risk: descriptor.risk,
+      outcome: authorization.allowed ? 'allowed' : 'blocked',
+      reason: authorization.reason,
+      hostId: context.id,
+    });
+
+    if (!authorization.allowed) {
       onSkill?.({
         skillId: 'host:' + descriptor.id,
         content: {
@@ -57,17 +86,48 @@ export class TurnManager {
           data: {
             eyebrow: 'Cần xác nhận',
             title: descriptor.title,
-            body: 'Mira chưa tự thực thi action ' + descriptor.risk + '. Hãy xác nhận trong ứng dụng chủ trước khi chạy.',
+            body:
+              descriptor.risk === 'read'
+                ? 'Ứng dụng chủ đã chặn thao tác này.'
+                : 'Thao tác này chỉ chạy sau khi ứng dụng chủ xác nhận rõ quyền thực thi.',
           },
         },
       });
       return;
     }
-    if (!this.host.executeAction) return;
+
+    if (!this.host.executeAction) {
+      runtimeAuditTrail.record({
+        kind: 'host',
+        id: descriptor.id,
+        risk: descriptor.risk,
+        outcome: 'failed',
+        reason: 'host-executor-unavailable',
+        hostId: context.id,
+      });
+      return;
+    }
+
     try {
       const result = await this.host.executeAction(descriptor.id, input, context);
+      runtimeAuditTrail.record({
+        kind: 'host',
+        id: descriptor.id,
+        risk: descriptor.risk,
+        outcome: 'executed',
+        reason: authorization.reason,
+        hostId: context.id,
+      });
       if (result) onSkill?.(hostActionToSkillResult(descriptor.id, result));
     } catch (error) {
+      runtimeAuditTrail.record({
+        kind: 'host',
+        id: descriptor.id,
+        risk: descriptor.risk,
+        outcome: 'failed',
+        reason: 'host-execution-failed',
+        hostId: context.id,
+      });
       console.warn('[Mira Host] action ' + descriptor.id + ' failed', error);
     }
   }
@@ -93,7 +153,7 @@ export class TurnManager {
     const hostActionsPromise = this.listHostActions();
 
     void hostPromise
-      .then((host) => this.skills.execute(input, { locale: host.locale || 'vi-VN', host }))
+      .then((host) => this.skills.execute(input, this.skillContext(host)))
       .then((result) => result && onSkill?.(result))
       .catch((error) => console.warn('[Mira Skill] execution failed', error));
 
@@ -119,7 +179,7 @@ export class TurnManager {
         continue;
       }
       void this.skills
-        .executeById(call.skillId, call.input || input, { locale: host.locale || 'vi-VN', host })
+        .executeById(call.skillId, call.input || input, this.skillContext(host))
         .then((result) => result && onSkill?.(result))
         .catch((error) => console.warn('[Mira ToolCall] ' + call.skillId + ' failed', error));
     }

@@ -11,16 +11,22 @@
 - Proactive companion loop for stable expression signals, long silence, resume/wake events and late-night context.
 - PWA + Screen Wake Lock + visibility/focus recovery for the strongest background behavior available to a web app.
 - Capability-policy gate for skills. Existing read paths stay backward-compatible; write/sensitive skills still require per-skill approval and can additionally be constrained by a runtime capability allow-list.
+- Host-action authorization boundary: write/sensitive actions fail closed unless the embedding host explicitly authorizes the exact invocation; hosts may also deny reads.
+- Session-local runtime audit trail records only action/skill ids, policy outcomes, capability names and host ids — never raw prompts, secrets or user input.
 
 ## Capability boundary
 
-Mira now treats skill execution as a capability decision rather than a direct registry call.
+Mira treats skill execution as a capability decision rather than a direct registry call.
 
 - Capabilities are explicit when a skill declares them and conservatively inferred for legacy skills.
 - A runtime policy can allow-list host, storage, network and sensitive capabilities.
 - Write/sensitive capabilities use a two-key gate when a runtime policy is active: the skill itself and the concrete capability must both be approved.
 - `denyNetwork` is an emergency circuit breaker and overrides the capability allow-list.
 - Omitting the runtime policy preserves current behavior, so existing UI/voice flows do not break while stricter hosts adopt the boundary incrementally.
+
+Host actions are separately gated because they bypass the native skill registry. Read actions keep backward compatibility, while write/sensitive actions require an explicit host `authorizeAction` decision before `executeAction` can run. Authorization failure or exceptions fail closed.
+
+The runtime audit trail is RAM-only and bounded. It is intended for diagnostics and security review, not conversation memory; raw user input and model prompts are deliberately excluded.
 
 This is a policy layer, not an operating-system sandbox. Desktop/server hosts should enforce the same decision at the actual process/network boundary as a second line of defense.
 

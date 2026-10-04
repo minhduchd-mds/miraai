@@ -21,6 +21,14 @@ export interface RuntimeCapabilityPolicy {
   denyNetwork?: boolean;
 }
 
+export interface SkillPolicyAuditEvent {
+  skillId: string;
+  allowed: boolean;
+  reason: string;
+  required: readonly MiraCapability[];
+  blocked: readonly MiraCapability[];
+}
+
 export interface SkillContext {
   locale: string;
   host: HostContext;
@@ -28,6 +36,8 @@ export interface SkillContext {
   approvedSkillIds?: readonly string[];
   /** Optional runtime capability boundary. Existing callers remain backward-compatible when omitted. */
   capabilityPolicy?: RuntimeCapabilityPolicy;
+  /** Session-local policy telemetry. Must never include prompts, secrets or raw user input. */
+  onPolicyDecision?: (event: SkillPolicyAuditEvent) => void;
 }
 
 export interface SkillResult {
