@@ -1,6 +1,7 @@
 import type { ObjectBox } from './environment-model';
 import type { CausalActionGraphState } from './causal-action-graph';
 import type { SpatialNode, SpatialSceneGraph } from './spatial-scene-graph';
+import { evaluateObjectIdentityHypothesis } from './object-identity-hypothesis';
 
 export type WorldObjectStatus =
   | 'visible'
@@ -28,6 +29,7 @@ export interface WorldObjectMemory {
   missingSince: number;
   observationCount: number;
   relocationDistance: number;
+  identityConfidence: number;
   lastKnownBox: ObjectBox;
   supportedByActionHypothesis: boolean;
 }
@@ -185,6 +187,7 @@ export class ShortTermWorldModelTracker {
       missingSince: 0,
       observationCount: 1,
       relocationDistance: 0,
+      identityConfidence: 1,
       lastKnownBox: copyBox(node.box),
       supportedByActionHypothesis: false,
     };
@@ -207,33 +210,7 @@ export class ShortTermWorldModelTracker {
     graph: SpatialSceneGraph,
     used: Set<string>,
     now: number,
-  ): { memory: MutableWorldObject; far: boolean } | null {
-    const candidates = [...this.memories.values()]
-      .filter((memory) =>
-        !used.has(memory.id) &&
-        memory.label === node.label &&
-        now - memory.lastSeenAt <= MISSING_TTL_MS
-      )
-      .map((memory) => ({
-        memory,
-        distance: centerDistance(memory.lastKnownBox, node.box),
-      }))
-      .sort((a, b) => a.distance - b.distance);
-
-    if (!candidates.length) return null;
-
-    const nearest = candidates[0];
-    const second = candidates[1];
-    if (
-      nearest.distance <= NEAR_REBIND_DISTANCE &&
-      (!second || second.distance - nearest.distance >= 0.035)
-    ) {
-      return { memory: nearest.memory, far: false };
-    }
-
-    // Far rebind is allowed only when both sides are unambiguous and the
-    // upstream scene graph has already emitted a return/relocation event.
-    const missing = candidates.filter((item) => item.memory.status === 'temporarily_missing');
+  ): { memory: MutableWorldObject; far: boolean; identityScore: number } | null {
     const visibleSameLabel = graph.nodes.filter((item) =>
       item.kind === 'object' && item.label === node.label
     );
@@ -242,8 +219,64 @@ export class ShortTermWorldModelTracker {
       (event.type === 'object_relocated' || event.type === 'object_returned') &&
       now - event.at <= 2_500
     );
+
+    const candidates = [...this.memories.values()]
+      .filter((memory) =>
+        !used.has(memory.id) &&
+        memory.label === node.label &&
+        now - memory.lastSeenAt <= MISSING_TTL_MS
+      )
+      .map((memory) => {
+        const distance = centerDistance(memory.lastKnownBox, node.box);
+        const hypothesis = evaluateObjectIdentityHypothesis({
+          sameLabel: memory.label === node.label,
+          previousBox: memory.lastKnownBox,
+          currentBox: node.box,
+          ageMs: Math.max(0, now - memory.lastSeenAt),
+          sceneContinuity: hasContinuityEvent,
+          uniqueCandidate: false,
+          causalSupport: false,
+        });
+        return { memory, distance, hypothesis };
+      })
+      .sort((a, b) => b.hypothesis.score - a.hypothesis.score || a.distance - b.distance);
+
+    if (!candidates.length) return null;
+
+    const nearest = candidates[0];
+    const second = candidates[1];
+    const nearMargin = second ? nearest.distance + 0.035 <= second.distance : true;
+    if (
+      nearest.distance <= NEAR_REBIND_DISTANCE &&
+      nearMargin &&
+      nearest.hypothesis.decision !== 'reject'
+    ) {
+      return {
+        memory: nearest.memory,
+        far: false,
+        identityScore: nearest.hypothesis.score,
+      };
+    }
+
+    const missing = candidates.filter((item) => item.memory.status === 'temporarily_missing');
     if (missing.length === 1 && visibleSameLabel.length === 1 && hasContinuityEvent) {
-      return { memory: missing[0].memory, far: true };
+      const far = missing[0];
+      const hypothesis = evaluateObjectIdentityHypothesis({
+        sameLabel: far.memory.label === node.label,
+        previousBox: far.memory.lastKnownBox,
+        currentBox: node.box,
+        ageMs: Math.max(0, now - far.memory.lastSeenAt),
+        sceneContinuity: true,
+        uniqueCandidate: true,
+        causalSupport: false,
+      });
+      if (hypothesis.decision === 'accept') {
+        return {
+          memory: far.memory,
+          far: true,
+          identityScore: hypothesis.score,
+        };
+      }
     }
     return null;
   }
@@ -258,11 +291,13 @@ export class ShortTermWorldModelTracker {
     let memory = this.exactMatch(node, used);
     let rebound = false;
     let farRebind = false;
+    let identityScore = 1;
     if (!memory) {
       const match = this.conservativeRebind(node, graph, used, now);
       memory = match?.memory || null;
       rebound = Boolean(match);
       farRebind = Boolean(match?.far);
+      identityScore = match?.identityScore ?? 1;
     }
     if (!memory) {
       memory = this.create(node, now);
@@ -282,6 +317,9 @@ export class ShortTermWorldModelTracker {
     memory.observationCount += 1;
     memory.missingSince = 0;
     memory.relocationDistance = distance;
+    memory.identityConfidence = rebound
+      ? clamp01(identityScore)
+      : clamp01(memory.identityConfidence * 0.72 + 0.28);
     memory.supportedByActionHypothesis = causalSupport;
     memory.visibleConfidence = clamp01(
       memory.visibleConfidence * 0.42 + node.score * 0.46 + 0.12
@@ -315,7 +353,7 @@ export class ShortTermWorldModelTracker {
         'identity_rebind',
         memory,
         now,
-        'Detector ID changed; continuity remains a conservative same-label hypothesis.',
+        'Detector ID changed; continuity remains a conservative same-label hypothesis with identity confidence ' + Math.round(memory.identityConfidence * 100) + '%.',
         distance,
         memory.confidence * (farRebind ? 0.72 : 0.88),
       );

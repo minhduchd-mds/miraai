@@ -1,0 +1,217 @@
+{
+  "schema": "mira.camera-trace.v1",
+  "datasetKind": "synthetic-normalized-trace",
+  "disclaimer": "CI fixture only. Replace/add traces exported from real recorded camera sessions before claiming real-camera accuracy.",
+  "scenarios": [
+    {
+      "id": "steady-point",
+      "kind": "gesture",
+      "expectedEvents": [
+        "point_hold"
+      ],
+      "frames": [
+        {
+          "at": 1000,
+          "gesture": "Pointing_Up",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 1100,
+          "gesture": "Pointing_Up",
+          "score": 0.92,
+          "pinching": false
+        },
+        {
+          "at": 1200,
+          "gesture": "Pointing_Up",
+          "score": 0.92,
+          "pinching": false
+        },
+        {
+          "at": 1300,
+          "gesture": "Pointing_Up",
+          "score": 0.93,
+          "pinching": false
+        },
+        {
+          "at": 1400,
+          "gesture": "Pointing_Up",
+          "score": 0.94,
+          "pinching": false
+        }
+      ]
+    },
+    {
+      "id": "alternating-noise",
+      "kind": "gesture",
+      "expectedEvents": [],
+      "frames": [
+        {
+          "at": 2000,
+          "gesture": "Open_Palm",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2090,
+          "gesture": "Victory",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2180,
+          "gesture": "Open_Palm",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2270,
+          "gesture": "Victory",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2360,
+          "gesture": "Open_Palm",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2450,
+          "gesture": "Victory",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2540,
+          "gesture": "Open_Palm",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2630,
+          "gesture": "Victory",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2720,
+          "gesture": "Open_Palm",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2810,
+          "gesture": "Victory",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2900,
+          "gesture": "Open_Palm",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 2990,
+          "gesture": "Victory",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 3080,
+          "gesture": "Open_Palm",
+          "score": 0.91,
+          "pinching": false
+        },
+        {
+          "at": 3170,
+          "gesture": "Victory",
+          "score": 0.91,
+          "pinching": false
+        }
+      ]
+    },
+    {
+      "id": "pinch-edge",
+      "kind": "gesture",
+      "expectedEvents": [
+        "pinch_down",
+        "pinch_up"
+      ],
+      "frames": [
+        {
+          "at": 4000,
+          "gesture": "Pointing_Up",
+          "score": 0.83,
+          "pinching": false
+        },
+        {
+          "at": 4300,
+          "gesture": "Pointing_Up",
+          "score": 0.84,
+          "pinching": true
+        },
+        {
+          "at": 4420,
+          "gesture": "Pointing_Up",
+          "score": 0.84,
+          "pinching": true
+        },
+        {
+          "at": 4580,
+          "gesture": "Pointing_Up",
+          "score": 0.84,
+          "pinching": false
+        }
+      ]
+    },
+    {
+      "id": "near-id-rebind",
+      "kind": "identity",
+      "expectedDecision": "accept",
+      "input": {
+        "sameLabel": true,
+        "previousBox": {
+          "x": 0.4,
+          "y": 0.4,
+          "width": 0.16,
+          "height": 0.2
+        },
+        "currentBox": {
+          "x": 0.415,
+          "y": 0.405,
+          "width": 0.16,
+          "height": 0.2
+        },
+        "ageMs": 250,
+        "sceneContinuity": true,
+        "uniqueCandidate": true
+      }
+    },
+    {
+      "id": "ambiguous-far-rebind",
+      "kind": "identity",
+      "expectedDecision": "ambiguous",
+      "input": {
+        "sameLabel": true,
+        "previousBox": {
+          "x": 0.2,
+          "y": 0.4,
+          "width": 0.16,
+          "height": 0.2
+        },
+        "currentBox": {
+          "x": 0.72,
+          "y": 0.4,
+          "width": 0.16,
+          "height": 0.2
+        },
+        "ageMs": 900,
+        "sceneContinuity": true,
+        "uniqueCandidate": false
+      }
+    }
+  ]
+}

@@ -8,17 +8,18 @@
     "dev": "vite",
     "build": "node scripts/restore-photoreal-assets.mjs && vite build",
     "preview": "vite preview",
-    "test": "node --test scripts/runtime.test.mjs scripts/capability-policy.test.mjs scripts/host-action-policy.test.mjs",
+    "test": "node --test scripts/runtime.test.mjs scripts/capability-policy.test.mjs scripts/host-action-policy.test.mjs scripts/perception-v15.test.mjs",
     "benchmark:functional": "node scripts/functional-benchmark.mjs",
-    "benchmark": "npm run benchmark:functional",
+    "benchmark": "npm run benchmark:functional && npm run benchmark:camera",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:skills": "node scripts/check-skills.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
-    "check": "npm run check:architecture && npm run check:skills && tsc --noEmit && npm test && npm run benchmark:functional && vite build && npm run check:bundle && npm run check:artifact",
+    "check": "npm run check:architecture && npm run check:skills && tsc --noEmit && npm test && npm run benchmark && vite build && npm run check:bundle && npm run check:artifact",
     "prune:pages": "node scripts/prune-pages-assets.mjs",
     "restore:photoreal": "node scripts/restore-photoreal-assets.mjs",
     "check:artifact": "node scripts/check-deploy-artifact.mjs",
-    "check:pages": "node scripts/check-deploy-artifact.mjs --pages"
+    "check:pages": "node scripts/check-deploy-artifact.mjs --pages",
+    "benchmark:camera": "node scripts/recorded-camera-benchmark.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",

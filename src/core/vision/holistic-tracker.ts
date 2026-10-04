@@ -16,6 +16,10 @@ import {
   EMPTY_VISION_PERFORMANCE,
   type VisionPerformanceState,
 } from './vision-performance';
+import {
+  currentPerceptionRuntimePlan,
+  type PerceptionRuntimePlan,
+} from './perception-runtime';
 
 const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
@@ -28,6 +32,7 @@ export interface HolisticRuntimeData {
   delegate: Delegate | 'unknown';
   error: string | null;
   performance: VisionPerformanceState;
+  providerPlan: PerceptionRuntimePlan;
   face: {
     status: 'scanning' | 'mesh_only' | 'full';
     landmarkCount: number;
@@ -41,6 +46,7 @@ export const holisticRuntimeData: HolisticRuntimeData = {
   delegate: 'unknown',
   error: null,
   performance: { ...EMPTY_VISION_PERFORMANCE, engine: 'holistic' },
+  providerPlan: currentPerceptionRuntimePlan('holistic', false),
   face: {
     status: 'scanning',
     landmarkCount: 0,
@@ -626,12 +632,20 @@ export function holisticFaceHealthSnapshot() {
   return { ...holisticRuntimeData.face };
 }
 
+export function holisticProviderPlanSnapshot(): PerceptionRuntimePlan {
+  return {
+    ...holisticRuntimeData.providerPlan,
+    candidates: holisticRuntimeData.providerPlan.candidates.map((item) => ({ ...item })),
+  };
+}
+
 export async function startHolisticTracking(): Promise<boolean> {
   if (!stopped) return true;
   if (busy) return false;
   busy = true;
   lastError = null;
   holisticRuntimeData.error = null;
+  holisticRuntimeData.providerPlan = currentPerceptionRuntimePlan('holistic', false);
 
   try {
     let delegate: Delegate = 'GPU';
