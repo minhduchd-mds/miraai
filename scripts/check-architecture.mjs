@@ -395,7 +395,7 @@ const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8')
 if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
 
 const tts = readFileSync('api/tts.js', 'utf8');
-for (const token of ['elevenlabs', "language_code: 'vi'", 'stability: 0.38', 'similarity_boost: 0.72', 'mp3_44100_128', 'takeRateSlot', "x-mira-tts-provider', 'elevenlabs'"]) {
+for (const token of ['elevenlabs', '/v1/text-to-dialogue?output_format=mp3_44100_128', "language_code: 'vi'", 'inputs: [{', 'voice_id: voice', "apply_text_normalization: 'auto'", 'takeRateSlot', "x-mira-tts-provider', 'elevenlabs'"]) {
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 
