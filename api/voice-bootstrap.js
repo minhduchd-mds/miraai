@@ -15,7 +15,7 @@ const VOICE_DESCRIPTION = [
 ].join(' ');
 
 const PREVIEW_TEXT =
-  'Anh về rồi à? Hôm nay chắc anh cũng mệt rồi. Ngồi nghỉ một chút nhé, em ở đây và đang nghe anh.';
+  'Anh về rồi à? Hôm nay chắc anh cũng mệt rồi. Ngồi nghỉ một chút nhé, em ở đây và đang nghe anh. Mình cứ nói chuyện thật chậm thôi, không cần vội, em muốn giọng nói này nghe tự nhiên, ấm áp và gần gũi như một cuộc trò chuyện ở nhà.';
 
 function keyFromEnv() {
   return process.env.elevenlabs_api_key || process.env.ELEVENLABS_API_KEY || '';
