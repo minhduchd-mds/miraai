@@ -1,0 +1,44 @@
+name: Optimize Presence Media
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/optimize-presence-media.yml"
+      - "scripts/optimize-presence-media.py"
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Use Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check "Pillow>=11,<13"
+
+      - name: Generate WebP derivatives
+        run: python scripts/optimize-presence-media.py
+
+      - name: Commit optimized derivatives
+        shell: bash
+        run: |
+          if git diff --quiet -- public/mira-assets/scenes public/mira-assets/expressions &&              [ -z "$(git ls-files --others --exclude-standard public/mira-assets/scenes public/mira-assets/expressions)" ]; then
+            echo "No media derivative changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/mira-assets/scenes/*.webp public/mira-assets/expressions/*.webp
+          git commit -m "perf(media): generate WebP presence derivatives"
+          git pull --rebase origin main
+          git push origin HEAD:main
