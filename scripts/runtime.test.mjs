@@ -173,17 +173,20 @@ test('Vietnamese speech director keeps a soft gentle baseline', () => {
   assert.ok(plan.rateMultiplier < 1);
 });
 
-test('ElevenLabs v4 gateway keeps soft Vietnamese prosody', () => {
+test('ElevenLabs v4 gateway uses Vietnamese Text-to-Dialogue only', () => {
   const source = readFileSync('api/tts.js', 'utf8');
   for (const token of [
+    '/v1/text-to-dialogue?output_format=mp3_44100_128',
     "language_code: 'vi'",
-    'stability: 0.38',
-    'similarity_boost: 0.72',
+    'inputs: [{',
+    'voice_id: voice',
+    "apply_text_normalization: 'auto'",
     'performanceText',
     "x-mira-tts-provider', 'elevenlabs'",
   ]) {
     assert.ok(source.includes(token));
   }
+  assert.ok(!source.includes('/v1/text-to-speech/'));
   assert.ok(!source.includes('api.openai.com'));
 });
 
@@ -5367,19 +5370,19 @@ test('server TTS health probe recovers neural routing without reload', () => {
   }
 });
 
-test('serverless TTS health endpoint exposes status but never secrets', () => {
+test('serverless TTS health endpoint exposes ElevenLabs-only status but never secrets', () => {
   const source = readFileSync('api/health.js', 'utf8');
   for (const token of [
     "origin_not_allowed",
-    "configuredProviders",
-    "configured: configuredProviders.length > 0",
+    "provider: 'elevenlabs'",
+    "elevenLabsOnly: true",
     "runtime: 'vercel-serverless-api'",
     "defaultElevenVoice",
     "defaultElevenModel",
   ]) {
     assert.ok(source.includes(token));
   }
-  assert.ok(!source.includes('process.env.ELEVENLABS_API_KEY || process.env.OPENAI_API_KEY'));
+  assert.ok(!source.includes('OPENAI_API_KEY'));
   assert.ok(!source.includes('apiKey:'));
 });
 
