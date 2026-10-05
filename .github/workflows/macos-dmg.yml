@@ -55,10 +55,22 @@ jobs:
           ls -lh "$dmg"
           hdiutil verify "$dmg"
 
-          app="$(find src-tauri/target/x86_64-apple-darwin/release/bundle/macos -name '*.app' -type d | head -n 1)"
+          mount_dir="$(mktemp -d)"
+          cleanup() {
+            hdiutil detach "$mount_dir" -quiet >/dev/null 2>&1 || true
+            rmdir "$mount_dir" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount_dir"
+          app="$(find "$mount_dir" -maxdepth 2 -name '*.app' -type d | head -n 1)"
           test -n "$app"
+          echo "APP=$app"
           codesign --verify --deep --strict "$app"
-          file "$app/Contents/MacOS/"*
+          binary="$(find "$app/Contents/MacOS" -maxdepth 1 -type f | head -n 1)"
+          test -n "$binary"
+          file "$binary"
+          file "$binary" | grep -q 'x86_64'
 
       - name: Upload DMG
         uses: actions/upload-artifact@v4
