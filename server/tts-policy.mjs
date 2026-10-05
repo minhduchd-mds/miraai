@@ -9,7 +9,7 @@ export function defaultElevenVoice() {
 }
 
 export function defaultElevenModel() {
-  return process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2';
+  return process.env.ELEVENLABS_TTS_MODEL || 'eleven_v4';
 }
 
 function requestOrigin(req) {

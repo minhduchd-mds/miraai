@@ -10,7 +10,7 @@ export interface VoicePrefs {
 }
 
 export const voicePrefs: VoicePrefs = {
-  rate: 0.96,
+  rate: 1,
   persona: 'gentle',
   responseLength: 'auto',
 };
@@ -29,7 +29,7 @@ export function loadVoicePrefs(): VoicePrefs {
       && (c.rate == null || Math.abs(Number(c.rate) - 1) < 0.001);
 
     if (legacyDefaultProfile) {
-      voicePrefs.rate = 0.96;
+      voicePrefs.rate = 1;
       voicePrefs.persona = 'gentle';
       if (isResponseLength(c.responseLength)) voicePrefs.responseLength = c.responseLength;
       localStorage.setItem(LS, JSON.stringify({
@@ -59,9 +59,9 @@ export function saveVoicePrefs(p: Partial<VoicePrefs>): void {
 }
 
 export const SPEEDS: { id: string; label: string; rate: number }[] = [
-  { id: 'slow', label: 'Chậm', rate: 0.86 },
-  { id: 'normal', label: 'Êm', rate: 0.96 },
-  { id: 'fast', label: 'Nhanh', rate: 1.08 },
+  { id: 'slow', label: 'Chậm', rate: 0.92 },
+  { id: 'normal', label: 'Êm', rate: 1 },
+  { id: 'fast', label: 'Nhanh', rate: 1.05 },
 ];
 
 export const RESPONSE_LENGTHS: { id: ResponseLength; label: string; description: string }[] = [

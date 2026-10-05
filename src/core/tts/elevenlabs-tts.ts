@@ -14,7 +14,7 @@ const PRESET_VOICES: VoiceOption[] = [
   { name: 'Charlotte (ElevenLabs)', voiceURI: 'XB0fDUnXU5powFXDhCwa', lang: 'vi-VN' },
 ];
 
-const MODEL_ID = 'eleven_multilingual_v2';
+const MODEL_ID = 'eleven_v4';
 
 export class ElevenLabsTTS implements TTSAdapter {
   private audio: HTMLAudioElement | null = null;
@@ -43,17 +43,16 @@ export class ElevenLabsTTS implements TTSAdapter {
     this.abort = ac;
     this.fetching = true;
 
-    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_64`, {
+    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'xi-api-key': this.apiKey },
       body: JSON.stringify({
         text: opts.text,
         model_id: MODEL_ID,
+        language_code: 'vi',
         voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.78,
-          style: 0.16,
-          use_speaker_boost: false,
+          stability: 0.38,
+          similarity_boost: 0.72,
         },
       }),
       signal: ac.signal,

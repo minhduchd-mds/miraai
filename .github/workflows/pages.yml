@@ -33,13 +33,12 @@ jobs:
 
       - name: Build
         env:
-          VITE_MIRA_TTS_URL: ${{ vars.MIRA_TTS_URL }}
+          VITE_MIRA_TTS_URL: https://miraai-five.vercel.app/api
         run: npm run build
 
       - name: Neural TTS gateway smoke
-        if: ${{ vars.MIRA_TTS_URL != '' }}
         env:
-          MIRA_TTS_URL: ${{ vars.MIRA_TTS_URL }}
+          MIRA_TTS_URL: https://miraai-five.vercel.app/api
         shell: bash
         run: |
           set -euo pipefail

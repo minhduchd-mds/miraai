@@ -6,15 +6,6 @@ import {
   takeRateSlot,
 } from '../server/tts-policy.mjs';
 
-// Mira server-side neural TTS gateway.
-// Priority is configurable. On Vercel we prefer ElevenLabs for Mira's female voice.
-// Provider keys stay on the server and are never returned to the browser.
-
-const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini-tts';
-const OPENAI_DEFAULT_VOICE = 'marin';
-const DEFAULT_VI_INSTRUCTIONS =
-  'Nói tiếng Việt tự nhiên như một cuộc trò chuyện riêng tư. Giọng nữ mềm, hiền, ấm và gần gũi; âm đầu nhẹ, không sắc, không bật năng lượng đột ngột. Nhịp chậm vừa đủ, phát âm rõ theo phong cách miền Bắc nhưng không cường điệu. Có nhịp thở và ngắt nghỉ tự nhiên theo ý nghĩa câu; cuối câu thường hạ nhẹ, êm và ấm. Tránh chất giọng phát thanh viên, quảng cáo, đọc tài liệu hoặc cố diễn đáng yêu. Tuyệt đối không đọc máy móc.';
-
 function parseBody(req) {
   let body = req.body;
   if (typeof body === 'string') {
@@ -23,157 +14,84 @@ function parseBody(req) {
   return body && typeof body === 'object' ? body : {};
 }
 
-function parseVoice(raw) {
+function normalizeVoice(raw) {
   const value = String(raw || '').trim();
-  if (!value || value === 'auto') return { provider: '', voice: '' };
-  const colon = value.indexOf(':');
-  if (colon > 0) return { provider: value.slice(0, colon).toLowerCase(), voice: value.slice(colon + 1) };
-  if (/^[A-Za-z0-9_-]{20,}$/.test(value)) return { provider: 'elevenlabs', voice: value };
-  return { provider: 'openai', voice: value };
+  if (!value || value === 'auto') return defaultElevenVoice();
+  const withoutPrefix = value.startsWith('elevenlabs:')
+    ? value.slice('elevenlabs:'.length)
+    : value;
+  return /^[A-Za-z0-9_-]{8,64}$/.test(withoutPrefix)
+    ? withoutPrefix
+    : defaultElevenVoice();
 }
 
-function chooseProvider(requested, openaiKey, elevenKey) {
-  if (requested === 'openai' && openaiKey) return 'openai';
-  if (requested === 'elevenlabs' && elevenKey) return 'elevenlabs';
-
-  const preferred = String(process.env.MIRA_TTS_PROVIDER || 'auto').toLowerCase();
-  if (preferred === 'elevenlabs' && elevenKey) return 'elevenlabs';
-  if (preferred === 'openai' && openaiKey) return 'openai';
-  if (elevenKey) return 'elevenlabs';
-  if (openaiKey) return 'openai';
-  return '';
-}
-
-function mergeInstructions(dynamicInstructions) {
-  const base = String(process.env.OPENAI_TTS_INSTRUCTIONS || DEFAULT_VI_INSTRUCTIONS).trim();
-  const dynamic = String(dynamicInstructions || '').trim().slice(0, 1400);
-  return dynamic ? `${base}\n${dynamic}` : base;
-}
-
-async function openAISpeech({ key, text, voice, instructions }) {
-  const model = process.env.OPENAI_TTS_MODEL || OPENAI_DEFAULT_MODEL;
-  const selectedVoice = voice || process.env.OPENAI_TTS_VOICE || OPENAI_DEFAULT_VOICE;
-  const payload = {
-    model,
-    voice: selectedVoice,
-    input: text,
-    response_format: 'mp3',
-  };
-  if (/gpt-4o-mini-tts/i.test(model)) payload.instructions = mergeInstructions(instructions);
-
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
-    method: 'POST',
-    signal: AbortSignal.timeout(18_000),
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 360);
-    throw new Error(`OpenAI TTS ${response.status}: ${detail}`);
-  }
-  return { response, provider: 'openai', voice: selectedVoice };
-}
-
-async function elevenSpeech({ key, text, voice }) {
-  const selectedVoice = voice || defaultElevenVoice();
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(selectedVoice)}?output_format=mp3_44100_128`,
-    {
-      method: 'POST',
-      signal: AbortSignal.timeout(18_000),
-      headers: { 'content-type': 'application/json', 'xi-api-key': key },
-      body: JSON.stringify({
-        text,
-        model_id: defaultElevenModel(),
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.78,
-          style: 0.16,
-          use_speaker_boost: false,
-        },
-      }),
-    },
-  );
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 360);
-    throw new Error(`ElevenLabs TTS ${response.status}: ${detail}`);
-  }
-  return { response, provider: 'elevenlabs', voice: selectedVoice };
+function performanceText(text, instructions) {
+  const clean = String(text || '').trim();
+  const cue = String(instructions || '').toLowerCase();
+  if (/thì thầm|whisper|bedtime|sleep|quiet/.test(cue)) return `[whispers] ${clean}`;
+  if (/vui|happy|warm|gentle|dịu|affection|welcome/.test(cue)) return `[warmly] ${clean}`;
+  if (/serious|cảnh báo|warning/.test(cue)) return `[serious] ${clean}`;
+  return clean;
 }
 
 export default async function handler(req, res) {
   applyCors(req, res, 'POST,OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
-  if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
   if (!takeRateSlot(req)) return res.status(429).json({ error: 'rate_limited' });
 
   const body = parseBody(req);
   const text = String(body.text || '').trim();
-  const instructions = String(body.instructions || '').trim().slice(0, 1400);
-  if (!text) return res.status(400).json({ error: 'text rỗng' });
-  if (text.length > 3500) return res.status(413).json({ error: 'text quá dài' });
+  if (!text) return res.status(400).json({ error: 'text_required' });
+  if (text.length > 3500) return res.status(413).json({ error: 'text_too_long' });
 
-  const openaiKey = process.env.OPENAI_API_KEY || '';
-  const elevenKey = process.env.elevenlabs_api_key || process.env.ELEVENLABS_API_KEY || '';
-  const requested = parseVoice(body.voice);
-  const provider = chooseProvider(requested.provider, openaiKey, elevenKey);
-  if (!provider) return res.status(503).json({ error: 'Chưa cấu hình neural TTS; client sẽ dùng giọng hệ thống.' });
+  const key = process.env.elevenlabs_api_key || process.env.ELEVENLABS_API_KEY || '';
+  if (!key) return res.status(503).json({ error: 'elevenlabs_not_configured' });
+
+  const voice = normalizeVoice(body.voice);
+  const model = defaultElevenModel();
 
   try {
-    let result;
-    if (provider === 'openai') {
-      result = await openAISpeech({
-        key: openaiKey,
-        text,
-        voice: requested.provider === 'openai' ? requested.voice : '',
-        instructions,
-      });
-    } else {
-      result = await elevenSpeech({
-        key: elevenKey,
-        text,
-        voice: requested.provider === 'elevenlabs' ? requested.voice : '',
-      });
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`,
+      {
+        method: 'POST',
+        signal: AbortSignal.timeout(18_000),
+        headers: {
+          'content-type': 'application/json',
+          'xi-api-key': key,
+        },
+        body: JSON.stringify({
+          text: performanceText(text, body.instructions),
+          model_id: model,
+          language_code: 'vi',
+          voice_settings: {
+            stability: 0.38,
+            similarity_boost: 0.72,
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 360);
+      throw new Error(`ElevenLabs TTS ${response.status}: ${detail}`);
     }
 
-    const buf = Buffer.from(await result.response.arrayBuffer());
-    if (!buf.length) throw new Error('empty_audio');
-    res.setHeader('content-type', result.response.headers.get('content-type') || 'audio/mpeg');
+    const audio = Buffer.from(await response.arrayBuffer());
+    if (!audio.length) throw new Error('empty_audio');
+
+    res.setHeader('content-type', response.headers.get('content-type') || 'audio/mpeg');
     res.setHeader('cache-control', 'no-store');
-    res.setHeader('x-mira-tts-provider', result.provider);
-    res.setHeader('x-mira-tts-voice', result.voice);
-    return res.status(200).send(buf);
-  } catch (primaryError) {
-    try {
-      if (provider === 'openai' && elevenKey) {
-        const result = await elevenSpeech({ key: elevenKey, text, voice: '' });
-        const buf = Buffer.from(await result.response.arrayBuffer());
-        res.setHeader('content-type', result.response.headers.get('content-type') || 'audio/mpeg');
-        res.setHeader('cache-control', 'no-store');
-        res.setHeader('x-mira-tts-provider', result.provider);
-        res.setHeader('x-mira-tts-fallback', '1');
-        return res.status(200).send(buf);
-      }
-      if (provider === 'elevenlabs' && openaiKey) {
-        const result = await openAISpeech({ key: openaiKey, text, voice: '', instructions });
-        const buf = Buffer.from(await result.response.arrayBuffer());
-        res.setHeader('content-type', result.response.headers.get('content-type') || 'audio/mpeg');
-        res.setHeader('cache-control', 'no-store');
-        res.setHeader('x-mira-tts-provider', result.provider);
-        res.setHeader('x-mira-tts-fallback', '1');
-        return res.status(200).send(buf);
-      }
-    } catch (secondaryError) {
-      return res.status(502).json({
-        error: `Neural TTS lỗi: ${String(secondaryError && secondaryError.message ? secondaryError.message : secondaryError).slice(0, 240)}`,
-      });
-    }
+    res.setHeader('x-mira-tts-provider', 'elevenlabs');
+    res.setHeader('x-mira-tts-model', model);
+    res.setHeader('x-mira-tts-voice', voice);
+    return res.status(200).send(audio);
+  } catch (error) {
     return res.status(502).json({
-      error: `Neural TTS lỗi: ${String(primaryError && primaryError.message ? primaryError.message : primaryError).slice(0, 240)}`,
+      error: 'elevenlabs_tts_failed',
+      detail: String(error && error.message ? error.message : error).slice(0, 240),
     });
   }
 }

@@ -157,10 +157,10 @@ test('speech director raises energy subtly for successful completion', () => {
 
 test('gentle voice profile is the default', () => {
   assert.equal(voice.voicePrefs.persona, 'gentle');
-  assert.equal(voice.voicePrefs.rate, 0.96);
+  assert.equal(voice.voicePrefs.rate, 1);
   const normal = voice.SPEEDS.find((item) => item.id === 'normal');
   assert.ok(normal);
-  assert.equal(normal.rate, 0.96);
+  assert.equal(normal.rate, 1);
   assert.equal(normal.label, 'Êm');
 });
 
@@ -173,25 +173,28 @@ test('Vietnamese speech director keeps a soft gentle baseline', () => {
   assert.ok(plan.rateMultiplier < 1);
 });
 
-test('neural TTS gateway keeps restrained gentle prosody', () => {
+test('ElevenLabs v4 gateway keeps soft Vietnamese prosody', () => {
   const source = readFileSync('api/tts.js', 'utf8');
   for (const token of [
-    'Giọng nữ mềm, hiền, ấm và gần gũi',
-    'stability: 0.5',
-    'style: 0.16',
-    'use_speaker_boost: false',
+    "language_code: 'vi'",
+    'stability: 0.38',
+    'similarity_boost: 0.72',
+    'performanceText',
+    "x-mira-tts-provider', 'elevenlabs'",
   ]) {
     assert.ok(source.includes(token));
   }
+  assert.ok(!source.includes('api.openai.com'));
 });
 
-test('Pages TTS can use explicitly configured secure neural endpoints', () => {
+test('Pages and Vercel TTS are ElevenLabs-only', () => {
   const source = readFileSync('src/core/tts/index.ts', 'utf8');
-  assert.ok(source.includes("const secureRemote = /^https:\\/\\//i.test"));
-  assert.ok(source.includes("cfg.engine === 'vieneu' && secureRemote"));
-  assert.ok(source.includes("cfg.engine === 'edge' && secureRemote"));
-  assert.ok(source.includes("cfg.engine === 'cloud' && secureRemote"));
-  assert.ok(source.includes('return new PiperLocalTTS()'));
+  assert.ok(source.includes("ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'"));
+  assert.ok(source.includes('return new CloudTTS(serverUrl)'));
+  assert.ok(!source.includes('new PiperLocalTTS'));
+  assert.ok(!source.includes('new WebSpeechTTS'));
+  assert.ok(!source.includes('new EdgeTTS'));
+  assert.ok(!source.includes('new VieNeuTTS'));
 });
 
 test('semantic pauses are longer for quiet/serious delivery than warm delivery', () => {
@@ -5256,23 +5259,22 @@ test('photoreal shader guards warp against depth discontinuity and source edges'
 });
 
 
-test('Pages neural TTS falls back to Piper with cooldown protection', () => {
+test('ElevenLabs cloud routing keeps circuit protection without speech fallback', () => {
   const indexSource = readFileSync('src/core/tts/index.ts', 'utf8');
   const cloudSource = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
   const serverSource = readFileSync('src/core/tts/server-tts.ts', 'utf8');
 
-  assert.ok(indexSource.includes("new CloudTTS(configuredUrl, new PiperLocalTTS(), 'Piper Local')"));
+  assert.ok(indexSource.includes('return new CloudTTS(serverUrl)'));
   assert.ok(cloudSource.includes('failureThreshold: 2'));
-  assert.ok(cloudSource.includes('cooldownMs: 30_000'));
+  assert.ok(cloudSource.includes('cooldownMs: 12_000'));
+  assert.ok(!cloudSource.includes('fallbackLabel'));
+  assert.ok(!cloudSource.includes('WebSpeechTTS'));
 
   for (const token of [
     'consecutiveFailures',
     'circuitOpenUntil',
     'server_tts_cooldown',
-    'now < this.circuitOpenUntil',
     'this.consecutiveFailures >= this.failureThreshold',
-    'this.circuitOpenUntil = Date.now() + this.cooldownMs',
-    'this.consecutiveFailures = 0',
   ]) {
     assert.ok(serverSource.includes(token));
   }
@@ -5394,9 +5396,10 @@ test('remote serverless TTS endpoints enforce shared origin policy', () => {
   }
 });
 
-test('remote neural providers use bounded upstream timeouts', () => {
+test('ElevenLabs provider uses a bounded upstream timeout', () => {
   const source = readFileSync('api/tts.js', 'utf8');
-  assert.ok((source.match(/AbortSignal\.timeout\(18_000\)/g) || []).length >= 2);
+  assert.ok(source.includes('AbortSignal.timeout(18_000)'));
+  assert.ok(!source.includes('api.openai.com'));
 });
 
 
@@ -5428,7 +5431,8 @@ test('voice runtime diagnostics expose active provider and fallback status', () 
     'health:',
   ]) assert.ok(server.includes(token));
 
-  assert.ok(cloud.includes("fallbackLabel = 'Hệ thống'"));
+  assert.ok(cloud.includes("label: 'ElevenLabs'"));
+  assert.ok(!cloud.includes('fallbackLabel'));
   assert.ok(settings.includes('getVoiceDiagnostics'));
   assert.ok(settings.includes('v2-voice-runtime'));
   assert.ok(app.includes('getVoiceDiagnostics={mira.ttsDiagnostics}'));

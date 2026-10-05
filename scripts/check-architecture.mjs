@@ -395,7 +395,7 @@ const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8')
 if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
 
 const tts = readFileSync('api/tts.js', 'utf8');
-for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs', 'body.instructions', 'payload.instructions', 'mergeInstructions', 'Giọng nữ mềm, hiền, ấm và gần gũi', 'stability: 0.5', 'style: 0.16', 'use_speaker_boost: false', 'mp3_44100_128', 'takeRateSlot']) {
+for (const token of ['elevenlabs', "language_code: 'vi'", 'stability: 0.38', 'similarity_boost: 0.72', 'mp3_44100_128', 'takeRateSlot', "x-mira-tts-provider', 'elevenlabs'"]) {
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 
@@ -854,13 +854,24 @@ for (const token of ['1.30.0', 'ort.all.min.mjs', 'squeezenet1.1-7.onnx', '@vite
 
 
 const vercelTtsPolicy = readFileSync('server/tts-policy.mjs', 'utf8');
-for (const token of ['21m00Tcm4TlvDq8ikWAM', 'eleven_multilingual_v2', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
+for (const token of ['21m00Tcm4TlvDq8ikWAM', 'eleven_v4', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
   if (!vercelTtsPolicy.includes(token)) failures.push(`Vercel TTS policy missing: ${token}`);
 }
 for (const route of ['api/health.js', 'api/voices.js', 'api/tts.js']) {
   const source = readFileSync(route, 'utf8');
   if (!source.includes('originAllowed')) failures.push(`Vercel TTS route missing origin guard: ${route}`);
 }
+
+
+const ttsFactory = readFileSync('src/core/tts/index.ts', 'utf8');
+for (const forbidden of ['new WebSpeechTTS', 'new PiperLocalTTS', 'new EdgeTTS', 'new VieNeuTTS']) {
+  if (ttsFactory.includes(forbidden)) failures.push(`production TTS must stay ElevenLabs-only: ${forbidden}`);
+}
+if (!ttsFactory.includes("ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'")) failures.push('Pages must route TTS through Vercel ElevenLabs gateway');
+const cloudTts = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
+if (cloudTts.includes('fallbackLabel') || cloudTts.includes('WebSpeechTTS')) failures.push('Cloud TTS must not silently fall back from ElevenLabs');
+const elevenApi = readFileSync('api/tts.js', 'utf8');
+if (elevenApi.includes('api.openai.com')) failures.push('production TTS API must not fall back to OpenAI');
 
 if (failures.length) {
   console.error('\nMira architecture guard failed:\n');
