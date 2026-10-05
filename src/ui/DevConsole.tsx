@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
-import { loadTTSConfig, VIENEU_DEFAULT_URL, EDGE_DEFAULT_URL, type TTSConfig, type TTSDiagnostics } from '../core/tts';
+import { loadTTSConfig, type TTSConfig, type TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 import { SCENES, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
 import { voicePrefs, saveVoicePrefs, SPEEDS, PERSONAS } from '../core/voice-prefs';
