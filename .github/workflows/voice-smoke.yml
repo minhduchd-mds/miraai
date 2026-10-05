@@ -65,6 +65,12 @@ jobs:
           echo "HTTP $status"
           cat /tmp/mira-tts.headers
 
+          if [ "$status" != "200" ]; then
+            echo "TTS error body:"
+            cat /tmp/mira-tts.mp3 || true
+            exit 1
+          fi
+
           test "$status" = "200"
           grep -Eiq '^content-type: audio/(mpeg|mp3)' /tmp/mira-tts.headers
           grep -Eiq '^x-mira-tts-provider: elevenlabs' /tmp/mira-tts.headers
