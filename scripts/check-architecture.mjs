@@ -103,6 +103,11 @@ const mustExist = [
   'scripts/check-deploy-artifact.mjs',
   'scripts/check-media.mjs',
   'scripts/visual-qa.spec.mjs',
+  'server/elevenlabs-gateway.mjs',
+  'api/health.mjs',
+  'api/voices.mjs',
+  'api/tts.mjs',
+  'scripts/vercel-tts.test.mjs',
   'playwright.config.mjs',
   '.github/workflows/visual-qa.yml',
   'api/tts.js',
@@ -856,3 +861,13 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('Mira architecture guard passed.');
+
+
+// Vercel same-origin ElevenLabs gateway must remain server-only.
+const vercelTtsGateway = readFileSync('server/elevenlabs-gateway.mjs', 'utf8');
+for (const token of ['ELEVENLABS_API_KEY', 'eleven_multilingual_v2', 'mp3_44100_128', 'originAllowed', 'takeRateSlot']) {
+  if (!vercelTtsGateway.includes(token)) failures.push(`Vercel TTS gateway missing: ${token}`);
+}
+for (const route of ['api/health.mjs', 'api/voices.mjs', 'api/tts.mjs']) {
+  if (!readFileSync(route, 'utf8').includes('originAllowed')) failures.push(`Vercel TTS route missing origin guard: ${route}`);
+}
