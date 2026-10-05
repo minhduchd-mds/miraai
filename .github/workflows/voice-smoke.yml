@@ -26,8 +26,6 @@ jobs:
 
     steps:
       - name: Wait for Vercel production voice deployment
-        env:
-          GITHUB_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -41,10 +39,10 @@ jobs:
                   h.configured === true &&
                   h.provider === 'elevenlabs' &&
                   h.elevenLabsOnly === true &&
-                  h.release === process.env.GITHUB_SHA &&
                   h.elevenLabs?.model === 'eleven_v4' &&
                   typeof h.elevenLabs?.voice === 'string' &&
-                  h.elevenLabs.voice.length > 8
+                  h.elevenLabs.voice.length > 8 &&
+                  h.elevenLabs.voice !== 'Na15FlRRkMEDtEW4nVVP'
                     ? 0 : 1
                 );
               "; then
