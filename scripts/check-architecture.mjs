@@ -460,13 +460,13 @@ for (const token of ['usingFallback', "provider: this.usingFallback ? 'Há»‡ thá»
 }
 
 const apiHealth = readFileSync('api/health.js', 'utf8');
-for (const token of ['MIRA_TTS_ALLOWED_ORIGIN', 'origin_not_allowed', 'configuredProviders', "runtime: 'serverless-api'"]) {
+for (const token of ['originAllowed', 'configuredProviders', "runtime: 'vercel-serverless-api'", 'defaultElevenVoice', 'defaultElevenModel']) {
   if (!apiHealth.includes(token)) failures.push(`serverless TTS health endpoint missing: ${token}`);
 }
 
 for (const path of ['api/tts.js', 'api/voices.js', 'api/health.js']) {
   const source = readFileSync(path, 'utf8');
-  for (const token of ['https://minhduchd-mds.github.io', 'access-control-allow-origin', 'origin_not_allowed']) {
+  for (const token of ['applyCors', 'originAllowed', 'origin_not_allowed']) {
     if (!source.includes(token)) failures.push(`${path} TTS CORS contract missing: ${token}`);
   }
 }
