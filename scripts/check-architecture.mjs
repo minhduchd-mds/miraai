@@ -868,8 +868,8 @@ for (const forbidden of ['new WebSpeechTTS', 'new PiperLocalTTS', 'new EdgeTTS',
   if (ttsFactory.includes(forbidden)) failures.push(`production TTS must stay ElevenLabs-only: ${forbidden}`);
 }
 if (!ttsFactory.includes("ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'")) failures.push('Pages must route TTS through Vercel ElevenLabs gateway');
-const cloudTts = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
-if (cloudTts.includes('fallbackLabel') || cloudTts.includes('WebSpeechTTS')) failures.push('Cloud TTS must not silently fall back from ElevenLabs');
+const elevenCloudTts = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
+if (elevenCloudTts.includes('fallbackLabel') || elevenCloudTts.includes('WebSpeechTTS')) failures.push('Cloud TTS must not silently fall back from ElevenLabs');
 const elevenApi = readFileSync('api/tts.js', 'utf8');
 if (elevenApi.includes('api.openai.com')) failures.push('production TTS API must not fall back to OpenAI');
 
