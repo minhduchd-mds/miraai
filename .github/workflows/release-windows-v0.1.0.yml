@@ -1,0 +1,153 @@
+name: Release Mira Windows v0.1.0
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/release-windows-v0.1.0.yml"
+      - "src-tauri/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mira-release-windows-v0.1.0
+  cancel-in-progress: false
+
+jobs:
+  release-windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    env:
+      RELEASE_TAG: v0.1.0
+      RELEASE_EXE: Mira-v0.1.0-Windows-x64-Setup.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Tauri CLI and Pillow
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false @tauri-apps/cli@2.12.0
+          python -m pip install --disable-pip-version-check "Pillow>=11,<13"
+
+      - name: Generate Windows icon
+        shell: pwsh
+        run: |
+          python -c "from PIL import Image; p='src-tauri/icons/icon.png'; i=Image.open(p).convert('RGBA'); i.save('src-tauri/icons/icon.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+          if (!(Test-Path "src-tauri/icons/icon.ico")) { throw "icon.ico was not generated" }
+
+      - name: Verify version contract
+        shell: pwsh
+        run: |
+          $tauri = Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
+          $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
+          if ($tauri.version -ne "0.1.0") { throw "tauri version must be 0.1.0" }
+          if ($pkg.version -ne "0.1.0") { throw "package version must be 0.1.0" }
+          Write-Host "Mira version contract: 0.1.0"
+
+      - name: Build Windows NSIS installer
+        shell: pwsh
+        run: npx tauri build --bundles nsis --target x86_64-pc-windows-msvc
+
+      - name: Validate and stage installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $installer) { throw "NSIS installer not found" }
+
+          Write-Host "Installer: $($installer.FullName)"
+          Write-Host "Size: $([math]::Round($installer.Length / 1MB, 2)) MiB"
+
+          $bytes = [System.IO.File]::ReadAllBytes($installer.FullName)
+          if ($bytes.Length -lt 256) { throw "Installer is unexpectedly small" }
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { throw "Installer is not a PE/MZ executable" }
+
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ($bytes[$peOffset] -ne 0x50 -or $bytes[$peOffset + 1] -ne 0x45) { throw "PE signature missing" }
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          if ($machine -ne 0x8664) { throw ("Expected x86_64 PE machine 0x8664, got 0x{0:X4}" -f $machine) }
+
+          New-Item -ItemType Directory -Force -Path "release" | Out-Null
+          Copy-Item $installer.FullName "release/$env:RELEASE_EXE"
+
+          $hash = (Get-FileHash "release/$env:RELEASE_EXE" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $env:RELEASE_EXE" | Set-Content -NoNewline "release/$env:RELEASE_EXE.sha256"
+
+          Get-ChildItem release | Format-Table Name, Length
+          Get-Content "release/$env:RELEASE_EXE.sha256"
+
+      - name: Upload installer to GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          for ($attempt = 1; $attempt -le 24; $attempt++) {
+            gh release view $env:RELEASE_TAG *> $null
+            if ($LASTEXITCODE -eq 0) { break }
+            Write-Host "Waiting for $env:RELEASE_TAG release... ($attempt/24)"
+            Start-Sleep -Seconds 10
+          }
+
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -ne 0) { throw "Release $env:RELEASE_TAG does not exist" }
+
+          gh release upload $env:RELEASE_TAG `
+            "release/$env:RELEASE_EXE" `
+            "release/$env:RELEASE_EXE.sha256" `
+            --clobber
+
+          $body = gh release view $env:RELEASE_TAG --json body --jq ".body"
+          if ($body -notmatch "Windows x64") {
+            $append = @"
+
+### Windows x64
+- Windows 10/11 x64
+- Installer: Mira-v0.1.0-Windows-x64-Setup.exe
+- Tauri + NSIS
+- Requires Microsoft Edge WebView2 Runtime; Windows 10/11 normally includes or can install it.
+- This build is not Authenticode-signed yet, so Windows SmartScreen may show a warning on first install.
+"@
+            Set-Content -Path "release-notes-updated.md" -Value ($body + $append)
+            gh release edit $env:RELEASE_TAG --notes-file "release-notes-updated.md"
+          }
+
+      - name: Verify Windows release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(gh release view $env:RELEASE_TAG --json assets --jq ".assets[].name")
+          $assets
+          if ($assets -notcontains $env:RELEASE_EXE) { throw "Windows installer missing from release" }
+          if ($assets -notcontains "$env:RELEASE_EXE.sha256") { throw "Windows checksum missing from release" }
+
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mira-Windows-x64-Setup
+          path: |
+            release/*.exe
+            release/*.sha256
+          if-no-files-found: error
+          retention-days: 30
