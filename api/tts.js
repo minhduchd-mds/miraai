@@ -54,7 +54,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_128`,
+      'https://api.elevenlabs.io/v1/text-to-dialogue?output_format=mp3_44100_128',
       {
         method: 'POST',
         signal: AbortSignal.timeout(18_000),
@@ -63,13 +63,13 @@ export default async function handler(req, res) {
           'xi-api-key': key,
         },
         body: JSON.stringify({
-          text: performanceText(text, body.instructions),
+          inputs: [{
+            text: performanceText(text, body.instructions),
+            voice_id: voice,
+          }],
           model_id: model,
           language_code: 'vi',
-          voice_settings: {
-            stability: 0.38,
-            similarity_boost: 0.72,
-          },
+          apply_text_normalization: 'auto',
         }),
       },
     );
