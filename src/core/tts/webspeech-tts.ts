@@ -71,9 +71,14 @@ export class WebSpeechTTS implements TTSAdapter {
         (opts.voiceURI && voices.find((v) => v.voiceURI === opts.voiceURI)) || undefined;
       if (!voice) {
         const p = opts.lang.slice(0, 2).toLowerCase();
+        const languageMatches = voices.filter((v) =>
+          v.lang?.toLowerCase().startsWith(p)
+        );
+        const femaleHint = /(?:female|woman|hoai[\s-]?my|linh|mai|thao|thảo)/i;
         voice =
+          languageMatches.find((v) => femaleHint.test(v.name || '')) ||
           voices.find((v) => v.lang?.toLowerCase().startsWith('vi')) ||
-          voices.find((v) => v.lang?.toLowerCase().startsWith(p));
+          languageMatches[0];
       }
       if (voice) u.voice = voice;
 
