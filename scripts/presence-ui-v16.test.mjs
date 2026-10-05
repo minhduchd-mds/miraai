@@ -14,6 +14,7 @@ async function importTypeScript(path) {
 
 const presence = await importTypeScript('src/presence/presence-scene.ts');
 const media = await importTypeScript('src/presence/presence-media.ts');
+const visualTest = await importTypeScript('src/presence/presence-visual-test.ts');
 
 test('v16.1 bedtime follows minute-level local schedule', () => {
   assert.equal(presence.resolvePresenceScene({ now: new Date(2026, 9, 5, 22, 30) }), 'bedtime');
@@ -102,4 +103,11 @@ test('v16.2 loads expression cards only for meaningful reactions', () => {
   assert.equal(media.shouldRenderExpressionReaction({
     expression: 'wink', state: 'idle', moodConfidence: 0.1, socialCue: 'wink_left',
   }), true);
+});
+
+
+test('v16.3 visual scene override is test-only and rejects unknown scenes', () => {
+  assert.equal(visualTest.visualTestPresenceScene('?visual-test=1&scene=welcome-home'), 'welcome-home');
+  assert.equal(visualTest.visualTestPresenceScene('?scene=welcome-home'), null);
+  assert.equal(visualTest.visualTestPresenceScene('?visual-test=1&scene=unknown'), null);
 });

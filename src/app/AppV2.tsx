@@ -114,6 +114,7 @@ import {
   sanitizePresenceReturnSamples,
   type PresenceReturnSample,
 } from '../presence/presence-scene';
+import { visualTestPresenceScene } from '../presence/presence-visual-test';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -2997,7 +2998,10 @@ export default function AppV2() {
   ].join(' ');
 
   const expectedReturnMinute = learnedPresenceReturnMinute(presenceReturnSamples);
-  const presenceScene = resolvePresenceScene({
+  const visualTestScene = typeof window === 'undefined'
+    ? null
+    : visualTestPresenceScene(window.location.search);
+  const presenceScene = visualTestScene ?? resolvePresenceScene({
     now: presenceClockMs,
     presenceCue: presenceContinuity.cue,
     presenceMode: presenceContinuity.mode,

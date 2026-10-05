@@ -7,6 +7,7 @@ const mustExist = [
   'src/presence/PhotorealMira.tsx',
   'src/presence/presence-scene.ts',
   'src/presence/presence-media.ts',
+  'src/presence/presence-visual-test.ts',
   'src/presence/photoreal-mira.css',
   'src/presence/MemoryConstellation.tsx',
   'src/presence/memory-constellation.ts',
@@ -101,6 +102,9 @@ const mustExist = [
   'scripts/prune-pages-assets.mjs',
   'scripts/check-deploy-artifact.mjs',
   'scripts/check-media.mjs',
+  'scripts/visual-qa.spec.mjs',
+  'playwright.config.mjs',
+  '.github/workflows/visual-qa.yml',
   'api/tts.js',
 ];
 
@@ -125,6 +129,10 @@ for (const token of ["target: 'es2022'", "minify: 'oxc'", "cssMinify: 'lightning
 const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 if (!ciWorkflow.includes('npm run check:artifact')) failures.push('CI must run deploy artifact smoke after build');
 if (!ciWorkflow.includes('npm run check:media')) failures.push('CI must enforce Mira media source budget');
+const visualQaWorkflow = readFileSync('.github/workflows/visual-qa.yml', 'utf8');
+for (const token of ['@playwright/test@1.55.0', 'Install Chromium', 'Run visual QA', 'Upload visual QA output']) {
+  if (!visualQaWorkflow.includes(token)) failures.push(`visual QA workflow missing: ${token}`);
+}
 const pagesWorkflow = readFileSync('.github/workflows/pages.yml', 'utf8');
 if (!pagesWorkflow.includes('npm run prune:pages')) failures.push('Pages must prune heavy legacy assets after build');
 if (!pagesWorkflow.includes('npm run check:pages')) failures.push('Pages must run deploy artifact smoke before publish');
@@ -148,7 +156,7 @@ for (const token of ['IconCamera', 'IconCameraOff', 'IconSettings', 'ShellSvg'])
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'resolvePresenceScene', 'learnedPresenceReturnMinute', 'appendPresenceReturnSample', 'voice-control-dock', 'cameraConnected', 'presenceScene={presenceScene}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'spatialSessionLayoutRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'SpatialWebXRSessionRuntime', 'SpatialXRProjectionRuntime', 'projectMetricPointAcrossViews', 'xrProjectionRef', 'SpatialXRSurfaceRuntime', 'SpatialXRMetricManipulationRuntime', 'SpatialXRRigidBodyRuntime', 'SpatialXRHandCollisionRuntime', 'xrSurfaceRef', 'xrMetricManipulationRef', 'xrRigidBodyRef', 'xrHandCollisionRef', 'xrObjectDepthScale', 'xrWindowDepthScale', 'xrWindowBimanual', 'setXRWindowSurfaceState', 'requestAnchorAtCurrentHit', 'data-xr-depth', 'data-xr-surface', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'mirrorSpatialHandKinematicsX', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'XR · đã căn tâm DOM', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'headYaw={faceTelemetry.yaw}', 'cameraDistanceM={faceTelemetry.distanceM}', 'cameraPoseConfidence={faceTelemetry.confidence}', 'environmentLabel={faceTelemetry.environmentLabel}', 'environmentConfidence={faceTelemetry.environmentConfidence}', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", "import('../ui/vision-v2.css')", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'resolvePresenceScene', 'visualTestPresenceScene', 'learnedPresenceReturnMinute', 'appendPresenceReturnSample', 'voice-control-dock', 'cameraConnected', 'presenceScene={presenceScene}', 'FaceMeshOverlay', 'SpatialSceneGraphTracker', 'spatialScenePrompt', 'ObjectInteractionTracker', 'objectInteractionPrompt', 'ActionSequenceTracker', 'actionSequencePrompt', 'CausalActionGraphTracker', 'causalActionGraphPrompt', 'ShortTermWorldModelTracker', 'worldModelPrompt', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'spatialSessionLayoutRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'SpatialWebXRSessionRuntime', 'SpatialXRProjectionRuntime', 'projectMetricPointAcrossViews', 'xrProjectionRef', 'SpatialXRSurfaceRuntime', 'SpatialXRMetricManipulationRuntime', 'SpatialXRRigidBodyRuntime', 'SpatialXRHandCollisionRuntime', 'xrSurfaceRef', 'xrMetricManipulationRef', 'xrRigidBodyRef', 'xrHandCollisionRef', 'xrObjectDepthScale', 'xrWindowDepthScale', 'xrWindowBimanual', 'setXRWindowSurfaceState', 'requestAnchorAtCurrentHit', 'data-xr-depth', 'data-xr-surface', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'mirrorSpatialHandKinematicsX', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'XR · đã căn tâm DOM', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'stack.', 'slide.', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'environmentPrompt', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'BehaviorTimeline', 'interactionTelemetry', 'headYaw={faceTelemetry.yaw}', 'cameraDistanceM={faceTelemetry.distanceM}', 'cameraPoseConfidence={faceTelemetry.confidence}', 'environmentLabel={faceTelemetry.environmentLabel}', 'environmentConfidence={faceTelemetry.environmentConfidence}', 'micProsodySnapshot', 'observeAffect', 'enableBackgroundCompanion']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');

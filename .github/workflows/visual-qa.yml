@@ -1,0 +1,62 @@
+name: Visual QA
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "src/app/**"
+      - "src/presence/**"
+      - "src/ui/**"
+      - "public/mira-assets/**"
+      - "scripts/visual-qa.spec.mjs"
+      - "playwright.config.mjs"
+      - ".github/workflows/visual-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mira-visual-qa
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project
+        run: npm ci
+
+      - name: Install Playwright runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Mira
+        run: npm run build
+
+      - name: Run visual QA
+        run: npx playwright test --config=playwright.config.mjs
+
+      - name: Upload visual QA output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-visual-qa-${{ github.sha }}
+          path: |
+            artifacts/visual-qa
+            visual-report
+            test-results
+          if-no-files-found: warn
+          retention-days: 30
