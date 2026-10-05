@@ -43,17 +43,14 @@ export class ElevenLabsTTS implements TTSAdapter {
     this.abort = ac;
     this.fetching = true;
 
-    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+    fetch('https://api.elevenlabs.io/v1/text-to-dialogue?output_format=mp3_44100_128', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'xi-api-key': this.apiKey },
       body: JSON.stringify({
-        text: opts.text,
+        inputs: [{ text: opts.text, voice_id: voiceId }],
         model_id: MODEL_ID,
         language_code: 'vi',
-        voice_settings: {
-          stability: 0.38,
-          similarity_boost: 0.72,
-        },
+        apply_text_normalization: 'auto',
       }),
       signal: ac.signal,
     })
