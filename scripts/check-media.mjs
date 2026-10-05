@@ -1,15 +1,17 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { extname, join, relative } from 'node:path';
 
 const ROOT = join('public', 'mira-assets');
 const MiB = 1024 * 1024;
 const KiB = 1024;
+
 const budgets = {
-  total: 24 * MiB,
-  scenes: 17.5 * MiB,
-  expressions: 4.6 * MiB,
-  maxScene: 2.1 * MiB,
-  maxExpression: 450 * KiB,
+  sourcePngTotal: 24 * MiB,
+  runtimeWebpTotal: 1.6 * MiB,
+  runtimeSceneTotal: 1.35 * MiB,
+  runtimeExpressionTotal: 300 * KiB,
+  maxRuntimeScene: 180 * KiB,
+  maxRuntimeExpression: 32 * KiB,
 };
 
 const failures = [];
@@ -31,30 +33,38 @@ const records = walk(ROOT).map((path) => ({
   path,
   rel: relative(ROOT, path).replaceAll('\\', '/'),
   bytes: statSync(path).size,
+  ext: extname(path).toLowerCase(),
 }));
-const groupBytes = (group) => records
-  .filter((item) => item.rel.startsWith(group + '/'))
-  .reduce((sum, item) => sum + item.bytes, 0);
-const largestIn = (group) => records
-  .filter((item) => item.rel.startsWith(group + '/'))
-  .sort((a, b) => b.bytes - a.bytes)[0];
+const sum = (items) => items.reduce((total, item) => total + item.bytes, 0);
+const largest = (items) => [...items].sort((a, b) => b.bytes - a.bytes)[0];
 
-const total = records.reduce((sum, item) => sum + item.bytes, 0);
-const sceneBytes = groupBytes('scenes');
-const expressionBytes = groupBytes('expressions');
-const largestScene = largestIn('scenes');
-const largestExpression = largestIn('expressions');
+const sourcePng = records.filter((item) => item.ext === '.png');
+const runtimeWebp = records.filter((item) => item.ext === '.webp' && (
+  item.rel.startsWith('scenes/') || item.rel.startsWith('expressions/')
+));
+const runtimeScenes = runtimeWebp.filter((item) => item.rel.startsWith('scenes/'));
+const runtimeExpressions = runtimeWebp.filter((item) => item.rel.startsWith('expressions/'));
 
-if (total > budgets.total) failures.push(`total media ${(total / MiB).toFixed(2)} MiB > 24 MiB source budget`);
-if (sceneBytes > budgets.scenes) failures.push(`scene media ${(sceneBytes / MiB).toFixed(2)} MiB > 17.5 MiB source budget`);
-if (expressionBytes > budgets.expressions) failures.push(`expression media ${(expressionBytes / MiB).toFixed(2)} MiB > 4.6 MiB source budget`);
-if (largestScene && largestScene.bytes > budgets.maxScene) failures.push(`scene ${largestScene.rel} ${(largestScene.bytes / MiB).toFixed(2)} MiB > 2.1 MiB/file`);
-if (largestExpression && largestExpression.bytes > budgets.maxExpression) failures.push(`expression ${largestExpression.rel} ${(largestExpression.bytes / KiB).toFixed(0)} KiB > 450 KiB/file`);
+const sourcePngBytes = sum(sourcePng);
+const runtimeWebpBytes = sum(runtimeWebp);
+const runtimeSceneBytes = sum(runtimeScenes);
+const runtimeExpressionBytes = sum(runtimeExpressions);
+const largestScene = largest(runtimeScenes);
+const largestExpression = largest(runtimeExpressions);
 
-console.log(`Mira media source: ${records.length} files · ${(total / MiB).toFixed(2)} MiB`);
-console.log(`Scenes: ${(sceneBytes / MiB).toFixed(2)} MiB · largest=${largestScene?.rel || 'n/a'}`);
-console.log(`Expressions: ${(expressionBytes / MiB).toFixed(2)} MiB · largest=${largestExpression?.rel || 'n/a'}`);
-console.log('Current gate is a no-regression ceiling. Optimization target remains <10–12 MiB deployed Pages media.');
+if (runtimeScenes.length !== 9) failures.push(`expected 9 WebP scenes, found ${runtimeScenes.length}`);
+if (runtimeExpressions.length !== 12) failures.push(`expected 12 WebP expressions, found ${runtimeExpressions.length}`);
+if (sourcePngBytes > budgets.sourcePngTotal) failures.push(`PNG source ${(sourcePngBytes / MiB).toFixed(2)} MiB > 24 MiB`);
+if (runtimeWebpBytes > budgets.runtimeWebpTotal) failures.push(`runtime WebP ${(runtimeWebpBytes / MiB).toFixed(2)} MiB > 1.6 MiB`);
+if (runtimeSceneBytes > budgets.runtimeSceneTotal) failures.push(`runtime scenes ${(runtimeSceneBytes / MiB).toFixed(2)} MiB > 1.35 MiB`);
+if (runtimeExpressionBytes > budgets.runtimeExpressionTotal) failures.push(`runtime expressions ${(runtimeExpressionBytes / KiB).toFixed(0)} KiB > 300 KiB`);
+if (largestScene && largestScene.bytes > budgets.maxRuntimeScene) failures.push(`scene ${largestScene.rel} ${(largestScene.bytes / KiB).toFixed(1)} KiB > 180 KiB/file`);
+if (largestExpression && largestExpression.bytes > budgets.maxRuntimeExpression) failures.push(`expression ${largestExpression.rel} ${(largestExpression.bytes / KiB).toFixed(1)} KiB > 32 KiB/file`);
+
+console.log(`Mira PNG source retained: ${sourcePng.length} files · ${(sourcePngBytes / MiB).toFixed(2)} MiB`);
+console.log(`Runtime WebP: ${runtimeWebp.length} files · ${(runtimeWebpBytes / MiB).toFixed(2)} MiB`);
+console.log(`Runtime scenes: ${(runtimeSceneBytes / MiB).toFixed(2)} MiB · largest=${largestScene?.rel || 'n/a'}`);
+console.log(`Runtime expressions: ${(runtimeExpressionBytes / KiB).toFixed(0)} KiB · largest=${largestExpression?.rel || 'n/a'}`);
 
 if (failures.length) {
   console.error('\nMira media budget failed:\n');

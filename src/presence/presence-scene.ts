@@ -28,33 +28,33 @@ export const PRESENCE_SCENE_LABEL: Record<MiraPresenceScene, string> = {
 };
 
 export const PRESENCE_IMAGE: Record<MiraPresenceScene, string> = {
-  daytime: '/mira-assets/scenes/scene_home_main.png',
-  'welcome-home': '/mira-assets/scenes/scene_welcome_home.png',
-  'home-evening': '/mira-assets/scenes/scene_relax_sofa.png',
-  bedtime: '/mira-assets/scenes/scene_bedtime.png',
+  daytime: '/mira-assets/scenes/scene_home_main.webp',
+  'welcome-home': '/mira-assets/scenes/scene_welcome_home.webp',
+  'home-evening': '/mira-assets/scenes/scene_relax_sofa.webp',
+  bedtime: '/mira-assets/scenes/scene_bedtime.webp',
 };
 
 export const PRESENCE_SUBSCENE_IMAGE = {
-  'cooking-together': '/mira-assets/scenes/scene_cooking_together.png',
-  'work-together': '/mira-assets/scenes/scene_work_together.png',
-  'bed-close': '/mira-assets/scenes/scene_bed_close.png',
-  sleep: '/mira-assets/scenes/scene_sleep.png',
-  morning: '/mira-assets/scenes/scene_morning.png',
+  'cooking-together': '/mira-assets/scenes/scene_cooking_together.webp',
+  'work-together': '/mira-assets/scenes/scene_work_together.webp',
+  'bed-close': '/mira-assets/scenes/scene_bed_close.webp',
+  sleep: '/mira-assets/scenes/scene_sleep.webp',
+  morning: '/mira-assets/scenes/scene_morning.webp',
 } as const;
 
 export const EXPRESSION_ASSET = {
-  gentle: 'expr_01_gentle.png',
-  smile: 'expr_02_smile.png',
-  wink: 'expr_03_wink.png',
-  kiss: 'expr_04_kiss.png',
-  shy: 'expr_05_shy.png',
-  surprise: 'expr_06_surprise.png',
-  sad: 'expr_07_sad_soft.png',
-  pout: 'expr_08_pout.png',
-  cute: 'expr_09_cute.png',
-  focus: 'expr_10_focus.png',
-  calm: 'expr_11_calm.png',
-  sleepy: 'expr_12_sleepy.png',
+  gentle: 'expr_01_gentle.webp',
+  smile: 'expr_02_smile.webp',
+  wink: 'expr_03_wink.webp',
+  kiss: 'expr_04_kiss.webp',
+  shy: 'expr_05_shy.webp',
+  surprise: 'expr_06_surprise.webp',
+  sad: 'expr_07_sad_soft.webp',
+  pout: 'expr_08_pout.webp',
+  cute: 'expr_09_cute.webp',
+  focus: 'expr_10_focus.webp',
+  calm: 'expr_11_calm.webp',
+  sleepy: 'expr_12_sleepy.webp',
 } as const;
 
 export type MiraExpression = keyof typeof EXPRESSION_ASSET;

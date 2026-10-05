@@ -129,7 +129,7 @@ const pagesWorkflow = readFileSync('.github/workflows/pages.yml', 'utf8');
 if (!pagesWorkflow.includes('npm run prune:pages')) failures.push('Pages must prune heavy legacy assets after build');
 if (!pagesWorkflow.includes('npm run check:pages')) failures.push('Pages must run deploy artifact smoke before publish');
 const pagesPrune = readFileSync('scripts/prune-pages-assets.mjs', 'utf8');
-for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')", 'Pages artifact prune']) {
+for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')", "join(DIST, 'mira-assets', 'scenes')", "join(DIST, 'mira-assets', 'expressions')", "path.endsWith('.png')", 'Pages artifact prune']) {
   if (!pagesPrune.includes(token)) failures.push(`Pages asset prune missing: ${token}`);
 }
 const legacyApp = readFileSync('src/App.tsx', 'utf8');

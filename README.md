@@ -118,7 +118,7 @@ CI đo **initial dependency graph**, không tính dynamic Labs/3D chunks. Budget
 
 CI #648 ghi nhận khoảng **140.8 KiB initial JS + 9.7 KiB CSS**, Deferred AppV2 khoảng **292.3 KiB JS**. Three/VRM/Splat/Vision vẫn nằm ở dynamic/Labs paths.
 
-Presence v16 chỉ preload scene kế tiếp khi browser rảnh và mạng không bật Save-Data/2G. Expression reaction không tải mặc định ở trạng thái calm/gentle. PNG nguồn sắc nét vẫn được giữ trong repo; Pages loại bỏ pose/gesture/UI reference assets chưa dùng khỏi artifact production.
+Presence v16 chỉ preload scene kế tiếp khi browser rảnh và mạng không bật Save-Data/2G. Expression reaction không tải mặc định ở trạng thái calm/gentle. PNG nguồn sắc nét vẫn được giữ trong repo. Runtime dùng WebP derivative: 21 scene/expression assets giảm từ khoảng 20.75 MiB PNG xuống khoảng 1.41 MiB WebP; Pages loại bỏ PNG source và pose/gesture/UI reference assets khỏi artifact production.
 
 ## Tạo skill mới
 

@@ -63,11 +63,11 @@ test('v16.1 learns weekday return time locally and deduplicates one sample per d
 });
 
 test('v16.1 maps presence and expression assets without bundling image bytes', () => {
-  assert.equal(presence.PRESENCE_IMAGE.daytime, '/mira-assets/scenes/scene_home_main.png');
-  assert.equal(presence.PRESENCE_IMAGE['welcome-home'], '/mira-assets/scenes/scene_welcome_home.png');
-  assert.equal(presence.PRESENCE_IMAGE['home-evening'], '/mira-assets/scenes/scene_relax_sofa.png');
-  assert.equal(presence.PRESENCE_IMAGE.bedtime, '/mira-assets/scenes/scene_bedtime.png');
-  assert.equal(presence.expressionAssetUrl('gentle'), '/mira-assets/expressions/expr_01_gentle.png');
+  assert.equal(presence.PRESENCE_IMAGE.daytime, '/mira-assets/scenes/scene_home_main.webp');
+  assert.equal(presence.PRESENCE_IMAGE['welcome-home'], '/mira-assets/scenes/scene_welcome_home.webp');
+  assert.equal(presence.PRESENCE_IMAGE['home-evening'], '/mira-assets/scenes/scene_relax_sofa.webp');
+  assert.equal(presence.PRESENCE_IMAGE.bedtime, '/mira-assets/scenes/scene_bedtime.webp');
+  assert.equal(presence.expressionAssetUrl('gentle'), '/mira-assets/expressions/expr_01_gentle.webp');
   assert.equal(presence.resolvePresenceExpression({ state: 'listening' }), 'gentle');
   assert.equal(presence.resolvePresenceExpression({ state: 'thinking' }), 'focus');
   assert.equal(presence.resolvePresenceExpression({ state: 'speaking', mood: 'happy' }), 'smile');

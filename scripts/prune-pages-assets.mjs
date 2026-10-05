@@ -48,6 +48,17 @@ for (const path of [
   rmSync(path, { recursive: true, force: true });
 }
 
+// PNG remains the editable source of truth in git. Pages ships only the
+// optimized WebP derivatives used by the production presence runtime.
+removed += removeMatching(
+  join(DIST, 'mira-assets', 'scenes'),
+  (path) => path.endsWith('.png'),
+);
+removed += removeMatching(
+  join(DIST, 'mira-assets', 'expressions'),
+  (path) => path.endsWith('.png'),
+);
+
 const after = sizeOf(DIST);
 const heavyRemain = [];
 function findHeavy(root) {
