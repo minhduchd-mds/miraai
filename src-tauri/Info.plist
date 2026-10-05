@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSCameraUsageDescription</key>
+  <string>Mira uses the camera only when you enable vision and gesture interaction.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Mira uses the microphone for voice-first conversation.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Mira uses speech recognition to understand your spoken requests.</string>
+</dict>
+</plist>

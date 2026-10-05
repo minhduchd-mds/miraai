@@ -1,0 +1,69 @@
+name: macOS DMG
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "src-tauri/**"
+      - ".github/workflows/macos-dmg.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mira-macos-dmg
+  cancel-in-progress: true
+
+jobs:
+  build-intel-dmg:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - name: Install Tauri CLI
+        run: npm install --no-save --package-lock=false @tauri-apps/cli@2.12.0
+
+      - name: Tauri environment
+        run: npx tauri info
+
+      - name: Build Intel DMG
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
+        run: npx tauri build --bundles dmg --target x86_64-apple-darwin
+
+      - name: Validate DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -type f | head -n 1)"
+          test -n "$dmg"
+          echo "DMG=$dmg"
+          ls -lh "$dmg"
+          hdiutil verify "$dmg"
+
+          app="$(find src-tauri/target/x86_64-apple-darwin/release/bundle/macos -name '*.app' -type d | head -n 1)"
+          test -n "$app"
+          codesign --verify --deep --strict "$app"
+          file "$app/Contents/MacOS/"*
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mira-macOS-Intel-DMG
+          path: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 30

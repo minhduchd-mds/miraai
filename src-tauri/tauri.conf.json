@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mira",
+  "version": "0.1.0",
+  "identifier": "com.mira.companion",
+  "build": {
+    "frontendDist": "https://miraai-five.vercel.app"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Mira",
+        "url": "https://miraai-five.vercel.app",
+        "width": 1366,
+        "height": 768,
+        "minWidth": 390,
+        "minHeight": 640,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "titleBarStyle": "Visible"
+      }
+    ],
+    "security": {
+      "csp": null,
+      "capabilities": []
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "dmg"
+    ],
+    "category": "Lifestyle",
+    "shortDescription": "Voice-first AI companion",
+    "longDescription": "Mira is a voice-first AI companion with contextual presence, vision, memory and ElevenLabs voice.",
+    "icon": [
+      "icons/icon.png"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-",
+      "hardenedRuntime": false,
+      "dmg": {
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 185
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 185
+        }
+      }
+    }
+  }
+}

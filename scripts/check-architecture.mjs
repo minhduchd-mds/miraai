@@ -108,6 +108,12 @@ const mustExist = [
   'playwright.config.mjs',
   '.github/workflows/visual-qa.yml',
   '.github/workflows/voice-smoke.yml',
+  'src-tauri/Cargo.toml',
+  'src-tauri/build.rs',
+  'src-tauri/src/main.rs',
+  'src-tauri/tauri.conf.json',
+  'src-tauri/Info.plist',
+  '.github/workflows/macos-dmg.yml',
   'api/tts.js',
 ];
 
@@ -877,6 +883,20 @@ const elevenCloudTts = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
 if (elevenCloudTts.includes('fallbackLabel') || elevenCloudTts.includes('WebSpeechTTS')) failures.push('Cloud TTS must not silently fall back from ElevenLabs');
 const elevenApi = readFileSync('api/tts.js', 'utf8');
 if (elevenApi.includes('api.openai.com')) failures.push('production TTS API must not fall back to OpenAI');
+
+
+const desktopConfig = readFileSync('src-tauri/tauri.conf.json', 'utf8');
+for (const token of ['https://miraai-five.vercel.app', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"']) {
+  if (!desktopConfig.includes(token)) failures.push(`desktop Tauri config missing: ${token}`);
+}
+const desktopPlist = readFileSync('src-tauri/Info.plist', 'utf8');
+for (const token of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSSpeechRecognitionUsageDescription']) {
+  if (!desktopPlist.includes(token)) failures.push(`desktop Info.plist missing: ${token}`);
+}
+const desktopWorkflow = readFileSync('.github/workflows/macos-dmg.yml', 'utf8');
+for (const token of ['macos-15-intel', '@tauri-apps/cli@2.12.0', 'x86_64-apple-darwin', 'hdiutil verify', 'codesign --verify', 'Mira-macOS-Intel-DMG']) {
+  if (!desktopWorkflow.includes(token)) failures.push(`desktop DMG workflow missing: ${token}`);
+}
 
 if (failures.length) {
   console.error('\nMira architecture guard failed:\n');
