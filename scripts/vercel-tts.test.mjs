@@ -1,28 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  MIRA_ELEVENLABS_VOICES,
-  normalizeVoice,
+  RACHEL_VOICE_ID,
+  defaultElevenModel,
+  defaultElevenVoice,
   originAllowed,
-} from '../server/elevenlabs-gateway.mjs';
+} from '../server/tts-policy.mjs';
 
-test('Vercel TTS uses a female ElevenLabs voice contract', () => {
-  assert.equal(MIRA_ELEVENLABS_VOICES[0].gender, 'female');
-  assert.equal(MIRA_ELEVENLABS_VOICES[0].id, 'elevenlabs:21m00Tcm4TlvDq8ikWAM');
+test('Vercel TTS defaults to Rachel female voice contract', () => {
+  assert.equal(RACHEL_VOICE_ID, '21m00Tcm4TlvDq8ikWAM');
+  assert.equal(defaultElevenVoice(), process.env.ELEVENLABS_TTS_VOICE || RACHEL_VOICE_ID);
+  assert.equal(defaultElevenModel(), process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2');
 });
 
-test('Vercel TTS normalizes auto and rejects malformed voice ids', () => {
-  assert.match(normalizeVoice('auto'), /^[A-Za-z0-9_-]{8,64}$/);
-  assert.equal(normalizeVoice('elevenlabs:21m00Tcm4TlvDq8ikWAM'), '21m00Tcm4TlvDq8ikWAM');
-  assert.equal(normalizeVoice('../../bad'), normalizeVoice('auto'));
-});
-
-test('Vercel TTS allows same-origin requests without broad CORS', () => {
-  const req = {
+test('Vercel TTS allows its own deployment origin', () => {
+  assert.equal(originAllowed({
     headers: {
       origin: 'https://miraai-five.vercel.app',
       host: 'miraai-five.vercel.app',
     },
-  };
-  assert.equal(originAllowed(req), true);
+  }), true);
+});
+
+test('Vercel TTS rejects unrelated origins by default', () => {
+  assert.equal(originAllowed({
+    headers: {
+      origin: 'https://example.invalid',
+      host: 'miraai-five.vercel.app',
+    },
+  }), false);
 });

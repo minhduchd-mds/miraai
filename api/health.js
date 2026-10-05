@@ -1,21 +1,12 @@
-const ALLOWED_ORIGIN = process.env.MIRA_TTS_ALLOWED_ORIGIN || 'https://minhduchd-mds.github.io';
-
-function applyCors(req, res) {
-  const origin = String(req.headers?.origin || '');
-  res.setHeader('access-control-allow-origin', origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN);
-  res.setHeader('access-control-allow-methods', 'GET,OPTIONS');
-  res.setHeader('access-control-allow-headers', 'content-type');
-  res.setHeader('access-control-max-age', '86400');
-  res.setHeader('vary', 'Origin');
-}
-
-function originAllowed(req) {
-  const origin = String(req.headers?.origin || '');
-  return !origin || origin === ALLOWED_ORIGIN;
-}
+import {
+  applyCors,
+  defaultElevenModel,
+  defaultElevenVoice,
+  originAllowed,
+} from '../server/tts-policy.mjs';
 
 export default function handler(req, res) {
-  applyCors(req, res);
+  applyCors(req, res, 'GET,OPTIONS');
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
@@ -29,12 +20,17 @@ export default function handler(req, res) {
   ];
 
   res.setHeader('cache-control', 'no-store');
-  res.setHeader('x-content-type-options', 'nosniff');
   return res.status(200).json({
     ok: true,
     configured: configuredProviders.length > 0,
     provider: configuredProviders.length === 1 ? configuredProviders[0] : configuredProviders.length > 1 ? 'multi' : 'none',
     providers: configuredProviders,
-    runtime: 'serverless-api',
+    elevenLabs: {
+      configured: hasEleven,
+      voice: defaultElevenVoice(),
+      voiceLabel: 'Rachel · nữ ấm áp',
+      model: defaultElevenModel(),
+    },
+    runtime: 'vercel-serverless-api',
   });
 }

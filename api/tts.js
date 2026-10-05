@@ -1,26 +1,17 @@
-const ALLOWED_ORIGIN = process.env.MIRA_TTS_ALLOWED_ORIGIN || 'https://minhduchd-mds.github.io';
-
-function applyCors(req, res) {
-  const origin = String(req.headers?.origin || '');
-  res.setHeader('access-control-allow-origin', origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN);
-  res.setHeader('access-control-allow-methods', 'POST,OPTIONS');
-  res.setHeader('access-control-allow-headers', 'content-type');
-  res.setHeader('access-control-max-age', '86400');
-  res.setHeader('vary', 'Origin');
-}
-
-function originAllowed(req) {
-  const origin = String(req.headers?.origin || '');
-  return !origin || origin === ALLOWED_ORIGIN;
-}
+import {
+  applyCors,
+  defaultElevenModel,
+  defaultElevenVoice,
+  originAllowed,
+  takeRateSlot,
+} from '../server/tts-policy.mjs';
 
 // Mira server-side neural TTS gateway.
-// Priority: OpenAI natural speech -> ElevenLabs -> client-side Web Speech fallback.
+// Priority is configurable. On Vercel we prefer ElevenLabs for Mira's female voice.
 // Provider keys stay on the server and are never returned to the browser.
 
 const OPENAI_DEFAULT_MODEL = 'gpt-4o-mini-tts';
 const OPENAI_DEFAULT_VOICE = 'marin';
-const ELEVEN_DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL';
 const DEFAULT_VI_INSTRUCTIONS =
   'Nói tiếng Việt tự nhiên như một cuộc trò chuyện riêng tư. Giọng nữ mềm, hiền, ấm và gần gũi; âm đầu nhẹ, không sắc, không bật năng lượng đột ngột. Nhịp chậm vừa đủ, phát âm rõ theo phong cách miền Bắc nhưng không cường điệu. Có nhịp thở và ngắt nghỉ tự nhiên theo ý nghĩa câu; cuối câu thường hạ nhẹ, êm và ấm. Tránh chất giọng phát thanh viên, quảng cáo, đọc tài liệu hoặc cố diễn đáng yêu. Tuyệt đối không đọc máy móc.';
 
@@ -46,10 +37,10 @@ function chooseProvider(requested, openaiKey, elevenKey) {
   if (requested === 'elevenlabs' && elevenKey) return 'elevenlabs';
 
   const preferred = String(process.env.MIRA_TTS_PROVIDER || 'auto').toLowerCase();
-  if (preferred === 'openai' && openaiKey) return 'openai';
   if (preferred === 'elevenlabs' && elevenKey) return 'elevenlabs';
-  if (openaiKey) return 'openai';
+  if (preferred === 'openai' && openaiKey) return 'openai';
   if (elevenKey) return 'elevenlabs';
+  if (openaiKey) return 'openai';
   return '';
 }
 
@@ -87,16 +78,16 @@ async function openAISpeech({ key, text, voice, instructions }) {
 }
 
 async function elevenSpeech({ key, text, voice }) {
-  const selectedVoice = voice || process.env.ELEVENLABS_TTS_VOICE || ELEVEN_DEFAULT_VOICE;
+  const selectedVoice = voice || defaultElevenVoice();
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(selectedVoice)}?output_format=mp3_44100_64`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(selectedVoice)}?output_format=mp3_44100_128`,
     {
       method: 'POST',
       signal: AbortSignal.timeout(18_000),
       headers: { 'content-type': 'application/json', 'xi-api-key': key },
       body: JSON.stringify({
         text,
-        model_id: process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2',
+        model_id: defaultElevenModel(),
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.78,
@@ -114,10 +105,11 @@ async function elevenSpeech({ key, text, voice }) {
 }
 
 export default async function handler(req, res) {
-  applyCors(req, res);
+  applyCors(req, res, 'POST,OPTIONS');
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
+  if (!takeRateSlot(req)) return res.status(429).json({ error: 'rate_limited' });
 
   const body = parseBody(req);
   const text = String(body.text || '').trim();
@@ -156,7 +148,6 @@ export default async function handler(req, res) {
     res.setHeader('x-mira-tts-voice', result.voice);
     return res.status(200).send(buf);
   } catch (primaryError) {
-    // If the preferred neural provider fails, try the other configured provider once.
     try {
       if (provider === 'openai' && elevenKey) {
         const result = await elevenSpeech({ key: elevenKey, text, voice: '' });

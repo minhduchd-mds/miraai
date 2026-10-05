@@ -103,10 +103,7 @@ const mustExist = [
   'scripts/check-deploy-artifact.mjs',
   'scripts/check-media.mjs',
   'scripts/visual-qa.spec.mjs',
-  'server/elevenlabs-gateway.mjs',
-  'api/health.mjs',
-  'api/voices.mjs',
-  'api/tts.mjs',
+  'server/tts-policy.mjs',
   'scripts/vercel-tts.test.mjs',
   'playwright.config.mjs',
   '.github/workflows/visual-qa.yml',
@@ -398,7 +395,7 @@ const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8')
 if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
 
 const tts = readFileSync('api/tts.js', 'utf8');
-for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs', 'body.instructions', 'payload.instructions', 'mergeInstructions', 'Giọng nữ mềm, hiền, ấm và gần gũi', 'stability: 0.5', 'style: 0.16', 'use_speaker_boost: false']) {
+for (const token of ['gpt-4o-mini-tts', 'OPENAI_API_KEY', 'elevenlabs', 'body.instructions', 'payload.instructions', 'mergeInstructions', 'Giọng nữ mềm, hiền, ấm và gần gũi', 'stability: 0.5', 'style: 0.16', 'use_speaker_boost: false', 'mp3_44100_128', 'takeRateSlot']) {
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 
@@ -855,6 +852,16 @@ for (const token of ['1.30.0', 'ort.all.min.mjs', 'squeezenet1.1-7.onnx', '@vite
   if (!acceleratorLab.includes(token)) failures.push(`accelerator v15.3 runtime missing: ${token}`);
 }
 
+
+const vercelTtsPolicy = readFileSync('server/tts-policy.mjs', 'utf8');
+for (const token of ['21m00Tcm4TlvDq8ikWAM', 'eleven_multilingual_v2', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
+  if (!vercelTtsPolicy.includes(token)) failures.push(`Vercel TTS policy missing: ${token}`);
+}
+for (const route of ['api/health.js', 'api/voices.js', 'api/tts.js']) {
+  const source = readFileSync(route, 'utf8');
+  if (!source.includes('originAllowed')) failures.push(`Vercel TTS route missing origin guard: ${route}`);
+}
+
 if (failures.length) {
   console.error('\nMira architecture guard failed:\n');
   failures.forEach((failure) => console.error(`- ${failure}`));
@@ -862,12 +869,3 @@ if (failures.length) {
 }
 console.log('Mira architecture guard passed.');
 
-
-// Vercel same-origin ElevenLabs gateway must remain server-only.
-const vercelTtsGateway = readFileSync('server/elevenlabs-gateway.mjs', 'utf8');
-for (const token of ['ELEVENLABS_API_KEY', 'eleven_multilingual_v2', 'mp3_44100_128', 'originAllowed', 'takeRateSlot']) {
-  if (!vercelTtsGateway.includes(token)) failures.push(`Vercel TTS gateway missing: ${token}`);
-}
-for (const route of ['api/health.mjs', 'api/voices.mjs', 'api/tts.mjs']) {
-  if (!readFileSync(route, 'utf8').includes('originAllowed')) failures.push(`Vercel TTS route missing origin guard: ${route}`);
-}
