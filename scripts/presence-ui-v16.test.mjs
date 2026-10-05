@@ -13,6 +13,7 @@ async function importTypeScript(path) {
 }
 
 const presence = await importTypeScript('src/presence/presence-scene.ts');
+const media = await importTypeScript('src/presence/presence-media.ts');
 
 test('v16.1 bedtime follows minute-level local schedule', () => {
   assert.equal(presence.resolvePresenceScene({ now: new Date(2026, 9, 5, 22, 30) }), 'bedtime');
@@ -78,4 +79,27 @@ test('v16.1 ignores weekend and implausible return samples', () => {
   samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 4, 18, 0));
   samples = presence.appendPresenceReturnSample(samples, new Date(2026, 9, 5, 12, 0));
   assert.equal(samples.length, 0);
+});
+
+
+test('v16.2 avoids speculative scene preload on Save-Data, 2G and hidden tabs', () => {
+  assert.equal(media.shouldPrefetchPresenceAsset({ saveData: false, effectiveType: '4g', hidden: false }), true);
+  assert.equal(media.shouldPrefetchPresenceAsset({ saveData: true, effectiveType: '4g', hidden: false }), false);
+  assert.equal(media.shouldPrefetchPresenceAsset({ saveData: false, effectiveType: '2g', hidden: false }), false);
+  assert.equal(media.shouldPrefetchPresenceAsset({ saveData: false, effectiveType: '4g', hidden: true }), false);
+});
+
+test('v16.2 loads expression cards only for meaningful reactions', () => {
+  assert.equal(media.shouldRenderExpressionReaction({
+    expression: 'gentle', state: 'listening', moodConfidence: 0.8, socialCue: 'none',
+  }), false);
+  assert.equal(media.shouldRenderExpressionReaction({
+    expression: 'focus', state: 'thinking', moodConfidence: 0.2, socialCue: 'none',
+  }), true);
+  assert.equal(media.shouldRenderExpressionReaction({
+    expression: 'smile', state: 'speaking', moodConfidence: 0.7, socialCue: 'none',
+  }), true);
+  assert.equal(media.shouldRenderExpressionReaction({
+    expression: 'wink', state: 'idle', moodConfidence: 0.1, socialCue: 'wink_left',
+  }), true);
 });

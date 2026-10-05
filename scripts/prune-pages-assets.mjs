@@ -37,6 +37,11 @@ for (const path of [
   join(DIST, 'looks'),
   join(DIST, 'scenes', 'home.png'),
   join(DIST, 'scenes', 'office.png'),
+  // Source/reference assets are kept in git for future contextual actions,
+  // but are not part of the current production UI execution path.
+  join(DIST, 'mira-assets', 'poses'),
+  join(DIST, 'mira-assets', 'gestures'),
+  join(DIST, 'mira-assets', 'ui'),
 ]) {
   if (!existsSync(path)) continue;
   removed += sizeOf(path);

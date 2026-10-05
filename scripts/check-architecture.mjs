@@ -6,6 +6,7 @@ const mustExist = [
   'src/presence/HolographicMira.tsx',
   'src/presence/PhotorealMira.tsx',
   'src/presence/presence-scene.ts',
+  'src/presence/presence-media.ts',
   'src/presence/photoreal-mira.css',
   'src/presence/MemoryConstellation.tsx',
   'src/presence/memory-constellation.ts',
@@ -99,6 +100,7 @@ const mustExist = [
   'src/ui/vision-v2.css',
   'scripts/prune-pages-assets.mjs',
   'scripts/check-deploy-artifact.mjs',
+  'scripts/check-media.mjs',
   'api/tts.js',
 ];
 
@@ -122,11 +124,12 @@ for (const token of ["target: 'es2022'", "minify: 'oxc'", "cssMinify: 'lightning
 
 const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 if (!ciWorkflow.includes('npm run check:artifact')) failures.push('CI must run deploy artifact smoke after build');
+if (!ciWorkflow.includes('npm run check:media')) failures.push('CI must enforce Mira media source budget');
 const pagesWorkflow = readFileSync('.github/workflows/pages.yml', 'utf8');
 if (!pagesWorkflow.includes('npm run prune:pages')) failures.push('Pages must prune heavy legacy assets after build');
 if (!pagesWorkflow.includes('npm run check:pages')) failures.push('Pages must run deploy artifact smoke before publish');
 const pagesPrune = readFileSync('scripts/prune-pages-assets.mjs', 'utf8');
-for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", 'Pages artifact prune']) {
+for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')", 'Pages artifact prune']) {
   if (!pagesPrune.includes(token)) failures.push(`Pages asset prune missing: ${token}`);
 }
 const legacyApp = readFileSync('src/App.tsx', 'utf8');
@@ -187,7 +190,7 @@ for (const token of [
 if (presence.includes('<svg')) failures.push('HolographicMira must use approved art, not a hand-drawn SVG face');
 
 const photoreal = readFileSync('src/presence/PhotorealMira.tsx', 'utf8');
-for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'MIRA_BEDROOM', 'PRESENCE_VISUAL', 'mira-bedroom.webp', 'scenes/home.png', 'mira_female_02_lavender_lounge.webp', 'bedroom-presence', 'pm-wave', 'pm-state-orb', 'data-spatial-object']) {
+for (const token of ['audioLevel', 'requestAnimationFrame', '--pm-level', 'PRESENCE_VISUAL', 'PRESENCE_IMAGE', 'shouldPrefetchPresenceAsset', 'showExpressionReaction', 'bedroom-presence', 'pm-wave', 'pm-state-orb', 'data-spatial-object']) {
   if (!photoreal.includes(token)) failures.push(`PhotorealMira missing approved bedroom visual/voice behavior: ${token}`);
 }
 for (const token of ['affectActive', 'affectFollowing', '--pm-affect', 'affect-follow', 'interactionState', '--pm-attention', '--pm-eye-contact', 'socialCue', 'presenceMode', 'presenceCue', '--pm-continuity']) {

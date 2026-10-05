@@ -47,6 +47,9 @@ jobs:
       - name: Camera trace benchmark gate
         run: npm run benchmark:camera
 
+      - name: Media asset budget
+        run: npm run check:media
+
       - name: Build (Vite)
         run: npm run build
 

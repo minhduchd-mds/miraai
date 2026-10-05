@@ -110,11 +110,15 @@ Legacy được dynamic-import nên camera/gesture/Splat/debug không nằm trê
 
 ## Performance
 
-CI đo **initial dependency graph**, không tính dynamic Labs/3D chunks. Budget:
-- Initial JS: ≤ 420 KiB raw.
+CI đo **initial dependency graph**, không tính dynamic Labs/3D chunks. Budget hiện tại:
+- Initial JS: ≤ 160 KiB raw.
+- Deferred AppV2 JS: ≤ 300 KiB raw.
 - Initial CSS: ≤ 120 KiB raw.
+- Media source có no-regression budget riêng qua `npm run check:media`.
 
-Lượt CI sau khi tách Presence ghi nhận khoảng **206.6 KiB JS + 48.5 KiB CSS**, trong khi Three/VRM/Splat/Vision nằm ở dynamic chunks.
+CI #648 ghi nhận khoảng **140.8 KiB initial JS + 9.7 KiB CSS**, Deferred AppV2 khoảng **292.3 KiB JS**. Three/VRM/Splat/Vision vẫn nằm ở dynamic/Labs paths.
+
+Presence v16 chỉ preload scene kế tiếp khi browser rảnh và mạng không bật Save-Data/2G. Expression reaction không tải mặc định ở trạng thái calm/gentle. PNG nguồn sắc nét vẫn được giữ trong repo; Pages loại bỏ pose/gesture/UI reference assets chưa dùng khỏi artifact production.
 
 ## Tạo skill mới
 

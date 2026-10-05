@@ -21,6 +21,7 @@ import {
   resolvePresenceExpression,
   type MiraPresenceScene,
 } from './presence-scene';
+import { shouldPrefetchPresenceAsset, shouldRenderExpressionReaction } from './presence-media';
 import './photoreal-mira.css';
 
 interface Props {
@@ -71,11 +72,6 @@ interface Props {
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
 const PhotorealSceneCanvas = lazy(() => import('./PhotorealSceneCanvas'));
 const PhotorealSceneSegments = lazy(() => import('./PhotorealSceneSegments'));
-const MIRA_BEDROOM = asset('scenes/mira-bedroom.webp');
-const MIRA_HOME = asset('scenes/home.png');
-const MIRA_OFFICE = asset('scenes/office.png');
-const MIRA_HOME_IDOL = asset('avatars/female/mira_female_01_idol_nova.webp');
-const MIRA_HOME_SWEATER = asset('avatars/female/mira_female_02_lavender_lounge.webp');
 
 const PRESENCE_VISUAL: Record<MiraPresenceScene, {
   scene: string;
@@ -170,6 +166,12 @@ export default function PhotorealMira({
     socialCue,
   });
   const expressionAsset = asset(expressionAssetUrl(expressionName));
+  const showExpressionReaction = shouldRenderExpressionReaction({
+    expression: expressionName,
+    state,
+    moodConfidence,
+    socialCue,
+  });
   const showAffectionFx = observedMood === 'happy' && moodConfidence >= 0.45;
   const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
   const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bật Mira 24/7';
@@ -362,21 +364,45 @@ export default function PhotorealMira({
   }, [visualQuality]);
 
   useEffect(() => {
-    const active = new Image();
-    active.decoding = 'async';
-    active.src = sceneAsset;
-    const upcoming = new Image();
-    upcoming.decoding = 'async';
-    upcoming.src = nextSceneAsset;
-    const expression = new Image();
-    expression.decoding = 'async';
-    expression.src = expressionAsset;
-    if (presenceVisual.character) {
-      const character = new Image();
-      character.decoding = 'async';
-      character.src = presenceVisual.character;
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    const canPrefetch = shouldPrefetchPresenceAsset({
+      saveData: connection?.saveData,
+      effectiveType: connection?.effectiveType,
+      hidden: typeof document !== 'undefined' && document.hidden,
+    });
+    if (!canPrefetch) return;
+
+    const win = window as typeof window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    let idleId = 0;
+    let timerId = 0;
+    let cancelled = false;
+
+    const preload = () => {
+      if (cancelled) return;
+      const upcoming = new Image();
+      upcoming.decoding = 'async';
+      upcoming.src = nextSceneAsset;
+    };
+
+    if (typeof win.requestIdleCallback === 'function') {
+      idleId = win.requestIdleCallback(preload, { timeout: 3_000 });
+    } else {
+      timerId = window.setTimeout(preload, 1_800);
     }
-  }, [expressionAsset, nextSceneAsset, presenceVisual.character, sceneAsset]);
+
+    return () => {
+      cancelled = true;
+      if (idleId && typeof win.cancelIdleCallback === 'function') win.cancelIdleCallback(idleId);
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, [nextSceneAsset]);
 
   useEffect(() => {
     let raf = 0;
@@ -444,6 +470,7 @@ export default function PhotorealMira({
           alt=""
           draggable={false}
           decoding="async"
+          fetchPriority="high"
         />
         {visualProfile.sharpness > 0 && (
           <Suspense fallback={null}>
@@ -504,14 +531,17 @@ export default function PhotorealMira({
         </span>
       )}
 
-      <img
-        className="pm-expression-card"
-        src={expressionAsset}
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        decoding="async"
-      />
+      {showExpressionReaction && (
+        <img
+          className="pm-expression-card"
+          src={expressionAsset}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          decoding="async"
+          loading="lazy"
+        />
+      )}
       {showAffectionFx && (
         <img
           className="pm-fx pm-fx-hearts"
