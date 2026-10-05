@@ -405,7 +405,7 @@ for (const token of ['elevenlabs', '/v1/text-to-dialogue?output_format=mp3_44100
 }
 
 const voicePrefsSource = readFileSync('src/core/voice-prefs.ts', 'utf8');
-for (const token of ["rate: 0.96", "persona: 'gentle'", "label: 'Êm'", 'voiceProfileVersion: 2']) {
+for (const token of ["rate: 1", "persona: 'gentle'", "label: 'Êm'", 'voiceProfileVersion: 2']) {
   if (!voicePrefsSource.includes(token)) failures.push(`gentle voice defaults missing: ${token}`);
 }
 
@@ -436,12 +436,12 @@ if (/VITE_.*ELEVENLABS_API_KEY|localStorage.*ELEVENLABS_API_KEY/.test(neonTtsGat
 }
 
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
-for (const token of ['PiperLocalTTS', 'secureRemote', "cfg.engine === 'edge' && secureRemote", "cfg.engine === 'vieneu' && secureRemote", "cfg.engine === 'cloud' && secureRemote", "new CloudTTS(configuredUrl, new PiperLocalTTS(), 'Piper Local')"]) {
-  if (!localTts.includes(token)) failures.push(`GitHub Pages TTS routing missing: ${token}`);
+for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", "engine: 'cloud'", 'elevenLabsOnly: true', 'return new CloudTTS(serverUrl)']) {
+  if (!localTts.includes(token)) failures.push(`ElevenLabs-only browser TTS routing missing: ${token}`);
 }
 
 const cloudTts = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
-for (const token of ['failureThreshold: 2', 'cooldownMs: 30_000']) {
+for (const token of ['failureThreshold: 2', 'cooldownMs: 12_000', "label: 'ElevenLabs'"]) {
   if (!cloudTts.includes(token)) failures.push(`resilient cloud TTS policy missing: ${token}`);
 }
 
@@ -465,7 +465,7 @@ for (const token of ['usingFallback', "provider: this.usingFallback ? 'Hệ th�
 }
 
 const apiHealth = readFileSync('api/health.js', 'utf8');
-for (const token of ['originAllowed', 'configuredProviders', "runtime: 'vercel-serverless-api'", 'defaultElevenVoice', 'defaultElevenModel']) {
+for (const token of ['originAllowed', "provider: 'elevenlabs'", 'elevenLabsOnly: true', "runtime: 'vercel-serverless-api'", 'defaultElevenVoice', 'defaultElevenModel']) {
   if (!apiHealth.includes(token)) failures.push(`serverless TTS health endpoint missing: ${token}`);
 }
 
