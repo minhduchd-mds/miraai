@@ -5368,11 +5368,12 @@ test('server TTS health probe recovers neural routing without reload', () => {
 test('serverless TTS health endpoint exposes status but never secrets', () => {
   const source = readFileSync('api/health.js', 'utf8');
   for (const token of [
-    "MIRA_TTS_ALLOWED_ORIGIN",
     "origin_not_allowed",
     "configuredProviders",
     "configured: configuredProviders.length > 0",
-    "runtime: 'serverless-api'",
+    "runtime: 'vercel-serverless-api'",
+    "defaultElevenVoice",
+    "defaultElevenModel",
   ]) {
     assert.ok(source.includes(token));
   }
@@ -5380,11 +5381,15 @@ test('serverless TTS health endpoint exposes status but never secrets', () => {
   assert.ok(!source.includes('apiKey:'));
 });
 
-test('remote serverless TTS endpoints enforce Pages CORS contract', () => {
+test('remote serverless TTS endpoints enforce shared origin policy', () => {
+  const policy = readFileSync('server/tts-policy.mjs', 'utf8');
+  for (const token of ['MIRA_TTS_ALLOWED_ORIGIN', 'MIRA_TTS_ALLOWED_ORIGINS', 'access-control-allow-origin', 'originAllowed']) {
+    assert.ok(policy.includes(token));
+  }
   for (const path of ['api/tts.js', 'api/voices.js', 'api/health.js']) {
     const source = readFileSync(path, 'utf8');
-    assert.ok(source.includes("https://minhduchd-mds.github.io"));
-    assert.ok(source.includes('access-control-allow-origin'));
+    assert.ok(source.includes('applyCors'));
+    assert.ok(source.includes('originAllowed'));
     assert.ok(source.includes('origin_not_allowed'));
   }
 });
