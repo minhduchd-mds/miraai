@@ -60,3 +60,12 @@ The Visual QA workflow uploads:
 - trace/screenshots on failure.
 
 This is a browser/device-profile lab, not a substitute for physical iPhone/Android/macOS/Windows measurement.
+
+
+## Mobile compositor optimization
+
+The first device-profile run showed more Long Animation Frames on the mobile
+profile than desktop. v16.3 therefore removes nonessential mobile
+`backdrop-filter` layers, disables the scene tint blend mode and reduces
+shadow/vignette cost. LoAF remains telemetry rather than a hard CI gate because
+GitHub runners are not physical phones.

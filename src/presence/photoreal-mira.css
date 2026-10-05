@@ -2216,3 +2216,33 @@
   }
   .bedroom-presence .pm-wave { display: none; }
 }
+
+
+/* v16.3 mobile compositor budget — preserve the scene while avoiding costly
+   full-screen blend/filter work on small GPUs. */
+@media (max-width: 760px) {
+  .bedroom-presence .pm-bedroom-tint {
+    mix-blend-mode: normal;
+    opacity: .42;
+  }
+
+  .bedroom-presence .pm-live-pill {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(5, 9, 28, .58);
+  }
+
+  .bedroom-presence .pm-expression-card {
+    filter: none;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .22);
+  }
+
+  .bedroom-presence .pm-fx-hearts {
+    width: min(170px, 34vw);
+    opacity: .56;
+  }
+
+  .bedroom-presence .pm-vignette {
+    box-shadow: inset 0 0 54px 6px rgba(1, 3, 13, .2);
+  }
+}

@@ -401,3 +401,23 @@
   .voice-session-caption { width: calc(100vw - 36px); }
   .voice-wave-mini { width: 62px; }
 }
+
+
+/* v16.3 mobile voice compositor budget. */
+@media (max-width: 760px) {
+  .voice-session-caption,
+  .voice-control-dock {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .voice-session-caption {
+    background: rgba(4, 8, 24, .58);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .12);
+  }
+
+  .voice-control-dock {
+    background: rgba(4, 8, 24, .68);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .2);
+  }
+}
