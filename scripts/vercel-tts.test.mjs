@@ -33,10 +33,13 @@ test('Vercel TTS rejects unrelated origins by default', () => {
 });
 
 
-test('Vercel TTS contract is ElevenLabs-only and Vietnamese', () => {
+test('Vercel TTS contract is ElevenLabs-only, Vietnamese and v4 dialogue', () => {
   const tts = readFileSync('api/tts.js', 'utf8');
+  assert.ok(tts.includes('/v1/text-to-dialogue?output_format=mp3_44100_128'));
   assert.ok(tts.includes("language_code: 'vi'"));
+  assert.ok(tts.includes('inputs: [{'));
+  assert.ok(tts.includes('voice_id: voice'));
   assert.ok(tts.includes("x-mira-tts-provider', 'elevenlabs'"));
-  assert.ok(tts.includes("stability: 0.38"));
+  assert.ok(!tts.includes('/v1/text-to-speech/'));
   assert.ok(!tts.includes('api.openai.com'));
 });
