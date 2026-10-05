@@ -1,0 +1,83 @@
+name: ElevenLabs Voice Smoke
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "api/tts.js"
+      - "api/health.js"
+      - "api/voices.js"
+      - "server/tts-policy.mjs"
+      - "src/core/tts/**"
+      - ".github/workflows/voice-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mira-elevenlabs-voice-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Wait for Vercel production voice deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://miraai-five.vercel.app/api"
+          for attempt in $(seq 1 36); do
+            if curl --silent --fail --max-time 8 "$base/health" -o /tmp/health.json; then
+              if node -e "
+                const fs=require('fs');
+                const h=JSON.parse(fs.readFileSync('/tmp/health.json','utf8'));
+                process.exit(
+                  h.configured === true &&
+                  h.provider === 'elevenlabs' &&
+                  h.elevenLabsOnly === true &&
+                  h.elevenLabs?.model === 'eleven_v4' &&
+                  h.elevenLabs?.voice === 'Na15FlRRkMEDtEW4nVVP'
+                    ? 0 : 1
+                );
+              "; then
+                cat /tmp/health.json
+                exit 0
+              fi
+            fi
+            echo "Waiting for ElevenLabs v4 production deployment... ($attempt/36)"
+            sleep 5
+          done
+          echo "Timed out waiting for Vercel voice deployment."
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1
+
+      - name: Generate real Vietnamese ElevenLabs sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://miraai-five.vercel.app/api"
+          status="$(curl --silent --show-error --max-time 35             --dump-header /tmp/mira-tts.headers             --output /tmp/mira-tts.mp3             --write-out "%{http_code}"             -H "content-type: application/json"             --data '{"text":"Anh về rồi à? Em ở đây, mình nói chuyện một chút nhé.","instructions":"gentle warm welcome"}'             "$base/tts")"
+
+          echo "HTTP $status"
+          cat /tmp/mira-tts.headers
+
+          test "$status" = "200"
+          grep -Eiq '^content-type: audio/(mpeg|mp3)' /tmp/mira-tts.headers
+          grep -Eiq '^x-mira-tts-provider: elevenlabs' /tmp/mira-tts.headers
+          grep -Eiq '^x-mira-tts-model: eleven_v4' /tmp/mira-tts.headers
+          grep -Eiq '^x-mira-tts-voice: Na15FlRRkMEDtEW4nVVP' /tmp/mira-tts.headers
+
+          size="$(wc -c < /tmp/mira-tts.mp3)"
+          echo "Generated audio bytes: $size"
+          test "$size" -gt 2000
+
+      - name: Upload real voice sample
+        uses: actions/upload-artifact@v4
+        with:
+          name: mira-elevenlabs-v4-vietnamese-sample
+          path: /tmp/mira-tts.mp3
+          retention-days: 7

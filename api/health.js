@@ -22,7 +22,7 @@ export default function handler(req, res) {
     elevenLabs: {
       configured,
       voice: defaultElevenVoice(),
-      voiceLabel: 'Mira · ElevenLabs nữ',
+      voiceLabel: 'Thanh Ngọc · nữ Việt · Warm & Trusted Expert',
       model: defaultElevenModel(),
       language: 'vi',
     },

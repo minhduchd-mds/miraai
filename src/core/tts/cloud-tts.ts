@@ -9,8 +9,8 @@ export class CloudTTS extends ServerTTS {
       serverUrl: serverUrl || '/api',
       label: 'ElevenLabs',
       fallbackVoice: {
-        name: 'Mira · ElevenLabs nữ',
-        voiceURI: 'elevenlabs:21m00Tcm4TlvDq8ikWAM',
+        name: 'Mira · Thanh Ngọc · Vietnamese female',
+        voiceURI: 'elevenlabs:Na15FlRRkMEDtEW4nVVP',
         lang: 'vi-VN',
       },
       sampleText: 'Anh nghe em nhé. Em sẽ nói mềm, tự nhiên và gần gũi hơn.',

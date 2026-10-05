@@ -1,4 +1,5 @@
 import {
+  MIRA_VI_FEMALE_VOICE_ID,
   RACHEL_VOICE_ID,
   applyCors,
   defaultElevenVoice,
@@ -81,15 +82,15 @@ export default async function handler(req, res) {
   }
 
   const fallback = {
-    id: `elevenlabs:${RACHEL_VOICE_ID}`,
-    label: 'ElevenLabs · Rachel/Janet · Female US',
-    name: 'Rachel/Janet',
+    id: `elevenlabs:${MIRA_VI_FEMALE_VOICE_ID}`,
+    label: 'ElevenLabs · Thanh Ngọc · Vietnamese female',
+    name: 'Thanh Ngọc - Warm & Trusted Expert',
     gender: 'female',
-    language: 'en',
-    accent: 'american',
-    category: 'legacy',
+    language: 'vi',
+    accent: 'southern',
+    category: 'professional',
     recordingQuality: '',
-    vietnameseVerified: false,
+    vietnameseVerified: true,
   };
 
   const byId = new Map();

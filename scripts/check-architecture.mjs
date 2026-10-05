@@ -107,6 +107,7 @@ const mustExist = [
   'scripts/vercel-tts.test.mjs',
   'playwright.config.mjs',
   '.github/workflows/visual-qa.yml',
+  '.github/workflows/voice-smoke.yml',
   'api/tts.js',
 ];
 
@@ -131,6 +132,10 @@ for (const token of ["target: 'es2022'", "minify: 'oxc'", "cssMinify: 'lightning
 const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 if (!ciWorkflow.includes('npm run check:artifact')) failures.push('CI must run deploy artifact smoke after build');
 if (!ciWorkflow.includes('npm run check:media')) failures.push('CI must enforce Mira media source budget');
+const voiceSmokeWorkflow = readFileSync('.github/workflows/voice-smoke.yml', 'utf8');
+for (const token of ['mira-elevenlabs-v4-vietnamese-sample', 'x-mira-tts-provider: elevenlabs', 'x-mira-tts-model: eleven_v4', 'Na15FlRRkMEDtEW4nVVP']) {
+  if (!voiceSmokeWorkflow.includes(token)) failures.push(`ElevenLabs voice smoke workflow missing: ${token}`);
+}
 const visualQaWorkflow = readFileSync('.github/workflows/visual-qa.yml', 'utf8');
 for (const token of ['@playwright/test@1.55.0', 'Install Chromium', 'Run visual QA', 'Upload visual QA output']) {
   if (!visualQaWorkflow.includes(token)) failures.push(`visual QA workflow missing: ${token}`);
@@ -854,7 +859,7 @@ for (const token of ['1.30.0', 'ort.all.min.mjs', 'squeezenet1.1-7.onnx', '@vite
 
 
 const vercelTtsPolicy = readFileSync('server/tts-policy.mjs', 'utf8');
-for (const token of ['21m00Tcm4TlvDq8ikWAM', 'eleven_v4', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
+for (const token of ['Na15FlRRkMEDtEW4nVVP', '21m00Tcm4TlvDq8ikWAM', 'eleven_v4', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
   if (!vercelTtsPolicy.includes(token)) failures.push(`Vercel TTS policy missing: ${token}`);
 }
 for (const route of ['api/health.js', 'api/voices.js', 'api/tts.js']) {
