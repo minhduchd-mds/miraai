@@ -25,32 +25,34 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - name: Wait for Vercel production voice deployment
+      - name: Wait for Sarah ElevenLabs production voice
         shell: bash
         run: |
           set -euo pipefail
           base="https://miraai-five.vercel.app/api"
+
           for attempt in $(seq 1 36); do
             if curl --silent --fail --max-time 8 "$base/health" -o /tmp/health.json; then
               if node -e "
-                const fs=require('fs');
-                const h=JSON.parse(fs.readFileSync('/tmp/health.json','utf8'));
-                process.exit(
+                const fs = require('fs');
+                const h = JSON.parse(fs.readFileSync('/tmp/health.json', 'utf8'));
+                const ok =
                   h.configured === true &&
                   h.provider === 'elevenlabs' &&
                   h.elevenLabsOnly === true &&
                   h.elevenLabs?.model === 'eleven_v4' &&
-                  h.elevenLabs?.voice === 'EXAVITQu4vr4xnSDxMaL'
-                    ? 0 : 1
-                );
+                  h.elevenLabs?.voice === 'EXAVITQu4vr4xnSDxMaL';
+                process.exit(ok ? 0 : 1);
               "; then
                 cat /tmp/health.json
                 exit 0
               fi
             fi
-            echo "Waiting for ElevenLabs v4 production deployment... ($attempt/36)"
+
+            echo "Waiting for Sarah / Eleven v4 production deployment... ($attempt/36)"
             sleep 5
           done
+
           echo "Timed out waiting for Vercel voice deployment."
           cat /tmp/health.json 2>/dev/null || true
           exit 1
@@ -60,6 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           base="https://miraai-five.vercel.app/api"
+
           status="$(curl --silent --show-error --max-time 35             --dump-header /tmp/mira-tts.headers             --output /tmp/mira-tts.mp3             --write-out "%{http_code}"             -H "content-type: application/json"             --data '{"text":"Anh về rồi à? Em ở đây, mình nói chuyện một chút nhé.","instructions":"gentle warm welcome"}'             "$base/tts")"
 
           echo "HTTP $status"
@@ -71,49 +74,14 @@ jobs:
             exit 1
           fi
 
-          test "$status" = "200"
           tr -d '\r' < /tmp/mira-tts.headers > /tmp/mira-tts.headers.clean
-          grep -Eiq '^content-type: audio/(mpeg|mp3)
 
-          size="$(wc -c < /tmp/mira-tts.mp3)"
-          echo "Generated audio bytes: $size"
-          test "$size" -gt 2000
+          grep -Fqi 'content-type: audio/mpeg' /tmp/mira-tts.headers.clean
+          grep -Fqi 'x-mira-tts-provider: elevenlabs' /tmp/mira-tts.headers.clean
+          grep -Fqi 'x-mira-tts-model: eleven_v4' /tmp/mira-tts.headers.clean
 
-      - name: Upload real voice sample
-        uses: actions/upload-artifact@v4
-        with:
-          name: mira-elevenlabs-v4-vietnamese-sample
-          path: /tmp/mira-tts.mp3
-          retention-days: 7
- /tmp/mira-tts.headers.clean
-          grep -Eiq '^x-mira-tts-provider: elevenlabs
-
-          size="$(wc -c < /tmp/mira-tts.mp3)"
-          echo "Generated audio bytes: $size"
-          test "$size" -gt 2000
-
-      - name: Upload real voice sample
-        uses: actions/upload-artifact@v4
-        with:
-          name: mira-elevenlabs-v4-vietnamese-sample
-          path: /tmp/mira-tts.mp3
-          retention-days: 7
- /tmp/mira-tts.headers.clean
-          grep -Eiq '^x-mira-tts-model: eleven_v4
-
-          size="$(wc -c < /tmp/mira-tts.mp3)"
-          echo "Generated audio bytes: $size"
-          test "$size" -gt 2000
-
-      - name: Upload real voice sample
-        uses: actions/upload-artifact@v4
-        with:
-          name: mira-elevenlabs-v4-vietnamese-sample
-          path: /tmp/mira-tts.mp3
-          retention-days: 7
- /tmp/mira-tts.headers.clean
           expected_voice="$(node -e "const h=require('/tmp/health.json'); process.stdout.write(h.elevenLabs.voice)")"
-          grep -Eiq "^x-mira-tts-voice: ${expected_voice}$" /tmp/mira-tts.headers.clean
+          grep -Fqi "x-mira-tts-voice: $expected_voice" /tmp/mira-tts.headers.clean
 
           size="$(wc -c < /tmp/mira-tts.mp3)"
           echo "Generated audio bytes: $size"
