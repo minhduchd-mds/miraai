@@ -119,15 +119,17 @@ jobs:
 
           $body = gh release view $env:RELEASE_TAG --json body --jq ".body"
           if ($body -notmatch "Windows x64") {
-            $append = @"
-
-### Windows x64
-- Windows 10/11 x64
-- Installer: Mira-v0.1.0-Windows-x64-Setup.exe
-- Tauri + NSIS
-- Requires Microsoft Edge WebView2 Runtime; Windows 10/11 normally includes or can install it.
-- This build is not Authenticode-signed yet, so Windows SmartScreen may show a warning on first install.
-"@
+            $appendLines = @(
+              "",
+              "",
+              "### Windows x64",
+              "- Windows 10/11 x64",
+              "- Installer: Mira-v0.1.0-Windows-x64-Setup.exe",
+              "- Tauri + NSIS",
+              "- Requires Microsoft Edge WebView2 Runtime; Windows 10/11 normally includes or can install it.",
+              "- This build is not Authenticode-signed yet, so Windows SmartScreen may show a warning on first install."
+            )
+            $append = $appendLines -join [Environment]::NewLine
             Set-Content -Path "release-notes-updated.md" -Value ($body + $append)
             gh release edit $env:RELEASE_TAG --notes-file "release-notes-updated.md"
           }
