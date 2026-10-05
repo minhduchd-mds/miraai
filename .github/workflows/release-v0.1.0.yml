@@ -9,37 +9,26 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: mira-release-v0.1.0
   cancel-in-progress: false
 
 jobs:
-  release-intel-dmg:
-    runs-on: macos-15-intel
-    timeout-minutes: 35
+  publish-validated-intel-dmg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     env:
       RELEASE_TAG: v0.1.0
       RELEASE_NAME: Mira v0.1.0
       RELEASE_DMG: Mira-v0.1.0-macOS-Intel.dmg
+      VALIDATED_DMG_RUN: "37279977051"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
-
-      - name: Install Tauri CLI
-        run: npm install --no-save --package-lock=false @tauri-apps/cli@2.12.0
 
       - name: Verify version contract
         shell: bash
@@ -54,43 +43,22 @@ jobs:
           console.log('Mira version contract: 0.1.0');
           NODE
 
-      - name: Build Intel DMG
+      - name: Download validated macOS DMG artifact
         env:
-          APPLE_SIGNING_IDENTITY: "-"
-        run: npx tauri build --bundles dmg --target x86_64-apple-darwin
-
-      - name: Validate and stage release asset
-        id: stage
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          source_dmg="$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -type f | head -n 1)"
+          mkdir -p release-src release
+          gh run download "$VALIDATED_DMG_RUN"             --repo "$GITHUB_REPOSITORY"             --name "Mira-macOS-Intel-DMG"             --dir release-src
+
+          source_dmg="$(find release-src -name '*.dmg' -type f | head -n 1)"
           test -n "$source_dmg"
-          hdiutil verify "$source_dmg"
-
-          mount_dir="$(mktemp -d)"
-          cleanup() {
-            hdiutil detach "$mount_dir" -quiet >/dev/null 2>&1 || true
-            rmdir "$mount_dir" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-
-          hdiutil attach "$source_dmg" -nobrowse -readonly -mountpoint "$mount_dir"
-          app="$(find "$mount_dir" -maxdepth 2 -name '*.app' -type d | head -n 1)"
-          test -n "$app"
-          codesign --verify --deep --strict "$app"
-
-          binary="$(find "$app/Contents/MacOS" -maxdepth 1 -type f | head -n 1)"
-          test -n "$binary"
-          file "$binary" | grep -q 'x86_64'
-
-          mkdir -p release
           cp "$source_dmg" "release/$RELEASE_DMG"
           (
             cd release
-            shasum -a 256 "$RELEASE_DMG" > "$RELEASE_DMG.sha256"
+            sha256sum "$RELEASE_DMG" > "$RELEASE_DMG.sha256"
           )
-
           ls -lh release/
           cat "release/$RELEASE_DMG.sha256"
 
@@ -112,7 +80,7 @@ jobs:
           - Camera/vision cho face, hand, pose và interaction.
           - Memory + contextual companion runtime.
           - ElevenLabs neural voice gateway.
-          - WebP presence assets và visual QA/device-profile regression.
+          - WebP presence assets và Visual QA/device-profile regression.
           - Desktop shell bằng Tauri, kết nối production Mira trên Vercel.
 
           ### macOS
@@ -120,18 +88,23 @@ jobs:
           - **macOS Ventura 13.0+**
           - File cài đặt: `Mira-v0.1.0-macOS-Intel.dmg`
 
+          ### Xác minh
+          File DMG này lấy từ workflow **macOS DMG #2**, đã PASS:
+          - `hdiutil verify`
+          - `codesign --verify --deep --strict`
+          - binary architecture `x86_64`
+
           ### Lưu ý
           Bản này dùng **ad-hoc code signing** và chưa Apple notarize. macOS có thể hiện cảnh báo Gatekeeper khi mở lần đầu.
 
           SHA256 được đính kèm trong file `.sha256`.
           EOF
 
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Release $RELEASE_TAG already exists; refreshing assets and notes."
-            gh release upload "$RELEASE_TAG"               "release/$RELEASE_DMG"               "release/$RELEASE_DMG.sha256"               --clobber
-            gh release edit "$RELEASE_TAG"               --title "$RELEASE_NAME"               --notes-file /tmp/release-notes.md               --latest
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG"               "release/$RELEASE_DMG"               "release/$RELEASE_DMG.sha256"               --repo "$GITHUB_REPOSITORY"               --clobber
+            gh release edit "$RELEASE_TAG"               --repo "$GITHUB_REPOSITORY"               --title "$RELEASE_NAME"               --notes-file /tmp/release-notes.md               --latest
           else
-            gh release create "$RELEASE_TAG"               "release/$RELEASE_DMG"               "release/$RELEASE_DMG.sha256"               --target "$GITHUB_SHA"               --title "$RELEASE_NAME"               --notes-file /tmp/release-notes.md               --latest
+            gh release create "$RELEASE_TAG"               "release/$RELEASE_DMG"               "release/$RELEASE_DMG.sha256"               --repo "$GITHUB_REPOSITORY"               --target "$GITHUB_SHA"               --title "$RELEASE_NAME"               --notes-file /tmp/release-notes.md               --latest
           fi
 
       - name: Verify published release
@@ -140,6 +113,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release view "$RELEASE_TAG" --json tagName,name,isDraft,isPrerelease,url,assets
-          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fx "$RELEASE_DMG"
-          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fx "$RELEASE_DMG.sha256"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,name,isDraft,isPrerelease,url,assets
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fx "$RELEASE_DMG"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fx "$RELEASE_DMG.sha256"
