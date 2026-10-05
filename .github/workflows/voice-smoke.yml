@@ -40,9 +40,7 @@ jobs:
                   h.provider === 'elevenlabs' &&
                   h.elevenLabsOnly === true &&
                   h.elevenLabs?.model === 'eleven_v4' &&
-                  typeof h.elevenLabs?.voice === 'string' &&
-                  h.elevenLabs.voice.length > 8 &&
-                  h.elevenLabs.voice !== 'Na15FlRRkMEDtEW4nVVP'
+                  h.elevenLabs?.voice === 'EXAVITQu4vr4xnSDxMaL'
                     ? 0 : 1
                 );
               "; then
