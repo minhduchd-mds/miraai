@@ -1,0 +1,145 @@
+name: Release Mira v0.1.0
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/release-v0.1.0.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mira-release-v0.1.0
+  cancel-in-progress: false
+
+jobs:
+  release-intel-dmg:
+    runs-on: macos-15-intel
+    timeout-minutes: 35
+
+    env:
+      RELEASE_TAG: v0.1.0
+      RELEASE_NAME: Mira v0.1.0
+      RELEASE_DMG: Mira-v0.1.0-macOS-Intel.dmg
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - name: Install Tauri CLI
+        run: npm install --no-save --package-lock=false @tauri-apps/cli@2.12.0
+
+      - name: Verify version contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('fs');
+          const tauri = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (tauri.version !== '0.1.0') throw new Error('tauri version must be 0.1.0');
+          if (pkg.version !== '0.1.0') throw new Error('package version must be 0.1.0');
+          console.log('Mira version contract: 0.1.0');
+          NODE
+
+      - name: Build Intel DMG
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
+        run: npx tauri build --bundles dmg --target x86_64-apple-darwin
+
+      - name: Validate and stage release asset
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dmg="$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -type f | head -n 1)"
+          test -n "$source_dmg"
+          hdiutil verify "$source_dmg"
+
+          mount_dir="$(mktemp -d)"
+          cleanup() {
+            hdiutil detach "$mount_dir" -quiet >/dev/null 2>&1 || true
+            rmdir "$mount_dir" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          hdiutil attach "$source_dmg" -nobrowse -readonly -mountpoint "$mount_dir"
+          app="$(find "$mount_dir" -maxdepth 2 -name '*.app' -type d | head -n 1)"
+          test -n "$app"
+          codesign --verify --deep --strict "$app"
+
+          binary="$(find "$app/Contents/MacOS" -maxdepth 1 -type f | head -n 1)"
+          test -n "$binary"
+          file "$binary" | grep -q 'x86_64'
+
+          mkdir -p release
+          cp "$source_dmg" "release/$RELEASE_DMG"
+          (
+            cd release
+            shasum -a 256 "$RELEASE_DMG" > "$RELEASE_DMG.sha256"
+          )
+
+          ls -lh release/
+          cat "release/$RELEASE_DMG.sha256"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/release-notes.md <<'EOF'
+          ## Mira v0.1.0
+
+          Bản cài đặt macOS đầu tiên của **Mira — Voice-first AI Companion**.
+
+          ### Có trong bản này
+          - Voice-first UI, không cần thanh chat.
+          - Presence scene tự động theo thời gian/ngữ cảnh.
+          - Camera/vision cho face, hand, pose và interaction.
+          - Memory + contextual companion runtime.
+          - ElevenLabs neural voice gateway.
+          - WebP presence assets và visual QA/device-profile regression.
+          - Desktop shell bằng Tauri, kết nối production Mira trên Vercel.
+
+          ### macOS
+          - **Intel x86_64**
+          - **macOS Ventura 13.0+**
+          - File cài đặt: `Mira-v0.1.0-macOS-Intel.dmg`
+
+          ### Lưu ý
+          Bản này dùng **ad-hoc code signing** và chưa Apple notarize. macOS có thể hiện cảnh báo Gatekeeper khi mở lần đầu.
+
+          SHA256 được đính kèm trong file `.sha256`.
+          EOF
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refreshing assets and notes."
+            gh release upload "$RELEASE_TAG"               "release/$RELEASE_DMG"               "release/$RELEASE_DMG.sha256"               --clobber
+            gh release edit "$RELEASE_TAG"               --title "$RELEASE_NAME"               --notes-file /tmp/release-notes.md               --latest
+          else
+            gh release create "$RELEASE_TAG"               "release/$RELEASE_DMG"               "release/$RELEASE_DMG.sha256"               --target "$GITHUB_SHA"               --title "$RELEASE_NAME"               --notes-file /tmp/release-notes.md               --latest
+          fi
+
+      - name: Verify published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --json tagName,name,isDraft,isPrerelease,url,assets
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fx "$RELEASE_DMG"
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fx "$RELEASE_DMG.sha256"
