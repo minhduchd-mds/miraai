@@ -9,8 +9,7 @@ import { attachAnalyser } from '../audio-level';
 
 // Vài giọng nữ đa ngôn ngữ đọc tiếng Việt tốt (voice ID public của ElevenLabs).
 const PRESET_VOICES: VoiceOption[] = [
-  { name: 'Thanh Ngọc · Vietnamese female', voiceURI: 'Na15FlRRkMEDtEW4nVVP', lang: 'vi-VN' },
-  { name: 'Sarah (ElevenLabs)', voiceURI: 'EXAVITQu4vr4xnSDxMaL', lang: 'vi-VN' },
+  { name: 'Sarah · Reassuring Female', voiceURI: 'EXAVITQu4vr4xnSDxMaL', lang: 'vi-VN' },
   { name: 'Rachel (ElevenLabs)', voiceURI: '21m00Tcm4TlvDq8ikWAM', lang: 'vi-VN' },
   { name: 'Charlotte (ElevenLabs)', voiceURI: 'XB0fDUnXU5powFXDhCwa', lang: 'vi-VN' },
 ];

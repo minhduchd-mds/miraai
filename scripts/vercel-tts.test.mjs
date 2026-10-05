@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
-  RACHEL_VOICE_ID,
+  MIRA_DEFAULT_VOICE_ID,
   defaultElevenModel,
   defaultElevenVoice,
   originAllowed,
 } from '../server/tts-policy.mjs';
 
-test('Vercel TTS defaults to the active ElevenLabs female voice contract', () => {
-  assert.equal(RACHEL_VOICE_ID, '21m00Tcm4TlvDq8ikWAM');
-  assert.equal(defaultElevenVoice(), process.env.ELEVENLABS_TTS_VOICE || RACHEL_VOICE_ID);
+test('Vercel TTS defaults to the active ElevenLabs premade female voice contract', () => {
+  assert.equal(MIRA_DEFAULT_VOICE_ID, 'EXAVITQu4vr4xnSDxMaL');
+  assert.equal(defaultElevenVoice(), process.env.ELEVENLABS_TTS_VOICE || MIRA_DEFAULT_VOICE_ID);
   assert.equal(defaultElevenModel(), process.env.ELEVENLABS_TTS_MODEL || 'eleven_v4');
 });
 

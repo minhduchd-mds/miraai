@@ -859,7 +859,7 @@ for (const token of ['1.30.0', 'ort.all.min.mjs', 'squeezenet1.1-7.onnx', '@vite
 
 
 const vercelTtsPolicy = readFileSync('server/tts-policy.mjs', 'utf8');
-for (const token of ['21m00Tcm4TlvDq8ikWAM', 'eleven_v4', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
+for (const token of ['EXAVITQu4vr4xnSDxMaL', 'eleven_v4', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
   if (!vercelTtsPolicy.includes(token)) failures.push(`Vercel TTS policy missing: ${token}`);
 }
 for (const route of ['api/health.js', 'api/voices.js', 'api/tts.js']) {
