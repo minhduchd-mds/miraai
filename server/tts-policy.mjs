@@ -2,11 +2,10 @@ const WINDOW_MS = 5 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 48;
 const buckets = new Map();
 
-export const MIRA_VI_FEMALE_VOICE_ID = 'Na15FlRRkMEDtEW4nVVP';
 export const RACHEL_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';
 
 export function defaultElevenVoice() {
-  return process.env.ELEVENLABS_TTS_VOICE || MIRA_VI_FEMALE_VOICE_ID;
+  return process.env.ELEVENLABS_TTS_VOICE || RACHEL_VOICE_ID;
 }
 
 export function defaultElevenModel() {

@@ -14,17 +14,6 @@ function parseBody(req) {
   return body && typeof body === 'object' ? body : {};
 }
 
-function normalizeVoice(raw) {
-  const value = String(raw || '').trim();
-  if (!value || value === 'auto') return defaultElevenVoice();
-  const withoutPrefix = value.startsWith('elevenlabs:')
-    ? value.slice('elevenlabs:'.length)
-    : value;
-  return /^[A-Za-z0-9_-]{8,64}$/.test(withoutPrefix)
-    ? withoutPrefix
-    : defaultElevenVoice();
-}
-
 function performanceText(text, instructions) {
   const clean = String(text || '').trim();
   const cue = String(instructions || '').toLowerCase();
@@ -49,7 +38,8 @@ export default async function handler(req, res) {
   const key = process.env.elevenlabs_api_key || process.env.ELEVENLABS_API_KEY || '';
   if (!key) return res.status(503).json({ error: 'elevenlabs_not_configured' });
 
-  const voice = normalizeVoice(body.voice);
+  // Production voice identity is server-controlled. Ignore stale/client voice ids.
+  const voice = defaultElevenVoice();
   const model = defaultElevenModel();
 
   try {
