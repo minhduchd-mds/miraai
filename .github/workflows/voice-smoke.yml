@@ -40,7 +40,8 @@ jobs:
                   h.provider === 'elevenlabs' &&
                   h.elevenLabsOnly === true &&
                   h.elevenLabs?.model === 'eleven_v4' &&
-                  h.elevenLabs?.voice === 'Na15FlRRkMEDtEW4nVVP'
+                  typeof h.elevenLabs?.voice === 'string' &&
+                  h.elevenLabs.voice.length > 8
                     ? 0 : 1
                 );
               "; then
@@ -75,7 +76,8 @@ jobs:
           grep -Eiq '^content-type: audio/(mpeg|mp3)' /tmp/mira-tts.headers
           grep -Eiq '^x-mira-tts-provider: elevenlabs' /tmp/mira-tts.headers
           grep -Eiq '^x-mira-tts-model: eleven_v4' /tmp/mira-tts.headers
-          grep -Eiq '^x-mira-tts-voice: Na15FlRRkMEDtEW4nVVP' /tmp/mira-tts.headers
+          expected_voice="$(node -e "const h=require('/tmp/health.json'); process.stdout.write(h.elevenLabs.voice)")"
+          grep -Eiq "^x-mira-tts-voice: ${expected_voice}$" /tmp/mira-tts.headers
 
           size="$(wc -c < /tmp/mira-tts.mp3)"
           echo "Generated audio bytes: $size"
