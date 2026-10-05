@@ -83,8 +83,23 @@ jobs:
 
           $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
           if ($bytes[$peOffset] -ne 0x50 -or $bytes[$peOffset + 1] -ne 0x45) { throw "PE signature missing" }
-          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
-          if ($machine -ne 0x8664) { throw ("Expected x86_64 PE machine 0x8664, got 0x{0:X4}" -f $machine) }
+          $installerMachine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          Write-Host ("NSIS bootstrapper PE machine: 0x{0:X4}" -f $installerMachine)
+
+          # NSIS itself can be a 32-bit bootstrapper even when the packaged app
+          # is x64. Validate the actual Mira executable produced for the x64
+          # Rust target instead of assuming the setup stub machine type.
+          $appExe = Get-ChildItem -Path "src-tauri/target/x86_64-pc-windows-msvc/release" -Filter "*.exe" -File |
+            Where-Object { $_.Name -notmatch "setup|installer" } |
+            Select-Object -First 1
+          if (-not $appExe) { throw "Mira x64 application executable not found" }
+
+          $appBytes = [System.IO.File]::ReadAllBytes($appExe.FullName)
+          $appPeOffset = [BitConverter]::ToInt32($appBytes, 0x3C)
+          if ($appBytes[$appPeOffset] -ne 0x50 -or $appBytes[$appPeOffset + 1] -ne 0x45) { throw "Mira app PE signature missing" }
+          $appMachine = [BitConverter]::ToUInt16($appBytes, $appPeOffset + 4)
+          Write-Host ("Mira app PE machine: 0x{0:X4}" -f $appMachine)
+          if ($appMachine -ne 0x8664) { throw ("Expected Mira app x86_64 PE machine 0x8664, got 0x{0:X4}" -f $appMachine) }
 
           New-Item -ItemType Directory -Force -Path "release" | Out-Null
           Copy-Item $installer.FullName "release/$env:RELEASE_EXE"
