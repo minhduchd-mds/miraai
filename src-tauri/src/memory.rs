@@ -19,6 +19,18 @@ pub(crate) struct MemoryTurn { role: String, text: String, ts: i64 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MemoryEpisode { text: String, ts: i64 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StructuredMemory {
+    kind: String,
+    text: String,
+    importance: f64,
+    status: String,
+    first_seen_ts: i64,
+    last_seen_ts: i64,
+    hit_count: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MemoryAffect {
     mood: String,
@@ -46,6 +58,8 @@ pub(crate) struct MemorySnapshot {
     exported_at: String,
     turns: Vec<MemoryTurn>,
     episodes: Vec<MemoryEpisode>,
+    #[serde(rename = "structuredMemories")]
+    structured_memories: Vec<StructuredMemory>,
     affects: Vec<MemoryAffect>,
 }
 
@@ -72,6 +86,20 @@ fn open(app: &AppHandle) -> Result<Connection, String> {
       CREATE INDEX IF NOT EXISTS idx_turns_ts ON turns(ts);
       CREATE TABLE IF NOT EXISTS episodes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, ts INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_episodes_ts ON episodes(ts);
+      CREATE TABLE IF NOT EXISTS structured_memories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL,
+        text TEXT NOT NULL,
+        normalized_text TEXT NOT NULL,
+        importance REAL NOT NULL,
+        status TEXT NOT NULL DEFAULT 'stored',
+        first_seen_ts INTEGER NOT NULL,
+        last_seen_ts INTEGER NOT NULL,
+        hit_count INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(kind, normalized_text)
+      );
+      CREATE INDEX IF NOT EXISTS idx_structured_memory_kind ON structured_memories(kind,status);
+      CREATE INDEX IF NOT EXISTS idx_structured_memory_recent ON structured_memories(last_seen_ts DESC);
       CREATE TABLE IF NOT EXISTS affect (
         id INTEGER PRIMARY KEY AUTOINCREMENT, mood TEXT NOT NULL, confidence REAL NOT NULL,
         valence REAL, arousal REAL, engagement REAL, fatigue REAL, tension REAL, ts INTEGER NOT NULL
@@ -187,12 +215,127 @@ pub(crate) fn desktop_memory_recent(app: AppHandle, limit: Option<u32>) -> Resul
     Ok(result)
 }
 
+fn contains_any(normalized: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| normalized.contains(needle))
+}
+
+fn user_statement(conversation: &str) -> String {
+    let before_mira = conversation.split_once("\nMira:").map(|(user,_)| user).unwrap_or(conversation);
+    clip(before_mira.trim().strip_prefix("Người dùng:").unwrap_or(before_mira.trim()), 1200)
+}
+
+fn structured_kind_label(kind: &str) -> &'static str {
+    match kind {
+      "preference" => "Sở thích/ưu tiên",
+      "life_event" => "Sự kiện cuộc sống",
+      "relationship_context" => "Bối cảnh mối quan hệ",
+      "emotional_episode" => "Điều người dùng từng chia sẻ về cảm xúc",
+      "active_thread" => "Việc đang theo dõi",
+      _ => "Thông tin người dùng đã tự nói",
+    }
+}
+
+fn upsert_structured_memory(
+    connection: &Connection,
+    kind: &str,
+    text: &str,
+    importance: f64,
+    status: &str,
+    ts: i64,
+) -> Result<(), String> {
+    let normalized = normalize_search(text);
+    if normalized.chars().count() < 4 { return Ok(()); }
+    connection.execute(
+      "INSERT INTO structured_memories(kind,text,normalized_text,importance,status,first_seen_ts,last_seen_ts,hit_count)
+       VALUES (?1,?2,?3,?4,?5,?6,?6,1)
+       ON CONFLICT(kind,normalized_text) DO UPDATE SET
+         text=excluded.text,
+         importance=MIN(1.0,MAX(structured_memories.importance,excluded.importance)+0.02),
+         status=excluded.status,
+         last_seen_ts=excluded.last_seen_ts,
+         hit_count=structured_memories.hit_count+1",
+      params![kind,clip(text,1200),normalized,importance.clamp(0.0,1.0),status,ts]
+    ).map_err(|e| format!("upsert structured memory: {e}"))?;
+    Ok(())
+}
+
+fn resolve_recent_thread(connection: &Connection, statement: &str, ts: i64) -> Result<(), String> {
+    let query_tokens = tokens(statement);
+    let mut prepared = connection.prepare(
+      "SELECT id,text,last_seen_ts FROM structured_memories WHERE kind='active_thread' AND status='active' ORDER BY last_seen_ts DESC LIMIT 6"
+    ).map_err(|e| format!("prepare active thread resolution: {e}"))?;
+    let rows = prepared.query_map([],|row| Ok((row.get::<_,i64>(0)?,row.get::<_,String>(1)?,row.get::<_,i64>(2)?)))
+      .map_err(|e| format!("active thread resolution: {e}"))?;
+    let mut candidates = rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect active thread resolution: {e}"))?;
+    if candidates.is_empty() { return Ok(()); }
+    candidates.sort_by(|a,b| {
+      let sb = similarity(&query_tokens,&b.1);
+      let sa = similarity(&query_tokens,&a.1);
+      sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal).then_with(|| b.2.cmp(&a.2))
+    });
+    let best = &candidates[0];
+    let score = similarity(&query_tokens,&best.1);
+    let recent_active_count = candidates.iter().filter(|(_,_,seen)| ts - *seen < 72 * 60 * 60_000).count();
+    if score >= 0.18 || recent_active_count == 1 {
+      connection.execute(
+        "UPDATE structured_memories SET status='resolved',last_seen_ts=?1 WHERE id=?2",
+        params![ts,best.0]
+      ).map_err(|e| format!("resolve active thread: {e}"))?;
+    }
+    Ok(())
+}
+
+fn distill_structured_memories(connection: &Connection, conversation: &str, ts: i64) -> Result<(), String> {
+    let statement = user_statement(conversation);
+    if statement.chars().count() < 5 { return Ok(()); }
+    let normalized = normalize_search(&statement);
+
+    if contains_any(&normalized,&["dung nho","dung luu","khong can nho","khong luu","quen chuyen nay"]) {
+      return Ok(());
+    }
+
+    let resolved = contains_any(&normalized,&["xong roi","on roi","giai quyet xong","da xong","khong con van de"]);
+    if resolved {
+      resolve_recent_thread(connection,&statement,ts)?;
+    }
+
+    let preference = contains_any(&normalized,&[
+      "anh thich","anh khong thich","anh muon","anh uu tien","anh thuong","thich nghe","hay nghe","anh can em"
+    ]);
+    let relationship = contains_any(&normalized,&[
+      "vo","chong","gia dinh","tinh cam","moi quan he","dong doi","team","sep","ban be","nguoi yeu"
+    ]);
+    let emotional = contains_any(&normalized,&[
+      "buon","met","cang thang","ap luc","buc","vui","co don","that vong","lo lang","kho chiu","chan","khuc mac"
+    ]);
+    let life_event = contains_any(&normalized,&[
+      "hom nay","hom qua","ngay mai","tuan nay","vua ","sap ","da ","dang ","se ","moi "
+    ]);
+    let explicit_fact = contains_any(&normalized,&[
+      "anh la","anh co","anh lam","anh dung","anh dang lam","cong viec cua anh","du an cua anh"
+    ]);
+    let active_thread = !resolved && contains_any(&normalized,&[
+      "chua ","dang ","can ","phai ","van de","khuc mac","dang doi","cho ","mai ","sap ","do dang"
+    ]);
+
+    if preference { upsert_structured_memory(connection,"preference",&statement,0.84,"stored",ts)?; }
+    if relationship { upsert_structured_memory(connection,"relationship_context",&statement,0.82,"stored",ts)?; }
+    if emotional { upsert_structured_memory(connection,"emotional_episode",&statement,0.76,"stored",ts)?; }
+    if life_event { upsert_structured_memory(connection,"life_event",&statement,0.72,"stored",ts)?; }
+    if explicit_fact { upsert_structured_memory(connection,"fact",&statement,0.78,"stored",ts)?; }
+    if active_thread { upsert_structured_memory(connection,"active_thread",&statement,0.88,"active",ts)?; }
+    Ok(())
+}
+
 #[tauri::command]
 pub(crate) fn desktop_memory_save_episode(app: AppHandle, text: String) -> Result<(), String> {
     let text = clip(&text, 9000);
     if text.is_empty() { return Ok(()); }
-    open(&app)?.execute("INSERT INTO episodes(text,ts) VALUES (?1,?2)", params![text,now_ms()])
+    let ts = now_ms();
+    let connection = open(&app)?;
+    connection.execute("INSERT INTO episodes(text,ts) VALUES (?1,?2)", params![text,ts])
       .map_err(|e| format!("save episode: {e}"))?;
+    distill_structured_memories(&connection,&text,ts)?;
     Ok(())
 }
 
@@ -275,7 +418,62 @@ pub(crate) fn desktop_memory_recall(app: AppHandle, query: String) -> Result<Str
     candidates.sort_by(|a,b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then_with(|| b.2.cmp(&a.2)));
     candidates.truncate(6);
 
+    let mut structured_candidates: Vec<(i64,String,String,f64,String,i64,i64,f64)> = Vec::new();
+    {
+      let mut statement = connection.prepare(
+        "SELECT id,kind,text,importance,status,last_seen_ts,hit_count FROM structured_memories ORDER BY last_seen_ts DESC LIMIT 240"
+      ).map_err(|e| format!("prepare structured recall: {e}"))?;
+      let rows = statement.query_map([],|row| Ok((
+        row.get::<_,i64>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?,
+        row.get::<_,f64>(3)?,row.get::<_,String>(4)?,row.get::<_,i64>(5)?,row.get::<_,i64>(6)?
+      ))).map_err(|e| format!("structured recall: {e}"))?;
+      for row in rows {
+        let (id,kind,text,importance,status,last_seen_ts,hit_count) = row.map_err(|e| format!("structured recall row: {e}"))?;
+        let lexical = similarity(&query_tokens,&text);
+        let age_days = ((now_ms() - last_seen_ts).max(0) as f64) / 86_400_000.0;
+        let recency = (0.14 - age_days / 180.0).max(0.0);
+        let reinforcement = ((hit_count.min(8) as f64) * 0.008).min(0.064);
+        let kind_bonus = match kind.as_str() {
+          "preference" => 0.08,
+          "relationship_context" => 0.07,
+          "active_thread" if status == "active" => 0.12,
+          _ => 0.03,
+        };
+        let score = lexical + importance * 0.18 + recency + reinforcement + kind_bonus;
+        if lexical > 0.08 {
+          structured_candidates.push((id,kind,text,importance,status,last_seen_ts,hit_count,score));
+        }
+      }
+    }
+    structured_candidates.sort_by(|a,b| b.7.partial_cmp(&a.7).unwrap_or(std::cmp::Ordering::Equal).then_with(|| b.5.cmp(&a.5)));
+    structured_candidates.truncate(5);
+
+    let mut active_threads = Vec::new();
+    {
+      let cutoff = now_ms() - 7 * 24 * 60 * 60_000;
+      let mut statement = connection.prepare(
+        "SELECT text,last_seen_ts FROM structured_memories WHERE kind='active_thread' AND status='active' AND last_seen_ts>=?1 ORDER BY last_seen_ts DESC LIMIT 3"
+      ).map_err(|e| format!("prepare active thread recall: {e}"))?;
+      let rows = statement.query_map([cutoff],|row| Ok((row.get::<_,String>(0)?,row.get::<_,i64>(1)?)))
+        .map_err(|e| format!("active thread recall: {e}"))?;
+      active_threads = rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect active threads: {e}"))?;
+    }
+
     let mut parts = Vec::new();
+    if !structured_candidates.is_empty() {
+      let lines = structured_candidates.iter()
+        .map(|(_,kind,text,_,status,_,_,_)| format!("- [{}{}] {}",structured_kind_label(kind),if status == "resolved" {" · đã giải quyết"} else {""},text))
+        .collect::<Vec<_>>().join("\n");
+      parts.push(format!(
+        "Ký ức có cấu trúc — chỉ là những điều người dùng từng tự nói, không phải suy luận của Mira:\n{lines}"
+      ));
+    }
+    if !active_threads.is_empty() {
+      let lines = active_threads.iter().map(|(text,_)| format!("- {text}")).collect::<Vec<_>>().join("\n");
+      parts.push(format!(
+        "Mạch đang theo dõi gần đây (chỉ nhắc lại khi phù hợp với câu chuyện hiện tại):\n{lines}"
+      ));
+    }
     if !candidates.is_empty() {
       let lines = candidates.iter().map(|(text,_,_)| format!("- {text}")).collect::<Vec<_>>().join("\n");
       parts.push(format!("Ký ức cục bộ liên quan:\n{lines}"));
@@ -302,7 +500,7 @@ pub(crate) fn desktop_memory_recall(app: AppHandle, query: String) -> Result<Str
 
 #[tauri::command]
 pub(crate) fn desktop_memory_clear(app: AppHandle) -> Result<(), String> {
-    open(&app)?.execute_batch("DELETE FROM turns; DELETE FROM episodes; DELETE FROM affect;")
+    open(&app)?.execute_batch("DELETE FROM turns; DELETE FROM episodes; DELETE FROM structured_memories; DELETE FROM affect;")
       .map_err(|e| format!("clear memory: {e}"))
 }
 
@@ -335,6 +533,16 @@ pub(crate) fn desktop_memory_export(app: AppHandle) -> Result<MemorySnapshot, St
       let rows = s.query_map([],|row| Ok(MemoryEpisode{text:row.get(0)?,ts:row.get(1)?})).map_err(|e| format!("episode rows: {e}"))?;
       rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect episodes: {e}"))?
     };
+    let structured_memories = {
+      let mut s = connection.prepare(
+        "SELECT kind,text,importance,status,first_seen_ts,last_seen_ts,hit_count FROM structured_memories ORDER BY last_seen_ts ASC,id ASC"
+      ).map_err(|e| format!("export structured memories: {e}"))?;
+      let rows = s.query_map([],|row| Ok(StructuredMemory{
+        kind:row.get(0)?,text:row.get(1)?,importance:row.get(2)?,status:row.get(3)?,
+        first_seen_ts:row.get(4)?,last_seen_ts:row.get(5)?,hit_count:row.get(6)?
+      })).map_err(|e| format!("structured memory rows: {e}"))?;
+      rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect structured memories: {e}"))?
+    };
     let affects = {
       let mut s = connection.prepare("SELECT mood,confidence,valence,arousal,engagement,fatigue,tension,ts FROM affect ORDER BY ts ASC,id ASC")
         .map_err(|e| format!("export affect: {e}"))?;
@@ -344,7 +552,7 @@ pub(crate) fn desktop_memory_export(app: AppHandle) -> Result<MemorySnapshot, St
       })).map_err(|e| format!("affect rows: {e}"))?;
       rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect affect: {e}"))?
     };
-    Ok(MemorySnapshot{exported_at:now_ms().to_string(),turns,episodes,affects})
+    Ok(MemorySnapshot{exported_at:now_ms().to_string(),turns,episodes,structured_memories,affects})
 }
 
 #[tauri::command]

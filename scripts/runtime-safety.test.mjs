@@ -179,3 +179,25 @@ test('desktop music library is opt-in, root-scoped and keeps local play history'
   assert.match(skill, /action: 'recent'/);
   assert.match(skill, /Bật lại bài hôm trước anh nghe/);
 });
+
+test('desktop companion memory distills only user-stated structured memories and tracks open threads', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  const prompt = readFileSync('src/core/brain/prompt.ts', 'utf8');
+  for (const token of [
+    'CREATE TABLE IF NOT EXISTS structured_memories',
+    'user_statement',
+    'split_once("\\nMira:")',
+    '"preference"',
+    '"life_event"',
+    '"relationship_context"',
+    '"emotional_episode"',
+    '"active_thread"',
+    "status='resolved'",
+    'Mạch đang theo dõi gần đây',
+    'không phải suy luận của Mira',
+  ]) assert.ok(memory.includes(token), 'missing structured companion memory token: ' + token);
+  assert.match(memory, /dung nho/);
+  assert.match(memory, /DELETE FROM structured_memories/);
+  assert.match(prompt, /Ký ức dài hạn chỉ được xem là điều người dùng từng tự nói/);
+  assert.match(prompt, /Tín hiệu biểu cảm\/camera chỉ là quan sát có độ tin cậy/);
+});
