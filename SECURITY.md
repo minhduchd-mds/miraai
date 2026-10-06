@@ -11,6 +11,8 @@ Mira is a voice-first companion with optional cloud providers, persistent memory
 
 ## Memory
 
+### Browser/server
+
 Current identity is an **anonymous browser scope**:
 - legacy `device_id` seeds existing memory once;
 - server pins the scope in an HttpOnly, SameSite=Lax cookie;
@@ -19,6 +21,18 @@ Current identity is an **anonymous browser scope**:
 Users can disable memory and can edit, forget, export or delete stored facts/history from Settings.
 
 This is not equivalent to authenticated account ownership. A multi-user/team deployment should replace/link the anonymous scope with authenticated user/org identity and enforce authorization server-side.
+
+### Desktop local
+
+Desktop dùng SQLite `mira.db` cho local turns, structured memory, affect, permissions và music history.
+
+- durable structured memory chỉ được distill từ text người dùng tự nói;
+- “đừng nhớ/đừng lưu” chặn raw turn + distillation tương ứng;
+- affect là observation, không phải personal fact;
+- local music indexing là opt-in và root-scoped;
+- native media permission được kiểm tra lại ở Rust trước execution.
+
+Desktop signing/notarization vẫn là release hardening work; local storage chưa được mô tả là encrypted-at-rest cho tới khi encryption layer thực sự được bật.
 
 ## Voice and sensors
 

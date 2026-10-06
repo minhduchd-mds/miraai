@@ -143,10 +143,16 @@ The default provider adapters currently return conversational text; the `BrainRe
 
 ## 7. Memory & privacy
 
-Memory consists of:
-- recent turns;
-- semantic recall via embeddings/pgvector;
-- durable facts distilled from conversation.
+Memory hiện có nhiều tầng:
+
+- web/server: recent turns + profile/facts + Neon/pgvector path;
+- desktop: SQLite `mira.db`;
+- structured memory: `fact | preference | life_event | relationship_context | emotional_episode | active_thread`;
+- memory graph: `co_occurs` + `semantic_temporal`;
+- active-thread lifecycle: `active → resolved`;
+- explicit opt-out: các câu kiểu “đừng nhớ/đừng lưu” không được persist/distill.
+
+Camera affect chỉ là observation có confidence; nó không tự trở thành durable personal fact.
 
 Client preference can disable load/save/recall/distill.
 
@@ -429,7 +435,8 @@ There is no reason to rewrite the Python Voice Runtime into Node solely for unif
 
 ## 10. Quality gates
 
-CI (Node 22 + 24):
+CI (Node 24 + 26):
+- Node 24 LTS baseline + Node 26 forward-compatibility;
 - architecture guard;
 - skill contract guard;
 - TypeScript;

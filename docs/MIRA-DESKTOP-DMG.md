@@ -1,30 +1,57 @@
-# Mira Desktop · macOS DMG
+# Mira Desktop — Windows & macOS
 
-Mira Desktop uses Tauri 2 and the system WebKit webview instead of bundling Chromium.
+Mira Desktop dùng **Tauri 2 + local Vite frontend**. UI được đóng gói cùng ứng dụng; không còn là wrapper bắt buộc mở Vercel.
 
-## Architecture
+## Runtime
 
-- Native shell: Tauri 2.
-- Production UI/backend: https://miraai-five.vercel.app
-- No provider API keys are bundled into the DMG.
-- Brain, memory and ElevenLabs remain server-side on Vercel.
-- macOS camera, microphone and speech-recognition usage descriptions are declared in Info.plist.
-- Initial artifact targets Intel Macs through x86_64-apple-darwin.
+```text
+Tauri
+├─ Local frontend
+├─ Rust native bridge
+├─ SQLite mira.db
+│  ├─ turns / episodes
+│  ├─ structured_memories / memory_links
+│  ├─ affect / permissions
+│  └─ music_tracks / music_context_history
+└─ Cloud optional
+   ├─ Brain Gateway
+   └─ ElevenLabs
+```
 
-This first desktop build intentionally uses the remote production URL so it always receives the latest Mira UI and keeps server API requests same-origin. A later offline/local build can embed the Vite dist if required.
+## Local permissions
+
+- `media.control`
+- `media.library`
+- `memory.affect`
+
+Music Library chỉ index thư mục người dùng chủ động chọn, bỏ qua symlink và có giới hạn scan. Native Rust layer kiểm tra permission trước khi thực thi.
 
 ## Build
 
-GitHub Actions workflow:
+### Windows x64
 
-`.github/workflows/macos-dmg.yml`
+```bash
+npx tauri build --bundles nsis --target x86_64-pc-windows-msvc
+```
 
-Runner:
+Workflow: `.github/workflows/release-windows-v0.1.0.yml`
 
-`macos-15-intel`
+### macOS Intel
 
-Build:
+```bash
+npx tauri build --bundles dmg --target x86_64-apple-darwin
+```
 
-`npx tauri build --bundles dmg --target x86_64-apple-darwin`
+Workflow: `.github/workflows/macos-dmg.yml`
 
-The current build is ad-hoc signed, not Apple notarized. macOS may show a first-launch Gatekeeper warning for downloaded artifacts until an Apple Developer signing identity and notarization credentials are configured.
+## Node policy
+
+- Build baseline: Node 24 LTS.
+- CI compatibility: Node 26 Current.
+- Repo contract: `>=24 <27`.
+
+## Release limitations
+
+- Windows installer chưa Authenticode-signed.
+- macOS build hiện ad-hoc signed, chưa Apple notarized.
+- Local-first không đồng nghĩa fully-offline: cloud Brain/ElevenLabs vẫn cần mạng khi được chọn.
