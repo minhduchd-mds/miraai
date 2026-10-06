@@ -13,7 +13,7 @@ on:
       - ".github/workflows/macos-dmg.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: mira-macos-dmg
@@ -22,7 +22,11 @@ concurrency:
 jobs:
   build-intel-dmg:
     runs-on: macos-15-intel
-    timeout-minutes: 30
+    timeout-minutes: 35
+
+    env:
+      RELEASE_TAG: v0.1.0
+      RELEASE_DMG: Mira-v0.1.0-macOS-Intel.dmg
 
     steps:
       - name: Checkout
@@ -79,10 +83,44 @@ jobs:
           file "$binary"
           file "$binary" | grep -q 'x86_64'
 
-      - name: Upload DMG
+      - name: Stage release DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="$(find src-tauri/target/x86_64-apple-darwin/release/bundle/dmg -name '*.dmg' -type f | head -n 1)"
+          test -n "$dmg"
+          mkdir -p release
+          cp "$dmg" "release/$RELEASE_DMG"
+          shasum -a 256 "release/$RELEASE_DMG" | sed 's#release/##' > "release/$RELEASE_DMG.sha256"
+          ls -lh release
+          cat "release/$RELEASE_DMG.sha256"
+
+      - name: Upload DMG to GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" >/dev/null
+          gh release upload "$RELEASE_TAG"             "release/$RELEASE_DMG"             "release/$RELEASE_DMG.sha256"             --clobber
+
+      - name: Verify macOS release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+          echo "$assets"
+          grep -Fxq "$RELEASE_DMG" <<<"$assets"
+          grep -Fxq "$RELEASE_DMG.sha256" <<<"$assets"
+
+      - name: Upload DMG build artifact
         uses: actions/upload-artifact@v4
         with:
           name: Mira-macOS-Intel-DMG
-          path: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+          path: |
+            release/*.dmg
+            release/*.sha256
           if-no-files-found: error
           retention-days: 30
