@@ -157,7 +157,7 @@ test('desktop local actions are guarded by persisted native permissions', () => 
   assert.match(memory, /permission_enabled/);
   assert.match(memory, /"media\.control"/);
   assert.match(memory, /"memory\.affect"/);
-  assert.match(media, /permission_enabled\(&app, "media\.control"/);
+  assert.match(media, /permission_enabled\(&app,\s*"media\.control"/);
   assert.match(skill, /desktopMusicRequest/);
   assert.match(skill, /action: 'search'/);
   assert.match(skill, /Mở bài The Night I Found You/);
