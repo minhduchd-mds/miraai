@@ -104,7 +104,10 @@ export function classifyFinanceIntent(input: string): FinanceIntent | null {
 
   const liveCue = /\b(hom nay|hien tai|bay gio|gia|quote|current|latest|thi truong)\b/.test(q);
   const marketCue = /\b(co phieu|stock|vn index|vnindex|bitcoin|ethereum|crypto|nasdaq|s&p|dow|gia vang|gold)\b/.test(q);
-  if (marketCue && liveCue) return {kind:'market-live',score:0.985,freshnessRequired:true,symbol:explicitSymbol(input)};
+  const detectedSymbol = explicitSymbol(input);
+  if (liveCue && (marketCue || detectedSymbol)) {
+    return {kind:'market-live',score:0.985,freshnessRequired:true,symbol:detectedSymbol};
+  }
 
   const adviceCue = /\b(nen mua|nen ban|nen dau tu|phan bo|chia tien|danh muc|portfolio|rui ro vua|dau tu the nao|co nen)\b/.test(q);
   if (adviceCue) return {kind:'personal-advice',score:0.96,freshnessRequired:false};
