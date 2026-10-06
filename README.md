@@ -28,6 +28,7 @@ Mira là AI companion ưu tiên **giọng nói + continuity**: trò chuyện, gh
 | Vision | Face / gaze / hand / pose | Beta | 8/10 |
 | Spatial/XR | Webcam spatial + WebXR stack | Experimental | 6.5/10 |
 | Presence | 2D scenes + optional VRM/3D | Beta | 8/10 |
+| Finance | Tool-first calculator + verified FX/market adapter | Beta | 8/10 |
 | Security | Server-side secrets + capability/host policy | Beta+ | 8/10 |
 
 Chi tiết: [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md).
@@ -42,7 +43,7 @@ flowchart LR
     D --> E[(SQLite / IndexedDB / Neon)]
     D --> F[Memory Graph]
     B --> G[Skill Registry]
-    G --> H[Music / Host / External skills]
+    G --> H[Finance / Music / Host / External skills]
     B --> I[Affect + Proactive Engine]
     C --> J[ElevenLabs / TTS]
     J --> K[Presence 2D / 3D]
@@ -64,6 +65,12 @@ flowchart LR
 `fact` · `preference` · `life_event` · `relationship_context` · `emotional_episode` · `active_thread`
 
 Memory Graph dùng `co_occurs` + `semantic_temporal`. Durable personal memory chỉ lấy từ điều người dùng từng tự nói. Lệnh **“đừng nhớ / đừng lưu”** chặn persistence của turn và distillation tương ứng.
+
+## Smart Query Router
+
+Các skill có thể khai báo `pre-brain`: tool chạy **trước** Brain, kết quả được đưa vào context dạng evidence. Finance là domain đầu tiên dùng cơ chế này:
+
+`knowledge → Brain` · `calculation → deterministic calculator` · `live data → verified source` · `personal advice → risk policy`
 
 ## Vision & Affect
 

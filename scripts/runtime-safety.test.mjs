@@ -238,3 +238,21 @@ test('companion graph adds guarded semantic-temporal links and narrows passive m
   assert.match(memory, /already_selected/);
   assert.match(media, /now - 45 \* 60_000/);
 });
+
+test('tool-first finance evidence runs before Brain and refuses unverified live prices', () => {
+  const types = readFileSync('src/intelligence/skills/types.ts', 'utf8');
+  const registry = readFileSync('src/intelligence/skills/registry.ts', 'utf8');
+  const turn = readFileSync('src/runtime/turn-manager.ts', 'utf8');
+  const live = readFileSync('src/intelligence/skills/finance-live-skill.ts', 'utf8');
+  const policy = readFileSync('src/intelligence/skills/finance-policy-skill.ts', 'utf8');
+  const gateway = readFileSync('api/finance.js', 'utf8');
+  assert.match(types, /SkillExecutionMode = 'parallel' \| 'pre-brain'/);
+  assert.match(registry, /financeCalculatorSkill/);
+  assert.match(registry, /financeLiveSkill/);
+  assert.match(turn, /preBrainPromise/);
+  assert.match(turn, /MIRA_TOOL_EVIDENCE/);
+  assert.match(live, /verified-live-data-unavailable/);
+  assert.match(policy, /Không bịa giá hiện tại/);
+  assert.match(gateway, /TWELVE_DATA_API_KEY/);
+  assert.match(gateway, /api\.frankfurter\.dev\/v2\/rate/);
+});

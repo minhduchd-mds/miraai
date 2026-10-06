@@ -84,6 +84,8 @@ const spatialHandKinematics = await importTypeScript('src/core/vision/spatial-ha
 const spatialHandContact = await importTypeScript('src/core/vision/spatial-hand-contact.ts');
 const spatialHandIntent = await importTypeScript('src/core/vision/spatial-hand-intent.ts');
 const spatialXRHandBridge = await importTypeScript('src/core/vision/spatial-xr-hand-bridge.ts');
+const financeIntent = await importTypeScript('src/intelligence/finance/finance-intent.ts');
+const financeCalculators = await importTypeScript('src/intelligence/finance/calculators.ts');
 
 test('voice lifecycle follows the expected state path', () => {
   let state = 'idle';
@@ -5446,4 +5448,30 @@ test('voice settings status keeps fallback wording compact', () => {
   for (const token of ["'Dự phòng'", "'Sẵn sàng'", "'Đang phục hồi'", "'Đang kiểm tra'"]) {
     assert.ok(source.includes(token));
   }
+});
+
+test('finance router separates calculation, live FX, live market and advice', () => {
+  assert.equal(financeIntent.classifyFinanceIntent('Vay 500 triệu 5 năm lãi 9%/năm')?.kind, 'calculation');
+  const fx = financeIntent.classifyFinanceIntent('100 USD sang VND bao nhiêu?');
+  assert.equal(fx?.kind, 'fx-live');
+  assert.equal(fx?.baseCurrency, 'USD');
+  assert.equal(fx?.quoteCurrency, 'VND');
+  assert.equal(financeIntent.classifyFinanceIntent('Giá NVIDIA hiện tại bao nhiêu?')?.symbol, 'NVDA');
+  assert.equal(financeIntent.classifyFinanceIntent('Anh có 300 triệu nên phân bổ đầu tư thế nào?')?.kind, 'personal-advice');
+});
+
+test('finance calculator computes compound growth deterministically', () => {
+  const result = financeCalculators.calculateFinance('Có 300 triệu, mỗi tháng 10 triệu, lãi kép 8%/năm trong 10 năm');
+  assert.equal(result?.kind, 'compound-interest');
+  assert.equal(result?.inputs.principal, 300_000_000);
+  assert.equal(result?.inputs.monthlyContribution, 10_000_000);
+  assert.ok(result.outputs.futureValue > result.outputs.totalContributed);
+});
+
+test('finance calculator computes amortized loan payment deterministically', () => {
+  const result = financeCalculators.calculateFinance('Vay 500 triệu 5 năm lãi 9%/năm');
+  assert.equal(result?.kind, 'loan-payment');
+  assert.equal(result?.inputs.principal, 500_000_000);
+  assert.ok(result.outputs.monthlyPayment > 9_000_000);
+  assert.ok(result.outputs.monthlyPayment < 12_000_000);
 });

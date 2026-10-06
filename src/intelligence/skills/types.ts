@@ -2,6 +2,7 @@ import type { HostContext } from '../../host';
 import type { ResultView } from './result-view';
 
 export type SkillRisk = 'local-read' | 'external-read' | 'write' | 'sensitive';
+export type SkillExecutionMode = 'parallel' | 'pre-brain';
 
 export type MiraCapability =
   | 'host.read'
@@ -52,6 +53,8 @@ export interface MiraSkill {
   id: string;
   description: string;
   priority?: number;
+  /** pre-brain skills provide verified/deterministic evidence before the LLM answers. */
+  executionMode?: SkillExecutionMode;
   risk: SkillRisk;
   requiresNetwork: boolean;
   supportsVoice: boolean;

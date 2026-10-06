@@ -3,6 +3,9 @@ import { evaluateSkillCapabilityPolicy } from '../../runtime/capability-policy';
 import { weatherSkill } from './weather-skill';
 import { imageSkill } from './image-skill';
 import { desktopMusicSkill } from './desktop-music-skill';
+import { financeCalculatorSkill } from './finance-calculator-skill';
+import { financeLiveSkill } from './finance-live-skill';
+import { financePolicySkill } from './finance-policy-skill';
 
 export class SkillRegistry {
   private readonly skills = new Map<string, MiraSkill>();
@@ -62,13 +65,18 @@ export class SkillRegistry {
     }
   }
 
-  async execute(input: string, context: SkillContext): Promise<SkillResult | null> {
+  route(input: string): { skill: MiraSkill; score: number } | null {
     const ranked = this.list()
       .map((skill) => ({ skill, score: skill.match(input) }))
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score || (b.skill.priority ?? 0) - (a.skill.priority ?? 0));
-    if (!ranked.length) return null;
-    return this.run(ranked[0].skill, input, context);
+    return ranked[0] ?? null;
+  }
+
+  async execute(input: string, context: SkillContext): Promise<SkillResult | null> {
+    const route = this.route(input);
+    if (!route) return null;
+    return this.run(route.skill, input, context);
   }
 
   async executeById(id: string, input: string, context: SkillContext): Promise<SkillResult | null> {
@@ -79,5 +87,5 @@ export class SkillRegistry {
 }
 
 export function createDefaultSkillRegistry(): SkillRegistry {
-  return new SkillRegistry([desktopMusicSkill, weatherSkill, imageSkill]);
+  return new SkillRegistry([financeCalculatorSkill, financeLiveSkill, financePolicySkill, desktopMusicSkill, weatherSkill, imageSkill]);
 }

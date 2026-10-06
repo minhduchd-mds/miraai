@@ -926,3 +926,32 @@ if (failures.length) {
 }
 console.log('Mira architecture guard passed.');
 
+
+const financeIntent = readFileSync('src/intelligence/finance/finance-intent.ts', 'utf8');
+const financeCalculator = readFileSync('src/intelligence/finance/calculators.ts', 'utf8');
+const financeLive = readFileSync('src/intelligence/skills/finance-live-skill.ts', 'utf8');
+const financePolicy = readFileSync('src/intelligence/skills/finance-policy-skill.ts', 'utf8');
+const financeGateway = readFileSync('api/finance.js', 'utf8');
+const financeSkillTypes = readFileSync('src/intelligence/skills/types.ts', 'utf8');
+const financeSkillRegistry = readFileSync('src/intelligence/skills/registry.ts', 'utf8');
+const financeTurnManager = readFileSync('src/runtime/turn-manager.ts', 'utf8');
+for (const token of ['calculation', 'fx-live', 'market-live', 'personal-advice']) {
+  if (!financeIntent.includes(token)) failures.push(`finance router missing intent: ${token}`);
+}
+for (const token of ['compound-interest', 'loan-payment', 'percentage-change']) {
+  if (!financeCalculator.includes(token)) failures.push(`finance calculator missing: ${token}`);
+}
+for (const token of ["executionMode:'pre-brain'", 'verified-live-data', 'miraCloudApiUrl']) {
+  if (!financeLive.includes(token)) failures.push(`finance live skill missing: ${token}`);
+}
+if (!financePolicy.includes('Không bịa giá hiện tại')) failures.push('finance policy must block guessed live prices');
+for (const token of ['Frankfurter', 'TWELVE_DATA_API_KEY', 'market_provider_not_configured']) {
+  if (!financeGateway.includes(token)) failures.push(`finance gateway missing: ${token}`);
+}
+if (!financeSkillTypes.includes("'pre-brain'")) failures.push('skill contract missing pre-brain execution mode');
+for (const token of ['financeCalculatorSkill', 'financeLiveSkill', 'financePolicySkill']) {
+  if (!financeSkillRegistry.includes(token)) failures.push(`finance skill not registered: ${token}`);
+}
+for (const token of ['preBrainPromise', 'preBrainEvidence', 'MIRA_TOOL_EVIDENCE']) {
+  if (!financeTurnManager.includes(token)) failures.push(`TurnManager missing tool-first evidence: ${token}`);
+}
