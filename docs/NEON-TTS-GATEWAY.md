@@ -1,81 +1,57 @@
 # Mira TTS on Neon Functions
 
-Mira can host its ElevenLabs proxy as a Neon Function instead of Render/Vercel.
+Neon Functions is an optional deployment target for the same ElevenLabs-only voice boundary used by Mira.
 
-## Runtime
+## Function
 
-Source:
+Configured in `neon.ts`:
 
-`functions/miratts/index.mjs`
+```text
+functions/miratts/index.mjs
+```
 
-The function is a Node.js 24 HTTP handler with:
+Endpoints:
 
 - `GET /health`
 - `GET /voices`
 - `POST /tts`
-- CORS restricted to `https://minhduchd-mds.github.io`
-- bounded text size
-- soft per-instance rate limiting
-- ElevenLabs request timeout
-- server-only API key access
 
-## Required server environment
+The function keeps `ELEVENLABS_API_KEY` server-side, enforces origin checks, bounded input, an upstream timeout and bounded in-memory rate-limit state.
 
-The function expects:
+## Environment
 
 ```env
-ELEVENLABS_API_KEY=...
+ELEVENLABS_API_KEY=
 MIRA_TTS_ALLOWED_ORIGIN=https://minhduchd-mds.github.io
 ELEVENLABS_TTS_MODEL=eleven_multilingual_v2
 ELEVENLABS_TTS_VOICE=EXAVITQu4vr4xnSDxMaL
 ```
 
-Only the function runtime receives `ELEVENLABS_API_KEY`.
+GitHub Pages receives only the public gateway URL through `VITE_MIRA_TTS_URL`.
 
-## Pages wiring
+## Failure behavior
 
-GitHub Pages receives only the public gateway URL:
+Mira does **not** silently switch to a different TTS provider.
 
-```env
-MIRA_TTS_URL=https://<neon-function-public-url>
-```
+1. Gateway health is probed.
+2. Repeated failures open a bounded circuit-breaker cooldown.
+3. Voice status reports the gateway as unhealthy/recovering.
+4. Mira retries the neural gateway after the recovery window.
 
-The Pages workflow maps that variable to:
+This keeps voice identity deterministic and avoids hidden browser/provider fallbacks.
 
-```env
-VITE_MIRA_TTS_URL=$MIRA_TTS_URL
-```
+## Deploy
 
-The browser never receives the ElevenLabs API key.
+`.github/workflows/neon-deploy.yml` deploys `neon.ts` using Node 24 and the configured `NEON_PROJECT_ID`.
 
-## Fallback behavior
-
-On Pages:
-
-1. Mira prefers the configured HTTPS neural gateway.
-2. Two consecutive gateway failures open a 30 second circuit-breaker cooldown.
-3. During cooldown, speech automatically falls back to Piper Local Neural.
-4. After cooldown, Mira retries the neural gateway.
-5. Piper itself falls back to Web Speech if local WASM/OPFS cannot run.
-
-## Current deployment prerequisite
-
-Automated Neon deployment requires a target project and credentials outside the browser:
+Required GitHub configuration:
 
 ```env
-NEON_API_KEY=...
-NEON_PROJECT_ID=...
-ELEVENLABS_API_KEY=...
+NEON_API_KEY=
+NEON_PROJECT_ID=
+ELEVENLABS_API_KEY=
 ```
-
-Once a Neon project target is available, deploy the `miratts` function to the main branch and set the resulting HTTPS function URL as GitHub Environment variable `MIRA_TTS_URL`.
 
 ## Security boundary
 
-Do not:
-
-- expose `ELEVENLABS_API_KEY` through any `VITE_*` variable;
-- store ElevenLabs credentials in localStorage;
-- call ElevenLabs directly from GitHub Pages;
-- log speech text or API keys in the gateway;
-- disable CORS restrictions for production.
+Do not expose provider secrets through `VITE_*`, localStorage or client-side source. Do not log speech content/API keys and do not widen production CORS without an explicit deployment requirement.

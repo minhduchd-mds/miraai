@@ -150,8 +150,8 @@ export default function VRMAvatar({ url, stateRef, moodRef, accent, onLoaded, on
     const st = stateRef.current;
     const faceOn = faceData.active && faceData.present; // webcam đang lái avatar (chế độ gương)
 
-    // Lip-sync: có audio thật (VieNeu/ElevenLabs) → khớp biên độ thật;
-    // không có (Web Speech) → envelope âm tiết tổng hợp như cũ.
+    // Lip-sync: khi ElevenLabs audio có analyser → khớp biên độ thật;
+    // nếu analyser chưa sẵn sàng → dùng envelope âm tiết tổng hợp.
     talk.current.timer -= d;
     if (st === 'speaking') {
       if (audioLevel.active) {

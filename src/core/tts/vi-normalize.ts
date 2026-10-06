@@ -1,5 +1,5 @@
-// Chuẩn hoá văn bản TIẾNG VIỆT trước khi đọc (TTS) → giọng nghe TỰ NHIÊN hơn trên MỌI engine
-// (Edge/ElevenLabs/VieNeu/Web Speech). Số, phần trăm, độ, giờ, tiền… đọc bằng CHỮ như người Việt nói,
+// Chuẩn hoá văn bản TIẾNG VIỆT trước khi đọc (TTS) → giọng ElevenLabs nghe tự nhiên hơn.
+// Số, phần trăm, độ, giờ, tiền… đọc bằng CHỮ như người Việt nói,
 // thay vì để engine đọc thô "ba mươi độ xê" kiểu máy hoặc đọc sai "1.234" thành "một chấm hai ba bốn".
 //
 // Prompt đã dặn LLM đọc số tự nhiên, nhưng: (1) LLM (nhất là Gemini free) không phải lúc nào cũng theo;

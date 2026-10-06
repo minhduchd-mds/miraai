@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { defaultModelFor, loadLLMConfig, type LLMConfig } from '../core/brain';
-import { loadTTSConfig, type TTSConfig, type TTSDiagnostics } from '../core/tts';
+import type { TTSDiagnostics } from '../core/tts';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 import { SCENES, OUTFITS, lookImage, type AvatarSel, type Scene } from '../core/avatar-config';
 import { voicePrefs, saveVoicePrefs, SPEEDS, PERSONAS } from '../core/voice-prefs';
@@ -125,7 +125,6 @@ interface Props {
   onClose: () => void;
   brainName: string;
   onSaveLLM: (cfg: LLMConfig) => void;
-  onSaveTTS: (cfg: TTSConfig) => void;
   onTestBrain: () => Promise<string>;
   onTestVoice: () => void;
   getDiagnostics: () => TTSDiagnostics;
@@ -145,7 +144,7 @@ interface Props {
 }
 
 export default function DevConsole({
-  open, onClose, brainName, onSaveLLM, onSaveTTS, onTestBrain, onTestVoice, getDiagnostics,
+  open, onClose, brainName, onSaveLLM, onTestBrain, onTestVoice, getDiagnostics,
   theme, onTheme, avatarSel, onAvatarChange, avatarOpacity, onAvatarOpacity,
   voices, voiceURI, onSelectVoice, state, onGoState, onSimulate, simulating,
 }: Props) {
@@ -161,10 +160,6 @@ export default function DevConsole({
   const [diag, setDiag] = useState<TTSDiagnostics | null>(null);
   const [brainTest, setBrainTest] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
-  const [ttsEngine, setTtsEngine] = useState<TTSConfig['engine']>('system');
-  const [ttsKey, setTtsKey] = useState('');
-  const [ttsServer, setTtsServer] = useState('');
-  const [ttsSaved, setTtsSaved] = useState<string | null>(null);
   const [vadOn, setVadOn] = useState(false);
   const [notify, setNotify] = useState<NotifyCfg>({});
   const [rate, setRate] = useState(voicePrefs.rate);
@@ -182,11 +177,6 @@ export default function DevConsole({
     setWebSearch(initial.webSearch);
     setSaved(null);
     setBrainTest(null);
-    const t = loadTTSConfig();
-    setTtsEngine(t.engine);
-    setTtsKey(t.apiKey);
-    setTtsServer(t.serverUrl);
-    setTtsSaved(null);
     setVadOn(loadVadEnabled());
     setNotify(loadNotify());
     setRate(voicePrefs.rate);
@@ -252,18 +242,6 @@ export default function DevConsole({
     setBrainTest('Đang gọi…');
     setBrainTest(await onTestBrain());
     setTesting(false);
-  };
-  const saveTts = () => {
-    onSaveTTS({ engine: ttsEngine, apiKey: ttsKey.trim(), voiceId: '', serverUrl: ttsServer.trim() });
-    setTtsSaved(
-      ttsEngine === 'edge'
-        ? 'Đã đổi sang Edge (Microsoft) — chạy server/ rồi bấm Đọc thử để nghe.'
-        : ttsEngine === 'vieneu'
-          ? 'Đã đổi sang VieNeu (server nhà) — bấm Đọc thử để nghe.'
-          : ttsEngine === 'elevenlabs' && ttsKey.trim()
-            ? 'Đã đổi sang giọng ElevenLabs — bấm Đọc thử để nghe.'
-            : 'Đang dùng giọng hệ thống (miễn phí).',
-    );
   };
 
   // ── Nhân vật: bối cảnh → trang phục (gộp cả nam + nữ trong một danh sách) ──
@@ -537,7 +515,7 @@ export default function DevConsole({
               <li><IconStop /> <b>Ngắt lời:</b> Mira đang nói, bấm mic/Space là dừng. Bật <b>VAD</b> (tab Giao diện) để ngắt bằng giọng.</li>
               <li><IconCamera /> <b>Camera:</b> nút Camera trên đầu — avatar nhìn &amp; biểu cảm theo anh qua webcam (cần HTTPS).</li>
               <li><IconOrb /> <b>Orb / Avatar:</b> nút Orb đổi giữa nhân vật 3D và quả cầu giọng nói.</li>
-              <li><IconSpeech /> <b>Giọng Việt tự nhiên:</b> tab Giao diện → Giọng nói → <b>Edge</b> (free) hoặc <b>VieNeu</b> (bảo mật).</li>
+              <li><IconSpeech /> <b>Giọng Việt tự nhiên:</b> Mira dùng ElevenLabs qua gateway server-side; API key không nằm trong trình duyệt.</li>
               <li><IconBrain /> <b>Thông minh hơn:</b> tab Model → dán API key Claude → bật <b>Tìm kiếm web</b> để hỏi tin mới.</li>
               <li><IconShirt /> <b>Nhân vật:</b> tab Giao diện → chọn bối cảnh, giới tính, trang phục.</li>
             </ul>

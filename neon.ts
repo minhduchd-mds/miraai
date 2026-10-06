@@ -8,7 +8,7 @@ export default defineConfig({
       assets: { access: "private" },
     },
     functions: {
-      api: { name: "api", source: "./hello.ts" },
+      miratts: { name: "miratts", source: "./functions/miratts/index.mjs" },
     },
   },
 });

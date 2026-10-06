@@ -20,7 +20,7 @@ const mustExist = [
   'src/core/tts/vi-normalize.ts',
   'src/core/tts/vi-speech-director.ts',
   'src/core/tts/server-tts.ts',
-  'src/core/tts/piper-local-tts.ts',
+  'src/core/tts/diagnostics.ts',
   'src/core/brain/local-webllm-brain.ts',
   'src/core/face/facial-gesture.ts',
   'src/core/face/facs-proxy.ts',
@@ -176,11 +176,11 @@ if (v2.includes('sendText')) failures.push('voice-only production surface must n
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
 
 const settingsPanel = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
-for (const token of ['getVoiceDiagnostics', 'voiceDiagnostics', 'v2-voice-runtime', 'data-health', 'data-fallback', "'Dự phòng'", "'Sẵn sàng'", "'Đang phục hồi'"]) {
+for (const token of ['getVoiceDiagnostics', 'voiceDiagnostics', 'v2-voice-runtime', 'data-health', "'Sẵn sàng'", "'Đang phục hồi'", 'không tự chuyển sang provider khác']) {
   if (!settingsPanel.includes(token)) failures.push(`voice runtime Settings status missing: ${token}`);
 }
 const settingsCss = readFileSync('src/settings/settings-v2.css', 'utf8');
-for (const token of ['.v2-voice-runtime', '[data-health="healthy"]', '[data-health="unhealthy"]', '[data-fallback="true"]']) {
+for (const token of ['.v2-voice-runtime', '[data-health="healthy"]', '[data-health="unhealthy"]']) {
   if (!settingsCss.includes(token)) failures.push(`voice runtime status CSS missing: ${token}`);
 }
 for (const token of ['resolveAirTarget', 'v2-air-layer', 'grabActive', 'spatialTransformActive', 'setGestureIntentTelemetry', 'setSpatialHands', 'setAirPoint']) {
@@ -442,7 +442,7 @@ if (/VITE_.*ELEVENLABS_API_KEY|localStorage.*ELEVENLABS_API_KEY/.test(neonTtsGat
 }
 
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
-for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", "engine: 'cloud'", 'elevenLabsOnly: true', 'return new CloudTTS(serverUrl)']) {
+for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", 'legacyGatewayOverride', 'return new CloudTTS(serverUrl)']) {
   if (!localTts.includes(token)) failures.push(`ElevenLabs-only browser TTS routing missing: ${token}`);
 }
 
@@ -458,16 +458,25 @@ for (const token of ['consecutiveFailures', 'circuitOpenUntil', 'server_tts_cool
 for (const token of ["healthState: 'unknown' | 'healthy' | 'unhealthy'", 'nextHealthProbeAt', 'healthProbePromise', 'probeHealth(force = false)', "body?.configured !== false", "this.healthState === 'unhealthy'", 'server_tts_unhealthy', "this.healthState = 'healthy'"]) {
   if (!serverTts.includes(token)) failures.push(`server TTS health-aware recovery missing: ${token}`);
 }
-for (const token of ['fallbackLabel', "provider:", "health:", "fallbackActive:"]) {
+for (const token of ["provider: this.label", "health: this.healthState"]) {
   if (!serverTts.includes(token)) failures.push(`server TTS provider diagnostics missing: ${token}`);
 }
-const webSpeechTts = readFileSync('src/core/tts/webspeech-tts.ts', 'utf8');
-for (const token of ['provider?: string', "health?: 'unknown' | 'healthy' | 'unhealthy'", 'fallbackActive?: boolean', "provider: 'Hệ thống'"]) {
-  if (!webSpeechTts.includes(token)) failures.push(`TTS diagnostics schema missing: ${token}`);
+for (const forbidden of ['fallbackTTS', 'fallbackLabel', 'speakFallback', 'fallbackActive']) {
+  if (serverTts.includes(forbidden)) failures.push(`server TTS contains retired fallback branch: ${forbidden}`);
 }
-const piperTts = readFileSync('src/core/tts/piper-local-tts.ts', 'utf8');
-for (const token of ['usingFallback', "provider: this.usingFallback ? 'Hệ thống' : 'Piper Local'", 'fallbackActive: this.usingFallback']) {
-  if (!piperTts.includes(token)) failures.push(`Piper diagnostics missing: ${token}`);
+const ttsDiagnostics = readFileSync('src/core/tts/diagnostics.ts', 'utf8');
+for (const token of ['provider?: string', "health?: 'unknown' | 'healthy' | 'unhealthy'"]) {
+  if (!ttsDiagnostics.includes(token)) failures.push(`TTS diagnostics schema missing: ${token}`);
+}
+for (const retired of [
+  'src/core/tts/webspeech-tts.ts',
+  'src/core/tts/piper-local-tts.ts',
+  'src/core/tts/edge-tts.ts',
+  'src/core/tts/vieneu-tts.ts',
+  'src/core/tts/elevenlabs-tts.ts',
+  'src/core/tts/google-translate-tts.ts',
+]) {
+  if (existsSync(retired)) failures.push(`retired TTS provider still present: ${retired}`);
 }
 
 const apiHealth = readFileSync('api/health.js', 'utf8');

@@ -188,7 +188,7 @@ export default function App() {
     const loop = () => {
       t += 0.06;
       const state = stateRef.current;
-      // Biên độ ÂM THẬT khi Mira đang nói (Edge/VieNeu/ElevenLabs gắn AnalyserNode) → reactive
+      // Biên độ ÂM THẬT khi Mira đang nói (ElevenLabs audio gắn AnalyserNode) → reactive
       // kiểu Grok thay vì sóng sin giả. -1 = không có nguồn thật (giọng hệ thống) → dùng envelope.
       const live = audioLevel.active ? audioLevel.value : -1;
       const speakGain = live >= 0 ? 0.4 + live * 1.7 : 1;
@@ -319,7 +319,7 @@ export default function App() {
     mira.toggleLive();
   };
 
-  const voiceLabel = mira.voices.find((v) => v.voiceURI === mira.voiceURI)?.name || 'Web Speech · VN';
+  const voiceLabel = mira.voices.find((v) => v.voiceURI === mira.voiceURI)?.name || 'ElevenLabs · VN';
 
   return (
     <div className={`stage${mira.content ? ' has-content' : ''}`}>
@@ -435,7 +435,6 @@ export default function App() {
         onClose={() => setShowConsole(false)}
         brainName={mira.brainName}
         onSaveLLM={mira.applyLLMConfig}
-        onSaveTTS={mira.applyTTSConfig}
         onTestBrain={mira.testBrain}
         onTestVoice={mira.testVoice}
         getDiagnostics={mira.ttsDiagnostics}

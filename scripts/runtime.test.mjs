@@ -5285,13 +5285,6 @@ test('ElevenLabs cloud routing keeps circuit protection without speech fallback'
   }
 });
 
-test('server TTS fallback wording is provider-agnostic', () => {
-  const source = readFileSync('src/core/tts/server-tts.ts', 'utf8');
-  assert.ok(source.includes('chuyển sang giọng dự phòng'));
-  assert.ok(!source.includes('chuyển sang giọng hệ thống.'));
-});
-
-
 test('Neon Mira TTS function exposes health and voices safely', async () => {
   const mod = await import(new URL('../functions/miratts/index.mjs', import.meta.url));
   const handler = mod.default.fetch;
@@ -5408,9 +5401,8 @@ test('ElevenLabs provider uses a bounded upstream timeout', () => {
 });
 
 
-test('voice runtime diagnostics expose active provider and fallback status', () => {
-  const web = readFileSync('src/core/tts/webspeech-tts.ts', 'utf8');
-  const piper = readFileSync('src/core/tts/piper-local-tts.ts', 'utf8');
+test('voice runtime diagnostics expose the active neural gateway without retired fallback state', () => {
+  const diagnostics = readFileSync('src/core/tts/diagnostics.ts', 'utf8');
   const server = readFileSync('src/core/tts/server-tts.ts', 'utf8');
   const cloud = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');
   const settings = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
@@ -5419,35 +5411,29 @@ test('voice runtime diagnostics expose active provider and fallback status', () 
   for (const token of [
     'provider?: string',
     "health?: 'unknown' | 'healthy' | 'unhealthy'",
-    'fallbackActive?: boolean',
-    "provider: 'Hệ thống'",
-  ]) assert.ok(web.includes(token));
+  ]) assert.ok(diagnostics.includes(token));
 
   for (const token of [
-    'usingFallback',
-    "provider: this.usingFallback ? 'Hệ thống' : 'Piper Local'",
-    'fallbackActive: this.usingFallback',
-  ]) assert.ok(piper.includes(token));
-
-  for (const token of [
-    'fallbackLabel',
-    'fallbackActive:',
-    'provider:',
-    'health:',
+    "provider: this.label",
+    "health: this.healthState",
   ]) assert.ok(server.includes(token));
+  for (const retired of ['fallbackTTS', 'fallbackLabel', 'speakFallback', 'fallbackActive']) {
+    assert.ok(!server.includes(retired));
+  }
 
   assert.ok(cloud.includes("label: 'ElevenLabs'"));
-  assert.ok(!cloud.includes('fallbackLabel'));
   assert.ok(settings.includes('getVoiceDiagnostics'));
   assert.ok(settings.includes('v2-voice-runtime'));
   assert.ok(app.includes('getVoiceDiagnostics={mira.ttsDiagnostics}'));
 });
 
-test('voice settings status keeps fallback wording compact', () => {
+test('voice settings report gateway health without claiming a local provider fallback', () => {
   const source = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
-  for (const token of ["'Dự phòng'", "'Sẵn sàng'", "'Đang phục hồi'", "'Đang kiểm tra'"]) {
+  for (const token of ["'Sẵn sàng'", "'Đang phục hồi'", "'Đang kiểm tra'", 'không tự chuyển sang provider khác']) {
     assert.ok(source.includes(token));
   }
+  assert.ok(!source.includes('Piper Local'));
+  assert.ok(!source.includes("'Dự phòng'"));
 });
 
 test('finance router separates calculation, live FX, live market and advice', () => {

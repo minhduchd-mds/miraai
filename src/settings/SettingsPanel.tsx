@@ -185,13 +185,11 @@ export default function SettingsPanel(props: Props) {
     }
   };
   const selectedResponseLength = RESPONSE_LENGTHS.find((item) => item.id === responseLength) ?? RESPONSE_LENGTHS[1];
-  const voiceStatus = voiceDiagnostics?.fallbackActive
-    ? 'Dự phòng'
-    : voiceDiagnostics?.health === 'healthy'
-      ? 'Sẵn sàng'
-      : voiceDiagnostics?.health === 'unhealthy'
-        ? 'Đang phục hồi'
-        : 'Đang kiểm tra';
+  const voiceStatus = voiceDiagnostics?.health === 'healthy'
+    ? 'Sẵn sàng'
+    : voiceDiagnostics?.health === 'unhealthy'
+      ? 'Đang phục hồi'
+      : 'Đang kiểm tra';
 
   return (
     <div className="v2-settings-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && props.onClose()}>
@@ -207,13 +205,13 @@ export default function SettingsPanel(props: Props) {
             <div className="v2-setting-group">
               <h3>Giọng nói</h3>
               <label className="v2-field"><span>Giọng Mira</span><select value={props.voiceURI || ''} onChange={(event) => props.onSelectVoice(event.target.value)}><option value="">Tự động · Tiếng Việt</option>{props.voices.map((voice) => <option key={voice.voiceURI || voice.name} value={voice.voiceURI}>{voice.name}</option>)}</select></label>
-              <div className="v2-voice-runtime" data-health={voiceDiagnostics?.health || 'unknown'} data-fallback={voiceDiagnostics?.fallbackActive ? 'true' : 'false'}>
+              <div className="v2-voice-runtime" data-health={voiceDiagnostics?.health || 'unknown'}>
                 <i aria-hidden="true" />
                 <span><b>{voiceDiagnostics?.provider || 'Đang kiểm tra'}</b><small>{voiceStatus}</small></span>
               </div>
               <div className="v2-choice-block"><span>Tốc độ</span><div className="v2-segmented">{SPEEDS.map((speed) => <button key={speed.id} type="button" className={Math.abs(rate - speed.rate) < .01 ? 'active' : ''} onClick={() => changeRate(speed.rate)}>{speed.label}</button>)}</div></div>
               <div className="v2-memory-actions"><button type="button" onClick={props.onTestVoice}>Nghe thử giọng</button></div>
-              <p className="v2-disclosure">Mira ưu tiên neural voice; khi gateway lỗi sẽ tự chuyển Piper Local, rồi tự quay lại neural khi kết nối ổn định.</p>
+              <p className="v2-disclosure">Mira dùng ElevenLabs qua gateway server-side; khi gateway lỗi Mira báo trạng thái và không tự chuyển sang provider khác.</p>
             </div>
             <div className="v2-setting-group"><h3>Độ dài câu trả lời</h3><div className="v2-choice-block"><span>Mức chi tiết</span><div className="v2-segmented">{RESPONSE_LENGTHS.map((item) => <button key={item.id} type="button" className={responseLength === item.id ? 'active' : ''} onClick={() => changeResponseLength(item.id)}>{item.label}</button>)}</div><p className="v2-disclosure">{selectedResponseLength.description}</p></div></div>
             <div className="v2-setting-group"><h3>Tính cách</h3><div className="v2-personas">{PERSONAS.map((item) => <button key={item.id} type="button" className={persona === item.id ? 'active' : ''} onClick={() => changePersona(item.id)}><span>{item.icon}</span><b>{item.label}</b></button>)}</div></div>

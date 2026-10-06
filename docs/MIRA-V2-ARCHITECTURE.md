@@ -425,13 +425,13 @@ Cloud Gateway (Vercel / JS)
 ├─ Memory APIs
 └─ cloud TTS proxy
 
-Voice Runtime (FastAPI / Python)
-├─ Edge TTS
-├─ VieNeu
-└─ self-host/local voice services
+Voice Gateway alternatives
+├─ Vercel serverless (primary)
+├─ Render Node gateway (deployment alternative)
+└─ Neon Function (deployment alternative)
 ```
 
-There is no reason to rewrite the Python Voice Runtime into Node solely for uniformity.
+The retired Python Edge/VieNeu prototype has been removed. All maintained production/alternative voice gateways use the same ElevenLabs-only security boundary.
 
 ## 10. Quality gates
 
@@ -464,7 +464,7 @@ These are not unfinished architecture migrations; they are future product capabi
 
 - `src/App.tsx`: Legacy/Labs compatibility.
 - camera/gesture/Splat modules: Labs only.
-- FastAPI voice runtime: self-host/local voice boundary.
-- old adapter interfaces: compatibility and fallback value.
+- Render and Neon voice gateways: explicit deployment alternatives, not browser fallbacks.
+- Legacy/Labs surface: route-level lazy compatibility for development.
 
 Cleanup is allowed only when callers are proven absent and CI remains green.

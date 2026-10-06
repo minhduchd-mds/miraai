@@ -8,13 +8,7 @@ import { SileroVAD } from './vad/silero-vad';
 import { loadVadEnabled } from './vad/config';
 import { loadSmartTurn } from './stt/turn-config';
 import { computeEndpointDelay, ENDPOINT } from './stt/endpointer';
-import {
-  createTTS,
-  saveTTSConfig,
-  type MiraTTS,
-  type TTSConfig,
-  type TTSDiagnostics,
-} from './tts';
+import { createTTS, type MiraTTS, type TTSDiagnostics } from './tts';
 import { createBrain, saveLLMConfig, type LLMConfig } from './brain';
 import { transition, type ConversationEvent } from '../runtime/conversation-machine';
 import { SpeechQueue } from '../runtime/speech-queue';
@@ -226,19 +220,6 @@ export function useMira() {
     memoryRef.current?.observeAffect(affect);
   }, []);
 
-  const applyTTSConfig = useCallback((cfg: TTSConfig) => {
-    saveTTSConfig(cfg);
-    cancelSpeech();
-    ttsRef.current = createTTS();
-    const refresh = () => {
-      const vi = ttsRef.current!.listVoices('vi');
-      setVoices(vi.length ? vi : ttsRef.current!.listVoices());
-      voiceURIRef.current = undefined;
-      setVoiceURI(undefined);
-    };
-    refresh();
-    window.setTimeout(refresh, 1500);
-  }, [cancelSpeech]);
 
   const testBrain = useCallback(async (): Promise<string> => {
     try {
@@ -657,7 +638,6 @@ export function useMira() {
     observeAffect,
     notifyContextEvent,
     applyLLMConfig,
-    applyTTSConfig,
     testBrain,
     testVoice,
     ttsDiagnostics,

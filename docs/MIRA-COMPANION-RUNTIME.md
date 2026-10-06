@@ -2,7 +2,7 @@
 
 ## Implemented runtime
 
-- Local neural Vietnamese TTS on GitHub Pages with Piper + ONNX/WASM. The voice model is downloaded once and cached in OPFS.
+- ElevenLabs neural Vietnamese TTS through a server-side gateway. Browser code never receives the provider API key; gateway failure is surfaced instead of silently switching voice providers.
 - Real local LLM on compatible WebGPU browsers with WebLLM + Qwen 2.5 1.5B. No LLM API key is required for the Pages build.
 - Long-term local memory in IndexedDB with a persistent-storage request when supported, while the existing Neon/API memory path remains available on server deployments.
 - MediaPipe face landmarks with facial activity map, head pose, gaze, nod/shake, explicit facial gestures (smile, frown, wink, brow raise, mouth open, squint) and existing hand gestures.

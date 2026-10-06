@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -18,7 +19,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -31,14 +32,14 @@ jobs:
         shell: bash
         run: |
           set +x
-          if [ -z "$NEON_API_KEY" ]; then
-            echo "NEON_API_KEY is missing."
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ]; then
+            echo "NEON_API_KEY or NEON_PROJECT_ID is missing."
             exit 1
           fi
-          echo "NEON_API_KEY is configured."
+          echo "Neon credentials are configured."
 
       - name: Link Neon project
-        run: neon link --project-id mute-lake-16028787 --branch production -y
+        run: neon link --project-id "$NEON_PROJECT_ID" --branch production -y
 
       - name: Deploy neon.ts
         run: neon deploy

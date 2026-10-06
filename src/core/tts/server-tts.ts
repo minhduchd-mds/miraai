@@ -1,5 +1,5 @@
 import type { TTSAdapter, TTSSpeakOptions, VoiceOption } from '../types';
-import type { TTSDiagnostics } from './webspeech-tts';
+import type { TTSDiagnostics } from './diagnostics';
 import { attachAnalyser } from '../audio-level';
 
 export interface ServerTTSOptions {
@@ -7,8 +7,6 @@ export interface ServerTTSOptions {
   label: string;
   fallbackVoice: VoiceOption;
   sampleText?: string;
-  fallback?: TTSAdapter & { unlock?: () => void };
-  fallbackLabel?: string;
   failureThreshold?: number;
   cooldownMs?: number;
 }
@@ -27,8 +25,6 @@ export class ServerTTS implements TTSAdapter {
   private lastError: string | null = null;
   private cancelled = false;
   private voices: VoiceOption[];
-  private fallbackTTS: (TTSAdapter & { unlock?: () => void }) | null;
-  private fallbackLabel: string;
   private failureThreshold: number;
   private cooldownMs: number;
   private consecutiveFailures = 0;
@@ -42,25 +38,41 @@ export class ServerTTS implements TTSAdapter {
     this.label = opts.label;
     this.sampleText = opts.sampleText || DEFAULT_SAMPLE;
     this.voices = [opts.fallbackVoice];
-    this.fallbackTTS = opts.fallback ?? null;
-    this.fallbackLabel = opts.fallbackLabel || 'Hệ thống';
     this.failureThreshold = Math.max(1, Math.floor(opts.failureThreshold ?? 2));
     this.cooldownMs = Math.max(5_000, Math.floor(opts.cooldownMs ?? 30_000));
     void this.probeHealth().catch(() => false);
+
     fetch(`${this.serverUrl}/voices`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const raw: any[] = j?.voices || [];
-        const parsed = raw.map((v) => typeof v === 'string' ? { id: v, label: v } : v && typeof v === 'object' && v.id ? { id: String(v.id), label: String(v.label || v.id) } : null).filter(Boolean) as { id: string; label: string }[];
-        if (parsed.length) this.voices = parsed.map((v) => ({ name: v.label, voiceURI: v.id, lang: 'vi-VN' }));
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        const raw: unknown[] = Array.isArray(body?.voices) ? body.voices : [];
+        const parsed = raw
+          .map((voice) => {
+            if (typeof voice === 'string') return { id: voice, label: voice };
+            if (!voice || typeof voice !== 'object' || !('id' in voice)) return null;
+            const item = voice as { id?: unknown; label?: unknown };
+            if (!item.id) return null;
+            return { id: String(item.id), label: String(item.label || item.id) };
+          })
+          .filter((voice): voice is { id: string; label: string } => Boolean(voice));
+
+        if (parsed.length) {
+          this.voices = parsed.map((voice) => ({
+            name: voice.label,
+            voiceURI: voice.id,
+            lang: 'vi-VN',
+          }));
+        }
       })
-      .catch(() => { this.lastError = 'không nối được server — dùng giọng hệ thống'; });
+      .catch((error) => {
+        this.lastError = error instanceof Error ? error.message : 'voice_catalog_unavailable';
+      });
   }
 
   get available(): boolean { return true; }
 
   unlock(): void {
-    this.fallbackTTS?.unlock?.();
+    // The app shell primes AudioContext from the user's interaction.
   }
 
   private probeHealth(force = false): Promise<boolean> {
@@ -104,13 +116,12 @@ export class ServerTTS implements TTSAdapter {
     return this.healthProbePromise;
   }
 
-  private speakFallback(opts: TTSSpeakOptions, reason: unknown): boolean {
-    if (!this.fallbackTTS || this.cancelled) return false;
-    this.lastError = reason instanceof Error ? reason.message : String(reason || 'server_tts_failed');
-    console.warn(`[Mira TTS·${this.label}] chuyển sang giọng dự phòng.`, this.lastError);
-    // Voice ID của cloud/ElevenLabs không tồn tại trong Web Speech. Bỏ ID để fallback tự chọn vi-VN.
-    this.fallbackTTS.speak({ ...opts, voiceURI: undefined });
-    return true;
+  private fail(opts: TTSSpeakOptions, reason: unknown): void {
+    if (this.cancelled) return;
+    const message = reason instanceof Error ? reason.message : String(reason || 'server_tts_failed');
+    this.lastError = message;
+    console.error(`[Mira TTS·${this.label}]`, message);
+    opts.onError?.(message);
   }
 
   speak(opts: TTSSpeakOptions): void {
@@ -120,22 +131,18 @@ export class ServerTTS implements TTSAdapter {
     const now = Date.now();
     if (this.healthState === 'unhealthy') {
       if (now >= this.nextHealthProbeAt) void this.probeHealth(true);
-      if (!this.speakFallback(opts, 'server_tts_unhealthy')) {
-        opts.onError?.('server_tts_unhealthy');
-      }
+      this.fail(opts, 'server_tts_unhealthy');
       return;
     }
 
     if (now < this.circuitOpenUntil) {
       if (now >= this.nextHealthProbeAt) void this.probeHealth(true);
-      if (!this.speakFallback(opts, 'server_tts_cooldown')) {
-        opts.onError?.('server_tts_cooldown');
-      }
+      this.fail(opts, 'server_tts_cooldown');
       return;
     }
 
-    const ac = new AbortController();
-    this.abortCtl = ac;
+    const controller = new AbortController();
+    this.abortCtl = controller;
     this.fetching = true;
 
     fetch(`${this.serverUrl}/tts`, {
@@ -146,43 +153,49 @@ export class ServerTTS implements TTSAdapter {
         voice: opts.voiceURI || null,
         instructions: opts.instructions || null,
       }),
-      signal: ac.signal,
+      signal: controller.signal,
     })
-      .then(async (res) => {
-        if (!res.ok) {
+      .then(async (response) => {
+        if (!response.ok) {
           let detail = '';
-          try { detail = JSON.stringify(await res.json()).slice(0, 160); }
-          catch { detail = res.statusText; }
-          throw new Error(`${this.label} ${res.status}: ${detail}`);
+          try { detail = JSON.stringify(await response.json()).slice(0, 160); }
+          catch { detail = response.statusText; }
+          throw new Error(`${this.label} ${response.status}: ${detail}`);
         }
-        return res.blob();
+        return response.blob();
       })
       .then((blob) => {
         this.fetching = false;
         if (this.cancelled) return;
         if (!blob.size) throw new Error('empty_audio');
+
         this.consecutiveFailures = 0;
         this.circuitOpenUntil = 0;
         this.healthState = 'healthy';
         this.nextHealthProbeAt = Date.now() + 120_000;
+        this.lastError = null;
+
         const url = URL.createObjectURL(blob);
         this.objectUrl = url;
-        const a = new Audio(url);
-        this.audio = a;
-        a.playbackRate = opts.rate ?? 1;
-        a.preservesPitch = true;
-        this.detach = attachAnalyser(a);
-        a.onplaying = () => opts.onStart?.();
-        a.onended = () => { this.cleanupAudio(); opts.onEnd?.(); };
-        a.onerror = () => {
+        const audio = new Audio(url);
+        this.audio = audio;
+        audio.playbackRate = opts.rate ?? 1;
+        audio.preservesPitch = true;
+        this.detach = attachAnalyser(audio);
+        audio.onplaying = () => opts.onStart?.();
+        audio.onended = () => {
           this.cleanupAudio();
-          if (!this.cancelled && !this.speakFallback(opts, 'audio_playback_failed')) opts.onError?.('audio_playback_failed');
+          opts.onEnd?.();
         };
-        return a.play();
+        audio.onerror = () => {
+          this.cleanupAudio();
+          this.fail(opts, 'audio_playback_failed');
+        };
+        return audio.play();
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         this.fetching = false;
-        if (this.cancelled || error?.name === 'AbortError') return;
+        if (this.cancelled || (error instanceof DOMException && error.name === 'AbortError')) return;
 
         this.consecutiveFailures += 1;
         if (this.consecutiveFailures >= this.failureThreshold) {
@@ -190,13 +203,7 @@ export class ServerTTS implements TTSAdapter {
           this.healthState = 'unhealthy';
           this.nextHealthProbeAt = this.circuitOpenUntil;
         }
-
-        if (!this.speakFallback(opts, error)) {
-          const msg = error instanceof Error ? error.message : String(error);
-          this.lastError = msg;
-          console.error(`[Mira TTS·${this.label}]`, msg);
-          opts.onError?.(msg);
-        }
+        this.fail(opts, error);
       });
   }
 
@@ -205,8 +212,9 @@ export class ServerTTS implements TTSAdapter {
     try { this.abortCtl?.abort(); } catch { /* noop */ }
     this.abortCtl = null;
     this.fetching = false;
-    if (this.audio) { try { this.audio.pause(); } catch { /* noop */ } }
-    this.fallbackTTS?.cancel();
+    if (this.audio) {
+      try { this.audio.pause(); } catch { /* noop */ }
+    }
     this.cleanupAudio();
   }
 
@@ -219,15 +227,21 @@ export class ServerTTS implements TTSAdapter {
       this.audio.onerror = null;
       this.audio = null;
     }
-    if (this.objectUrl) { URL.revokeObjectURL(this.objectUrl); this.objectUrl = null; }
+    if (this.objectUrl) {
+      URL.revokeObjectURL(this.objectUrl);
+      this.objectUrl = null;
+    }
   }
 
   listVoices(_langPrefix?: string): VoiceOption[] { return this.voices; }
-  test(voiceURI?: string): void { this.unlock(); this.speak({ text: this.sampleText, lang: 'vi-VN', voiceURI }); }
+
+  test(voiceURI?: string): void {
+    this.unlock();
+    this.speak({ text: this.sampleText, lang: 'vi-VN', voiceURI });
+  }
+
   diagnostics(): TTSDiagnostics {
-    const healthNote = this.healthState === 'healthy'
-      ? null
-      : `gateway_${this.healthState}`;
+    const healthNote = this.healthState === 'healthy' ? null : `gateway_${this.healthState}`;
     return {
       voices: this.voices.length,
       viVoices: this.voices.length,
@@ -236,11 +250,8 @@ export class ServerTTS implements TTSAdapter {
       paused: !!this.audio?.paused && !this.fetching,
       unlocked: true,
       lastError: this.lastError || healthNote,
-      provider: this.healthState === 'unhealthy' || Date.now() < this.circuitOpenUntil
-        ? this.fallbackLabel
-        : this.label,
+      provider: this.label,
       health: this.healthState,
-      fallbackActive: this.healthState === 'unhealthy' || Date.now() < this.circuitOpenUntil,
     };
   }
 }

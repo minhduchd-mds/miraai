@@ -1,6 +1,6 @@
 // Biên độ âm thanh THẬT của TTS đang phát (0..1) — nguồn cho lipsync khớp âm.
-// Adapter nào phát qua HTMLAudio (VieNeu, ElevenLabs) thì attachAnalyser() vào element;
-// VRMAvatar đọc audioLevel mỗi frame: active=true → dùng amp thật, false → envelope giả lập (Web Speech).
+// ElevenLabs phát qua HTMLAudio nên attachAnalyser() lấy biên độ thật từ element.
+// VRMAvatar đọc audioLevel mỗi frame: active=true → dùng amp thật, false → envelope hình ảnh dự phòng.
 export const audioLevel = { value: 0, active: false };
 
 export interface MicProsodySnapshot {
