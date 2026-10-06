@@ -486,7 +486,7 @@ const brain = readFileSync('src/core/brain/index.ts', 'utf8');
 if (!brain.includes('LocalWebLLMBrain')) failures.push('GitHub Pages must expose a real local WebLLM brain');
 if (brain.includes('VITE_LLM_API_KEY')) failures.push('production brain source must not read VITE_LLM_API_KEY');
 const localMemory = readFileSync('src/intelligence/memory/memory-service.ts', 'utf8');
-if (!localMemory.includes('LocalMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
+if (!localMemory.includes('createRuntimeMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
 const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
 for (const token of ['navigator.storage.persist', 'exportSnapshot', 'importTurns', 'clearAll', 'countTurns']) {
   if (!localMemoryStore.includes(token)) failures.push(`local memory portability missing: ${token}`);
@@ -507,7 +507,7 @@ if (localMemoryStore.includes('SpatialPlacementPreview') || localMemoryStore.inc
 if (localMemoryStore.includes('SpatialPhysicsState') || localMemoryStore.includes('spatialPhysics')) failures.push('spatial physics must remain ephemeral, not long-term memory');
 if (localMemoryStore.includes('SpatialCollisionContact') || localMemoryStore.includes('spatialCollision')) failures.push('spatial collision must remain ephemeral, not long-term memory');
 const profileClient = readFileSync('src/intelligence/memory/profile-client.ts', 'utf8');
-for (const token of ['isGitHubPagesRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
+for (const token of ['isLocalOnlyMemoryRuntime', 'localMemory.countTurns', 'localMemory.clearAll', 'localMemory.exportSnapshot']) {
   if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
 }
 const capsuleClient = readFileSync('src/intelligence/identity/capsule-client.ts', 'utf8');
