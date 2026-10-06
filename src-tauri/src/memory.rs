@@ -303,6 +303,62 @@ fn link_structured_memories(connection: &Connection, ids: &[i64], ts: i64) -> Re
     Ok(())
 }
 
+fn semantic_tokens(input: &str) -> Vec<String> {
+    const STOPWORDS: &[&str] = &[
+      "anh","em","la","co","mot","cai","nay","do","roi","thi","ma","voi","cua",
+      "cho","de","se","dang","can","phai","hom","ngay","luc","khi","ve","vao","ra",
+      "minh","chuyen","viec","nhe","nha","di"
+    ];
+    tokens(input).into_iter().filter(|token| !STOPWORDS.contains(&token.as_str())).collect()
+}
+
+fn semantic_similarity(query: &[String], text: &str) -> f64 {
+    if query.is_empty() { return 0.0; }
+    let hay = semantic_tokens(text);
+    if hay.is_empty() { return 0.0; }
+    let hits = query.iter().filter(|token| hay.iter().any(|candidate| candidate == *token)).count();
+    hits as f64 / query.len() as f64
+}
+
+fn link_recent_related_memories(
+    connection: &Connection,
+    ids: &[i64],
+    statement: &str,
+    ts: i64,
+) -> Result<(), String> {
+    if ids.is_empty() { return Ok(()); }
+    let query = semantic_tokens(statement);
+    if query.is_empty() { return Ok(()); }
+    let cutoff = ts - 7 * 24 * 60 * 60_000;
+    let mut prepared = connection.prepare(
+      "SELECT id,text,last_seen_ts FROM structured_memories
+       WHERE last_seen_ts>=?1 ORDER BY last_seen_ts DESC LIMIT 120"
+    ).map_err(|e| format!("prepare semantic memory links: {e}"))?;
+    let rows = prepared.query_map([cutoff],|row| Ok((
+      row.get::<_,i64>(0)?,row.get::<_,String>(1)?,row.get::<_,i64>(2)?
+    ))).map_err(|e| format!("semantic memory links: {e}"))?;
+    for row in rows {
+      let (candidate_id,candidate_text,candidate_ts) = row.map_err(|e| format!("semantic memory link row: {e}"))?;
+      if ids.contains(&candidate_id) { continue; }
+      let score = semantic_similarity(&query,&candidate_text);
+      if score < 0.25 { continue; }
+      let age_hours = ((ts - candidate_ts).max(0) as f64) / 3_600_000.0;
+      let temporal = (0.18 - age_hours / 1_000.0).max(0.0);
+      let weight = (score + temporal).min(1.0);
+      for source in ids {
+        let (left,right) = if *source < candidate_id { (*source,candidate_id) } else { (candidate_id,*source) };
+        connection.execute(
+          "INSERT INTO memory_links(source_id,target_id,relation,weight,created_at)
+           VALUES (?1,?2,'semantic_temporal',?3,?4)
+           ON CONFLICT(source_id,target_id,relation) DO UPDATE SET
+             weight=MAX(memory_links.weight,excluded.weight),created_at=excluded.created_at",
+          params![left,right,weight,ts]
+        ).map_err(|e| format!("save semantic memory link: {e}"))?;
+      }
+    }
+    Ok(())
+}
+
 fn resolve_recent_thread(connection: &Connection, statement: &str, ts: i64) -> Result<(), String> {
     let query_tokens = tokens(statement);
     let mut prepared = connection.prepare(
@@ -370,6 +426,7 @@ fn distill_structured_memories(connection: &Connection, conversation: &str, ts: 
     if explicit_fact { if let Some(id) = upsert_structured_memory(connection,"fact",&statement,0.78,"stored",ts)? { linked_ids.push(id); } }
     if active_thread { if let Some(id) = upsert_structured_memory(connection,"active_thread",&statement,0.88,"active",ts)? { linked_ids.push(id); } }
     link_structured_memories(connection,&linked_ids,ts)?;
+    link_recent_related_memories(connection,&linked_ids,&statement,ts)?;
     Ok(())
 }
 
@@ -511,7 +568,8 @@ pub(crate) fn desktop_memory_recall(app: AppHandle, query: String) -> Result<Str
       ))).map_err(|e| format!("linked memory recall: {e}"))?;
       for row in rows {
         let candidate = row.map_err(|e| format!("linked memory row: {e}"))?;
-        if !linked_context.iter().any(|existing| existing.1 == candidate.1) {
+        let already_selected = structured_candidates.iter().any(|selected| selected.2 == candidate.1);
+        if !already_selected && !linked_context.iter().any(|existing| existing.1 == candidate.1) {
           linked_context.push(candidate);
         }
       }

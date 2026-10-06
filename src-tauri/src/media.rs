@@ -315,7 +315,7 @@ fn record_music_context(app: &AppHandle, track_id: i64, explicit_context: Option
            AND last_seen_ts>=?1
          ORDER BY CASE kind WHEN 'emotional_episode' THEN 0 WHEN 'active_thread' THEN 1 ELSE 2 END,last_seen_ts DESC
          LIMIT 1",
-        [now - 2 * 60 * 60_000],
+        [now - 45 * 60_000],
         |row| Ok((row.get::<_,i64>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?))
       ).optional().map_err(|e| format!("recent music context: {e}"))?
     } else { None };

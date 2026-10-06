@@ -895,7 +895,7 @@ for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'deskt
   if (!desktopMain.includes(token)) failures.push(`desktop native command missing: ${token}`);
 }
 const desktopMemory = readFileSync('src-tauri/src/memory.rs', 'utf8');
-for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'CREATE TABLE IF NOT EXISTS music_tracks', 'CREATE TABLE IF NOT EXISTS structured_memories', 'CREATE TABLE IF NOT EXISTS memory_links', 'CREATE TABLE IF NOT EXISTS music_context_history', 'link_structured_memories', 'user_statement', '"preference"', '"relationship_context"', '"emotional_episode"', '"active_thread"', "status='resolved'", 'desktop_memory_export', 'permission_enabled', '"media.control"', '"media.library"', '"memory.affect"', 'UnicodeNormalization']) {
+for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'CREATE TABLE IF NOT EXISTS music_tracks', 'CREATE TABLE IF NOT EXISTS structured_memories', 'CREATE TABLE IF NOT EXISTS memory_links', 'CREATE TABLE IF NOT EXISTS music_context_history', 'link_structured_memories', 'link_recent_related_memories', 'semantic_temporal', 'semantic_tokens', 'user_statement', '"preference"', '"relationship_context"', '"emotional_episode"', '"active_thread"', "status='resolved'", 'desktop_memory_export', 'permission_enabled', '"media.control"', '"media.library"', '"memory.affect"', 'UnicodeNormalization']) {
   if (!desktopMemory.includes(token)) failures.push(`desktop SQLite memory missing: ${token}`);
 }
 const desktopMusic = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');

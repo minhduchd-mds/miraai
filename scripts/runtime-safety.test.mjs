@@ -227,3 +227,14 @@ test('companion memory graph links co-occurring memories and music to user-state
   assert.match(media, /hay nghe/);
   assert.match(media, /dung nho/);
 });
+
+test('companion graph adds guarded semantic-temporal links and narrows passive music context window', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  const media = readFileSync('src-tauri/src/media.rs', 'utf8');
+  assert.match(memory, /fn semantic_tokens/);
+  assert.match(memory, /semantic_temporal/);
+  assert.match(memory, /score < 0\.25/);
+  assert.match(memory, /7 \* 24 \* 60 \* 60_000/);
+  assert.match(memory, /already_selected/);
+  assert.match(media, /now - 45 \* 60_000/);
+});
