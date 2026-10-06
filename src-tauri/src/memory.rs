@@ -100,6 +100,18 @@ fn open(app: &AppHandle) -> Result<Connection, String> {
       );
       CREATE INDEX IF NOT EXISTS idx_structured_memory_kind ON structured_memories(kind,status);
       CREATE INDEX IF NOT EXISTS idx_structured_memory_recent ON structured_memories(last_seen_ts DESC);
+      CREATE TABLE IF NOT EXISTS memory_links (
+        source_id INTEGER NOT NULL,
+        target_id INTEGER NOT NULL,
+        relation TEXT NOT NULL,
+        weight REAL NOT NULL DEFAULT 1.0,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY(source_id,target_id,relation),
+        FOREIGN KEY(source_id) REFERENCES structured_memories(id) ON DELETE CASCADE,
+        FOREIGN KEY(target_id) REFERENCES structured_memories(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_memory_links_source ON memory_links(source_id,relation);
+      CREATE INDEX IF NOT EXISTS idx_memory_links_target ON memory_links(target_id,relation);
       CREATE TABLE IF NOT EXISTS affect (
         id INTEGER PRIMARY KEY AUTOINCREMENT, mood TEXT NOT NULL, confidence REAL NOT NULL,
         valence REAL, arousal REAL, engagement REAL, fatigue REAL, tension REAL, ts INTEGER NOT NULL
@@ -123,6 +135,18 @@ fn open(app: &AppHandle) -> Result<Connection, String> {
       );
       CREATE INDEX IF NOT EXISTS idx_music_tracks_root ON music_tracks(root);
       CREATE INDEX IF NOT EXISTS idx_music_tracks_recent ON music_tracks(last_played_at DESC);
+      CREATE TABLE IF NOT EXISTS music_context_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        track_id INTEGER NOT NULL,
+        memory_id INTEGER,
+        context_kind TEXT NOT NULL,
+        context_text TEXT NOT NULL,
+        played_at INTEGER NOT NULL,
+        FOREIGN KEY(track_id) REFERENCES music_tracks(id) ON DELETE CASCADE,
+        FOREIGN KEY(memory_id) REFERENCES structured_memories(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_music_context_track ON music_context_history(track_id,played_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_music_context_memory ON music_context_history(memory_id,played_at DESC);
       CREATE TABLE IF NOT EXISTS action_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, outcome TEXT NOT NULL,
         detail TEXT NOT NULL DEFAULT '', ts INTEGER NOT NULL
@@ -242,9 +266,9 @@ fn upsert_structured_memory(
     importance: f64,
     status: &str,
     ts: i64,
-) -> Result<(), String> {
+) -> Result<Option<i64>, String> {
     let normalized = normalize_search(text);
-    if normalized.chars().count() < 4 { return Ok(()); }
+    if normalized.chars().count() < 4 { return Ok(None); }
     connection.execute(
       "INSERT INTO structured_memories(kind,text,normalized_text,importance,status,first_seen_ts,last_seen_ts,hit_count)
        VALUES (?1,?2,?3,?4,?5,?6,?6,1)
@@ -254,8 +278,28 @@ fn upsert_structured_memory(
          status=excluded.status,
          last_seen_ts=excluded.last_seen_ts,
          hit_count=structured_memories.hit_count+1",
-      params![kind,clip(text,1200),normalized,importance.clamp(0.0,1.0),status,ts]
+      params![kind,clip(text,1200),&normalized,importance.clamp(0.0,1.0),status,ts]
     ).map_err(|e| format!("upsert structured memory: {e}"))?;
+    connection.query_row(
+      "SELECT id FROM structured_memories WHERE kind=?1 AND normalized_text=?2",
+      params![kind,normalized],
+      |row| row.get::<_,i64>(0)
+    ).optional().map_err(|e| format!("resolve structured memory id: {e}"))
+}
+
+fn link_structured_memories(connection: &Connection, ids: &[i64], ts: i64) -> Result<(), String> {
+    for (index, source) in ids.iter().enumerate() {
+      for target in ids.iter().skip(index + 1) {
+        let (left,right) = if source < target { (*source,*target) } else { (*target,*source) };
+        connection.execute(
+          "INSERT INTO memory_links(source_id,target_id,relation,weight,created_at)
+           VALUES (?1,?2,'co_occurs',1.0,?3)
+           ON CONFLICT(source_id,target_id,relation) DO UPDATE SET
+             weight=MIN(3.0,memory_links.weight+0.08),created_at=excluded.created_at",
+          params![left,right,ts]
+        ).map_err(|e| format!("link structured memories: {e}"))?;
+      }
+    }
     Ok(())
 }
 
@@ -318,12 +362,14 @@ fn distill_structured_memories(connection: &Connection, conversation: &str, ts: 
       "chua ","dang ","can ","phai ","van de","khuc mac","dang doi","cho ","mai ","sap ","do dang"
     ]);
 
-    if preference { upsert_structured_memory(connection,"preference",&statement,0.84,"stored",ts)?; }
-    if relationship { upsert_structured_memory(connection,"relationship_context",&statement,0.82,"stored",ts)?; }
-    if emotional { upsert_structured_memory(connection,"emotional_episode",&statement,0.76,"stored",ts)?; }
-    if life_event { upsert_structured_memory(connection,"life_event",&statement,0.72,"stored",ts)?; }
-    if explicit_fact { upsert_structured_memory(connection,"fact",&statement,0.78,"stored",ts)?; }
-    if active_thread { upsert_structured_memory(connection,"active_thread",&statement,0.88,"active",ts)?; }
+    let mut linked_ids = Vec::new();
+    if preference { if let Some(id) = upsert_structured_memory(connection,"preference",&statement,0.84,"stored",ts)? { linked_ids.push(id); } }
+    if relationship { if let Some(id) = upsert_structured_memory(connection,"relationship_context",&statement,0.82,"stored",ts)? { linked_ids.push(id); } }
+    if emotional { if let Some(id) = upsert_structured_memory(connection,"emotional_episode",&statement,0.76,"stored",ts)? { linked_ids.push(id); } }
+    if life_event { if let Some(id) = upsert_structured_memory(connection,"life_event",&statement,0.72,"stored",ts)? { linked_ids.push(id); } }
+    if explicit_fact { if let Some(id) = upsert_structured_memory(connection,"fact",&statement,0.78,"stored",ts)? { linked_ids.push(id); } }
+    if active_thread { if let Some(id) = upsert_structured_memory(connection,"active_thread",&statement,0.88,"active",ts)? { linked_ids.push(id); } }
+    link_structured_memories(connection,&linked_ids,ts)?;
     Ok(())
 }
 
@@ -448,6 +494,31 @@ pub(crate) fn desktop_memory_recall(app: AppHandle, query: String) -> Result<Str
     structured_candidates.sort_by(|a,b| b.7.partial_cmp(&a.7).unwrap_or(std::cmp::Ordering::Equal).then_with(|| b.5.cmp(&a.5)));
     structured_candidates.truncate(5);
 
+    let selected_ids = structured_candidates.iter().map(|item| item.0).collect::<Vec<_>>();
+    let mut linked_context: Vec<(String,String,String,f64,i64)> = Vec::new();
+    for selected_id in selected_ids {
+      let mut statement = connection.prepare(
+        "SELECT sm.kind,sm.text,sm.status,ml.weight,sm.last_seen_ts
+         FROM memory_links ml
+         JOIN structured_memories sm
+           ON sm.id=CASE WHEN ml.source_id=?1 THEN ml.target_id ELSE ml.source_id END
+         WHERE (ml.source_id=?1 OR ml.target_id=?1)
+         ORDER BY ml.weight DESC,sm.last_seen_ts DESC LIMIT 4"
+      ).map_err(|e| format!("prepare linked memory recall: {e}"))?;
+      let rows = statement.query_map([selected_id],|row| Ok((
+        row.get::<_,String>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?,
+        row.get::<_,f64>(3)?,row.get::<_,i64>(4)?
+      ))).map_err(|e| format!("linked memory recall: {e}"))?;
+      for row in rows {
+        let candidate = row.map_err(|e| format!("linked memory row: {e}"))?;
+        if !linked_context.iter().any(|existing| existing.1 == candidate.1) {
+          linked_context.push(candidate);
+        }
+      }
+    }
+    linked_context.sort_by(|a,b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal).then_with(|| b.4.cmp(&a.4)));
+    linked_context.truncate(4);
+
     let mut active_threads = Vec::new();
     {
       let cutoff = now_ms() - 7 * 24 * 60 * 60_000;
@@ -466,6 +537,14 @@ pub(crate) fn desktop_memory_recall(app: AppHandle, query: String) -> Result<Str
         .collect::<Vec<_>>().join("\n");
       parts.push(format!(
         "Ký ức có cấu trúc — chỉ là những điều người dùng từng tự nói, không phải suy luận của Mira:\n{lines}"
+      ));
+    }
+    if !linked_context.is_empty() {
+      let lines = linked_context.iter()
+        .map(|(kind,text,status,_,_)| format!("- [{}{}] {}",structured_kind_label(kind),if status == "resolved" {" · đã giải quyết"} else {""},text))
+        .collect::<Vec<_>>().join("\n");
+      parts.push(format!(
+        "Ký ức liên kết từ cùng bối cảnh trước đây (dùng để nối mạch, không tự suy diễn thêm):\n{lines}"
       ));
     }
     if !active_threads.is_empty() {

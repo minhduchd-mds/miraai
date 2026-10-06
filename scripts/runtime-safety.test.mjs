@@ -211,3 +211,19 @@ test('memory opt-out stays session-only and blocks raw turn plus distillation pe
   assert.match(service, /dung nho/);
   assert.match(service, /dung luu/);
 });
+
+test('companion memory graph links co-occurring memories and music to user-stated context', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  const media = readFileSync('src-tauri/src/media.rs', 'utf8');
+  const skill = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');
+  for (const token of ['CREATE TABLE IF NOT EXISTS memory_links', "'co_occurs'", 'link_structured_memories', 'Ký ức liên kết từ cùng bối cảnh trước đây']) {
+    assert.ok(memory.includes(token), 'missing memory graph token: ' + token);
+  }
+  for (const token of ['CREATE TABLE IF NOT EXISTS music_context_history', 'contextual_local_track', 'record_music_context', 'explicit_context_hint', 'local-context-memory']) {
+    assert.ok((memory + media).includes(token), 'missing music context memory token: ' + token);
+  }
+  assert.match(skill, /action: 'contextual'/);
+  assert.match(skill, /Bật bài anh hay nghe lúc mệt/);
+  assert.match(media, /hay nghe/);
+  assert.match(media, /dung nho/);
+});

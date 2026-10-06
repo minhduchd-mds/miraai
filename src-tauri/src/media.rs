@@ -1,7 +1,7 @@
 use crate::memory;
 use rusqlite::{params, OptionalExtension};
 use serde::Serialize;
-use std::{fs, path::{Path, PathBuf}, process::Command};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}, process::Command};
 use tauri::AppHandle;
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
@@ -233,11 +233,118 @@ fn recent_local_track(app: &AppHandle) -> Result<Option<IndexedTrack>,String> {
     ).optional().map_err(|e| format!("recent local track: {e}"))
 }
 
-fn play_indexed_track(app: &AppHandle, track: &IndexedTrack) -> Result<String,String> {
+fn context_tokens(input: &str) -> Vec<String> {
+    normalize_search(input)
+      .split_whitespace()
+      .filter(|token| token.chars().count() > 1)
+      .map(ToOwned::to_owned)
+      .collect()
+}
+
+fn context_similarity(query: &str, text: &str) -> f64 {
+    let query_tokens = context_tokens(query);
+    if query_tokens.is_empty() { return 0.0; }
+    let hay = context_tokens(text);
+    let hits = query_tokens.iter().filter(|token| hay.iter().any(|candidate| candidate == *token)).count();
+    hits as f64 / query_tokens.len() as f64
+}
+
+fn contextual_local_track(app: &AppHandle, query: &str) -> Result<Option<IndexedTrack>,String> {
+    if !memory::permission_enabled(app,"media.library",false) { return Ok(None); }
+    let root = match memory::setting_get(app,"music.library.root")? { Some(value) if !value.is_empty() => value, _ => return Ok(None) };
+    let connection = memory::database(app)?;
+    let mut statement = connection.prepare(
+      "SELECT mt.id,mt.path,mt.title,mt.artist,mt.album,mt.search_text,mt.last_played_at,mt.play_count,mch.context_text,mch.played_at
+       FROM music_context_history mch
+       JOIN music_tracks mt ON mt.id=mch.track_id
+       WHERE mt.root=?1
+       ORDER BY mch.played_at DESC LIMIT 1500"
+    ).map_err(|e| format!("prepare contextual music: {e}"))?;
+    let rows = statement.query_map([root],|row| Ok((
+      IndexedTrack{
+        id:row.get(0)?,path:row.get(1)?,title:row.get(2)?,artist:row.get(3)?,
+        album:row.get(4)?,search_text:row.get(5)?,last_played_at:row.get(6)?,play_count:row.get(7)?
+      },
+      row.get::<_,String>(8)?,
+      row.get::<_,i64>(9)?
+    ))).map_err(|e| format!("contextual music rows: {e}"))?;
+
+    let now = memory::timestamp_ms();
+    let mut best_by_track: HashMap<i64,(IndexedTrack,f64,u32)> = HashMap::new();
+    for row in rows {
+      let (track,context_text,played_at) = row.map_err(|e| format!("contextual music row: {e}"))?;
+      let lexical = context_similarity(query,&context_text);
+      if lexical <= 0.0 { continue; }
+      let age_days = ((now - played_at).max(0) as f64) / 86_400_000.0;
+      let recency = (0.16 - age_days / 240.0).max(0.0);
+      let entry = best_by_track.entry(track.id).or_insert((track.clone(),0.0,0));
+      entry.1 = entry.1.max(lexical + recency);
+      entry.2 = entry.2.saturating_add(1);
+    }
+    let mut ranked = best_by_track.into_values().map(|(track,base,count)| {
+      let repeat = ((count.min(8) as f64) * 0.025).min(0.2);
+      let score = base + repeat + if track.play_count > 2 { 0.03 } else { 0.0 };
+      (track,score)
+    }).collect::<Vec<_>>();
+    ranked.sort_by(|a,b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then_with(|| b.0.last_played_at.cmp(&a.0.last_played_at)));
+    Ok(ranked.into_iter().find(|(_,score)| *score >= 0.42).map(|(track,_)| track))
+}
+
+fn explicit_context_hint(input: &str) -> Option<(String,String)> {
+    let normalized = normalize_search(input);
+    if normalized.is_empty() { return None; }
+    if ["dung nho","dung luu","khong can nho","khong luu"].iter().any(|needle| normalized.contains(needle)) { return None; }
+    if normalized.contains("hay nghe") || normalized.contains("thuong nghe") { return None; }
+    let cues = [
+      "met","buon","cang thang","ap luc","lo lang","chan","co don","vui",
+      "thu gian","lam viec","tap trung","hoc","lai xe"
+    ];
+    if cues.iter().any(|cue| normalized.contains(cue)) {
+      return Some(("user_statement".into(),clip(input,600)));
+    }
+    None
+}
+
+fn record_music_context(app: &AppHandle, track_id: i64, explicit_context: Option<&str>, now: i64) -> Result<(),String> {
+    let connection = memory::database(app)?;
+    let explicit = explicit_context.and_then(explicit_context_hint);
+    let linked = if explicit.is_none() {
+      connection.query_row(
+        "SELECT id,kind,text FROM structured_memories
+         WHERE kind IN ('emotional_episode','active_thread','relationship_context','life_event','preference')
+           AND last_seen_ts>=?1
+         ORDER BY CASE kind WHEN 'emotional_episode' THEN 0 WHEN 'active_thread' THEN 1 ELSE 2 END,last_seen_ts DESC
+         LIMIT 1",
+        [now - 2 * 60 * 60_000],
+        |row| Ok((row.get::<_,i64>(0)?,row.get::<_,String>(1)?,row.get::<_,String>(2)?))
+      ).optional().map_err(|e| format!("recent music context: {e}"))?
+    } else { None };
+
+    let (memory_id,kind,text) = if let Some((kind,text)) = explicit {
+      (None,kind,text)
+    } else if let Some((id,kind,text)) = linked {
+      (Some(id),kind,text)
+    } else {
+      return Ok(());
+    };
+
+    connection.execute(
+      "INSERT INTO music_context_history(track_id,memory_id,context_kind,context_text,played_at) VALUES (?1,?2,?3,?4,?5)",
+      params![track_id,memory_id,clip(&kind,60),clip(&text,800),now]
+    ).map_err(|e| format!("save music context: {e}"))?;
+    connection.execute(
+      "DELETE FROM music_context_history WHERE id NOT IN (SELECT id FROM music_context_history ORDER BY played_at DESC,id DESC LIMIT 5000)",
+      []
+    ).map_err(|e| format!("prune music context: {e}"))?;
+    Ok(())
+}
+
+fn play_indexed_track(app: &AppHandle, track: &IndexedTrack, explicit_context: Option<&str>) -> Result<String,String> {
     if !Path::new(&track.path).is_file() { return Err(format!("File “{}” không còn tồn tại. Anh có thể quét lại thư viện nhạc.",track.title)); }
     open_local_track(&track.path)?;
     let now = memory::timestamp_ms();
     memory::database(app)?.execute("UPDATE music_tracks SET last_played_at=?1,play_count=play_count+1 WHERE id=?2",params![now,track.id]).map_err(|e| format!("update play history: {e}"))?;
+    record_music_context(app,track.id,explicit_context,now)?;
     let label = if track.artist.trim().is_empty() { track.title.clone() } else { format!("{} — {}",track.title,track.artist) };
     let album = if track.album.trim().is_empty() { String::new() } else { format!(" · {}",track.album) };
     Ok(format!("Đang mở {label}{album} từ thư viện nhạc local."))
@@ -327,9 +434,9 @@ pub(crate) fn desktop_music_rescan(app: AppHandle) -> Result<MusicLibraryStatus,
 }
 
 #[tauri::command]
-pub(crate) fn desktop_media_action(app: AppHandle, action: String, query: Option<String>) -> Result<MediaActionResult,String> {
+pub(crate) fn desktop_media_action(app: AppHandle, action: String, query: Option<String>, context: Option<String>) -> Result<MediaActionResult,String> {
     let action = action.trim().to_lowercase();
-    if !matches!(action.as_str(),"open"|"play"|"pause"|"next"|"previous"|"search"|"recent") { return Err("unsupported media action".into()); }
+    if !matches!(action.as_str(),"open"|"play"|"pause"|"next"|"previous"|"search"|"recent"|"contextual") { return Err("unsupported media action".into()); }
     if !memory::permission_enabled(&app,"media.control",true) {
       let detail = "Quyền điều khiển nhạc đang tắt trong Ký ức & riêng tư.".to_string();
       memory::log_action(&app,&format!("media.{action}"),"blocked",&detail);
@@ -339,16 +446,32 @@ pub(crate) fn desktop_media_action(app: AppHandle, action: String, query: Option
 
     if action == "recent" {
       let result = recent_local_track(&app)?.ok_or_else(|| "Mira chưa có bài local nào trong lịch sử nghe.".to_string());
-      return match result.and_then(|track| play_indexed_track(&app,&track)) {
+      return match result.and_then(|track| play_indexed_track(&app,&track,None)) {
         Ok(detail) => { memory::log_action(&app,"media.recent","executed",&detail); Ok(MediaActionResult{action,handled:true,detail,query:None,source:Some("local-library".into())}) }
         Err(error) => { memory::log_action(&app,"media.recent","failed",&error); Ok(MediaActionResult{action,handled:false,detail:error,query:None,source:Some("local-library".into())}) }
+      };
+    }
+
+    if action == "contextual" {
+      let term = normalized_query.as_deref().unwrap_or_default();
+      let result = contextual_local_track(&app,term)?.ok_or_else(|| format!("Mira chưa có đủ lịch sử nhạc local gắn với bối cảnh “{term}”."));
+      return match result.and_then(|track| play_indexed_track(&app,&track,None)) {
+        Ok(detail) => {
+          let detail = format!("{detail} Em chọn bài này từ lịch sử nghe có bối cảnh tương tự.");
+          memory::log_action(&app,"media.contextual","executed",&detail);
+          Ok(MediaActionResult{action,handled:true,detail,query:normalized_query,source:Some("local-context-memory".into())})
+        }
+        Err(error) => {
+          memory::log_action(&app,"media.contextual","failed",&error);
+          Ok(MediaActionResult{action,handled:false,detail:error,query:normalized_query,source:Some("local-context-memory".into())})
+        }
       };
     }
 
     if action == "search" {
       if let Some(term) = normalized_query.as_deref() {
         if let Some(track) = find_local_track(&app,term)? {
-          match play_indexed_track(&app,&track) {
+          match play_indexed_track(&app,&track,context.as_deref()) {
             Ok(detail) => {
               memory::log_action(&app,"media.search.local","executed",&detail);
               return Ok(MediaActionResult{action,handled:true,detail,query:normalized_query,source:Some("local-library".into())});
