@@ -25,6 +25,7 @@ const CURRENCY_ALIASES: Record<string,string> = {
   krw:'KRW', won:'KRW',
   aud:'AUD', cad:'CAD', sgd:'SGD', chf:'CHF',
 };
+const ISO_CURRENCIES = new Set(['USD','VND','EUR','GBP','JPY','CNY','KRW','AUD','CAD','SGD','CHF','HKD','THB','MYR','IDR','PHP','INR','NZD']);
 
 const COMPANY_SYMBOLS: Array<[RegExp,string]> = [
   [/\bnvidia\b/i,'NVDA'], [/\bapple\b/i,'AAPL'], [/\btesla\b/i,'TSLA'],
@@ -64,7 +65,8 @@ function currencyMentions(input: string): string[] {
   const tokens = normalized.split(/\s+/);
   const found: string[] = [];
   for (const token of tokens) {
-    const code = CURRENCY_ALIASES[token] || (/^[a-z]{3}$/.test(token) ? token.toUpperCase() : '');
+    const upper = token.toUpperCase();
+    const code = CURRENCY_ALIASES[token] || (ISO_CURRENCIES.has(upper) ? upper : '');
     if (code && !found.includes(code)) found.push(code);
   }
   return found;
