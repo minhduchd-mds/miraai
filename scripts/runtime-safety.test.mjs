@@ -162,3 +162,20 @@ test('desktop local actions are guarded by persisted native permissions', () => 
   assert.match(skill, /action: 'search'/);
   assert.match(skill, /Mở bài The Night I Found You/);
 });
+
+test('desktop music library is opt-in, root-scoped and keeps local play history', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  const media = readFileSync('src-tauri/src/media.rs', 'utf8');
+  const prefs = readFileSync('src/desktop/preferences.ts', 'utf8');
+  const skill = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');
+  assert.match(memory, /\("media\.library", 0_i64\)/);
+  assert.match(memory, /CREATE TABLE IF NOT EXISTS music_tracks/);
+  assert.match(media, /MAX_LIBRARY_TRACKS: usize = 20_000/);
+  assert.match(media, /path\.starts_with\(root\)/);
+  assert.match(media, /desktop_music_choose_folder/);
+  assert.match(media, /last_played_at/);
+  assert.match(media, /play_count=play_count\+1/);
+  assert.match(prefs, /desktop_music_rescan/);
+  assert.match(skill, /action: 'recent'/);
+  assert.match(skill, /Bật lại bài hôm trước anh nghe/);
+});

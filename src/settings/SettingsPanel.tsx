@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Theme, VoiceOption } from '../core/types';
 import { isDesktopRuntime } from '../desktop/bridge';
-import { loadDesktopPrivacyState, setDesktopPermission, type DesktopPermissionKey, type DesktopPrivacyState } from '../desktop/preferences';
+import {
+  chooseDesktopMusicFolder,
+  loadDesktopPrivacyState,
+  rescanDesktopMusicLibrary,
+  setDesktopPermission,
+  type DesktopPermissionKey,
+  type DesktopPrivacyState,
+} from '../desktop/preferences';
 import type { TTSDiagnostics } from '../core/tts';
 import { loadSmartTurn, saveSmartTurn } from '../core/stt/turn-config';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
@@ -70,6 +77,7 @@ export default function SettingsPanel(props: Props) {
   const [desktopRuntime] = useState(isDesktopRuntime);
   const [desktopPrivacy, setDesktopPrivacy] = useState<DesktopPrivacyState | null>(null);
   const [desktopPrivacyBusy, setDesktopPrivacyBusy] = useState(false);
+  const [desktopLibraryBusy, setDesktopLibraryBusy] = useState(false);
   const [voiceDiagnostics, setVoiceDiagnostics] = useState<TTSDiagnostics | null>(null);
   const capsuleInputRef = useRef<HTMLInputElement>(null);
 
@@ -127,6 +135,25 @@ export default function SettingsPanel(props: Props) {
     } catch (error) {
       setProfileError('Không cập nhật được quyền Desktop: ' + (error instanceof Error ? error.message : String(error)));
     } finally { setDesktopPrivacyBusy(false); }
+  };
+  const chooseMusicFolder = async () => {
+    setDesktopLibraryBusy(true); setProfileError('');
+    try {
+      const musicLibrary = await chooseDesktopMusicFolder();
+      setDesktopPrivacy((current) => current ? { ...current, permissions: { ...current.permissions, 'media.library': true }, musicLibrary } : current);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/chưa chọn thư mục/i.test(message)) setProfileError('Không tạo được thư viện nhạc local: ' + message);
+    } finally { setDesktopLibraryBusy(false); }
+  };
+  const rescanMusic = async () => {
+    setDesktopLibraryBusy(true); setProfileError('');
+    try {
+      const musicLibrary = await rescanDesktopMusicLibrary();
+      setDesktopPrivacy((current) => current ? { ...current, musicLibrary } : current);
+    } catch (error) {
+      setProfileError('Không quét lại được thư viện nhạc: ' + (error instanceof Error ? error.message : String(error)));
+    } finally { setDesktopLibraryBusy(false); }
   };
   const eraseAll = async () => { if (!window.confirm('Xoá toàn bộ lịch sử và hồ sơ Mira đã ghi nhớ? Thao tác này không hoàn tác được.')) return; await forgetAllMemory(); await refreshProfile(); };
   const exportCapsule = async () => {
@@ -195,7 +222,7 @@ export default function SettingsPanel(props: Props) {
           {tab === 'appearance' && <div className="v2-setting-group"><h3>Màu quả cầu</h3><div className="v2-theme-grid">{THEMES.map((item) => <button key={item} type="button" data-theme-preview={item} className={props.theme === item ? 'active' : ''} onClick={() => props.onTheme(item)}><i /><span>{item}</span></button>)}</div></div>}
           {tab === 'memory' && <>
             <div className="v2-setting-group"><h3>Ký ức</h3><Toggle checked={memoryOn} onChange={changeMemory} label="Cho phép Mira ghi nhớ" hint="Tắt để ngừng lưu lượt mới, truy hồi ký ức và chắt lọc hồ sơ." /><div className="v2-memory-meta"><span>{loadingProfile ? 'Đang đọc kho ký ức…' : `${profile?.messageCount ?? 0} lượt hội thoại đã lưu`}</span><button type="button" onClick={() => void refreshProfile()}>Làm mới</button></div>{profileError && <p className="v2-profile-error">{profileError}</p>}<div className="v2-memory-list">{profile?.facts.map((fact) => <FactRow key={fact.id} fact={fact} onChanged={() => void refreshProfile()} />)}{!loadingProfile && profile && !profile.facts.length && <p className="v2-empty">Mira chưa ghi nhớ thông tin bền vững nào về anh.</p>}</div><div className="v2-memory-actions"><button type="button" className="primary" disabled={capsuleBusy} onClick={() => void exportCapsule()}>{capsuleBusy ? 'Đang xử lý…' : 'Xuất Identity Capsule'}</button><button type="button" disabled={capsuleBusy} onClick={() => capsuleInputRef.current?.click()}>Nhập Capsule</button><button type="button" onClick={() => void exportMemory()}>Xuất dữ liệu thô</button><button type="button" className="danger" onClick={() => void eraseAll()}>Xoá toàn bộ ký ức</button><input ref={capsuleInputRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importCapsule(event.target.files?.[0])} /></div><p className="v2-disclosure">Identity Capsule đóng gói ký ức, lịch sử và tuỳ chọn Mira thành JSON có version + SHA-256 để mang sang thiết bị hoặc model khác. Nhập Capsule chỉ gộp dữ liệu, không xoá dữ liệu đang có.</p></div>
-            {desktopRuntime && <div className="v2-setting-group v2-desktop-local"><h3>Mira Desktop Local</h3><div className="v2-desktop-local-status"><span><b>{desktopPrivacy?.info?.platform === 'macos' ? 'macOS' : desktopPrivacy?.info?.platform === 'windows' ? 'Windows' : 'Desktop'}</b><small>{desktopPrivacy?.info?.localFrontend ? 'Frontend chạy cục bộ · không dùng Vercel làm giao diện' : 'Đang kiểm tra runtime local'}</small></span><i data-ready={desktopPrivacy?.info?.localFrontend ? 'true' : 'false'} /></div><Toggle checked={desktopPrivacy?.permissions['media.control'] ?? true} onChange={(next) => void changeDesktopPermission('media.control', next)} label="Cho phép điều khiển nhạc" hint="Chỉ chạy khi anh ra lệnh rõ ràng như bật, dừng, chuyển hoặc mở một bài cụ thể." /><Toggle checked={desktopPrivacy?.permissions['memory.affect'] ?? true} onChange={(next) => void changeDesktopPermission('memory.affect', next)} label="Lưu tín hiệu cảm xúc cục bộ" hint="Lưu mood/confidence theo thời gian vào mira.db để giữ mạch cảm xúc; không coi đây là chẩn đoán." />{desktopPrivacyBusy && <p className="v2-disclosure">Đang cập nhật quyền…</p>}{desktopPrivacy?.info?.memoryDb && <p className="v2-local-path">Memory DB <code>{desktopPrivacy.info.memoryDb}</code></p>}<p className="v2-disclosure">Quyền được kiểm tra lại ở native Rust layer trước khi thực thi. Tắt quyền ở đây sẽ chặn hành động ngay cả khi UI gửi lệnh.</p></div>}
+            {desktopRuntime && <div className="v2-setting-group v2-desktop-local"><h3>Mira Desktop Local</h3><div className="v2-desktop-local-status"><span><b>{desktopPrivacy?.info?.platform === 'macos' ? 'macOS' : desktopPrivacy?.info?.platform === 'windows' ? 'Windows' : 'Desktop'}</b><small>{desktopPrivacy?.info?.localFrontend ? 'Frontend chạy cục bộ · không dùng Vercel làm giao diện' : 'Đang kiểm tra runtime local'}</small></span><i data-ready={desktopPrivacy?.info?.localFrontend ? 'true' : 'false'} /></div><Toggle checked={desktopPrivacy?.permissions['media.control'] ?? true} onChange={(next) => void changeDesktopPermission('media.control', next)} label="Cho phép điều khiển nhạc" hint="Chỉ chạy khi anh ra lệnh rõ ràng như bật, dừng, chuyển hoặc mở một bài cụ thể." /><Toggle checked={desktopPrivacy?.permissions['media.library'] ?? false} onChange={(next) => void changeDesktopPermission('media.library', next)} label="Cho phép thư viện nhạc local" hint="Mira chỉ index file âm thanh trong đúng thư mục anh đã chọn; không tự quét ổ đĩa." /><div className="v2-music-library"><div><b>{desktopPrivacy?.musicLibrary?.trackCount ? desktopPrivacy.musicLibrary.trackCount.toLocaleString('vi-VN') + ' bài đã index' : 'Chưa có thư viện nhạc local'}</b><small>{desktopPrivacy?.musicLibrary?.root || 'Chọn một thư mục Music để Mira có thể tìm bài theo tên và lịch sử nghe.'}</small></div><div><button type="button" disabled={desktopLibraryBusy} onClick={() => void chooseMusicFolder()}>{desktopPrivacy?.musicLibrary?.root ? 'Đổi thư mục' : 'Chọn thư mục'}</button><button type="button" disabled={desktopLibraryBusy || !desktopPrivacy?.musicLibrary?.root || !desktopPrivacy?.permissions['media.library']} onClick={() => void rescanMusic()}>Quét lại</button></div></div><Toggle checked={desktopPrivacy?.permissions['memory.affect'] ?? true} onChange={(next) => void changeDesktopPermission('memory.affect', next)} label="Lưu tín hiệu cảm xúc cục bộ" hint="Lưu mood/confidence theo thời gian vào mira.db để giữ mạch cảm xúc; không coi đây là chẩn đoán." />{(desktopPrivacyBusy || desktopLibraryBusy) && <p className="v2-disclosure">Đang cập nhật dữ liệu local…</p>}{desktopPrivacy?.info?.memoryDb && <p className="v2-local-path">Memory DB <code>{desktopPrivacy.info.memoryDb}</code></p>}<p className="v2-disclosure">Quyền được kiểm tra lại ở native Rust layer trước khi thực thi. Tắt quyền ở đây sẽ chặn hành động ngay cả khi UI gửi lệnh.</p></div>}
             <div className="v2-setting-group v2-privacy-note"><h3>Riêng tư mặc định</h3><p>Mic chỉ hoạt động khi anh bật nghe hoặc trò chuyện rảnh tay. Giao diện chính không tải avatar 3D, camera hay hand gesture.</p></div>
             <div className="v2-setting-group v2-labs-entry"><div><h3>Developer Labs</h3><p>Avatar, camera, hand gesture, Splat, simulator, BYOK và chẩn đoán kỹ thuật.</p></div><button type="button" onClick={props.onOpenLabs}>Mở Labs →</button></div>
           </>}

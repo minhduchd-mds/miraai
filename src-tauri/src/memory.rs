@@ -2,6 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
 use tauri::{AppHandle, Manager};
+use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,6 +78,23 @@ fn open(app: &AppHandle) -> Result<Connection, String> {
       );
       CREATE INDEX IF NOT EXISTS idx_affect_ts ON affect(ts);
       CREATE TABLE IF NOT EXISTS permissions (key TEXT PRIMARY KEY, value INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS music_tracks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT NOT NULL UNIQUE,
+        root TEXT NOT NULL,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL DEFAULT '',
+        album TEXT NOT NULL DEFAULT '',
+        search_text TEXT NOT NULL,
+        ext TEXT NOT NULL,
+        indexed_at INTEGER NOT NULL,
+        added_at INTEGER NOT NULL,
+        last_played_at INTEGER NOT NULL DEFAULT 0,
+        play_count INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_music_tracks_root ON music_tracks(root);
+      CREATE INDEX IF NOT EXISTS idx_music_tracks_recent ON music_tracks(last_played_at DESC);
       CREATE TABLE IF NOT EXISTS action_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, outcome TEXT NOT NULL,
         detail TEXT NOT NULL DEFAULT '', ts INTEGER NOT NULL
@@ -88,7 +106,7 @@ fn open(app: &AppHandle) -> Result<Connection, String> {
 
 pub(crate) fn initialize(app: &AppHandle) -> Result<(), String> {
     let connection = open(app)?;
-    for (key, value) in [("media.control", 1_i64), ("memory.affect", 1_i64)] {
+    for (key, value) in [("media.control", 1_i64), ("media.library", 0_i64), ("memory.affect", 1_i64)] {
       connection.execute(
         "INSERT OR IGNORE INTO permissions(key,value,updated_at) VALUES (?1,?2,?3)",
         params![key,value,now_ms()]
@@ -105,6 +123,28 @@ pub(crate) fn permission_enabled(app: &AppHandle, key: &str, default_value: bool
         |row| row.get::<_,i64>(0)
       ).optional().ok().flatten()
     }).map(|value| value != 0).unwrap_or(default_value)
+}
+
+pub(crate) fn database(app: &AppHandle) -> Result<Connection, String> { open(app) }
+
+pub(crate) fn timestamp_ms() -> i64 { now_ms() }
+
+pub(crate) fn setting_get(app: &AppHandle, key: &str) -> Result<Option<String>, String> {
+    open(app)?.query_row(
+      "SELECT value FROM settings WHERE key=?1",
+      [clip(key,120)],
+      |row| row.get::<_,String>(0)
+    ).optional().map_err(|e| format!("read setting: {e}"))
+}
+
+pub(crate) fn setting_set(app: &AppHandle, key: &str, value: &str) -> Result<(), String> {
+    let key = clip(key,120);
+    if key.is_empty() { return Err("setting key is empty".into()); }
+    open(app)?.execute(
+      "INSERT INTO settings(key,value,updated_at) VALUES (?1,?2,?3) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
+      params![key,clip(value,4096),now_ms()]
+    ).map_err(|e| format!("write setting: {e}"))?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -166,13 +206,38 @@ pub(crate) fn desktop_memory_save_affect(app: AppHandle, row: MemoryAffect) -> R
     Ok(())
 }
 
-fn tokens(input: &str) -> Vec<String> {
-    input.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|t| t.chars().count() > 1).map(ToOwned::to_owned).collect()
+fn normalize_search(input: &str) -> String {
+    let folded: String = input
+      .to_lowercase()
+      .replace('đ',"d")
+      .nfd()
+      .filter(|c| !is_combining_mark(*c))
+      .collect();
+    folded
+      .chars()
+      .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+      .collect::<String>()
+      .split_whitespace()
+      .collect::<Vec<_>>()
+      .join(" ")
 }
+
+fn tokens(input: &str) -> Vec<String> {
+    normalize_search(input)
+      .split_whitespace()
+      .filter(|t| t.chars().count() > 1)
+      .map(ToOwned::to_owned)
+      .collect()
+}
+
 fn similarity(query: &[String], text: &str) -> f64 {
     if query.is_empty() { return 0.0; }
-    let hay = text.to_lowercase();
-    query.iter().filter(|token| hay.contains(token.as_str())).count() as f64 / query.len() as f64
+    let hay_tokens = tokens(text);
+    let hits = query.iter().filter(|token| hay_tokens.iter().any(|candidate| candidate == *token)).count();
+    let overlap = hits as f64 / query.len() as f64;
+    let phrase = query.join(" ");
+    let normalized_text = normalize_search(text);
+    (overlap + if phrase.chars().count() >= 4 && normalized_text.contains(&phrase) { 0.18 } else { 0.0 }).min(1.0)
 }
 
 #[tauri::command]

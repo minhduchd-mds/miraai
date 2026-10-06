@@ -12,6 +12,7 @@ tauri-build = { version = "2.7.0", features = [] }
 tauri = { version = "2.12.0", features = [] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
+unicode-normalization = "0.1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse"] }

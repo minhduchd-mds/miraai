@@ -22,6 +22,9 @@ fn main() {
             memory::desktop_memory_export,
             memory::desktop_permission_get,
             memory::desktop_permission_set,
+            media::desktop_music_library_status,
+            media::desktop_music_choose_folder,
+            media::desktop_music_rescan,
             media::desktop_media_action,
         ])
         .run(tauri::generate_context!())

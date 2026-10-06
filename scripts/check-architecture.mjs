@@ -891,23 +891,23 @@ for (const token of ['"frontendDist": "../dist"', '"withGlobalTauri": true', '"u
 }
 if (desktopConfig.includes('"frontendDist": "https://')) failures.push('desktop Tauri must bundle the frontend locally');
 const desktopMain = readFileSync('src-tauri/src/main.rs', 'utf8');
-for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'desktop_permission_set', 'desktop_media_action']) {
+for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'desktop_permission_set', 'desktop_music_library_status', 'desktop_music_choose_folder', 'desktop_music_rescan', 'desktop_media_action']) {
   if (!desktopMain.includes(token)) failures.push(`desktop native command missing: ${token}`);
 }
 const desktopMemory = readFileSync('src-tauri/src/memory.rs', 'utf8');
-for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'desktop_memory_export', 'permission_enabled', '"media.control"', '"memory.affect"']) {
+for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'CREATE TABLE IF NOT EXISTS music_tracks', 'desktop_memory_export', 'permission_enabled', '"media.control"', '"media.library"', '"memory.affect"', 'UnicodeNormalization']) {
   if (!desktopMemory.includes(token)) failures.push(`desktop SQLite memory missing: ${token}`);
 }
 const desktopMusic = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');
-for (const token of ['desktop.music', 'isExplicitDesktopMusicCommand', 'desktopMusicRequest', "'search'", 'desktop_media_action']) {
+for (const token of ['desktop.music', 'isExplicitDesktopMusicCommand', 'desktopMusicRequest', "'search'", "'recent'", 'Bật lại bài hôm trước anh nghe', 'desktop_media_action']) {
   if (!desktopMusic.includes(token)) failures.push(`desktop music skill missing: ${token}`);
 }
 const desktopMedia = readFileSync('src-tauri/src/media.rs', 'utf8');
-for (const token of ['permission_enabled(&app, "media.control"', '"search"', 'Spotify', 'Music']) {
+for (const token of ['permission_enabled(&app,"media.control"', 'permission_enabled(app,"media.library"', 'desktop_music_choose_folder', 'music_tracks', 'MAX_LIBRARY_TRACKS', '"search"', '"recent"', 'Spotify', 'Music']) {
   if (!desktopMedia.includes(token)) failures.push(`desktop native media guard missing: ${token}`);
 }
 const desktopPreferences = readFileSync('src/desktop/preferences.ts', 'utf8');
-for (const token of ['media.control', 'memory.affect', 'desktop_permission_get', 'desktop_permission_set']) {
+for (const token of ['media.control', 'media.library', 'memory.affect', 'desktop_music_library_status', 'desktop_music_choose_folder', 'desktop_music_rescan', 'desktop_permission_get', 'desktop_permission_set']) {
   if (!desktopPreferences.includes(token)) failures.push(`desktop privacy UI bridge missing: ${token}`);
 }
 const desktopPlist = readFileSync('src-tauri/Info.plist', 'utf8');
