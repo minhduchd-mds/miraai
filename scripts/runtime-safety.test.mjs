@@ -149,3 +149,16 @@ test('all in-memory TTS gateways bound and prune rate-limit buckets', () => {
     assert.match(source, /function ensureRateBucketCapacity\(\)/);
   }
 });
+
+test('desktop local actions are guarded by persisted native permissions', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  const media = readFileSync('src-tauri/src/media.rs', 'utf8');
+  const skill = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');
+  assert.match(memory, /permission_enabled/);
+  assert.match(memory, /"media\.control"/);
+  assert.match(memory, /"memory\.affect"/);
+  assert.match(media, /permission_enabled\(&app, "media\.control"/);
+  assert.match(skill, /desktopMusicRequest/);
+  assert.match(skill, /action: 'search'/);
+  assert.match(skill, /Mở bài The Night I Found You/);
+});

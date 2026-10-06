@@ -103,3 +103,12 @@
 @media (prefers-reduced-motion: reduce) {
   .v2-settings *, .v2-settings *::before, .v2-settings *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+.v2-desktop-local-status { margin: 2px 0 8px; min-height: 44px; padding: 0 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--stroke); border-radius: 11px; background: color-mix(in srgb, var(--bg) 84%, transparent); }
+.v2-desktop-local-status > span { display: grid; gap: 3px; min-width: 0; }
+.v2-desktop-local-status b { font-size: 11px; }
+.v2-desktop-local-status small { color: var(--faint); font-size: 9.5px; line-height: 1.4; }
+.v2-desktop-local-status > i { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--faint); }
+.v2-desktop-local-status > i[data-ready="true"] { background: var(--accent); box-shadow: 0 0 11px color-mix(in srgb, var(--accent) 55%, transparent); }
+.v2-local-path { margin: 10px 0 0 !important; display: grid; gap: 5px; color: var(--faint) !important; }
+.v2-local-path code { max-width: 100%; padding: 7px 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--stroke); border-radius: 8px; background: var(--bg); color: var(--dim); font: 9.5px/1.35 'JetBrains Mono', monospace; }

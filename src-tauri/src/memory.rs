@@ -86,7 +86,26 @@ fn open(app: &AppHandle) -> Result<Connection, String> {
     Ok(connection)
 }
 
-pub(crate) fn initialize(app: &AppHandle) -> Result<(), String> { open(app).map(|_| ()) }
+pub(crate) fn initialize(app: &AppHandle) -> Result<(), String> {
+    let connection = open(app)?;
+    for (key, value) in [("media.control", 1_i64), ("memory.affect", 1_i64)] {
+      connection.execute(
+        "INSERT OR IGNORE INTO permissions(key,value,updated_at) VALUES (?1,?2,?3)",
+        params![key,value,now_ms()]
+      ).map_err(|e| format!("initialize permission {key}: {e}"))?;
+    }
+    Ok(())
+}
+
+pub(crate) fn permission_enabled(app: &AppHandle, key: &str, default_value: bool) -> bool {
+    open(app).ok().and_then(|connection| {
+      connection.query_row(
+        "SELECT value FROM permissions WHERE key=?1",
+        [clip(key,120)],
+        |row| row.get::<_,i64>(0)
+      ).optional().ok().flatten()
+    }).map(|value| value != 0).unwrap_or(default_value)
+}
 
 #[tauri::command]
 pub(crate) fn desktop_info(app: AppHandle) -> Result<DesktopInfo, String> {
@@ -139,6 +158,7 @@ pub(crate) fn desktop_memory_save_episode(app: AppHandle, text: String) -> Resul
 
 #[tauri::command]
 pub(crate) fn desktop_memory_save_affect(app: AppHandle, row: MemoryAffect) -> Result<(), String> {
+    if !permission_enabled(&app, "memory.affect", true) { return Ok(()); }
     open(&app)?.execute(
       "INSERT INTO affect(mood,confidence,valence,arousal,engagement,fatigue,tension,ts) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
       params![clip(&row.mood,40),row.confidence.clamp(0.0,1.0),row.valence,row.arousal,row.engagement,row.fatigue,row.tension,if row.ts > 0 { row.ts } else { now_ms() }]

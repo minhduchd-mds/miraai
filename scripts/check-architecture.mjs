@@ -895,12 +895,20 @@ for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'deskt
   if (!desktopMain.includes(token)) failures.push(`desktop native command missing: ${token}`);
 }
 const desktopMemory = readFileSync('src-tauri/src/memory.rs', 'utf8');
-for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'desktop_memory_export']) {
+for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'desktop_memory_export', 'permission_enabled', '"media.control"', '"memory.affect"']) {
   if (!desktopMemory.includes(token)) failures.push(`desktop SQLite memory missing: ${token}`);
 }
 const desktopMusic = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');
-for (const token of ['desktop.music', 'isExplicitDesktopMusicCommand', 'desktop_media_action']) {
+for (const token of ['desktop.music', 'isExplicitDesktopMusicCommand', 'desktopMusicRequest', "'search'", 'desktop_media_action']) {
   if (!desktopMusic.includes(token)) failures.push(`desktop music skill missing: ${token}`);
+}
+const desktopMedia = readFileSync('src-tauri/src/media.rs', 'utf8');
+for (const token of ['permission_enabled(&app, "media.control"', '"search"', 'Spotify', 'Music']) {
+  if (!desktopMedia.includes(token)) failures.push(`desktop native media guard missing: ${token}`);
+}
+const desktopPreferences = readFileSync('src/desktop/preferences.ts', 'utf8');
+for (const token of ['media.control', 'memory.affect', 'desktop_permission_get', 'desktop_permission_set']) {
+  if (!desktopPreferences.includes(token)) failures.push(`desktop privacy UI bridge missing: ${token}`);
 }
 const desktopPlist = readFileSync('src-tauri/Info.plist', 'utf8');
 for (const token of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSSpeechRecognitionUsageDescription']) {
