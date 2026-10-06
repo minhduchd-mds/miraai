@@ -256,3 +256,14 @@ test('tool-first finance evidence runs before Brain and refuses unverified live 
   assert.match(gateway, /TWELVE_DATA_API_KEY/);
   assert.match(gateway, /api\.frankfurter\.dev\/v2\/rate/);
 });
+
+test('finance implementation stays behind a lazy boundary to protect initial bundle', () => {
+  const registry = readFileSync('src/intelligence/skills/registry.ts', 'utf8');
+  const lazy = readFileSync('src/intelligence/skills/finance-lazy.ts', 'utf8');
+  assert.match(registry, /from '.\/finance-lazy'/);
+  assert.doesNotMatch(registry, /from '.\/finance-live-skill'/);
+  assert.doesNotMatch(registry, /from '.\/finance-calculator-skill'/);
+  assert.match(lazy, /import\('\.\/finance-live-skill'\)/);
+  assert.match(lazy, /import\('\.\/finance-calculator-skill'\)/);
+  assert.match(lazy, /import\('\.\/finance-policy-skill'\)/);
+});

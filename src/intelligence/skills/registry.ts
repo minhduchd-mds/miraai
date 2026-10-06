@@ -3,9 +3,7 @@ import { evaluateSkillCapabilityPolicy } from '../../runtime/capability-policy';
 import { weatherSkill } from './weather-skill';
 import { imageSkill } from './image-skill';
 import { desktopMusicSkill } from './desktop-music-skill';
-import { financeCalculatorSkill } from './finance-calculator-skill';
-import { financeLiveSkill } from './finance-live-skill';
-import { financePolicySkill } from './finance-policy-skill';
+import { financeCalculatorSkill, financeLiveSkill, financePolicySkill } from './finance-lazy';
 
 export class SkillRegistry {
   private readonly skills = new Map<string, MiraSkill>();
