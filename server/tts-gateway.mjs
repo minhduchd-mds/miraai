@@ -11,7 +11,9 @@ const MAX_TEXT_LENGTH = 1600;
 
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 32;
+const MAX_TRACKED_CLIENTS = 2048;
 const buckets = new Map();
+let nextBucketSweepAt = 0;
 
 function clientIp(req) {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
@@ -44,11 +46,34 @@ function sendJson(req, res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function pruneRateBuckets(now) {
+  if (now < nextBucketSweepAt && buckets.size < MAX_TRACKED_CLIENTS) return;
+  nextBucketSweepAt = now + WINDOW_MS;
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.startedAt >= WINDOW_MS) buckets.delete(key);
+  }
+}
+
+function ensureRateBucketCapacity() {
+  if (buckets.size < MAX_TRACKED_CLIENTS) return;
+  const toRemove = buckets.size - MAX_TRACKED_CLIENTS + 1;
+  let removed = 0;
+  for (const key of buckets.keys()) {
+    buckets.delete(key);
+    removed += 1;
+    if (removed >= toRemove) break;
+  }
+}
+
 function takeRateSlot(req) {
   const now = Date.now();
   const ip = clientIp(req);
+  pruneRateBuckets(now);
+
   const previous = buckets.get(ip);
   if (!previous || now - previous.startedAt >= WINDOW_MS) {
+    if (previous) buckets.delete(ip);
+    ensureRateBucketCapacity();
     buckets.set(ip, { startedAt: now, count: 1 });
     return true;
   }

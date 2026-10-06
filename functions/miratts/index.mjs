@@ -6,7 +6,9 @@ const DEFAULT_MODEL = process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v
 const MAX_TEXT_LENGTH = 1600;
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 32;
+const MAX_TRACKED_CLIENTS = 2048;
 const buckets = new Map();
+let nextBucketSweepAt = 0;
 
 function apiKey() {
   return process.env.ELEVENLABS_API_KEY || process.env.elevenlabs_api_key || '';
@@ -51,11 +53,34 @@ function clientKey(request) {
     || 'anonymous';
 }
 
+function pruneRateBuckets(now) {
+  if (now < nextBucketSweepAt && buckets.size < MAX_TRACKED_CLIENTS) return;
+  nextBucketSweepAt = now + WINDOW_MS;
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.startedAt >= WINDOW_MS) buckets.delete(key);
+  }
+}
+
+function ensureRateBucketCapacity() {
+  if (buckets.size < MAX_TRACKED_CLIENTS) return;
+  const toRemove = buckets.size - MAX_TRACKED_CLIENTS + 1;
+  let removed = 0;
+  for (const key of buckets.keys()) {
+    buckets.delete(key);
+    removed += 1;
+    if (removed >= toRemove) break;
+  }
+}
+
 function takeRateSlot(request) {
   const now = Date.now();
   const key = clientKey(request);
+  pruneRateBuckets(now);
+
   const previous = buckets.get(key);
   if (!previous || now - previous.startedAt >= WINDOW_MS) {
+    if (previous) buckets.delete(key);
+    ensureRateBucketCapacity();
     buckets.set(key, { startedAt: now, count: 1 });
     return true;
   }

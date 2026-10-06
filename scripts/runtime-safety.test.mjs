@@ -1,0 +1,151 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import ts from 'typescript';
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function fakeStream(label) {
+  let stopped = 0;
+  const track = {
+    readyState: 'live',
+    stop() {
+      if (this.readyState === 'ended') return;
+      this.readyState = 'ended';
+      stopped += 1;
+    },
+    getSettings() {
+      return { width: 640, height: 480, frameRate: 30 };
+    },
+  };
+  return {
+    label,
+    stream: {
+      getTracks: () => [track],
+      getVideoTracks: () => [track],
+    },
+    stopped: () => stopped,
+  };
+}
+
+async function importCameraManager() {
+  const source = readFileSync('src/core/vision/camera-manager.ts', 'utf8');
+  const dependency = [
+    "export function selectCameraProfile(){ return 'balanced'; }",
+    "export function cameraConstraintsForProfile(){ return { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }; }",
+  ].join('\n');
+  const dependencyUrl = `data:text/javascript;base64,${Buffer.from(dependency).toString('base64')}`;
+
+  let output = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+    fileName: 'src/core/vision/camera-manager.ts',
+  }).outputText;
+
+  output = output.replace(/from ['"]\.\/camera-profile['"]/, `from '${dependencyUrl}'`);
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(output).toString('base64')}#camera-${Date.now()}`;
+  return import(moduleUrl);
+}
+
+test('camera lifecycle rejects stale getUserMedia results and preserves a newer reacquisition', async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const opens = [];
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      mediaDevices: {
+        getUserMedia() {
+          const gate = deferred();
+          opens.push(gate);
+          return gate.promise;
+        },
+      },
+    },
+  });
+
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement(kind) {
+        assert.equal(kind, 'video');
+        return {
+          playsInline: false,
+          muted: false,
+          autoplay: false,
+          paused: false,
+          srcObject: null,
+          videoWidth: 640,
+          videoHeight: 480,
+          async play() { this.paused = false; },
+          pause() { this.paused = true; },
+        };
+      },
+    },
+  });
+
+  try {
+    const camera = await importCameraManager();
+    const stale = fakeStream('stale');
+    const current = fakeStream('current');
+
+    const firstAcquire = camera.acquireVisionCamera('face').then(
+      () => null,
+      (error) => error,
+    );
+    assert.equal(opens.length, 1);
+
+    camera.releaseVisionCamera('face');
+
+    const secondAcquire = camera.acquireVisionCamera('face');
+    assert.equal(opens.length, 2);
+
+    opens[1].resolve(current.stream);
+    const activeVideo = await secondAcquire;
+    assert.equal(activeVideo.srcObject, current.stream);
+    assert.equal(camera.getVisionCameraStream(), current.stream);
+    assert.equal(camera.visionCameraStatus().active, true);
+    assert.deepEqual(camera.visionCameraStatus().consumers, ['face']);
+
+    opens[0].resolve(stale.stream);
+    const staleError = await firstAcquire;
+    assert.ok(staleError instanceof Error);
+    assert.equal(staleError.name, 'AbortError');
+    assert.equal(stale.stopped(), 1);
+    assert.equal(current.stopped(), 0);
+    assert.equal(camera.getVisionCameraStream(), current.stream);
+    assert.deepEqual(camera.visionCameraStatus().consumers, ['face']);
+
+    camera.releaseVisionCamera('face');
+    assert.equal(current.stopped(), 1);
+    assert.equal(camera.getVisionCameraStream(), null);
+    assert.equal(camera.visionCameraStatus().active, false);
+    assert.deepEqual(camera.visionCameraStatus().consumers, []);
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  }
+});
+
+test('all in-memory TTS gateways bound and prune rate-limit buckets', () => {
+  for (const path of [
+    'server/tts-policy.mjs',
+    'server/tts-gateway.mjs',
+    'functions/miratts/index.mjs',
+  ]) {
+    const source = readFileSync(path, 'utf8');
+    assert.match(source, /MAX_TRACKED_CLIENTS\s*=\s*2048/);
+    assert.match(source, /function pruneRateBuckets\(now\)/);
+    assert.match(source, /function ensureRateBucketCapacity\(\)/);
+  }
+});

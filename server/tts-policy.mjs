@@ -1,6 +1,8 @@
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 48;
+const MAX_TRACKED_CLIENTS = 2048;
 const buckets = new Map();
+let nextBucketSweepAt = 0;
 
 export const MIRA_DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL';
 
@@ -55,12 +57,36 @@ function clientKey(req) {
   return forwarded || String(req.socket?.remoteAddress || 'anonymous');
 }
 
+function pruneRateBuckets(now) {
+  if (now < nextBucketSweepAt && buckets.size < MAX_TRACKED_CLIENTS) return;
+  nextBucketSweepAt = now + WINDOW_MS;
+
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.startedAt >= WINDOW_MS) buckets.delete(key);
+  }
+}
+
+function ensureRateBucketCapacity() {
+  if (buckets.size < MAX_TRACKED_CLIENTS) return;
+
+  const toRemove = buckets.size - MAX_TRACKED_CLIENTS + 1;
+  let removed = 0;
+  for (const key of buckets.keys()) {
+    buckets.delete(key);
+    removed += 1;
+    if (removed >= toRemove) break;
+  }
+}
+
 export function takeRateSlot(req) {
   const now = Date.now();
   const key = clientKey(req);
-  const previous = buckets.get(key);
+  pruneRateBuckets(now);
 
+  const previous = buckets.get(key);
   if (!previous || now - previous.startedAt >= WINDOW_MS) {
+    if (previous) buckets.delete(key);
+    ensureRateBucketCapacity();
     buckets.set(key, { startedAt: now, count: 1 });
     return true;
   }
