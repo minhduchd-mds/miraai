@@ -201,3 +201,13 @@ test('desktop companion memory distills only user-stated structured memories and
   assert.match(prompt, /Ký ức dài hạn chỉ được xem là điều người dùng từng tự nói/);
   assert.match(prompt, /Tín hiệu biểu cảm\/camera chỉ là quan sát có độ tin cậy/);
 });
+
+test('memory opt-out stays session-only and blocks raw turn plus distillation persistence', () => {
+  const service = readFileSync('src/intelligence/memory/memory-service.ts', 'utf8');
+  assert.match(service, /function memoryOptOut/);
+  assert.match(service, /skipAssistantPersistenceOnce/);
+  assert.match(service, /if \(memoryOptOut\(turn\.text\)\)/);
+  assert.match(service, /if \(memoryOptOut\(userText\)\) return/);
+  assert.match(service, /dung nho/);
+  assert.match(service, /dung luu/);
+});

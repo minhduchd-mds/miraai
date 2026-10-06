@@ -9,8 +9,21 @@ function serverMemoryAvailable(): boolean {
   return !isLocalOnlyMemoryRuntime();
 }
 
+function memoryOptOut(text: string): boolean {
+  const normalized = text
+    .toLocaleLowerCase('vi')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return /\b(dung nho|dung luu|khong can nho|khong luu|chuyen nay dung nho|chuyen nay dung luu)\b/.test(normalized);
+}
+
 export class MemoryService {
   private readonly local = createRuntimeMemoryStore();
+  private skipAssistantPersistenceOnce = false;
 
   async loadRecent(): Promise<BrainTurn[]> {
     if (!memoryEnabled()) return [];
@@ -32,6 +45,18 @@ export class MemoryService {
 
   save(turn: BrainTurn): void {
     if (!memoryEnabled()) return;
+
+    if (turn.role === 'user') {
+      if (memoryOptOut(turn.text)) {
+        this.skipAssistantPersistenceOnce = true;
+        return;
+      }
+      this.skipAssistantPersistenceOnce = false;
+    } else if (this.skipAssistantPersistenceOnce) {
+      this.skipAssistantPersistenceOnce = false;
+      return;
+    }
+
     void this.local.saveTurn(turn);
     if (serverMemoryAvailable()) saveTurn(turn);
   }
@@ -46,6 +71,8 @@ export class MemoryService {
 
   distill(conversation: string): void {
     if (!memoryEnabled()) return;
+    const userText = conversation.split('\nMira:')[0]?.replace(/^Người dùng:\s*/i, '') || conversation;
+    if (memoryOptOut(userText)) return;
     void this.local.distill(conversation);
     if (serverMemoryAvailable()) distillFacts(conversation);
   }
