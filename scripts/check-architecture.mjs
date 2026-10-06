@@ -886,8 +886,21 @@ if (elevenApi.includes('api.openai.com')) failures.push('production TTS API must
 
 
 const desktopConfig = readFileSync('src-tauri/tauri.conf.json', 'utf8');
-for (const token of ['https://miraai-five.vercel.app', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"']) {
+for (const token of ['"frontendDist": "../dist"', '"withGlobalTauri": true', '"url": "index.html"', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"']) {
   if (!desktopConfig.includes(token)) failures.push(`desktop Tauri config missing: ${token}`);
+}
+if (desktopConfig.includes('"frontendDist": "https://')) failures.push('desktop Tauri must bundle the frontend locally');
+const desktopMain = readFileSync('src-tauri/src/main.rs', 'utf8');
+for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'desktop_permission_set', 'desktop_media_action']) {
+  if (!desktopMain.includes(token)) failures.push(`desktop native command missing: ${token}`);
+}
+const desktopMemory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'desktop_memory_export']) {
+  if (!desktopMemory.includes(token)) failures.push(`desktop SQLite memory missing: ${token}`);
+}
+const desktopMusic = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');
+for (const token of ['desktop.music', 'isExplicitDesktopMusicCommand', 'desktop_media_action']) {
+  if (!desktopMusic.includes(token)) failures.push(`desktop music skill missing: ${token}`);
 }
 const desktopPlist = readFileSync('src-tauri/Info.plist', 'utf8');
 for (const token of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription', 'NSSpeechRecognitionUsageDescription']) {

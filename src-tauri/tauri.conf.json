@@ -4,14 +4,18 @@
   "version": "0.1.0",
   "identifier": "com.mira.companion",
   "build": {
-    "frontendDist": "https://miraai-five.vercel.app"
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
         "title": "Mira",
-        "url": "https://miraai-five.vercel.app",
+        "url": "index.html",
         "width": 1366,
         "height": 768,
         "minWidth": 390,
@@ -23,39 +27,23 @@
         "titleBarStyle": "Visible"
       }
     ],
-    "security": {
-      "csp": null,
-      "capabilities": []
-    }
+    "security": { "csp": null }
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "dmg"
-    ],
+    "targets": ["dmg"],
     "category": "Lifestyle",
     "shortDescription": "Voice-first AI companion",
-    "longDescription": "Mira is a voice-first AI companion with contextual presence, vision, memory and ElevenLabs voice.",
-    "icon": [
-      "icons/icon.png"
-    ],
+    "longDescription": "Mira is a local-first desktop companion with contextual presence, vision, persistent memory and ElevenLabs voice.",
+    "icon": ["icons/icon.png"],
     "macOS": {
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-",
       "hardenedRuntime": false,
       "dmg": {
-        "windowSize": {
-          "width": 660,
-          "height": 400
-        },
-        "appPosition": {
-          "x": 180,
-          "y": 185
-        },
-        "applicationFolderPosition": {
-          "x": 480,
-          "y": 185
-        }
+        "windowSize": { "width": 660, "height": 400 },
+        "appPosition": { "x": 180, "y": 185 },
+        "applicationFolderPosition": { "x": 480, "y": 185 }
       }
     }
   }

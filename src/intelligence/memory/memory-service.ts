@@ -1,16 +1,16 @@
 import type { BrainTurn } from '../../core/types';
 import { distillFacts, loadHistory, recallMemory, saveTurn } from '../../core/history-store';
 import type { AffectState } from '../affect/mood-engine';
-import { LocalMemoryStore } from './local-memory-store';
+import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from './runtime-store';
 import { memoryEnabled } from './preferences';
 
 function serverMemoryAvailable(): boolean {
   if (typeof window === 'undefined') return true;
-  return !window.location.hostname.endsWith('.github.io');
+  return !isLocalOnlyMemoryRuntime();
 }
 
 export class MemoryService {
-  private readonly local = new LocalMemoryStore();
+  private readonly local = createRuntimeMemoryStore();
 
   async loadRecent(): Promise<BrainTurn[]> {
     if (!memoryEnabled()) return [];

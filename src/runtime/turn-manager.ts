@@ -5,6 +5,7 @@ import { ownerIdentityReply } from '../intelligence/identity/owner-profile';
 import { deicticVisualReply } from '../intelligence/vision/deictic-vision';
 import { MemoryService } from '../intelligence/memory/memory-service';
 import type { SkillPolicyAuditEvent, SkillRegistry, SkillResult } from '../intelligence/skills';
+import { isExplicitDesktopMusicCommand } from '../intelligence/skills/desktop-music-skill';
 import { authorizeHostAction } from './host-action-policy';
 import { runtimeAuditTrail } from './runtime-audit';
 
@@ -34,10 +35,12 @@ export class TurnManager {
     private readonly host: HostBridge,
   ) {}
 
-  private skillContext(host: HostContext) {
+  private skillContext(host: HostContext, userInput = '') {
+    const approvedSkillIds = isExplicitDesktopMusicCommand(userInput) ? ['desktop.music'] : undefined;
     return {
       locale: host.locale || 'vi-VN',
       host,
+      approvedSkillIds,
       onPolicyDecision: (event: SkillPolicyAuditEvent) => {
         runtimeAuditTrail.record({
           kind: 'skill',
@@ -153,7 +156,7 @@ export class TurnManager {
     const hostActionsPromise = this.listHostActions();
 
     void hostPromise
-      .then((host) => this.skills.execute(input, this.skillContext(host)))
+      .then((host) => this.skills.execute(input, this.skillContext(host, input)))
       .then((result) => result && onSkill?.(result))
       .catch((error) => console.warn('[Mira Skill] execution failed', error));
 
@@ -179,7 +182,7 @@ export class TurnManager {
         continue;
       }
       void this.skills
-        .executeById(call.skillId, call.input || input, this.skillContext(host))
+        .executeById(call.skillId, call.input || input, this.skillContext(host, input))
         .then((result) => result && onSkill?.(result))
         .catch((error) => console.warn('[Mira ToolCall] ' + call.skillId + ' failed', error));
     }

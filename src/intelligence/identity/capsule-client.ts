@@ -5,15 +5,11 @@ import { loadVadEnabled, saveVadEnabled } from '../../core/vad/config';
 import { loadVoicePrefs, saveVoicePrefs, type ResponseLength } from '../../core/voice-prefs';
 import type { Theme } from '../../core/types';
 import { memoryEnabled, setMemoryEnabled } from '../memory/preferences';
-import { LocalMemoryStore } from '../memory/local-memory-store';
+import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from '../memory/runtime-store';
 
-const localMemory = new LocalMemoryStore();
+const localMemory = createRuntimeMemoryStore();
 const CAPSULE_FORMAT = 'mira.identity-capsule';
 const CAPSULE_VERSION = 1;
-
-function isGitHubPagesRuntime(): boolean {
-  return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
-}
 
 async function digestPayload(payload: unknown): Promise<string> {
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
@@ -67,7 +63,7 @@ function downloadJson(value: unknown) {
 }
 
 export async function exportIdentityCapsule(theme: Theme, voiceURI?: string): Promise<void> {
-  if (isGitHubPagesRuntime()) {
+  if (isLocalOnlyMemoryRuntime()) {
     const snapshot = await localMemory.exportSnapshot();
     const history = snapshot.turns.slice(-500).map((turn) => ({
       role: turn.role,
@@ -78,7 +74,7 @@ export async function exportIdentityCapsule(theme: Theme, voiceURI?: string): Pr
       format: CAPSULE_FORMAT,
       schemaVersion: CAPSULE_VERSION,
       createdAt: new Date().toISOString(),
-      source: { app: 'Mira', purpose: 'Portable continuity record · local Pages' },
+      source: { app: 'Mira', purpose: 'Portable continuity record · local-first memory' },
       mira: {
         name: 'Mira',
         description: 'Voice-first AI companion. This capsule stores local user-approved continuity data.',
@@ -118,7 +114,7 @@ export async function importIdentityCapsule(file: File): Promise<CapsuleRestore>
   const capsule = JSON.parse(await file.text());
 
   let prefs: any;
-  if (isGitHubPagesRuntime()) {
+  if (isLocalOnlyMemoryRuntime()) {
     if (!await verifyLocalCapsule(capsule)) throw new Error('Capsule không hợp lệ hoặc hash không khớp');
     await localMemory.importTurns(Array.isArray(capsule?.history) ? capsule.history : []);
     prefs = capsule?.preferences || {};

@@ -2,6 +2,7 @@ import type { Brain, BrainReply, BrainTurn } from '../types';
 import { voicePrefs, responseTimeoutMs } from '../voice-prefs';
 import { buildSystem, parseMood, buildTurns } from './prompt';
 import { CannedBrain } from './canned-brain';
+import { miraApiUrl } from '../../desktop/cloud-endpoints';
 
 function isGitHubPagesRuntime(): boolean {
   return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
@@ -22,7 +23,7 @@ export class GeminiBrain implements Brain {
         role: message.role === 'assistant' ? 'model' : 'user',
         text: message.content,
       }));
-      const response = await fetch('/api/chat', {
+      const response = await fetch(miraApiUrl('chat'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'same-origin',

@@ -1,11 +1,7 @@
 import { legacyDeviceId } from '../../core/history-store';
-import { LocalMemoryStore } from './local-memory-store';
+import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from './runtime-store';
 
-const localMemory = new LocalMemoryStore();
-
-function isGitHubPagesRuntime(): boolean {
-  return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
-}
+const localMemory = createRuntimeMemoryStore();
 
 export interface MemoryFact {
   id: number;
@@ -23,7 +19,7 @@ function seed(): string {
 }
 
 export async function loadMemoryProfile(): Promise<MemoryProfile> {
-  if (isGitHubPagesRuntime()) {
+  if (isLocalOnlyMemoryRuntime()) {
     return { facts: [], messageCount: await localMemory.countTurns() };
   }
   const response = await fetch(`/api/profile?device=${seed()}`, { credentials: 'same-origin' });
@@ -42,7 +38,7 @@ export async function loadMemoryProfile(): Promise<MemoryProfile> {
 }
 
 export async function updateMemoryFact(id: number, fact: string): Promise<void> {
-  if (isGitHubPagesRuntime()) throw new Error('Structured facts are server-only; local Pages memory stores conversation history.');
+  if (isLocalOnlyMemoryRuntime()) throw new Error('Structured facts are server-only; local-only memory stores conversation history.');
   const response = await fetch('/api/profile', {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
@@ -53,7 +49,7 @@ export async function updateMemoryFact(id: number, fact: string): Promise<void> 
 }
 
 export async function forgetMemoryFact(id: number): Promise<void> {
-  if (isGitHubPagesRuntime()) throw new Error('Structured facts are server-only; local Pages memory stores conversation history.');
+  if (isLocalOnlyMemoryRuntime()) throw new Error('Structured facts are server-only; local-only memory stores conversation history.');
   const response = await fetch('/api/profile', {
     method: 'DELETE',
     headers: { 'content-type': 'application/json' },
@@ -64,7 +60,7 @@ export async function forgetMemoryFact(id: number): Promise<void> {
 }
 
 export async function forgetAllMemory(): Promise<void> {
-  if (isGitHubPagesRuntime()) {
+  if (isLocalOnlyMemoryRuntime()) {
     await localMemory.clearAll();
     return;
   }
@@ -78,7 +74,7 @@ export async function forgetAllMemory(): Promise<void> {
 }
 
 export async function exportMemory(): Promise<void> {
-  const value = isGitHubPagesRuntime()
+  const value = isLocalOnlyMemoryRuntime()
     ? await localMemory.exportSnapshot()
     : await (async () => {
         const response = await fetch(`/api/profile?device=${seed()}&export=1`, { credentials: 'same-origin' });

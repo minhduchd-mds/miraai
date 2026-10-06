@@ -6,6 +6,10 @@ on:
     paths:
       - ".github/workflows/release-windows-v0.1.0.yml"
       - "src-tauri/**"
+      - "src/desktop/**"
+      - "src/intelligence/memory/**"
+      - "src/intelligence/skills/desktop-music-skill.ts"
+      - "src/runtime/turn-manager.ts"
   workflow_dispatch:
 
 permissions:
@@ -32,6 +36,10 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 22
+
+      - name: Install frontend dependencies
+        shell: pwsh
+        run: npm ci
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

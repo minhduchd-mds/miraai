@@ -33,6 +33,7 @@ function extraAllowedOrigins() {
 export function originAllowed(req) {
   const origin = requestOrigin(req);
   if (!origin) return true;
+  if (origin === 'tauri://localhost' || origin === 'http://tauri.localhost' || origin === 'https://tauri.localhost') return true;
 
   const host = requestHost(req);
   const ownOrigin = host ? `https://${host}` : '';

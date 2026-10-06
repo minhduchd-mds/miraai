@@ -2,6 +2,7 @@ import type { MiraSkill, SkillContext, SkillResult } from './types';
 import { evaluateSkillCapabilityPolicy } from '../../runtime/capability-policy';
 import { weatherSkill } from './weather-skill';
 import { imageSkill } from './image-skill';
+import { desktopMusicSkill } from './desktop-music-skill';
 
 export class SkillRegistry {
   private readonly skills = new Map<string, MiraSkill>();
@@ -78,5 +79,5 @@ export class SkillRegistry {
 }
 
 export function createDefaultSkillRegistry(): SkillRegistry {
-  return new SkillRegistry([weatherSkill, imageSkill]);
+  return new SkillRegistry([desktopMusicSkill, weatherSkill, imageSkill]);
 }

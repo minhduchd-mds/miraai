@@ -5,6 +5,32 @@ const MAX_MESSAGE = 6000;
 const MAX_MESSAGES = 40;
 const MAX_CONTEXT_CHARS = 36000;
 const RESPONSE_BUDGETS = Object.freeze({ short: 450, auto: 1200, detailed: 1800, deep: 2200 });
+const DESKTOP_ORIGINS = new Set(['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost']);
+
+function requestOrigin(req) {
+  return String(req.headers?.origin || '').trim();
+}
+
+function requestHost(req) {
+  const forwarded = String(req.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
+  return forwarded || String(req.headers?.host || '').trim();
+}
+
+function originAllowed(req) {
+  const origin = requestOrigin(req);
+  if (!origin || DESKTOP_ORIGINS.has(origin)) return true;
+  const host = requestHost(req);
+  return Boolean(host && origin === `https://${host}`);
+}
+
+function applyCors(req, res) {
+  const origin = requestOrigin(req);
+  if (origin && originAllowed(req)) res.setHeader('access-control-allow-origin', origin);
+  res.setHeader('access-control-allow-methods', 'POST,OPTIONS');
+  res.setHeader('access-control-allow-headers', 'content-type');
+  res.setHeader('access-control-max-age', '86400');
+  res.setHeader('vary', 'Origin');
+}
 
 function normalizeResponseLength(value) {
   return Object.prototype.hasOwnProperty.call(RESPONSE_BUDGETS, value) ? value : 'auto';
@@ -32,6 +58,9 @@ function normalizeMessages(raw) {
 }
 
 export default async function handler(req, res) {
+  applyCors(req, res);
+  if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
   let body = req.body;
