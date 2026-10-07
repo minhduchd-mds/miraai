@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashSet, fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
 use tauri::{AppHandle, Manager};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
@@ -29,6 +29,46 @@ pub(crate) struct StructuredMemory {
     first_seen_ts: i64,
     last_seen_ts: i64,
     hit_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StructuredMemoryNode {
+    id: i64,
+    kind: String,
+    text: String,
+    importance: f64,
+    status: String,
+    first_seen_ts: i64,
+    last_seen_ts: i64,
+    hit_count: i64,
+    link_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StructuredMemoryLink {
+    source_id: i64,
+    target_id: i64,
+    relation: String,
+    weight: f64,
+    created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StructuredMemoryGraph {
+    nodes: Vec<StructuredMemoryNode>,
+    links: Vec<StructuredMemoryLink>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StructuredMemoryPatch {
+    id: i64,
+    text: Option<String>,
+    importance: Option<f64>,
+    status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -633,6 +673,122 @@ pub(crate) fn desktop_memory_recall(app: AppHandle, query: String) -> Result<Str
       }
     }
     Ok(parts.join("\n\n"))
+}
+
+#[tauri::command]
+pub(crate) fn desktop_memory_graph(app: AppHandle) -> Result<StructuredMemoryGraph, String> {
+    let connection = open(&app)?;
+    let nodes = {
+      let mut statement = connection.prepare(
+        "SELECT sm.id,sm.kind,sm.text,sm.importance,sm.status,sm.first_seen_ts,sm.last_seen_ts,sm.hit_count,
+                (SELECT COUNT(*) FROM memory_links ml WHERE ml.source_id=sm.id OR ml.target_id=sm.id) AS link_count
+         FROM structured_memories sm
+         ORDER BY CASE WHEN sm.kind='active_thread' AND sm.status='active' THEN 0 ELSE 1 END,
+                  sm.last_seen_ts DESC,sm.id DESC
+         LIMIT 240"
+      ).map_err(|e| format!("prepare memory graph nodes: {e}"))?;
+      let rows = statement.query_map([],|row| Ok(StructuredMemoryNode {
+        id: row.get(0)?,
+        kind: row.get(1)?,
+        text: row.get(2)?,
+        importance: row.get(3)?,
+        status: row.get(4)?,
+        first_seen_ts: row.get(5)?,
+        last_seen_ts: row.get(6)?,
+        hit_count: row.get(7)?,
+        link_count: row.get(8)?,
+      })).map_err(|e| format!("memory graph nodes: {e}"))?;
+      rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect memory graph nodes: {e}"))?
+    };
+
+    let node_ids = nodes.iter().map(|node| node.id).collect::<HashSet<_>>();
+    let links = if node_ids.is_empty() {
+      Vec::new()
+    } else {
+      let mut statement = connection.prepare(
+        "SELECT source_id,target_id,relation,weight,created_at
+         FROM memory_links
+         ORDER BY weight DESC,created_at DESC
+         LIMIT 600"
+      ).map_err(|e| format!("prepare memory graph links: {e}"))?;
+      let rows = statement.query_map([],|row| Ok(StructuredMemoryLink {
+        source_id: row.get(0)?,
+        target_id: row.get(1)?,
+        relation: row.get(2)?,
+        weight: row.get(3)?,
+        created_at: row.get(4)?,
+      })).map_err(|e| format!("memory graph links: {e}"))?;
+      rows.collect::<Result<Vec<_>,_>>()
+        .map_err(|e| format!("collect memory graph links: {e}"))?
+        .into_iter()
+        .filter(|link| node_ids.contains(&link.source_id) && node_ids.contains(&link.target_id))
+        .collect()
+    };
+
+    Ok(StructuredMemoryGraph { nodes, links })
+}
+
+#[tauri::command]
+pub(crate) fn desktop_memory_structured_update(app: AppHandle, patch: StructuredMemoryPatch) -> Result<(), String> {
+    if patch.id <= 0 { return Err("memory id is invalid".into()); }
+    let mut connection = open(&app)?;
+    let current = connection.query_row(
+      "SELECT kind,text,importance,status FROM structured_memories WHERE id=?1",
+      [patch.id],
+      |row| Ok((
+        row.get::<_,String>(0)?,
+        row.get::<_,String>(1)?,
+        row.get::<_,f64>(2)?,
+        row.get::<_,String>(3)?,
+      ))
+    ).optional().map_err(|e| format!("read structured memory: {e}"))?
+      .ok_or_else(|| "structured memory not found".to_string())?;
+
+    let next_text = patch.text.as_deref().map(|value| clip(value,1200)).unwrap_or_else(|| current.1.clone());
+    if next_text.chars().count() < 4 { return Err("memory text is too short".into()); }
+    let next_importance = patch.importance.unwrap_or(current.2).clamp(0.0,1.0);
+    let requested_status = patch.status.as_deref().unwrap_or(&current.3).trim().to_lowercase();
+    let next_status = match requested_status.as_str() {
+      "stored" | "resolved" => requested_status,
+      "active" if current.0 == "active_thread" => requested_status,
+      _ => return Err("memory status is invalid for this kind".into()),
+    };
+    let normalized = normalize_search(&next_text);
+
+    let duplicate = connection.query_row(
+      "SELECT id FROM structured_memories WHERE kind=?1 AND normalized_text=?2 AND id<>?3 LIMIT 1",
+      params![&current.0,&normalized,patch.id],
+      |row| row.get::<_,i64>(0)
+    ).optional().map_err(|e| format!("check structured memory duplicate: {e}"))?;
+    if duplicate.is_some() { return Err("another memory with the same normalized text already exists".into()); }
+
+    let text_changed = next_text != current.1;
+    let tx = connection.transaction().map_err(|e| format!("structured memory update transaction: {e}"))?;
+    tx.execute(
+      "UPDATE structured_memories
+       SET text=?1,normalized_text=?2,importance=?3,status=?4,last_seen_ts=?5
+       WHERE id=?6",
+      params![next_text,normalized,next_importance,next_status,now_ms(),patch.id]
+    ).map_err(|e| format!("update structured memory: {e}"))?;
+
+    if text_changed {
+      tx.execute(
+        "DELETE FROM memory_links
+         WHERE relation='semantic_temporal' AND (source_id=?1 OR target_id=?1)",
+        [patch.id]
+      ).map_err(|e| format!("invalidate semantic memory links: {e}"))?;
+    }
+
+    tx.commit().map_err(|e| format!("commit structured memory update: {e}"))
+}
+
+#[tauri::command]
+pub(crate) fn desktop_memory_structured_delete(app: AppHandle, id: i64) -> Result<(), String> {
+    if id <= 0 { return Err("memory id is invalid".into()); }
+    let changed = open(&app)?.execute("DELETE FROM structured_memories WHERE id=?1",[id])
+      .map_err(|e| format!("delete structured memory: {e}"))?;
+    if changed == 0 { return Err("structured memory not found".into()); }
+    Ok(())
 }
 
 #[tauri::command]
