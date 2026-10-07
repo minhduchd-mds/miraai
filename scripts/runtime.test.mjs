@@ -5631,15 +5631,19 @@ test('AppV2 delegates camera module loading and preview transport to useVisionTr
   }
 });
 
-test('AppV2 delegates WebXR session transport while retaining spatial interaction ownership', () => {
+test('AppV2 delegates WebXR transport and spatial interaction to separate runtime boundaries', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
-  const hook = readFileSync('src/app/useWebXRTransport.ts', 'utf8');
+  const transport = readFileSync('src/app/useWebXRTransport.ts', 'utf8');
+  const spatialRuntime = readFileSync('src/app/useWebXRSpatialRuntime.ts', 'utf8');
 
   assert.match(app, /useWebXRTransport/);
+  assert.match(app, /useWebXRSpatialRuntime/);
   assert.doesNotMatch(app, /setWebXRAvailable\(/);
   assert.doesNotMatch(app, /setWebXRSnapshot\(/);
   assert.doesNotMatch(app, /new SpatialWebXRSessionRuntime\(\)/);
   assert.doesNotMatch(app, /detectWebXR\(\)\.then/);
+  assert.doesNotMatch(app, /requestAnchorAtCurrentHit\(/);
+  assert.doesNotMatch(app, /projectMetricPointAcrossViews\(/);
 
   for (const token of [
     'SpatialWebXRSessionRuntime',
@@ -5650,12 +5654,19 @@ test('AppV2 delegates WebXR session transport while retaining spatial interactio
     'setWebXRAvailable',
     'window.setInterval',
   ]) {
-    assert.ok(hook.includes(token), `WebXR transport hook missing ${token}`);
+    assert.ok(transport.includes(token), `WebXR transport hook missing ${token}`);
   }
 
-  assert.match(app, /webXRRuntimeRef\.current\.requestAnchorAtCurrentHit/);
-  assert.match(app, /SpatialXRProjectionRuntime/);
-  assert.match(app, /SpatialXRMetricManipulationRuntime/);
+  for (const token of [
+    'projectMetricPointAcrossViews',
+    'bridgeXRHandTo21',
+    'requestAnchorAtCurrentHit',
+    'xrMetricManipulationRef.current',
+    'xrBimanualRef.current',
+    'xrRigidBodyRef.current',
+  ]) {
+    assert.ok(spatialRuntime.includes(token), `WebXR spatial runtime missing ${token}`);
+  }
 });
 
 test('AppV2 delegates spatial layout restore and capture lifecycle to a hook', () => {
@@ -5841,11 +5852,13 @@ test('AppV2 delegates webcam hand contact, intent, direct touch and ray resoluti
   }
 });
 
-test('AppV2 delegates victory and open-palm spatial selection gestures', () => {
+test('Vision runtime delegates victory and open-palm spatial selection gestures', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const runtime = readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8');
   const helper = readFileSync('src/app/spatial-selection-gesture.ts', 'utf8');
 
-  assert.match(app, /applySpatialSelectionGesture\(/);
+  assert.match(runtime, /applySpatialSelectionGesture\(/);
+  assert.doesNotMatch(app, /applySpatialSelectionGesture\(/);
   for (const forbidden of [
     "intent.intent === 'victory_hold'",
     "intent.intent === 'open_palm_hold'",
