@@ -5820,6 +5820,33 @@ test('AppV2 delegates spatial object grab, move, release and cancel lifecycle', 
   }
 });
 
+test('AppV2 delegates one-hand spatial window grab lifecycle', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/spatial-window-control.ts', 'utf8');
+
+  assert.match(app, /handleSpatialWindowControl\(/);
+  for (const forbidden of [
+    'Pinch giữ · di chuyển cửa sổ',
+    'const dx = (event.point.x - session.start.x) * window.innerWidth * 1.42',
+    'Đã thả cửa sổ',
+    'Đã hủy thao tác',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'handleSpatialWindowControl',
+    'spatialWindowAvailable',
+    'grabSessionRef.current',
+    'depthRuntime.begin',
+    'depthRuntime.update',
+    'updateWindow',
+    'spatialHeadConsumedAtRef.current',
+  ]) {
+    assert.ok(helper.includes(token), `spatial window control helper missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
