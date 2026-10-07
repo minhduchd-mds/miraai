@@ -1251,6 +1251,11 @@ const elevenApi = readFileSync('api/tts.js', 'utf8');
 if (elevenApi.includes('api.openai.com')) failures.push('production TTS API must not fall back to OpenAI');
 
 
+const desktopCargo = readFileSync('src-tauri/Cargo.toml', 'utf8');
+for (const token of ['rust-version = "1.89"', 'lofty = "=0.25.4"']) {
+  if (!desktopCargo.includes(token)) failures.push(`desktop audio metadata dependency contract missing: ${token}`);
+}
+
 const desktopConfig = readFileSync('src-tauri/tauri.conf.json', 'utf8');
 for (const token of ['"frontendDist": "../dist"', '"withGlobalTauri": true', '"url": "index.html"', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"', '"hardenedRuntime": true', '"certificateThumbprint": null', '"digestAlgorithm": "sha256"', '"timestampUrl": "http://timestamp.digicert.com"']) {
   if (!desktopConfig.includes(token)) failures.push(`desktop Tauri config missing: ${token}`);
@@ -1298,8 +1303,12 @@ const desktopMusic = readFileSync('src/intelligence/skills/desktop-music-skill.t
 for (const token of ['desktop.music', 'isExplicitDesktopMusicCommand', 'desktopMusicRequest', "'search'", "'recent'", "'contextual'", 'Bật lại bài hôm trước anh nghe', 'Bật bài anh hay nghe lúc mệt', 'desktop_media_action']) {
   if (!desktopMusic.includes(token)) failures.push(`desktop music skill missing: ${token}`);
 }
+const desktopPrefs = readFileSync('src/desktop/preferences.ts', 'utf8');
+if (!desktopPrefs.includes('taggedTrackCount: number')) failures.push('desktop music metadata coverage field missing');
+if (!settingsPanelSource.includes('bài có metadata')) failures.push('Settings must surface local music metadata coverage');
+
 const desktopMedia = readFileSync('src-tauri/src/media.rs', 'utf8');
-for (const token of ['permission_enabled(&app,"media.control"', 'permission_enabled(app,"media.library"', 'desktop_music_choose_folder', 'music_tracks', 'music_context_history', 'contextual_local_track', 'record_music_context', 'MAX_LIBRARY_TRACKS', '"search"', '"recent"', '"contextual"', 'Spotify', 'Music']) {
+for (const token of ['permission_enabled(&app,"media.control"', 'permission_enabled(app,"media.library"', 'desktop_music_choose_folder', 'music_tracks', 'music_context_history', 'contextual_local_track', 'record_music_context', 'MAX_LIBRARY_TRACKS', 'lofty::read_from_path(path)', 'primary_tag().or_else', 'tagged_track_count', '"music.library.tagged_track_count"', '"search"', '"recent"', '"contextual"', 'Spotify', 'Music']) {
   if (!desktopMedia.includes(token)) failures.push(`desktop native media guard missing: ${token}`);
 }
 const desktopPreferences = readFileSync('src/desktop/preferences.ts', 'utf8');
