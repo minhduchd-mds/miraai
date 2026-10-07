@@ -9,6 +9,7 @@ It is designed to preserve **user-approved data** across devices, deployments, m
 - schema version and creation time;
 - durable user facts from Neon;
 - bounded conversation history;
+- optional Mira Desktop structured-memory graph (up to 240 nodes / 600 links in capsule portability flow);
 - voice/persona/response-length preferences;
 - theme, avatar selection and 2D/3D preference;
 - smart turn-taking, VAD and memory preference;
@@ -32,10 +33,17 @@ The JSON export is portable and can be kept offline by the user.
 Import is merge-only in schema v1:
 
 - existing facts are not deleted;
+- Desktop structured memories merge by `kind + normalized_text`; imported IDs are remapped before links are restored;
+- only known structured-memory kinds and `co_occurs | semantic_temporal` relations are accepted;
+- graph import is bounded to 240 nodes / 600 links; browser-only IndexedDB runtimes ignore the optional graph field;
 - duplicate facts are skipped;
 - duplicate message text/role pairs are skipped;
 - imported browser preferences are restored from a strict allow-list;
 - destructive replacement is intentionally not supported.
+
+## Desktop graph portability
+
+The optional `structuredMemory` field is additive and backward-compatible with schema v1. Mira Desktop exports node IDs only to reconnect links during import. Editing a node invalidates its derived semantic-temporal edges before future memory events can form new evidence; historical co-occurrence links are preserved.
 
 ## Security
 
