@@ -5581,6 +5581,28 @@ test('AppV2 delegates WebXR session transport while retaining spatial interactio
   assert.match(app, /SpatialXRMetricManipulationRuntime/);
 });
 
+test('AppV2 delegates spatial layout restore and capture lifecycle to a hook', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useSpatialLayoutLifecycle.ts', 'utf8');
+
+  assert.match(app, /useSpatialLayoutLifecycle/);
+  assert.match(app, /captureSpatialLayout\(\)/);
+  assert.doesNotMatch(app, /spatialSessionLayoutRuntime/);
+  assert.doesNotMatch(app, /spatialLayoutSkipCaptureRef/);
+  assert.doesNotMatch(app, /const saved = spatialLayoutRef\.current\.restore\(\)/);
+
+  for (const token of [
+    'spatialSessionLayoutRuntime',
+    'captureSpatialLayout',
+    'restore()',
+    'attachmentSnapshot()',
+    'selectedClusterRoots',
+    'collectSpatialWorldAnchors',
+  ]) {
+    assert.ok(hook.includes(token), `spatial layout lifecycle hook missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
