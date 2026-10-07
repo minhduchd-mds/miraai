@@ -127,6 +127,7 @@ const mustExist = [
   'scripts/check-deploy-artifact.mjs',
   'scripts/check-media.mjs',
   'scripts/visual-qa.spec.mjs',
+  'server/tts-contract.mjs',
   'server/tts-policy.mjs',
   'scripts/vercel-tts.test.mjs',
   'playwright.config.mjs',
@@ -653,10 +654,25 @@ for (const token of ['deicticVisualReply', 'const visualReply =', 'runtimeContex
 const owner = readFileSync('src/intelligence/identity/owner-profile.ts', 'utf8');
 if (!owner.includes('Đỗ Minh Đức')) failures.push('Mira owner identity is missing');
 
+const ttsContract = readFileSync('server/tts-contract.mjs', 'utf8');
+for (const token of [
+  "MIRA_DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'",
+  "MIRA_DEFAULT_MODEL_ID = 'eleven_v4'",
+  "MIRA_TTS_OUTPUT_FORMAT = 'mp3_44100_128'",
+  'MIRA_TTS_MAX_TEXT_LENGTH = 2000',
+  'elevenDialoguePayload',
+  'elevenDialogueUrl',
+  "language_code: 'vi'",
+  "apply_text_normalization: 'auto'",
+]) {
+  if (!ttsContract.includes(token)) failures.push(`shared TTS contract missing: ${token}`);
+}
+
 const tts = readFileSync('api/tts.js', 'utf8');
-for (const token of ['elevenlabs', '/v1/text-to-dialogue?output_format=mp3_44100_128', "language_code: 'vi'", 'inputs: [{', 'voice_id: voice', "apply_text_normalization: 'auto'", 'takeRateSlot', "x-mira-tts-provider', 'elevenlabs'"]) {
+for (const token of ['elevenlabs', 'elevenDialoguePayload', 'elevenDialogueUrl', 'MIRA_TTS_MAX_TEXT_LENGTH', 'takeRateSlot', "x-mira-tts-provider', 'elevenlabs'", "x-mira-tts-model', payload.model_id"]) {
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
+if (tts.includes('/v1/text-to-speech/')) failures.push('Vercel TTS must not use legacy text-to-speech endpoint');
 
 const voicePrefsSource = readFileSync('src/core/voice-prefs.ts', 'utf8');
 for (const token of ["rate: 1", "persona: 'gentle'", "label: 'Êm'", 'voiceProfileVersion: 2']) {
@@ -675,12 +691,16 @@ if (!browserTtsFiles.includes('VITE_MIRA_TTS_URL')) failures.push('browser TTS g
 
 const neonTtsGateway = readFileSync('functions/miratts/index.mjs', 'utf8');
 for (const token of [
+  "../../server/tts-contract.mjs",
   'process.env.ELEVENLABS_API_KEY',
   'xi-api-key',
   'origin_not_allowed',
-  'MAX_TEXT_LENGTH = 1600',
+  'MIRA_TTS_MAX_TEXT_LENGTH',
   'AbortSignal.timeout(18_000)',
-  'use_speaker_boost: false',
+  'elevenDialoguePayload',
+  'elevenDialogueUrl',
+  "serverControlled: true",
+  "'x-mira-tts-model': result.payload.model_id",
   "runtime: 'neon-function'",
 ]) {
   if (!neonTtsGateway.includes(token)) failures.push(`Neon TTS gateway missing safety contract: ${token}`);
@@ -688,6 +708,20 @@ for (const token of [
 if (/VITE_.*ELEVENLABS_API_KEY|localStorage.*ELEVENLABS_API_KEY/.test(neonTtsGateway)) {
   failures.push('Neon TTS gateway must keep ElevenLabs credentials server-side');
 }
+
+const renderTtsGateway = readFileSync('server/tts-gateway.mjs', 'utf8');
+for (const token of [
+  "from './tts-contract.mjs'",
+  'MIRA_TTS_MAX_TEXT_LENGTH',
+  'AbortSignal.timeout(18_000)',
+  'elevenDialoguePayload',
+  'elevenDialogueUrl',
+  "x-mira-tts-model': payload.model_id",
+]) {
+  if (!renderTtsGateway.includes(token)) failures.push(`Render TTS gateway missing shared contract: ${token}`);
+}
+if (renderTtsGateway.includes('/v1/text-to-speech/')) failures.push('Render TTS must not use legacy text-to-speech endpoint');
+if (neonTtsGateway.includes('/v1/text-to-speech/')) failures.push('Neon TTS must not use legacy text-to-speech endpoint');
 
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
 for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", 'return new CloudTTS(serverUrl)']) {
@@ -1128,7 +1162,7 @@ for (const token of ['1.30.0', 'ort.all.min.mjs', 'squeezenet1.1-7.onnx', '@vite
 
 
 const vercelTtsPolicy = readFileSync('server/tts-policy.mjs', 'utf8');
-for (const token of ['EXAVITQu4vr4xnSDxMaL', 'eleven_v4', 'MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot']) {
+for (const token of ['MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot', "from './tts-contract.mjs'"]) {
   if (!vercelTtsPolicy.includes(token)) failures.push(`Vercel TTS policy missing: ${token}`);
 }
 for (const route of ['api/health.js', 'api/voices.js', 'api/tts.js']) {
