@@ -5623,6 +5623,32 @@ test('AppV2 delegates vision snapshot defaults and environment normalization', (
   }
 });
 
+test('AppV2 delegates face social cue and presence continuity lifecycle', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useFaceSocialLifecycle.ts', 'utf8');
+
+  assert.match(app, /useFaceSocialLifecycle/);
+  assert.match(app, /updateFaceSocial\(/);
+  assert.match(app, /resetFaceSocial\(\)/);
+  assert.doesNotMatch(app, /faceSocialTrackerRef/);
+  assert.doesNotMatch(app, /presenceContinuityRef/);
+  assert.doesNotMatch(app, /faceSocialCueTimerRef/);
+  assert.doesNotMatch(app, /setFaceSocialCue\(/);
+  assert.doesNotMatch(app, /setPresenceContinuity\(/);
+
+  for (const token of [
+    'FaceSocialControlTracker',
+    'PresenceContinuityTracker',
+    'updateFaceSocial',
+    'resetFaceSocial',
+    'setFaceSocialCue',
+    'setPresenceContinuity',
+    'window.setTimeout',
+  ]) {
+    assert.ok(hook.includes(token), `face social lifecycle hook missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
