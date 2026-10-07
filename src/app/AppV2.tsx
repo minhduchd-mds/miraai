@@ -8,7 +8,7 @@ import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOve
 import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import SpatialControlOverlay from '../presence/SpatialControlOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
-import { describeAffectSignal, resolveFaceControlAction } from '../intelligence/affect/affect-control';
+import { describeAffectSignal } from '../intelligence/affect/affect-control';
 import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
 import { gazePresenceLabel } from '../intelligence/social/face-social-control';
 import { presenceContinuityPrompt } from '../intelligence/social/presence-continuity';
@@ -129,6 +129,7 @@ import { useWebXRTransport } from './useWebXRTransport';
 import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
 import { normalizeVisionPerception } from './vision-perception-normalizer';
 import { useFaceSocialLifecycle } from './useFaceSocialLifecycle';
+import { useFaceHeadControlLifecycle } from './useFaceHeadControlLifecycle';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -153,8 +154,10 @@ export default function AppV2() {
   } = useAppPresentationState({ miraState: mira.state });
   const [faceActionFeedback, setFaceActionFeedback] = useState('');
   const faceActionTimerRef = useRef<number | null>(null);
-  const lastHeadGestureRef = useRef('none');
-  const lastFaceActionAtRef = useRef(0);
+  const {
+    updateFaceHeadControl,
+    resetFaceHeadControl,
+  } = useFaceHeadControlLifecycle();
   const {
     faceSocialCue,
     presenceContinuity,
@@ -426,8 +429,7 @@ export default function AppV2() {
       at: 0,
     });
     setFaceActionFeedback('');
-    lastHeadGestureRef.current = 'none';
-    lastFaceActionAtRef.current = 0;
+    resetFaceHeadControl();
     resetFaceSocial();
     setGazeTelemetry({ x: 0, y: 0 });
     setFaceLandmarks([]);
@@ -474,7 +476,7 @@ export default function AppV2() {
       headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
-  }, [captureSpatialLayout, mira.observeAffect, resetFaceSocial, stopVisionTransport]);
+  }, [captureSpatialLayout, mira.observeAffect, resetFaceHeadControl, resetFaceSocial, stopVisionTransport]);
 
   const toggleWebXR = useCallback(async () => {
     if (webXRSnapshot.active) {
@@ -2111,32 +2113,20 @@ export default function AppV2() {
       setFaceAffect(nextAffect);
       mira.observeAffect(affectFollowing ? nextAffect : neutralAffect());
 
-      const headGesture = String(face?.headGesture || 'none');
-      if (headGesture === 'none') {
-        lastHeadGestureRef.current = 'none';
-      } else if (headGesture !== lastHeadGestureRef.current) {
-        lastHeadGestureRef.current = headGesture;
-        if (now - spatialHeadConsumedAtRef.current < 520) {
-          // This nod/shake was consumed by spatial UI control.
-        } else {
-        const faceAction = resolveFaceControlAction({
-          faceSeen: Boolean(face?.present),
-          faceConfidence,
-          headGesture,
-          state: mira.stateRef.current,
-          voiceReady,
-        });
-        if (faceAction !== 'none' && now - lastFaceActionAtRef.current >= 1_400) {
-          lastFaceActionAtRef.current = now;
-          if (faceAction === 'interrupt') {
-            mira.interrupt();
-            showFaceActionFeedback('Lắc đầu · Mira đã dừng');
-          } else if (faceAction === 'listen') {
-            mira.startListening();
-            showFaceActionFeedback('Gật đầu · Mira đang nghe');
-          }
-        }
-        }
+      const faceAction = updateFaceHeadControl({
+        faceSeen: Boolean(face?.present),
+        faceConfidence,
+        headGesture: String(face?.headGesture || 'none'),
+        state: mira.stateRef.current,
+        voiceReady,
+        spatialHeadConsumedAt: spatialHeadConsumedAtRef.current,
+      }, now);
+      if (faceAction === 'interrupt') {
+        mira.interrupt();
+        showFaceActionFeedback('Lắc đầu · Mira đã dừng');
+      } else if (faceAction === 'listen') {
+        mira.startListening();
+        showFaceActionFeedback('Gật đầu · Mira đang nghe');
       }
 
       setFaceTelemetry({
@@ -2161,7 +2151,7 @@ export default function AppV2() {
       });
     }, 120);
     return () => window.clearInterval(timer);
-  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateFaceSocial, updateSpatialWindow, visionOn, voiceReady]);
+  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateFaceHeadControl, updateFaceSocial, updateSpatialWindow, visionOn, voiceReady]);
 
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
