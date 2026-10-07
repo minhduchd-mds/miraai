@@ -3,7 +3,7 @@ import { desktopInvoke, isDesktopRuntime } from './bridge';
 export type DesktopPermissionKey = 'media.control' | 'media.library' | 'memory.affect';
 
 export interface DesktopInfo { platform: string; localFrontend: boolean; dataDir: string; memoryDb: string; }
-export interface DesktopMusicLibraryStatus { enabled: boolean; root: string | null; trackCount: number; lastScanAt: number | null; }
+export interface DesktopMusicLibraryStatus { enabled: boolean; root: string | null; trackCount: number; taggedTrackCount: number; lastScanAt: number | null; }
 export interface DesktopPrivacyState {
   info: DesktopInfo | null;
   permissions: Record<DesktopPermissionKey, boolean>;
