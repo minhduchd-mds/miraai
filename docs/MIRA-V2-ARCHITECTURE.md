@@ -60,7 +60,8 @@ Labs contains camera, hand gesture, Splat, simulator, raw telemetry and Develope
 - `src/app/useSpatialDomFeedback.ts` — DOM-only spatial focus/selection/contact/press feedback, không sở hữu sensor math hay XR state;
 - `src/app/useAppPresentationState.ts` — theme/affect-follow preference lifecycle và body presentation dataset sync;
 - `src/app/useVisionTransport.ts` — camera transport lifecycle, lazy vision-module loading và preview binding;
-- `src/app/useWebXRTransport.ts` — WebXR availability/session transport và snapshot polling; projection/physics/anchors vẫn thuộc AppV2 interaction layer.
+- `src/app/useWebXRTransport.ts` — WebXR availability/session transport và snapshot polling; projection/physics/anchors vẫn thuộc AppV2 interaction layer;
+- `src/app/useSpatialLayoutLifecycle.ts` — session layout restore/capture; object physics/manipulation vẫn nằm ở interaction layer.
 
 Các module này không đổi capability contract; mục tiêu là giảm orchestration coupling trong AppV2 trước khi tách các sensor lifecycle lớn hơn.
 
