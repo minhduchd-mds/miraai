@@ -298,6 +298,21 @@ test('desktop structured memory graph survives bounded merge-only Identity Capsu
   assert.match(capsule, /const CAPSULE_VERSION = 1/);
 });
 
+test('memory graph maintenance bounds derived edges without auto-deleting user memory nodes', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  assert.match(memory, /MAX_MEMORY_LINKS_PER_NODE: usize = 24/);
+  assert.match(memory, /WEAK_SEMANTIC_LINK_TTL_MS: i64 = 45 \* 24 \* 60 \* 60_000/);
+  assert.match(memory, /relation='semantic_temporal' AND weight<0\.40/);
+  assert.match(memory, /skip\(MAX_MEMORY_LINKS_PER_NODE\)/);
+  assert.match(memory, /prune_memory_graph\(connection,&linked_ids,ts\)/);
+  assert.match(memory, /prune_memory_graph\(&tx,&imported_ids,now\)/);
+
+  const pruneStart = memory.indexOf('fn prune_memory_graph');
+  const pruneEnd = memory.indexOf('fn link_recent_related_memories', pruneStart);
+  const pruneSource = memory.slice(pruneStart, pruneEnd);
+  assert.ok(!pruneSource.includes('DELETE FROM structured_memories'));
+});
+
 test('companion graph adds guarded semantic-temporal links and narrows passive music context window', () => {
   const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
   const media = readFileSync('src-tauri/src/media.rs', 'utf8');
