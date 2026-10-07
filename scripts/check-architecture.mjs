@@ -237,6 +237,10 @@ for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPa
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (!v2.includes('enableBackgroundCompanion') && !v2.includes('useVoiceSessionLifecycle')) failures.push('AppV2 voice session lifecycle wiring missing');
+if (!v2.includes('useSpatialDomFeedback')) failures.push('AppV2 spatial DOM feedback wiring missing');
+for (const forbidden of ['const previouslyFocused = document.querySelectorAll', 'const previouslyTouched = document.querySelectorAll', 'const previouslyHumanTouched = document.querySelectorAll']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial DOM feedback effect: ${forbidden}`);
+}
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
 
