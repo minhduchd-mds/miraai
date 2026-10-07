@@ -110,8 +110,9 @@ Architecture/runtime guards khóa các gateway không quay lại `text-to-speech
 
 ## P2 — release/product hardening
 
-- Authenticode cho Windows.
-- Apple Developer ID + notarization cho macOS.
+- Windows workflow đã **Authenticode-ready**: có PFX secret thì import/sign/verify; thiếu secret vẫn build và báo unsigned.
+- macOS workflow đã **Developer ID/notarization-ready**: có Apple certificate thì ký, có đủ Apple credentials thì bắt buộc stapling validation.
+- Việc còn lại cho desktop release là cung cấp credential thật và xác nhận artifact signed/notarized trên runner.
 - Tách Labs khỏi production installer nếu sau này không cần ship 3D research assets.
 - UI inspect/edit cho structured memory graph.
 - Semantic local embeddings + bounded pruning.
