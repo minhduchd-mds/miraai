@@ -57,10 +57,7 @@ import {
 } from '../core/vision/spatial-physics';
 import { resolveSpatialObjectCollisions } from '../core/vision/spatial-collision';
 import { SpatialJointRuntime, type SpatialJointState } from '../core/vision/spatial-joint';
-import {
-  SpatialSelectionRuntime,
-  spatialSessionLayoutRuntime,
-} from '../core/vision/spatial-layout';
+import { SpatialSelectionRuntime } from '../core/vision/spatial-layout';
 import {
   applySpatialGroupTransform,
   beginSpatialGroupTransform,
@@ -130,6 +127,7 @@ import { useSpatialDomFeedback } from './useSpatialDomFeedback';
 import { useAppPresentationState } from './useAppPresentationState';
 import { useVisionTransport } from './useVisionTransport';
 import { useWebXRTransport } from './useWebXRTransport';
+import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -266,8 +264,6 @@ export default function AppV2() {
   const spatialPhysicsRef = useRef(new SpatialPhysicsRuntime());
   const spatialJointRuntimeRef = useRef(new SpatialJointRuntime());
   const spatialSelectionRef = useRef(new SpatialSelectionRuntime());
-  const spatialLayoutRef = useRef(spatialSessionLayoutRuntime());
-  const spatialLayoutSkipCaptureRef = useRef(false);
   const spatialDeviceAdapterRef = useRef(new SpatialDeviceAdapterRuntime());
   const {
     webXRRuntimeRef,
@@ -372,6 +368,19 @@ export default function AppV2() {
     }, 900);
   }, []);
 
+  const { captureSpatialLayout } = useSpatialLayoutLifecycle({
+    active: visionOn || webXRSnapshot.active,
+    spatialObjects,
+    selectedClusterRoots,
+    objectRuntime: spatialObjectRuntimeRef.current,
+    worldRuntime: spatialWorldRuntimeRef.current,
+    jointRuntime: spatialJointRuntimeRef.current,
+    selectionRuntime: spatialSelectionRef.current,
+    setSpatialObjects,
+    setSelectedClusterRoots,
+    showFeedback: showSpatialFeedback,
+  });
+
   const updateSpatialWindow = useCallback((
     id: SpatialWindowId,
     updater: (current: SpatialWindowTransform) => SpatialWindowTransform,
@@ -395,13 +404,7 @@ export default function AppV2() {
   }, [mira.observeAffect]);
 
   const stopVision = useCallback(async () => {
-    spatialLayoutRef.current.capture({
-      objects: spatialObjectRuntimeRef.current.snapshot(),
-      attachments: spatialWorldRuntimeRef.current.attachmentSnapshot(),
-      joints: spatialJointRuntimeRef.current.snapshot(),
-      selectedClusterRoots: spatialSelectionRef.current.snapshot(),
-    });
-
+    captureSpatialLayout();
     stopVisionTransport();
     setFaceSeen(false);
     setHandSeen(false);
@@ -473,7 +476,7 @@ export default function AppV2() {
       headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
-  }, [mira.observeAffect, stopVisionTransport]);
+  }, [captureSpatialLayout, mira.observeAffect, stopVisionTransport]);
 
   const toggleWebXR = useCallback(async () => {
     if (webXRSnapshot.active) {
@@ -1150,66 +1153,6 @@ export default function AppV2() {
       window.cancelAnimationFrame(frame);
     };
   }, [showSpatialFeedback, webXRSnapshot.active]);
-
-  useEffect(() => {
-    if (!visionOn && !webXRSnapshot.active) return;
-    const saved = spatialLayoutRef.current.restore();
-    if (!saved) return;
-    spatialLayoutSkipCaptureRef.current = true;
-
-    for (const savedObject of saved.objects) {
-      spatialObjectRuntimeRef.current.setPose(savedObject.id, savedObject.pose);
-    }
-
-    spatialWorldRuntimeRef.current.setAnchors(
-      collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
-    );
-
-    for (const attachment of saved.attachments) {
-      const object = spatialObjectRuntimeRef.current.get(attachment.objectId);
-      if (!object) continue;
-      const restored = spatialWorldRuntimeRef.current.attachObject(
-        attachment.objectId,
-        attachment.anchorId,
-        object.pose,
-        attachment.attachedAt,
-      );
-      if (restored) {
-        spatialWorldRuntimeRef.current.updateAttachmentLocalPose(
-          attachment.objectId,
-          attachment.localPose,
-        );
-      }
-    }
-
-    spatialJointRuntimeRef.current.reset();
-    for (const joint of saved.joints) spatialJointRuntimeRef.current.setJoint(joint);
-
-    const selected = spatialSelectionRef.current.replace(saved.selectedClusterRoots);
-    setSelectedClusterRoots(selected);
-
-    for (const attachment of saved.attachments) {
-      const resolved = spatialWorldRuntimeRef.current.resolveObjectPose(attachment.objectId);
-      if (resolved) spatialObjectRuntimeRef.current.setPose(attachment.objectId, resolved);
-    }
-
-    setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
-    showSpatialFeedback('Đã khôi phục bố cục phiên');
-  }, [showSpatialFeedback, visionOn, webXRSnapshot.active]);
-
-  useEffect(() => {
-    if (!visionOn && !webXRSnapshot.active) return;
-    if (spatialLayoutSkipCaptureRef.current) {
-      spatialLayoutSkipCaptureRef.current = false;
-      return;
-    }
-    spatialLayoutRef.current.capture({
-      objects: spatialObjects,
-      attachments: spatialWorldRuntimeRef.current.attachmentSnapshot(),
-      joints: spatialJointRuntimeRef.current.snapshot(),
-      selectedClusterRoots,
-    });
-  }, [selectedClusterRoots, spatialObjects, visionOn, webXRSnapshot.active]);
 
   useEffect(() => {
     if (!visionOn) return;
