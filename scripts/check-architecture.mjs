@@ -115,6 +115,7 @@ const mustExist = [
   'src/app/spatial-selection-gesture.ts',
   'src/app/spatial-object-manipulation.ts',
   'src/app/spatial-window-control.ts',
+  'src/app/spatial-window-bimanual.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -303,6 +304,11 @@ for (const token of ['handleSpatialWindowControl', 'spatialWindowAvailable', 'gr
   if (!spatialWindowControl.includes(token)) failures.push(`spatial window control extraction missing: ${token}`);
 }
 
+const spatialWindowBimanual = readFileSync('src/app/spatial-window-bimanual.ts', 'utf8');
+for (const token of ['updateSpatialWindowBimanual', 'measureTwoHands', 'scaleFromDistance', 'rotationFromAngles', 'smoothValue', 'spatialWindowAvailable', 'sessionRef.current']) {
+  if (!spatialWindowBimanual.includes(token)) failures.push(`spatial window bimanual extraction missing: ${token}`);
+}
+
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 if (v2.includes('v2-presence-scenes')) failures.push('Mira v16.1 must not expose manual presence scene tabs');
 if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
@@ -369,6 +375,10 @@ for (const forbidden of ['const existingAttachment = spatialWorldRuntimeRef.curr
 if (!v2.includes('handleSpatialWindowControl')) failures.push('AppV2 spatial window control wiring missing');
 for (const forbidden of ['Pinch giữ · di chuyển cửa sổ', 'const dx = (event.point.x - session.start.x) * window.innerWidth * 1.42', 'Đã thả cửa sổ', 'Đã hủy thao tác']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial window control lifecycle: ${forbidden}`);
+}
+if (!v2.includes('updateSpatialWindowBimanual')) failures.push('AppV2 bimanual window transform wiring missing');
+for (const forbidden of ["const transformTarget = spatialFrameNext.focus?.kind === 'window'", "showSpatialFeedback('Hai tay · scale / rotate');", 'smoothValue(current.scale']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns bimanual window transform: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
