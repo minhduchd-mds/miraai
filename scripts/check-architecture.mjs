@@ -256,6 +256,10 @@ if (!v2.includes('useSpatialDomFeedback')) failures.push('AppV2 spatial DOM feed
 for (const forbidden of ['const previouslyFocused = document.querySelectorAll', 'const previouslyTouched = document.querySelectorAll', 'const previouslyHumanTouched = document.querySelectorAll']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial DOM feedback effect: ${forbidden}`);
 }
+if (!v2.includes('useVisionTransport')) failures.push('AppV2 vision transport wiring missing');
+for (const forbidden of ['setVisionOn(', 'setVisionBooting(', 'setVisionError(', 'const loadVisionModules', "import('../presence/vision-runtime')", "import('../ui/vision-v2.css')"]) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision transport lifecycle: ${forbidden}`);
+}
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
 
