@@ -128,15 +128,10 @@ import {
   type SpatialWindowTransform,
   type TwoHandSpatialSession,
 } from './spatial-ui-helpers';
-import {
-  loadAffectFollowing,
-  loadTheme,
-  saveAffectFollowing,
-  saveTheme,
-} from './app-preferences';
 import { usePresenceReturnLearning } from './usePresenceReturnLearning';
 import { useVoiceSessionLifecycle } from './useVoiceSessionLifecycle';
 import { useSpatialDomFeedback } from './useSpatialDomFeedback';
+import { useAppPresentationState } from './useAppPresentationState';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -153,8 +148,12 @@ const STATE_COPY: Record<MiraState, string> = {
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
 export default function AppV2() {
   const mira = useMira();
-  const [theme, setTheme] = useState<Theme>(loadTheme);
-  const [affectFollowing, setAffectFollowing] = useState(loadAffectFollowing);
+  const {
+    theme,
+    setTheme,
+    affectFollowing,
+    setAffectFollowing,
+  } = useAppPresentationState({ miraState: mira.state });
   const [faceActionFeedback, setFaceActionFeedback] = useState('');
   const faceActionTimerRef = useRef<number | null>(null);
   const lastHeadGestureRef = useRef('none');
@@ -362,19 +361,6 @@ export default function AppV2() {
     }, 100);
     return () => window.clearInterval(timer);
   }, [webXRSnapshot.active]);
-
-  useEffect(() => {
-    document.body.dataset.state = mira.state;
-    document.body.dataset.theme = theme;
-  }, [mira.state, theme]);
-
-  useEffect(() => {
-    saveTheme(theme);
-  }, [theme]);
-
-  useEffect(() => {
-    saveAffectFollowing(affectFollowing);
-  }, [affectFollowing]);
 
   useEffect(() => () => {
     if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
