@@ -6109,3 +6109,32 @@ test('AppV2 delegates presence-return learning lifecycle to a hook', () => {
     assert.ok(!app.includes(forbidden));
   }
 });
+
+
+test('desktop release workflows are signing-ready without breaking unsigned builds', () => {
+  const mac = readFileSync('.github/workflows/macos-dmg.yml', 'utf8');
+  const windows = readFileSync('.github/workflows/release-windows-v0.1.0.yml', 'utf8');
+
+  for (const token of [
+    'APPLE_CERTIFICATE',
+    'APPLE_CERTIFICATE_PASSWORD',
+    'APPLE_SIGNING_IDENTITY_SECRET',
+    'MACOS_SIGNING_ENABLED',
+    'MACOS_NOTARIZATION_ENABLED',
+    'xcrun stapler validate',
+  ]) {
+    assert.ok(mac.includes(token), `macOS release workflow missing ${token}`);
+  }
+
+  for (const token of [
+    'WINDOWS_CERTIFICATE',
+    'WINDOWS_CERTIFICATE_PASSWORD',
+    'Import-PfxCertificate',
+    'certificateThumbprint',
+    'Get-AuthenticodeSignature',
+    'WINDOWS_SIGNING_ENABLED',
+    'timestamp.digicert.com',
+  ]) {
+    assert.ok(windows.includes(token), `Windows release workflow missing ${token}`);
+  }
+});
