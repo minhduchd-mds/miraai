@@ -107,6 +107,7 @@ const mustExist = [
   'src/app/useWebXRTransport.ts',
   'src/app/useSpatialLayoutLifecycle.ts',
   'src/app/vision-perception-normalizer.ts',
+  'src/app/useFaceSocialLifecycle.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -255,6 +256,11 @@ for (const token of ['normalizeVisionPerception', 'EMPTY_ENVIRONMENT', 'EMPTY_RE
   if (!visionPerceptionNormalizer.includes(token)) failures.push(`vision perception normalizer missing: ${token}`);
 }
 
+const faceSocialLifecycle = readFileSync('src/app/useFaceSocialLifecycle.ts', 'utf8');
+for (const token of ['FaceSocialControlTracker', 'PresenceContinuityTracker', 'updateFaceSocial', 'resetFaceSocial', 'setFaceSocialCue', 'setPresenceContinuity', 'window.setTimeout']) {
+  if (!faceSocialLifecycle.includes(token)) failures.push(`face social lifecycle extraction missing: ${token}`);
+}
+
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 if (v2.includes('v2-presence-scenes')) failures.push('Mira v16.1 must not expose manual presence scene tabs');
 if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
@@ -289,6 +295,10 @@ for (const forbidden of ['spatialSessionLayoutRuntime()', 'spatialLayoutSkipCapt
 if (!v2.includes('normalizeVisionPerception')) failures.push('AppV2 vision perception normalization wiring missing');
 for (const forbidden of ['EMPTY_ENVIRONMENT', 'EMPTY_REAL_PRESENCE_POSE', 'const environmentSensor = snapshot?.environment']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision perception normalization: ${forbidden}`);
+}
+if (!v2.includes('useFaceSocialLifecycle')) failures.push('AppV2 face social lifecycle wiring missing');
+for (const forbidden of ['faceSocialTrackerRef', 'presenceContinuityRef', 'faceSocialCueTimerRef', 'setFaceSocialCue(', 'setPresenceContinuity(']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns face social lifecycle: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
