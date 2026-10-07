@@ -751,9 +751,15 @@ for (const token of [
   'voiceFirstAudioMs <= 1800',
   "'not-applicable'",
   'isPrivateDeviceLabResult',
-  'rawFrame',
-  'rawAudio',
-  'preciseLocation',
+  'hasForbiddenKey',
+  "'rawframe'",
+  "'rawaudio'",
+  "'preciselocation'",
+  "sourcePrivacy?.mediaCaptured !== false",
+  "sourcePrivacy?.identifiersIncluded !== false",
+  'hardwareConcurrency: Math.min(',
+  "cameraPermission: permissionState(",
+  "productMode: productMode(",
 ]) {
   if (!deviceLabSource.includes(token)) failures.push(`device lab contract missing: ${token}`);
 }
