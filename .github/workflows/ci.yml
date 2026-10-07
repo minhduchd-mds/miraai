@@ -60,5 +60,13 @@ jobs:
       - name: Deploy artifact smoke
         run: npm run check:artifact
 
+      - name: Build desktop web profile
+        if: matrix.node-version == '24.x'
+        run: npm run build:desktop
+
+      - name: Desktop artifact smoke
+        if: matrix.node-version == '24.x'
+        run: npm run check:desktop
+
       - name: Runtime dependency audit (critical)
         run: npm audit --omit=dev --audit-level=critical
