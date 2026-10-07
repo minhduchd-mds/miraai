@@ -716,13 +716,13 @@ for (const token of ['elevenlabs', 'elevenDialoguePayload', 'elevenDialogueUrl',
 if (tts.includes('/v1/text-to-speech/')) failures.push('Vercel TTS must not use legacy text-to-speech endpoint');
 
 const deviceDiagnosticsSource = readFileSync('src/runtime/device-diagnostics.ts', 'utf8');
-for (const token of ['runDeviceDiagnostics', 'permissions.query', "'immersive-ar'", 'browserCapabilitySummary', 'cameraPermission', 'microphonePermission']) {
+for (const token of ['runDeviceDiagnostics', 'buildDeviceDiagnosticsReport', "format: 'mira.device-report'", 'schemaVersion: 1', 'mediaCaptured: false', 'rawInputIncluded: false', 'identifiersIncluded: false', 'locationIncluded: false', 'permissions.query', "'immersive-ar'", 'browserCapabilitySummary', 'cameraPermission', 'microphonePermission']) {
   if (!deviceDiagnosticsSource.includes(token)) failures.push(`device diagnostics contract missing: ${token}`);
 }
 if (deviceDiagnosticsSource.includes('getUserMedia(')) failures.push('device diagnostics preflight must not call getUserMedia');
 
 const settingsPanelSource = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
-for (const token of ['runDeviceDiagnostics', 'Thiết bị & kết nối', 'không bật camera/mic', 'v2-device-grid', 'Kiểm tra thiết bị']) {
+for (const token of ['runDeviceDiagnostics', 'buildDeviceDiagnosticsReport', 'Thiết bị & kết nối', 'không bật camera/mic', 'v2-device-grid', 'Kiểm tra thiết bị', 'Xuất báo cáo', 'mira-device-report-', 'không chứa camera frame']) {
   if (!settingsPanelSource.includes(token)) failures.push(`Settings device preflight missing: ${token}`);
 }
 
