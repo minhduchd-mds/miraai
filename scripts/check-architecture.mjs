@@ -101,6 +101,7 @@ const mustExist = [
   'src/host/index.ts',
   'src/core/useMira.ts',
   'src/app/useVoiceSessionLifecycle.ts',
+  'src/app/useSpatialDomFeedback.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -214,6 +215,11 @@ for (const forbidden of ['function collectSpatialTargets', 'function collectSpat
 const voiceSessionLifecycle = readFileSync('src/app/useVoiceSessionLifecycle.ts', 'utf8');
 for (const token of ['VOICE_HANDSHAKE_TEXT', 'VOICE_HANDSHAKE_TIMEOUT', 'activateVoice', 'enableBackgroundCompanion', 'disableBackgroundCompanion', "notifyContextEvent('resume')", "notifyContextEvent('wake')", "event.code !== 'Space'"]) {
   if (!voiceSessionLifecycle.includes(token)) failures.push(`voice session lifecycle extraction missing: ${token}`);
+}
+
+const spatialDomFeedback = readFileSync('src/app/useSpatialDomFeedback.ts', 'utf8');
+for (const token of ['SPATIAL_TARGET_SELECTOR', 'data-spatial-focused', 'data-spatial-selected', 'data-spatial-contacted', 'data-spatial-human-contact', 'data-spatial-pressed', '--spatial-pressure', 'clusterRootObjectId']) {
+  if (!spatialDomFeedback.includes(token)) failures.push(`spatial DOM feedback extraction missing: ${token}`);
 }
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
