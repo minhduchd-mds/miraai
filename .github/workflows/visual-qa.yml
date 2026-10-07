@@ -9,6 +9,7 @@ on:
       - "src/ui/**"
       - "public/mira-assets/**"
       - "scripts/visual-qa.spec.mjs"
+      - "scripts/capability-smoke.spec.mjs"
       - "playwright.config.mjs"
       - ".github/workflows/visual-qa.yml"
   workflow_dispatch:
@@ -46,7 +47,7 @@ jobs:
       - name: Build Mira
         run: npm run build
 
-      - name: Run visual QA
+      - name: Run visual and capability QA
         run: npx playwright test --config=playwright.config.mjs
 
       - name: Upload visual QA output
