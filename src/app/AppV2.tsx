@@ -110,6 +110,7 @@ import { useFaceHeadControlLifecycle } from './useFaceHeadControlLifecycle';
 import { useVisionWorldContext } from './useVisionWorldContext';
 import { useVisionHandInput } from './useVisionHandInput';
 import { updateVisionHandInteraction } from './vision-hand-interaction';
+import { applySpatialSelectionGesture } from './spatial-selection-gesture';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -1398,20 +1399,16 @@ export default function AppV2() {
       }, now);
       setSpatialFrame(spatialFrameNext);
 
-      if (intent.intent === 'victory_hold' && spatialFrameNext.focus?.kind === 'object') {
-        const clusterRoot = spatialWorldRuntimeRef.current.clusterRootObjectId(spatialFrameNext.focus.id);
-        const selected = spatialSelectionRef.current.toggle(clusterRoot);
-        setSelectedClusterRoots(selected);
-        showSpatialFeedback(
-          selected.includes(clusterRoot)
-            ? `Victory · chọn cụm ${clusterRoot}`
-            : `Victory · bỏ chọn ${clusterRoot}`,
-        );
-      } else if (intent.intent === 'open_palm_hold' && spatialSelectionRef.current.snapshot().length) {
-        spatialSelectionRef.current.clear();
-        setSelectedClusterRoots([]);
-        spatialGroupTransformRef.current = null;
-        showSpatialFeedback('Open Palm · bỏ chọn nhóm');
+      const selectionGesture = applySpatialSelectionGesture({
+        intent: intent.intent,
+        focus: spatialFrameNext.focus,
+        selectionRuntime: spatialSelectionRef.current,
+        worldRuntime: spatialWorldRuntimeRef.current,
+      });
+      if (selectionGesture) {
+        setSelectedClusterRoots(selectionGesture.selectedClusterRoots);
+        if (selectionGesture.resetGroupTransform) spatialGroupTransformRef.current = null;
+        showSpatialFeedback(selectionGesture.feedback);
       }
 
       const pinchedHands = rawHands.filter((hand) => Boolean(hand?.pinching));
