@@ -1,6 +1,6 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::{HashMap, HashSet}, fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
 use tauri::{AppHandle, Manager};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
@@ -22,6 +22,7 @@ pub(crate) struct MemoryEpisode { text: String, ts: i64 }
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct StructuredMemory {
+    id: i64,
     kind: String,
     text: String,
     importance: f64,
@@ -71,6 +72,29 @@ pub(crate) struct StructuredMemoryPatch {
     status: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImportStructuredMemory {
+    id: Option<i64>,
+    kind: String,
+    text: String,
+    importance: f64,
+    status: String,
+    first_seen_ts: i64,
+    last_seen_ts: i64,
+    hit_count: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImportStructuredMemoryLink {
+    source_id: i64,
+    target_id: i64,
+    relation: String,
+    weight: f64,
+    created_at: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct MemoryAffect {
     mood: String,
@@ -100,6 +124,8 @@ pub(crate) struct MemorySnapshot {
     episodes: Vec<MemoryEpisode>,
     #[serde(rename = "structuredMemories")]
     structured_memories: Vec<StructuredMemory>,
+    #[serde(rename = "memoryLinks")]
+    memory_links: Vec<StructuredMemoryLink>,
     affects: Vec<MemoryAffect>,
 }
 
@@ -792,6 +818,82 @@ pub(crate) fn desktop_memory_structured_delete(app: AppHandle, id: i64) -> Resul
 }
 
 #[tauri::command]
+pub(crate) fn desktop_memory_import_structured(
+    app: AppHandle,
+    nodes: Vec<ImportStructuredMemory>,
+    links: Vec<ImportStructuredMemoryLink>,
+) -> Result<(), String> {
+    let now = now_ms();
+    let mut connection = open(&app)?;
+    let tx = connection.transaction().map_err(|e| format!("structured memory import transaction: {e}"))?;
+    let mut id_map = HashMap::<i64,i64>::new();
+
+    for node in nodes.into_iter().take(240) {
+      let old_id = node.id.unwrap_or(0);
+      if old_id <= 0 { continue; }
+
+      let kind = clip(&node.kind,40);
+      if !matches!(kind.as_str(),"fact"|"preference"|"life_event"|"relationship_context"|"emotional_episode"|"active_thread") {
+        continue;
+      }
+
+      let text = clip(&node.text,1200);
+      if text.chars().count() < 4 { continue; }
+      let normalized = normalize_search(&text);
+      let status = match node.status.as_str() {
+        "resolved" => "resolved",
+        "active" if kind == "active_thread" => "active",
+        _ => "stored",
+      };
+      let first_seen = if node.first_seen_ts > 0 { node.first_seen_ts.min(now) } else { now };
+      let last_seen = if node.last_seen_ts > 0 { node.last_seen_ts.min(now).max(first_seen) } else { now.max(first_seen) };
+      let hit_count = node.hit_count.clamp(1,10_000);
+
+      tx.execute(
+        "INSERT INTO structured_memories(kind,text,normalized_text,importance,status,first_seen_ts,last_seen_ts,hit_count)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+         ON CONFLICT(kind,normalized_text) DO UPDATE SET
+           importance=MAX(structured_memories.importance,excluded.importance),
+           status=CASE WHEN structured_memories.status='resolved' THEN 'resolved' ELSE excluded.status END,
+           first_seen_ts=MIN(structured_memories.first_seen_ts,excluded.first_seen_ts),
+           last_seen_ts=MAX(structured_memories.last_seen_ts,excluded.last_seen_ts),
+           hit_count=MAX(structured_memories.hit_count,excluded.hit_count)",
+        params![kind,text,normalized,node.importance.clamp(0.0,1.0),status,first_seen,last_seen,hit_count]
+      ).map_err(|e| format!("import structured memory: {e}"))?;
+
+      let current_id = tx.query_row(
+        "SELECT id FROM structured_memories WHERE kind=?1 AND normalized_text=?2",
+        params![kind,normalized],
+        |row| row.get::<_,i64>(0)
+      ).map_err(|e| format!("resolve imported structured memory: {e}"))?;
+      id_map.insert(old_id,current_id);
+    }
+
+    for link in links.into_iter().take(600) {
+      let Some(source_id) = id_map.get(&link.source_id).copied() else { continue; };
+      let Some(target_id) = id_map.get(&link.target_id).copied() else { continue; };
+      if source_id == target_id { continue; }
+      let relation = match link.relation.as_str() {
+        "co_occurs" => "co_occurs",
+        "semantic_temporal" => "semantic_temporal",
+        _ => continue,
+      };
+      let (source_id,target_id) = if source_id < target_id { (source_id,target_id) } else { (target_id,source_id) };
+      let created_at = if link.created_at > 0 { link.created_at.min(now) } else { now };
+      tx.execute(
+        "INSERT INTO memory_links(source_id,target_id,relation,weight,created_at)
+         VALUES (?1,?2,?3,?4,?5)
+         ON CONFLICT(source_id,target_id,relation) DO UPDATE SET
+           weight=MAX(memory_links.weight,excluded.weight),
+           created_at=MAX(memory_links.created_at,excluded.created_at)",
+        params![source_id,target_id,relation,link.weight.clamp(0.0,3.0),created_at]
+      ).map_err(|e| format!("import structured memory link: {e}"))?;
+    }
+
+    tx.commit().map_err(|e| format!("commit structured memory import: {e}"))
+}
+
+#[tauri::command]
 pub(crate) fn desktop_memory_clear(app: AppHandle) -> Result<(), String> {
     open(&app)?.execute_batch("DELETE FROM turns; DELETE FROM episodes; DELETE FROM structured_memories; DELETE FROM affect;")
       .map_err(|e| format!("clear memory: {e}"))
@@ -828,13 +930,22 @@ pub(crate) fn desktop_memory_export(app: AppHandle) -> Result<MemorySnapshot, St
     };
     let structured_memories = {
       let mut s = connection.prepare(
-        "SELECT kind,text,importance,status,first_seen_ts,last_seen_ts,hit_count FROM structured_memories ORDER BY last_seen_ts ASC,id ASC"
+        "SELECT id,kind,text,importance,status,first_seen_ts,last_seen_ts,hit_count FROM structured_memories ORDER BY last_seen_ts ASC,id ASC"
       ).map_err(|e| format!("export structured memories: {e}"))?;
       let rows = s.query_map([],|row| Ok(StructuredMemory{
-        kind:row.get(0)?,text:row.get(1)?,importance:row.get(2)?,status:row.get(3)?,
-        first_seen_ts:row.get(4)?,last_seen_ts:row.get(5)?,hit_count:row.get(6)?
+        id:row.get(0)?,kind:row.get(1)?,text:row.get(2)?,importance:row.get(3)?,status:row.get(4)?,
+        first_seen_ts:row.get(5)?,last_seen_ts:row.get(6)?,hit_count:row.get(7)?
       })).map_err(|e| format!("structured memory rows: {e}"))?;
       rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect structured memories: {e}"))?
+    };
+    let memory_links = {
+      let mut s = connection.prepare(
+        "SELECT source_id,target_id,relation,weight,created_at FROM memory_links ORDER BY created_at ASC,source_id ASC,target_id ASC"
+      ).map_err(|e| format!("export memory links: {e}"))?;
+      let rows = s.query_map([],|row| Ok(StructuredMemoryLink{
+        source_id:row.get(0)?,target_id:row.get(1)?,relation:row.get(2)?,weight:row.get(3)?,created_at:row.get(4)?
+      })).map_err(|e| format!("memory link rows: {e}"))?;
+      rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect memory links: {e}"))?
     };
     let affects = {
       let mut s = connection.prepare("SELECT mood,confidence,valence,arousal,engagement,fatigue,tension,ts FROM affect ORDER BY ts ASC,id ASC")
@@ -845,7 +956,7 @@ pub(crate) fn desktop_memory_export(app: AppHandle) -> Result<MemorySnapshot, St
       })).map_err(|e| format!("affect rows: {e}"))?;
       rows.collect::<Result<Vec<_>,_>>().map_err(|e| format!("collect affect: {e}"))?
     };
-    Ok(MemorySnapshot{exported_at:now_ms().to_string(),turns,episodes,structured_memories,affects})
+    Ok(MemorySnapshot{exported_at:now_ms().to_string(),turns,episodes,structured_memories,memory_links,affects})
 }
 
 #[tauri::command]
