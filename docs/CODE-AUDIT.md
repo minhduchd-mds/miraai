@@ -113,7 +113,7 @@ Architecture/runtime guards khóa các gateway không quay lại `text-to-speech
 - Tách Labs khỏi production installer nếu sau này không cần ship 3D research assets.
 - Structured Memory Graph inspector/edit + capsule portability + bounded derived-link pruning đã hoàn tất.
 - Còn lại: local semantic embedding model thật cho Desktop recall; không dùng feature-hash rồi gắn nhãn embedding.
-- Device Check read-only đã có; còn chạy real-device matrix cho camera/affect/XR và lưu kết quả thực nghiệm.
+- Device Check read-only + Device Lab contract/capture CLI/matrix đã có; còn **thu thập kết quả thực nghiệm thật** trên nhiều thiết bị.
 
 ### Structured Memory Graph
 
@@ -121,7 +121,7 @@ Mira Desktop hiện có inspector/edit UI, Tauri commands để list/update/dele
 
 ### Real-device preflight
 
-`src/runtime/device-diagnostics.ts` + Settings Device Check đọc secure context, camera/mic permission state, immersive-AR, WebGPU/WebNN và product mode mà không gọi `getUserMedia()`. Sau khi kiểm tra, người dùng có thể xuất `mira.device-report` schema v1; export dùng allow-list và loại camera/mic content, user-agent, device IDs, vị trí và provider error detail.
+`src/runtime/device-diagnostics.ts` + Settings Device Check đọc secure context, camera/mic permission state, immersive-AR, WebGPU/WebNN và product mode mà không gọi `getUserMedia()`. Sau đó `src/runtime/device-lab.ts` + `device:lab:capture` + `device:lab:matrix` ghi nhận observation thật theo schema v1 và tổng hợp PASS/WARN/FAIL. Cả hai lớp đều dùng allow-list, không lưu camera/audio/transcript/user-agent/device ID/vị trí.
 
 ## Quy tắc cleanup
 
