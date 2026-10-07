@@ -9,10 +9,8 @@ import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSke
 import SpatialControlOverlay from '../presence/SpatialControlOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { describeAffectSignal } from '../intelligence/affect/affect-control';
-import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
+import { EMPTY_INTERACTION, InteractionTracker, type InteractionContext } from '../intelligence/social/interaction-engine';
 import { gazePresenceLabel } from '../intelligence/social/face-social-control';
-import { presenceContinuityPrompt } from '../intelligence/social/presence-continuity';
-import { BehaviorTimeline } from '../intelligence/social/behavior-timeline';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
 import { GestureIntentTracker } from '../core/vision/gesture-intent';
 import {
@@ -27,27 +25,7 @@ import {
   spatialAnchorFromRect,
 } from '../core/vision/spatial-anchor';
 import { micProsodySnapshot } from '../core/audio-level';
-import { environmentPrompt, type EnvironmentLabel } from '../core/vision/environment-model';
-import {
-  SpatialSceneGraphTracker,
-  spatialScenePrompt,
-} from '../core/vision/spatial-scene-graph';
-import {
-  ObjectInteractionTracker,
-  objectInteractionPrompt,
-} from '../core/vision/object-interaction';
-import {
-  ActionSequenceTracker,
-  actionSequencePrompt,
-} from '../core/vision/action-sequence';
-import {
-  CausalActionGraphTracker,
-  causalActionGraphPrompt,
-} from '../core/vision/causal-action-graph';
-import {
-  ShortTermWorldModelTracker,
-  worldModelPrompt,
-} from '../core/vision/world-model';
+import type { EnvironmentLabel } from '../core/vision/environment-model';
 import { SpatialObjectRuntime, type SpatialObjectPose, type SpatialObjectState } from '../core/vision/spatial-object';
 import {
   SpatialPhysicsRuntime,
@@ -130,6 +108,7 @@ import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
 import { normalizeVisionPerception } from './vision-perception-normalizer';
 import { useFaceSocialLifecycle } from './useFaceSocialLifecycle';
 import { useFaceHeadControlLifecycle } from './useFaceHeadControlLifecycle';
+import { useVisionWorldContext } from './useVisionWorldContext';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -198,11 +177,10 @@ export default function AppV2() {
     targetId: '',
     at: 0,
   });
-  const sceneGraphTrackerRef = useRef(new SpatialSceneGraphTracker());
-  const objectInteractionTrackerRef = useRef(new ObjectInteractionTracker());
-  const actionSequenceTrackerRef = useRef(new ActionSequenceTracker());
-  const causalActionGraphTrackerRef = useRef(new CausalActionGraphTracker());
-  const worldModelTrackerRef = useRef(new ShortTermWorldModelTracker());
+  const {
+    updateVisionWorldContext,
+    resetVisionWorldContext,
+  } = useVisionWorldContext();
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
@@ -211,7 +189,6 @@ export default function AppV2() {
     interactionTelemetry.state,
   );
   const interactionTrackerRef = useRef(new InteractionTracker());
-  const behaviorTimelineRef = useRef(new BehaviorTimeline());
   const gazeHeadCalibratorRef = useRef(new GazeHeadCalibrator());
   const gestureIntentTrackerRef = useRef(new GestureIntentTracker());
   const spatialUiRef = useRef(new SpatialUIController());
@@ -433,11 +410,7 @@ export default function AppV2() {
     resetFaceSocial();
     setGazeTelemetry({ x: 0, y: 0 });
     setFaceLandmarks([]);
-    sceneGraphTrackerRef.current.reset();
-    objectInteractionTrackerRef.current.reset();
-    actionSequenceTrackerRef.current.reset();
-    causalActionGraphTrackerRef.current.reset();
-    worldModelTrackerRef.current.reset();
+    resetVisionWorldContext();
     gestureIntentTrackerRef.current.reset();
     setSpatialFrame(spatialUiRef.current.reset());
     spatialGrabSessionRef.current = null;
@@ -463,7 +436,6 @@ export default function AppV2() {
     spatialCollisionFeedbackAtRef.current = 0;
     setInteractionTelemetry({ ...EMPTY_INTERACTION });
     interactionTrackerRef.current.reset();
-    behaviorTimelineRef.current.reset();
     const neutral = neutralAffect();
     setFaceAffect(neutral);
     affectTrackerRef.current = new AffectTracker();
@@ -476,7 +448,7 @@ export default function AppV2() {
       headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
-  }, [captureSpatialLayout, mira.observeAffect, resetFaceHeadControl, resetFaceSocial, stopVisionTransport]);
+  }, [captureSpatialLayout, mira.observeAffect, resetFaceHeadControl, resetFaceSocial, resetVisionWorldContext, stopVisionTransport]);
 
   const toggleWebXR = useCallback(async () => {
     if (webXRSnapshot.active) {
@@ -1998,17 +1970,6 @@ export default function AppV2() {
         (String(snapshot?.gesture || 'None') === 'Pointing_Up' && gestureScoreNow >= 0.48) ||
         intent.intent === 'point_hold'
       );
-      const sceneGraph = sceneGraphTrackerRef.current.update(
-        environmentObjects,
-        {
-          active: pointingActive,
-          x: rawPointerX,
-          y: rawPointerY,
-          confidence: pointingActive ? Math.max(gestureScoreNow, intent.confidence) : 0,
-        },
-        now,
-      );
-
       const interactionHands = rawHands
         .map((hand: any) => ({
           handedness: String(hand?.handedness || 'Unknown'),
@@ -2018,30 +1979,6 @@ export default function AppV2() {
           gesture: String(hand?.gesture || 'None'),
           score: Number(hand?.score || 0),
         }));
-      const objectInteraction = objectInteractionTrackerRef.current.update(
-        sceneGraph,
-        interactionHands,
-        now,
-      );
-
-      const actionSequence = actionSequenceTrackerRef.current.update(
-        sceneGraph,
-        interactionHands,
-        now,
-      );
-
-      const causalActionGraph = causalActionGraphTrackerRef.current.update(
-        sceneGraph,
-        interactionHands,
-        actionSequence,
-        now,
-      );
-
-      const worldState = worldModelTrackerRef.current.update(
-        sceneGraph,
-        causalActionGraph,
-        now,
-      );
 
       const { socialEvent, continuity } = updateFaceSocial({
         faceSeen: Boolean(face?.present),
@@ -2061,8 +1998,17 @@ export default function AppV2() {
         }
       }
 
-      behaviorTimelineRef.current.observe({
+      const { promptContext: socialContext } = updateVisionWorldContext({
+        environmentObjects,
+        pointer: {
+          active: pointingActive,
+          x: rawPointerX,
+          y: rawPointerY,
+          confidence: pointingActive ? Math.max(gestureScoreNow, intent.confidence) : 0,
+        },
+        hands: interactionHands,
         interaction,
+        continuity,
         microKind: String(micro.kind || 'none'),
         microConfidence: Number(micro.confidence || 0),
         postureLabel: String(posture.label || 'unknown'),
@@ -2070,19 +2016,7 @@ export default function AppV2() {
         gesture: String(snapshot?.gesture || 'None'),
         gestureScore: Number(snapshot?.gestureScore || 0),
         proximity: String(spatial.proximity || 'unknown'),
-        environment: String(environmentContext.label || 'unknown'),
-        environmentConfidence: Number(environmentContext.confidence || 0),
-        spatialTarget: sceneGraph.focus?.label || '',
-        spatialConfidence: Number(sceneGraph.focus?.confidence || 0),
-        objectInteractionStage: objectInteraction.stage,
-        objectInteractionLabel: objectInteraction.objectLabel,
-        objectInteractionConfidence: objectInteraction.confidence,
-        actionSequenceStage: actionSequence.stage,
-        actionSequenceLabel: actionSequence.objectLabel,
-        actionSequenceConfidence: actionSequence.confidence,
-        causalActionLabel: causalActionGraph.leader?.objectLabel || '',
-        causalActionConfidence: Number(causalActionGraph.leader?.confidence || 0),
-        causalActionMargin: causalActionGraph.margin,
+        environmentContext,
       }, now);
 
       const nextAffect = affectTrackerRef.current.update({
@@ -2096,19 +2030,6 @@ export default function AppV2() {
         microExpression: micro,
       }, now);
       nextAffect.interaction = interaction;
-      const socialContext = [
-        interactionPrompt(interaction),
-        presenceContinuityPrompt(continuity),
-        behaviorTimelineRef.current.promptSummary(now),
-        environmentPrompt(environmentContext),
-        spatialScenePrompt(sceneGraph, now),
-        objectInteractionPrompt(objectInteraction, now),
-        actionSequencePrompt(actionSequence, now),
-        causalActionGraphPrompt(causalActionGraph, now),
-        worldModelPrompt(worldState, now),
-      ]
-        .filter(Boolean)
-        .join(' ');
       if (socialContext) nextAffect.promptContext = nextAffect.promptContext + ' ' + socialContext;
       setFaceAffect(nextAffect);
       mira.observeAffect(affectFollowing ? nextAffect : neutralAffect());
@@ -2151,7 +2072,7 @@ export default function AppV2() {
       });
     }, 120);
     return () => window.clearInterval(timer);
-  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateFaceHeadControl, updateFaceSocial, updateSpatialWindow, visionOn, voiceReady]);
+  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateFaceHeadControl, updateFaceSocial, updateSpatialWindow, updateVisionWorldContext, visionOn, voiceReady]);
 
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
