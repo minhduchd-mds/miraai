@@ -35,6 +35,7 @@ export function useWebXRSpatialRuntime(options: any) {
     xrHandCollisionRef,
     spatialObjectRuntimeRef,
     spatialWorldRuntimeRef,
+    spatialJointRuntimeRef,
     spatialPhysicsRef,
     setSpatialPhysicsState,
     xrRigidFeedbackAtRef,
