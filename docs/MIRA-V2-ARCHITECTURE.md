@@ -60,14 +60,19 @@ Labs contains camera, hand gesture, Splat, simulator, raw telemetry and Develope
 - `src/app/useSpatialDomFeedback.ts` — DOM-only spatial focus/selection/contact/press feedback, không sở hữu sensor math hay XR state;
 - `src/app/useAppPresentationState.ts` — theme/affect-follow preference lifecycle và body presentation dataset sync;
 - `src/app/useVisionTransport.ts` — camera transport lifecycle, lazy vision-module loading và preview binding;
-- `src/app/useWebXRTransport.ts` — WebXR availability/session transport và snapshot polling; projection/physics/anchors vẫn thuộc AppV2 interaction layer;
-- `src/app/useSpatialLayoutLifecycle.ts` — session layout restore/capture; object physics/manipulation vẫn nằm ở interaction layer;
+- `src/app/useWebXRTransport.ts` — WebXR availability/session transport và snapshot polling;
+- `src/app/useSpatialLayoutLifecycle.ts` — session layout restore/capture;
 - `src/app/vision-perception-normalizer.ts` — chuẩn hóa snapshot mặc định cho face/posture/rPPG/environment/spatial;
 - `src/app/useFaceSocialLifecycle.ts` — session-local face social cue + presence continuity;
 - `src/app/useFaceHeadControlLifecycle.ts` — temporal guard cho nod/shake voice actions;
-- `src/app/useVisionWorldContext.ts` — RAM-only scene/object/action/causal/world-model orchestration và prompt context synthesis.
+- `src/app/useVisionWorldContext.ts` — RAM-only scene/object/action/causal/world-model orchestration và prompt context synthesis;
+- `src/app/useVisionHandInput.ts` + `vision-hand-interaction.ts` — webcam hand normalization/contact/intent/direct-touch/ray resolution;
+- `src/app/spatial-object-manipulation.ts` + `spatial-object-bimanual.ts` + `spatial-object-world-step.ts` — object manipulation, group/joint control, inertia/collision/stack/snap;
+- `src/app/spatial-window-control.ts` + `spatial-window-bimanual.ts` — one/two-hand window transforms;
+- `src/app/useWebXRSpatialRuntime.ts` — XR projection, surface/contact, anchors, manipulation và rigid-body loop;
+- `src/app/useVisionSpatialRuntime.ts` — complete camera frame orchestration và social/affect/face-control integration.
 
-Các module này không đổi capability contract; mục tiêu là giảm orchestration coupling trong AppV2 trước khi tách các sensor lifecycle lớn hơn.
+`AppV2.tsx` hiện là composition root; sensor/XR frame execution không còn nằm trực tiếp trong component.
 
 ## 3. Conversation Runtime
 
