@@ -71,6 +71,47 @@ jobs:
           if ($tauri.version -ne "0.1.0") { throw "tauri version must be 0.1.0" }
           if ($pkg.version -ne "0.1.0") { throw "package version must be 0.1.0" }
           Write-Host "Mira version contract: 0.1.0"
+      - name: Import Windows signing certificate
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE)) {
+            "WINDOWS_SIGNING_ENABLED=false" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            "⚠️ Windows Authenticode signing is not configured." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            exit 0
+          }
+
+          New-Item -ItemType Directory -Force -Path "certificate" | Out-Null
+          Set-Content -Path "certificate/certificate.b64" -Value $env:WINDOWS_CERTIFICATE -NoNewline
+          certutil -decode "certificate/certificate.b64" "certificate/certificate.pfx" | Out-Null
+
+          $securePassword = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $imported = Import-PfxCertificate `
+            -FilePath "certificate/certificate.pfx" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -Password $securePassword
+
+          if (-not $imported) { throw "Windows signing certificate could not be imported" }
+          $thumbprint = ($imported | Select-Object -First 1).Thumbprint
+          if ([string]::IsNullOrWhiteSpace($thumbprint)) { throw "Windows signing certificate thumbprint missing" }
+
+          $configPath = "src-tauri/tauri.conf.json"
+          $config = Get-Content $configPath -Raw | ConvertFrom-Json
+          if (-not $config.bundle.windows) {
+            $config.bundle | Add-Member -MemberType NoteProperty -Name windows -Value ([pscustomobject]@{}) -Force
+          }
+          $config.bundle.windows | Add-Member -MemberType NoteProperty -Name certificateThumbprint -Value $thumbprint -Force
+          $config.bundle.windows | Add-Member -MemberType NoteProperty -Name digestAlgorithm -Value "sha256" -Force
+          $config.bundle.windows | Add-Member -MemberType NoteProperty -Name timestampUrl -Value "http://timestamp.digicert.com" -Force
+          $config | ConvertTo-Json -Depth 100 | Set-Content $configPath -Encoding utf8
+
+          "WINDOWS_SIGNING_ENABLED=true" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "WINDOWS_CERTIFICATE_THUMBPRINT=$thumbprint" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "✅ Windows Authenticode certificate imported." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
       - name: Build Windows NSIS installer
         shell: pwsh
