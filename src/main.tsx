@@ -4,15 +4,23 @@ import { startProductPerformanceMonitoring } from './runtime/product-performance
 import './ui/base-v2.css';
 import './ui/v2.css';
 
-// Legacy/Labs tải cả component và stylesheet cũ theo demand; production AppV2 không mang CSS legacy.
+// Web keeps Labs behind ?legacy=1. Desktop release sets VITE_MIRA_INCLUDE_LABS=0
+// so Rollup can remove the whole Legacy/3D dynamic graph from the installer.
 const AppV2 = lazy(() => import('./app/AppV2'));
-const LegacyApp = lazy(async () => {
-  await import('./ui/styles.css');
-  return import('./App');
-});
-const legacy = new URLSearchParams(window.location.search).get('legacy') === '1';
+const LABS_ENABLED = import.meta.env.VITE_MIRA_INCLUDE_LABS !== '0';
+const LegacyApp = LABS_ENABLED
+  ? lazy(async () => {
+      await import('./ui/styles.css');
+      return import('./App');
+    })
+  : null;
+const legacy = Boolean(
+  LABS_ENABLED &&
+  LegacyApp &&
+  new URLSearchParams(window.location.search).get('legacy') === '1',
+);
 
-const app = legacy ? (
+const app = legacy && LegacyApp ? (
   <Suspense fallback={<div className="legacy-loading">Đang mở Mira Labs…</div>}>
     <LegacyApp />
   </Suspense>
