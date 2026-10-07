@@ -170,6 +170,25 @@ test('desktop local actions are guarded by persisted native permissions', () => 
   assert.match(skill, /Mở bài The Night I Found You/);
 });
 
+test('desktop music metadata parser is pinned, optional per file and preserves filename fallback', () => {
+  const cargo = readFileSync('src-tauri/Cargo.toml', 'utf8');
+  const media = readFileSync('src-tauri/src/media.rs', 'utf8');
+  const prefs = readFileSync('src/desktop/preferences.ts', 'utf8');
+  const settings = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
+
+  assert.match(cargo, /rust-version = "1\.89"/);
+  assert.match(cargo, /lofty = "=0\.25\.4"/);
+  assert.match(media, /lofty::read_from_path\(path\)\.ok\(\)\?/);
+  assert.match(media, /primary_tag\(\)\.or_else\(\|\| tagged_file\.first_tag\(\)\)/);
+  assert.match(media, /fallback_artist/);
+  assert.match(media, /fallback_title/);
+  assert.match(media, /fallback_album/);
+  assert.match(media, /embedded\.is_some\(\)/);
+  assert.match(media, /music\.library\.tagged_track_count/);
+  assert.match(prefs, /taggedTrackCount: number/);
+  assert.match(settings, /bài có metadata/);
+});
+
 test('desktop music library is opt-in, root-scoped and keeps local play history', () => {
   const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
   const media = readFileSync('src-tauri/src/media.rs', 'utf8');
