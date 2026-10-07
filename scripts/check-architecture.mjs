@@ -838,7 +838,7 @@ if (brain.includes('VITE_LLM_API_KEY')) failures.push('production brain source m
 const localMemory = readFileSync('src/intelligence/memory/memory-service.ts', 'utf8');
 if (!localMemory.includes('createRuntimeMemoryStore') || !localMemory.includes('observeAffect')) failures.push('long-term local memory/affect persistence missing');
 const localMemoryStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
-for (const token of ['navigator.storage.persist', 'exportSnapshot', 'importTurns', 'clearAll', 'countTurns']) {
+for (const token of ['navigator.storage.persist', 'exportSnapshot', 'importTurns', 'importStructuredMemoryGraph', 'structuredMemories?: PortableStructuredMemory[]', 'memoryLinks?: PortableMemoryLink[]', 'clearAll', 'countTurns']) {
   if (!localMemoryStore.includes(token)) failures.push(`local memory portability missing: ${token}`);
 }
 if (localMemoryStore.includes('bpmTrend') || localMemoryStore.includes('pulseTrace')) failures.push('experimental physiological estimates must remain ephemeral, not long-term memory');
@@ -861,7 +861,7 @@ for (const token of ['isLocalOnlyMemoryRuntime', 'localMemory.countTurns', 'loca
   if (!profileClient.includes(token)) failures.push(`GitHub Pages profile fallback missing: ${token}`);
 }
 const capsuleClient = readFileSync('src/intelligence/identity/capsule-client.ts', 'utf8');
-for (const token of ['verifyLocalCapsule', 'localMemory.exportSnapshot', 'localMemory.importTurns', "crypto.subtle.digest('SHA-256'"]) {
+for (const token of ['verifyLocalCapsule', 'localMemory.exportSnapshot', 'localMemory.importTurns', 'localMemory.importStructuredMemoryGraph', 'structuredMemory', 'portableNodes', 'portableLinks', "crypto.subtle.digest('SHA-256'"]) {
   if (!capsuleClient.includes(token)) failures.push(`GitHub Pages Identity Capsule fallback missing: ${token}`);
 }
 const faceRecoveryRuntime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
@@ -1253,11 +1253,11 @@ if (!settingsPanelSource.includes("lazy(() => import('./StructuredMemoryInspecto
 }
 
 const desktopMain = readFileSync('src-tauri/src/main.rs', 'utf8');
-for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'desktop_memory_graph', 'desktop_memory_structured_update', 'desktop_memory_structured_delete', 'desktop_permission_set', 'desktop_music_library_status', 'desktop_music_choose_folder', 'desktop_music_rescan', 'desktop_media_action']) {
+for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'desktop_memory_graph', 'desktop_memory_structured_update', 'desktop_memory_structured_delete', 'desktop_memory_import_structured', 'desktop_permission_set', 'desktop_music_library_status', 'desktop_music_choose_folder', 'desktop_music_rescan', 'desktop_media_action']) {
   if (!desktopMain.includes(token)) failures.push(`desktop native command missing: ${token}`);
 }
 const desktopMemory = readFileSync('src-tauri/src/memory.rs', 'utf8');
-for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'CREATE TABLE IF NOT EXISTS music_tracks', 'CREATE TABLE IF NOT EXISTS structured_memories', 'CREATE TABLE IF NOT EXISTS memory_links', 'CREATE TABLE IF NOT EXISTS music_context_history', 'link_structured_memories', 'link_recent_related_memories', 'semantic_temporal', 'semantic_tokens', 'user_statement', '"preference"', '"relationship_context"', '"emotional_episode"', '"active_thread"', "status='resolved'", 'desktop_memory_export', 'desktop_memory_graph', 'desktop_memory_structured_update', 'desktop_memory_structured_delete', "relation='semantic_temporal'", 'permission_enabled', '"media.control"', '"media.library"', '"memory.affect"', 'UnicodeNormalization']) {
+for (const token of ['mira.db', 'CREATE TABLE IF NOT EXISTS turns', 'CREATE TABLE IF NOT EXISTS affect', 'CREATE TABLE IF NOT EXISTS permissions', 'CREATE TABLE IF NOT EXISTS music_tracks', 'CREATE TABLE IF NOT EXISTS structured_memories', 'CREATE TABLE IF NOT EXISTS memory_links', 'CREATE TABLE IF NOT EXISTS music_context_history', 'link_structured_memories', 'link_recent_related_memories', 'semantic_temporal', 'semantic_tokens', 'user_statement', '"preference"', '"relationship_context"', '"emotional_episode"', '"active_thread"', "status='resolved'", 'desktop_memory_export', 'desktop_memory_graph', 'desktop_memory_structured_update', 'desktop_memory_structured_delete', 'desktop_memory_import_structured', '"memoryLinks"', 'nodes.into_iter().take(240)', 'links.into_iter().take(600)', 'id_map', "relation='semantic_temporal'", 'permission_enabled', '"media.control"', '"media.library"', '"memory.affect"', 'UnicodeNormalization']) {
   if (!desktopMemory.includes(token)) failures.push(`desktop SQLite memory missing: ${token}`);
 }
 const desktopMusic = readFileSync('src/intelligence/skills/desktop-music-skill.ts', 'utf8');
