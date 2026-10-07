@@ -804,6 +804,649 @@ export default function AppV2() {
       }
 
       if (event.targetKind === 'window') {
+        if (event.type === 'grab_start' && spatialWindowAvailable(event.targetId)) {
+          const id = event.targetId;
+          const windowKey = `window.${id}`;
+          lastSpatialWindowRef.current = id;
+          webXRRuntimeRef.current.removeAnchor(windowKey);
+          xrAnchorDepthRef.current.delete(windowKey);
+          setXrWindowDepthScale((current) => ({ ...current, [id]: 1 }));
+          spatialGrabSessionRef.current = {
+            id,
+            start: { x: event.point.x, y: event.point.y, z: event.point.z },
+            base: { ...spatialWindowsRef.current[id] },
+          };
+          xrMetricManipulationRef.current.begin(
+            windowKey,
+            Math.max(0.05, -projected.depth),
+            spatialWindowsRef.current[id].scale,
+            surfaceProbe?.environmentDepthM ?? null,
+            0.035,
+          );
+          const bimanualStart = secondaryHand
+            ? xrBimanualRef.current.begin(windowKey, [primaryHand, secondaryHand])
+            : null;
+          if (bimanualStart) {
+            setXrWindowBimanual((current) => ({ ...current, [id]: bimanualStart }));
+          }
+          setXRWindowSurfaceState(id, surfaceProbe);
+          continue;
+        }
+
+        const session = spatialGrabSessionRef.current;
+        if (event.type === 'grab_move' && session && session.id === event.targetId) {
+          const windowKey = `window.${session.id}`;
+          const dx = (event.point.x - session.start.x) * window.innerWidth;
+          const dy = (event.point.y - session.start.y) * window.innerHeight;
+          const metricMove = xrMetricManipulationRef.current.update(
+            windowKey,
+            Math.max(0.05, -projected.depth),
+            surfaceProbe?.environmentDepthM ?? null,
+            surfaceProbe?.confidence ?? 0,
+          );
+          const xrHands = secondaryHand ? [primaryHand, secondaryHand] : [primaryHand];
+          const bimanualMove = secondaryHand && primaryHand.pinching && secondaryHand.pinching
+            ? (
+                xrBimanualRef.current.update(windowKey, xrHands) ||
+                xrBimanualRef.current.begin(windowKey, xrHands)
+              )
+            : xrBimanualRef.current.end(windowKey);
+          if (bimanualMove) {
+            setXrWindowBimanual((current) => ({ ...current, [session.id]: bimanualMove }));
+          }
+          updateSpatialWindow(session.id, (current) => ({
+            ...current,
+            x: clampSpatial(session.base.x + dx, -window.innerWidth * 0.42, window.innerWidth * 0.42),
+            y: clampSpatial(session.base.y + dy, -window.innerHeight * 0.34, window.innerHeight * 0.34),
+            z: clampSpatial(
+              session.base.z + (metricMove?.normalizedDepthDelta || 0) * 180,
+              -160,
+              160,
+            ),
+          }));
+          if (metricMove) {
+            setXrWindowDepthScale((current) => ({
+              ...current,
+              [session.id]: metricMove.visualScaleRatio,
+            }));
+          }
+          setXRWindowSurfaceState(session.id, surfaceProbe);
+          continue;
+        }
+
+        if (event.type === 'grab_end' && session?.id === event.targetId) {
+          const windowKey = `window.${session.id}`;
+          const metricRelease = xrMetricManipulationRef.current.end(windowKey);
+          const bimanualRelease = xrBimanualRef.current.end(windowKey);
+          if (bimanualRelease) {
+            setXrWindowBimanual((current) => ({ ...current, [session.id]: bimanualRelease }));
+          }
+          const canRealAnchor = Boolean(
+            surfaceProbe?.nearSurface &&
+            surfaceProbe.confidence >= 0.45 &&
+            webXRSnapshot.hit &&
+            webXRSnapshot.enabledFeatures.includes('anchors')
+          );
+          const queuedRealAnchor = canRealAnchor
+            ? webXRRuntimeRef.current.requestAnchorAtCurrentHit(windowKey, session.id, false)
+            : false;
+          if (!queuedRealAnchor) {
+            setXrWindowDepthScale((current) => ({ ...current, [session.id]: 1 }));
+          }
+          setXRWindowSurfaceState(session.id, surfaceProbe);
+          spatialGrabSessionRef.current = null;
+          showSpatialFeedback(
+            queuedRealAnchor
+              ? metricRelease?.constrainedToSurface
+                ? 'XR · cửa sổ bám bề mặt'
+                : 'XR · đã neo cửa sổ'
+              : 'XR · đã đặt cửa sổ'
+          );
+          continue;
+        }
+      }
+
+      if (event.targetKind === 'object') {
+        if (event.type === 'grab_start' && spatialObjectAvailable(event.targetId)) {
+          webXRRuntimeRef.current.removeAnchor(`object.${event.targetId}`);
+          xrAnchorDepthRef.current.delete(event.targetId);
+          setXrObjectDepthScale((current) => ({ ...current, [event.targetId]: 1 }));
+          spatialObjectAttachmentBeforeGrabRef.current = spatialWorldRuntimeRef.current.detachObject(event.targetId);
+          spatialJointBeforeGrabRef.current = spatialJointRuntimeRef.current.removeForChild(event.targetId);
+          const object = spatialObjectRuntimeRef.current.get(event.targetId);
+          xrAnchoredObjectIdsRef.current.delete(event.targetId);
+          xrRigidBodyRef.current.stop(event.targetId);
+          spatialObjectRuntimeRef.current.beginGrab(event.targetId, event.point);
+          xrMetricManipulationRef.current.begin(
+            event.targetId,
+            Math.max(0.05, -projected.depth),
+            object?.pose.scale || 1,
+            surfaceProbe?.environmentDepthM ?? null,
+            0.03,
+          );
+          const bimanualStart = secondaryHand
+            ? xrBimanualRef.current.begin(event.targetId, [primaryHand, secondaryHand])
+            : null;
+          if (bimanualStart) {
+            xrRigidBodyRef.current.begin(event.targetId, bimanualStart, now);
+            setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualStart }));
+          }
+          setSpatialPhysicsState(spatialPhysicsRef.current.beginGrab(event.targetId, event.point, now));
+          setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+          continue;
+        }
+
+        if (event.type === 'grab_move') {
+          spatialPhysicsRef.current.sampleGrab(event.targetId, event.point, now);
+          const metricMove = xrMetricManipulationRef.current.update(
+            event.targetId,
+            Math.max(0.05, -projected.depth),
+            surfaceProbe?.environmentDepthM ?? null,
+            surfaceProbe?.confidence ?? 0,
+          );
+          const xrHands = secondaryHand ? [primaryHand, secondaryHand] : [primaryHand];
+          const bimanualMove = secondaryHand && primaryHand.pinching && secondaryHand.pinching
+            ? (
+                xrBimanualRef.current.update(event.targetId, xrHands) ||
+                xrBimanualRef.current.begin(event.targetId, xrHands)
+              )
+            : xrBimanualRef.current.end(event.targetId);
+          if (bimanualMove) {
+            if (bimanualMove.active) {
+              xrRigidBodyRef.current.sample(event.targetId, bimanualMove, now);
+            }
+            setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualMove }));
+          }
+          spatialObjectRuntimeRef.current.moveGrab(event.point, {
+            depthDelta: metricMove?.normalizedDepthDelta ?? 0,
+            xyGain: 1.05,
+            depthGain: 1,
+          });
+          if (metricMove) {
+            setXrObjectDepthScale((current) => ({
+              ...current,
+              [event.targetId]: metricMove.visualScaleRatio,
+            }));
+          }
+          setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+          continue;
+        }
+
+        if (event.type === 'grab_end') {
+          const metricRelease = xrMetricManipulationRef.current.end(event.targetId);
+          const bimanualRelease = xrBimanualRef.current.end(event.targetId);
+          const rigidRelease = xrRigidBodyRef.current.release(event.targetId, now);
+          if (bimanualRelease) {
+            setXrObjectBimanual((current) => ({ ...current, [event.targetId]: bimanualRelease }));
+          }
+          const placed = spatialObjectRuntimeRef.current.endGrab();
+          const canRealAnchor = Boolean(
+            placed &&
+            surfaceProbe?.nearSurface &&
+            surfaceProbe.confidence >= 0.45 &&
+            webXRSnapshot.hit &&
+            webXRSnapshot.enabledFeatures.includes('anchors')
+          );
+          const queuedRealAnchor = canRealAnchor
+            ? webXRRuntimeRef.current.requestAnchorAtCurrentHit(
+                `object.${event.targetId}`,
+                event.targetId,
+                false,
+              )
+            : false;
+
+          spatialWorldRuntimeRef.current.setAnchors(
+            collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+          );
+          const snapped = !queuedRealAnchor && placed
+            ? spatialWorldRuntimeRef.current.snapObject(event.targetId, placed.pose, now)
+            : null;
+          if (snapped) spatialObjectRuntimeRef.current.setPose(event.targetId, snapped.worldPose);
+          let nextPhysicsState: SpatialPhysicsState;
+          if (queuedRealAnchor || snapped) {
+            xrRigidBodyRef.current.stop(event.targetId);
+            nextPhysicsState = spatialPhysicsRef.current.stop(event.targetId, now);
+            if (queuedRealAnchor) xrAnchoredObjectIdsRef.current.add(event.targetId);
+          } else {
+            spatialPhysicsRef.current.release(event.targetId, 0, now);
+            nextPhysicsState = rigidRelease?.throwing
+              ? spatialPhysicsRef.current.addVelocity(
+                  event.targetId,
+                  rigidRelease.linearVelocity,
+                  now,
+                )
+              : spatialPhysicsRef.current.snapshot(event.targetId);
+          }
+          setSpatialPhysicsState(nextPhysicsState);
+          setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+          spatialObjectAttachmentBeforeGrabRef.current = null;
+          spatialJointBeforeGrabRef.current = null;
+          if (!queuedRealAnchor) {
+            setXrObjectDepthScale((current) => ({ ...current, [event.targetId]: 1 }));
+          }
+          showSpatialFeedback(
+            queuedRealAnchor
+              ? metricRelease?.constrainedToSurface
+                ? 'XR · đặt sát bề mặt và đang neo'
+                : 'XR · đang neo vào bề mặt thật'
+              : snapped
+                ? `XR · neo ${snapped.anchorLabel}`
+                : rigidRelease?.throwing
+                  ? 'XR · rigid release · quán tính'
+                  : 'XR · đã đặt vật thể'
+          );
+        }
+      }
+    }
+  }, [settingsOpen, showSpatialFeedback, updateSpatialWindow, webXRSnapshot]);
+
+  useEffect(() => {
+    if (!webXRSnapshot.active) return;
+
+    let frame = 0;
+    let cancelled = false;
+    const tick = (now: number) => {
+      if (cancelled) return;
+      let changed = false;
+
+      const rigidSteps = xrRigidBodyRef.current.stepAll(now);
+      if (rigidSteps.length) {
+        setXrObjectBimanual((current) => {
+          const next = { ...current };
+          for (const step of rigidSteps) {
+            const committed = xrBimanualRef.current.commitExternal(step.objectId, step.transform);
+            next[step.objectId] = committed;
+          }
+          return next;
+        });
+      }
+
+      let objects = spatialObjectRuntimeRef.current.snapshot();
+      for (const object of objects) {
+        if (
+          !object.grabbed &&
+          !xrAnchoredObjectIdsRef.current.has(object.id) &&
+          spatialPhysicsRef.current.isActive(object.id)
+        ) {
+          const inertiaStep = spatialPhysicsRef.current.step(object.id, object.pose, now);
+          spatialObjectRuntimeRef.current.setPose(object.id, inertiaStep.pose);
+          setSpatialPhysicsState(inertiaStep.state);
+          changed = true;
+        }
+      }
+
+      objects = spatialObjectRuntimeRef.current.snapshot();
+      const collision = resolveSpatialObjectCollisions(
+        objects.map((object) => ({
+          id: object.id,
+          pose: object.pose,
+          radius: object.collisionRadius,
+          mass: object.mass,
+          dynamic:
+            !object.grabbed &&
+            !spatialWorldRuntimeRef.current.attachment(object.id) &&
+            !xrAnchoredObjectIdsRef.current.has(object.id),
+          clusterId: spatialWorldRuntimeRef.current.clusterRootObjectId(object.id),
+        })),
+        Object.fromEntries(objects.map((object) => [
+          object.id,
+          spatialPhysicsRef.current.velocity(object.id),
+        ])),
+      );
+
+      if (collision.contacts.length) {
+        for (const object of objects) {
+          if (
+            !object.grabbed &&
+            !spatialWorldRuntimeRef.current.attachment(object.id) &&
+            !xrAnchoredObjectIdsRef.current.has(object.id)
+          ) {
+            spatialObjectRuntimeRef.current.setPose(object.id, collision.poses[object.id]);
+          }
+          const impulse = collision.velocityDeltas[object.id];
+          if (impulse && Math.hypot(impulse.x, impulse.y, impulse.z) > 0.012) {
+            setSpatialPhysicsState(spatialPhysicsRef.current.addVelocity(object.id, impulse, now));
+          }
+        }
+        if (now - spatialCollisionFeedbackAtRef.current >= 650) {
+          spatialCollisionFeedbackAtRef.current = now;
+          showSpatialFeedback('XR · rigid collision');
+        }
+        changed = true;
+      }
+
+      if (changed) {
+        spatialWorldRuntimeRef.current.setAnchors(
+          collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+        );
+        setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+      }
+
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [showSpatialFeedback, webXRSnapshot.active]);
+
+  useEffect(() => {
+    if (!visionOn) return;
+    const timer = window.setInterval(() => {
+      const current = visionModulesRef.current;
+      const snapshot = current?.visionSnapshot();
+      setFaceSeen(Boolean(snapshot?.faceSeen));
+      setHandSeen(Boolean(snapshot?.handSeen));
+      const {
+        face,
+        micro,
+        posture,
+        pulse,
+        environmentContext,
+        environmentObjects,
+        spatial,
+        faceConfidence,
+      } = normalizeVisionPerception(snapshot);
+      setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
+      const now = performance.now();
+      gazeHeadCalibratorRef.current.observe({
+        facePresent: Boolean(face?.present),
+        confidence: faceConfidence,
+        gazeX: Number(face?.gazeX || 0),
+        gazeY: Number(face?.gazeY || 0),
+        yaw: Number(face?.yaw || 0),
+        pitch: Number(face?.pitch || 0),
+        motion: Number(posture.motion || 0),
+      });
+      const calibrated = gazeHeadCalibratorRef.current.apply({
+        gazeX: Number(face?.gazeX || 0),
+        gazeY: Number(face?.gazeY || 0),
+        yaw: Number(face?.yaw || 0),
+        pitch: Number(face?.pitch || 0),
+      });
+      setGazeTelemetry({ x: calibrated.gazeX, y: calibrated.gazeY });
+      const interaction = interactionTrackerRef.current.update({
+        facePresent: Boolean(face?.present),
+        faceConfidence,
+        yaw: calibrated.yaw,
+        pitch: calibrated.pitch,
+        gazeX: calibrated.gazeX,
+        gazeY: calibrated.gazeY,
+        posturePresent: Boolean(posture.present),
+        postureConfidence: Number(posture.confidence || 0),
+        postureMotion: Number(posture.motion || 0),
+        distanceM: Number(spatial.distanceM || 0),
+      }, now);
+      setInteractionTelemetry(interaction);
+
+      const {
+        intent,
+        rawHands,
+        primaryHand,
+        primaryPinching,
+        screenKinematics,
+        primaryPointerX,
+        primaryPointerY,
+        primaryPointerZ,
+        pointingHand,
+        handConfidence,
+      } = updateVisionHandInput(snapshot, now);
+      setHandLandmarks(Array.isArray(primaryHand?.landmarks) ? primaryHand.landmarks : []);
+      setHandKinematics(screenKinematics);
+
+      const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
+
+      let spatialObjectsChanged = false;
+      for (const object of spatialObjectRuntimeRef.current.snapshot()) {
+        if (!object.grabbed && spatialPhysicsRef.current.isActive(object.id)) {
+          const inertiaStep = spatialPhysicsRef.current.step(object.id, object.pose, now);
+          spatialObjectRuntimeRef.current.setPose(object.id, inertiaStep.pose);
+          setSpatialPhysicsState(inertiaStep.state);
+          spatialObjectsChanged = true;
+        }
+      }
+
+      let currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
+      spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentSpatialObjects));
+
+      for (const object of currentSpatialObjects) {
+        const attachment = spatialWorldRuntimeRef.current.attachment(object.id);
+        if (!attachment && !object.grabbed && spatialPhysicsRef.current.isActive(object.id)) {
+          const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject(object.id, object.pose);
+          if (inertiaPreview &&
+              inertiaPreview.strength >= 0.78 &&
+              spatialPhysicsRef.current.snapshot(object.id).speed <= 0.34) {
+            const snapped = spatialWorldRuntimeRef.current.snapObject(object.id, object.pose, now);
+            if (snapped) {
+              spatialObjectRuntimeRef.current.setPose(object.id, snapped.worldPose);
+              setSpatialPhysicsState(spatialPhysicsRef.current.stop(object.id, now));
+
+              const parentObjectId = spatialWorldRuntimeRef.current.parentObjectId(object.id);
+              const jointDefinition = spatialJointForAttachment(
+                object.id,
+                parentObjectId,
+                snapped.anchorId,
+              );
+              if (jointDefinition) spatialJointRuntimeRef.current.setJoint(jointDefinition);
+              else spatialJointRuntimeRef.current.removeForChild(object.id);
+
+              spatialObjectsChanged = true;
+              showSpatialFeedback(`Đã bắt neo · ${snapped.anchorLabel}`);
+            }
+          }
+        }
+      }
+
+      currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
+      spatialWorldRuntimeRef.current.setAnchors(collectSpatialWorldAnchors(currentSpatialObjects));
+
+      for (const joint of spatialJointRuntimeRef.current.snapshot()) {
+        if (!spatialWorldRuntimeRef.current.attachment(joint.childObjectId)) {
+          spatialJointRuntimeRef.current.removeForChild(joint.childObjectId);
+        }
+      }
+
+      for (const object of currentSpatialObjects) {
+        const attachment = spatialWorldRuntimeRef.current.attachment(object.id);
+        if (attachment && !object.grabbed) {
+          const resolvedPose = spatialWorldRuntimeRef.current.resolveObjectPose(object.id);
+          if (resolvedPose) {
+            const delta = Math.hypot(
+              resolvedPose.position.x - object.pose.position.x,
+              resolvedPose.position.y - object.pose.position.y,
+              resolvedPose.position.z - object.pose.position.z,
+            );
+            if (delta > 0.001 ||
+                Math.abs(resolvedPose.scale - object.pose.scale) > 0.001 ||
+                Math.abs(resolvedPose.rotation - object.pose.rotation) > 0.1) {
+              spatialObjectRuntimeRef.current.setPose(object.id, resolvedPose);
+              spatialObjectsChanged = true;
+            }
+          }
+        }
+      }
+
+      currentSpatialObjects = spatialObjectRuntimeRef.current.snapshot();
+      const collision = resolveSpatialObjectCollisions(
+        currentSpatialObjects.map((object) => ({
+          id: object.id,
+          pose: object.pose,
+          radius: object.collisionRadius,
+          mass: object.mass,
+          dynamic: !object.grabbed && !spatialWorldRuntimeRef.current.attachment(object.id),
+          clusterId: spatialWorldRuntimeRef.current.clusterRootObjectId(object.id),
+        })),
+        Object.fromEntries(currentSpatialObjects.map((object) => [
+          object.id,
+          spatialPhysicsRef.current.velocity(object.id),
+        ])),
+      );
+
+      if (collision.contacts.length) {
+        for (const object of currentSpatialObjects) {
+          if (!object.grabbed && !spatialWorldRuntimeRef.current.attachment(object.id)) {
+            spatialObjectRuntimeRef.current.setPose(object.id, collision.poses[object.id]);
+          }
+          const impulse = collision.velocityDeltas[object.id];
+          if (impulse && Math.hypot(impulse.x, impulse.y, impulse.z) > 0.012) {
+            setSpatialPhysicsState(spatialPhysicsRef.current.addVelocity(object.id, impulse, now));
+          }
+        }
+
+        spatialWorldRuntimeRef.current.setAnchors(
+          collectSpatialWorldAnchors(spatialObjectRuntimeRef.current.snapshot()),
+        );
+
+        for (const contact of collision.contacts) {
+          const a = spatialObjectRuntimeRef.current.get(contact.aId);
+          const b = spatialObjectRuntimeRef.current.get(contact.bId);
+          if (!a || !b) continue;
+
+          const aAttached = Boolean(spatialWorldRuntimeRef.current.attachment(a.id));
+          const bAttached = Boolean(spatialWorldRuntimeRef.current.attachment(b.id));
+          if (contact.stackCandidate && !a.grabbed && !b.grabbed && !aAttached && !bAttached) {
+            const child = a.pose.position.y <= b.pose.position.y ? a : b;
+            const parent = child.id === a.id ? b : a;
+            const attachment = spatialWorldRuntimeRef.current.attachObject(
+              child.id,
+              `stack.${parent.id}`,
+              child.pose,
+              now,
+            );
+            if (attachment) {
+              spatialJointRuntimeRef.current.setJoint({
+                id: `joint.${child.id}`,
+                kind: 'fixed',
+                parentObjectId: parent.id,
+                childObjectId: child.id,
+                stiffness: 1,
+              });
+              const resolved = spatialWorldRuntimeRef.current.resolveObjectPose(child.id);
+              if (resolved) spatialObjectRuntimeRef.current.setPose(child.id, resolved);
+              setSpatialPhysicsState(spatialPhysicsRef.current.stop(child.id, now));
+              if (now - spatialCollisionFeedbackAtRef.current >= 650) {
+                spatialCollisionFeedbackAtRef.current = now;
+                showSpatialFeedback(`Đã xếp · ${child.label} trên ${parent.label}`);
+              }
+              spatialObjectsChanged = true;
+              continue;
+            }
+          }
+
+          if (contact.impulse > 0.01 && now - spatialCollisionFeedbackAtRef.current >= 650) {
+            spatialCollisionFeedbackAtRef.current = now;
+            showSpatialFeedback('Va chạm · truyền lực');
+          }
+        }
+        spatialObjectsChanged = true;
+      }
+
+      if (spatialObjectsChanged) {
+        setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
+      }
+      const handRay = primaryHand?.ray || snapshot?.pointerRay || null;
+      const {
+        humanContact,
+        humanIntent,
+        directTouch,
+        directHand,
+        rayHit,
+      } = updateVisionHandInteraction({
+        spatialTargets,
+        handActive: Boolean(snapshot?.handSeen && primaryHand),
+        screenKinematics,
+        handConfidence,
+        primaryPointerX,
+        primaryPointerY,
+        primaryPointerZ,
+        primaryPinching,
+        pointingHand,
+        handRay,
+        contactRuntime: handContactRef.current,
+        intentRuntime: handIntentRef.current,
+        touchRuntime: spatialTouchRef.current,
+        now,
+      });
+      setHumanHandContact(humanContact);
+      setHumanHandIntent(humanIntent);
+      setSpatialTouch(directTouch);
+
+      const spatialFrameNext = spatialUiRef.current.update({
+        face: {
+          present: Boolean(face?.present),
+          confidence: faceConfidence,
+          gazeX: calibrated.gazeX,
+          gazeY: calibrated.gazeY,
+          yaw: calibrated.yaw,
+          pitch: calibrated.pitch,
+          calibrationProgress: calibrated.calibration.progress,
+        },
+        hand: {
+          present: Boolean(snapshot?.handSeen && primaryHand),
+          confidence: handConfidence,
+          x: primaryPointerX,
+          y: primaryPointerY,
+          z: primaryPointerZ,
+          pinching: primaryPinching,
+          direct: directHand,
+          ray: handRay,
+        },
+        rayHit,
+        gestureIntent: intent,
+        headGesture: String(face?.headGesture || 'none'),
+        targets: spatialTargets,
+      }, now);
+      setSpatialFrame(spatialFrameNext);
+
+      const selectionGesture = applySpatialSelectionGesture({
+        intent: intent.intent,
+        focus: spatialFrameNext.focus,
+        selectionRuntime: spatialSelectionRef.current,
+        worldRuntime: spatialWorldRuntimeRef.current,
+      });
+      if (selectionGesture) {
+        setSelectedClusterRoots(selectionGesture.selectedClusterRoots);
+        if (selectionGesture.resetGroupTransform) spatialGroupTransformRef.current = null;
+        showSpatialFeedback(selectionGesture.feedback);
+      }
+
+      const pinchedHands = rawHands.filter((hand) => Boolean(hand?.pinching));
+      const twoHandsActive = pinchedHands.length >= 2;
+
+      for (const event of spatialFrameNext.events) {
+        if (handleSpatialObjectManipulation({
+          event,
+          twoHandsActive,
+          humanIntent: humanIntent.intent,
+          now,
+          objectRuntime: spatialObjectRuntimeRef.current,
+          worldRuntime: spatialWorldRuntimeRef.current,
+          physicsRuntime: spatialPhysicsRef.current,
+          jointRuntime: spatialJointRuntimeRef.current,
+          depthRuntime: spatialObjectDepthRef.current,
+          attachmentBeforeGrabRef: spatialObjectAttachmentBeforeGrabRef,
+          jointBeforeGrabRef: spatialJointBeforeGrabRef,
+          placementPreviewRef,
+          jointControlRef: spatialJointControlRef,
+          twoHandObjectSessionRef,
+          setPhysicsState: setSpatialPhysicsState,
+          setSpatialObjects,
+          setPlacementPreview,
+          showFeedback: showSpatialFeedback,
+        })) continue;
+
+        if (event.type === 'activate') {
+          const target = spatialActionElement(event.targetId);
+          if (target) {
+            target.click();
+            showSpatialFeedback(`${event.source === 'face' ? 'Gật đầu' : 'Pinch'} · ${target.dataset.spatialLabel || 'Đã chọn'}`);
+            if (event.source === 'face') spatialHeadConsumedAtRef.current = now;
+          }
+          continue;
+        }
+
         if (handleSpatialWindowControl({
           event,
           twoHandsActive,
