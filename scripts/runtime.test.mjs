@@ -5707,6 +5707,36 @@ test('AppV2 delegates scene graph to short-term world context orchestration', ()
   }
 });
 
+test('AppV2 delegates webcam hand input normalization and gesture intent tracking', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useVisionHandInput.ts', 'utf8');
+
+  assert.match(app, /useVisionHandInput/);
+  assert.match(app, /updateVisionHandInput\(snapshot, now\)/);
+  assert.match(app, /resetVisionHandInput\(\)/);
+
+  for (const forbidden of [
+    'gestureIntentTrackerRef',
+    'mirrorSpatialHandKinematicsX',
+    'const rawKinematics =',
+    'const relativePointer = spatialDeviceAdapterRef.current.webcamPoint',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'GestureIntentTracker',
+    'mirrorSpatialHandKinematicsX',
+    'updateVisionHandInput',
+    'resetVisionHandInput',
+    'webcamPoint',
+    'pointingConfidence',
+    'pinchConfidence',
+  ]) {
+    assert.ok(hook.includes(token), `vision hand input hook missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
