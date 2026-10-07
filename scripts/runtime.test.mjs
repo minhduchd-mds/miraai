@@ -5480,6 +5480,31 @@ test('production build prunes source and reference media before artifact validat
   }
 });
 
+test('AppV2 delegates voice session lifecycle without changing the voice-only surface contract', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const lifecycle = readFileSync('src/app/useVoiceSessionLifecycle.ts', 'utf8');
+
+  assert.match(app, /useVoiceSessionLifecycle/);
+  assert.match(app, /voiceReady/);
+  assert.match(app, /voiceBooting/);
+  assert.match(app, /activateVoice/);
+  assert.match(app, /voiceSessionActive/);
+  assert.doesNotMatch(app, /VOICE_HANDSHAKE_TEXT|bootPendingRef|enableBackgroundCompanion|disableBackgroundCompanion/);
+
+  for (const token of [
+    'VOICE_HANDSHAKE_TEXT',
+    'VOICE_HANDSHAKE_TIMEOUT',
+    'activateVoice',
+    'enableBackgroundCompanion',
+    'disableBackgroundCompanion',
+    "notifyContextEvent('resume')",
+    "notifyContextEvent('wake')",
+    "event.code !== 'Space'",
+  ]) {
+    assert.ok(lifecycle.includes(token), `voice lifecycle missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
