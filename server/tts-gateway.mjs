@@ -1,13 +1,15 @@
 import http from 'node:http';
+import {
+  MIRA_TTS_MAX_TEXT_LENGTH,
+  defaultElevenModel,
+  defaultElevenVoice,
+  elevenDialoguePayload,
+  elevenDialogueUrl,
+} from './tts-contract.mjs';
 
 const PORT = Number(process.env.PORT || 10000);
 const ALLOWED_ORIGIN = process.env.MIRA_TTS_ALLOWED_ORIGIN || 'https://minhduchd-mds.github.io';
-const DEFAULT_VOICE = process.env.ELEVENLABS_TTS_VOICE
-  || process.env.ELEVENLABS_VOICE_ID
-  || 'EXAVITQu4vr4xnSDxMaL';
-const DEFAULT_MODEL = process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2';
 const API_KEY = process.env.ELEVENLABS_API_KEY || process.env.elevenlabs_api_key || '';
-const MAX_TEXT_LENGTH = 1600;
 
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 32;
@@ -93,31 +95,19 @@ async function readJson(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
-function normalizeVoice(raw) {
-  const value = String(raw || '').trim();
-  if (!value || value === 'auto') return DEFAULT_VOICE;
-  return value.startsWith('elevenlabs:') ? value.slice('elevenlabs:'.length) : value;
-}
 
-async function synthesize(text, voice) {
+async function synthesize(text, instructions) {
+  const payload = elevenDialoguePayload(text, instructions);
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_64`,
+    elevenDialogueUrl(),
     {
       method: 'POST',
+      signal: AbortSignal.timeout(18_000),
       headers: {
         'content-type': 'application/json',
         'xi-api-key': API_KEY,
       },
-      body: JSON.stringify({
-        text,
-        model_id: DEFAULT_MODEL,
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.78,
-          style: 0.16,
-          use_speaker_boost: false,
-        },
-      }),
+      body: JSON.stringify(payload),
     },
   );
 
@@ -126,7 +116,7 @@ async function synthesize(text, voice) {
     throw new Error(`elevenlabs_${response.status}:${detail}`);
   }
 
-  return response;
+  return { response, payload };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -147,16 +137,14 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         provider: 'elevenlabs',
         configured: Boolean(API_KEY),
-        model: DEFAULT_MODEL,
+        model: defaultElevenModel(),
       });
     }
 
     if (req.method === 'GET' && url.pathname === '/voices') {
       return sendJson(req, res, 200, {
         voices: [
-          { id: 'elevenlabs:EXAVITQu4vr4xnSDxMaL', label: 'ElevenLabs · Sarah · Gentle' },
-          { id: 'elevenlabs:21m00Tcm4TlvDq8ikWAM', label: 'ElevenLabs · Rachel' },
-          { id: 'elevenlabs:XB0fDUnXU5powFXDhCwa', label: 'ElevenLabs · Charlotte' },
+          { id: `elevenlabs:${defaultElevenVoice()}`, label: 'ElevenLabs · Sarah · Gentle · Active' },
         ],
       });
     }
@@ -168,10 +156,9 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const text = String(body.text || '').trim();
       if (!text) return sendJson(req, res, 400, { error: 'text_required' });
-      if (text.length > MAX_TEXT_LENGTH) return sendJson(req, res, 413, { error: 'text_too_long' });
+      if (text.length > MIRA_TTS_MAX_TEXT_LENGTH) return sendJson(req, res, 413, { error: 'text_too_long' });
 
-      const voice = normalizeVoice(body.voice);
-      const response = await synthesize(text, voice);
+      const { response, payload } = await synthesize(text, body.instructions);
       const audio = Buffer.from(await response.arrayBuffer());
 
       res.writeHead(200, {
@@ -181,7 +168,8 @@ const server = http.createServer(async (req, res) => {
         'cache-control': 'no-store',
         'x-content-type-options': 'nosniff',
         'x-mira-tts-provider': 'elevenlabs',
-        'x-mira-tts-voice': voice,
+        'x-mira-tts-voice': payload.inputs[0].voice_id,
+        'x-mira-tts-model': payload.model_id,
       });
       return res.end(audio);
     }
