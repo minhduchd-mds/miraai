@@ -5737,6 +5737,33 @@ test('AppV2 delegates webcam hand input normalization and gesture intent trackin
   }
 });
 
+test('AppV2 delegates webcam hand contact, intent, direct touch and ray resolution', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/vision-hand-interaction.ts', 'utf8');
+
+  assert.match(app, /updateVisionHandInteraction\(/);
+  for (const forbidden of [
+    'const spatialAnchors = spatialTargets.map',
+    'const spatialRayTargets = spatialTargets',
+    'rayHitFromContact',
+    'hitTestSpatialRay(',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'updateVisionHandInteraction',
+    'spatialAnchorFromRect',
+    'hitTestSpatialRay',
+    'contactRuntime.update',
+    'intentRuntime.update',
+    'touchRuntime.update',
+    'rayHitFromContact',
+  ]) {
+    assert.ok(helper.includes(token), `vision hand interaction helper missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
