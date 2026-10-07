@@ -5672,6 +5672,41 @@ test('AppV2 delegates debounced face head voice control lifecycle', () => {
   }
 });
 
+test('AppV2 delegates scene graph to short-term world context orchestration', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useVisionWorldContext.ts', 'utf8');
+
+  assert.match(app, /useVisionWorldContext/);
+  assert.match(app, /updateVisionWorldContext\(/);
+  assert.match(app, /resetVisionWorldContext\(\)/);
+
+  for (const forbidden of [
+    'sceneGraphTrackerRef',
+    'objectInteractionTrackerRef',
+    'actionSequenceTrackerRef',
+    'causalActionGraphTrackerRef',
+    'worldModelTrackerRef',
+    'behaviorTimelineRef',
+    'worldModelPrompt(',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'SpatialSceneGraphTracker',
+    'ObjectInteractionTracker',
+    'ActionSequenceTracker',
+    'CausalActionGraphTracker',
+    'ShortTermWorldModelTracker',
+    'BehaviorTimeline',
+    'updateVisionWorldContext',
+    'resetVisionWorldContext',
+    'worldModelPrompt',
+  ]) {
+    assert.ok(hook.includes(token), `vision world context hook missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
