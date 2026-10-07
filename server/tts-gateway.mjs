@@ -1,19 +1,19 @@
 import http from 'node:http';
 import {
+  MIRA_TTS_MAX_REQUESTS_PER_WINDOW,
   MIRA_TTS_MAX_TEXT_LENGTH,
-  defaultElevenModel,
+  MIRA_TTS_MAX_TRACKED_CLIENTS,
+  MIRA_TTS_RATE_WINDOW_MS,
   defaultElevenVoice,
   elevenDialoguePayload,
   elevenDialogueUrl,
+  isTtsOriginAllowed,
+  ttsContractMetadata,
 } from './tts-contract.mjs';
 
 const PORT = Number(process.env.PORT || 10000);
-const ALLOWED_ORIGIN = process.env.MIRA_TTS_ALLOWED_ORIGIN || 'https://minhduchd-mds.github.io';
 const API_KEY = process.env.ELEVENLABS_API_KEY || process.env.elevenlabs_api_key || '';
 
-const WINDOW_MS = 5 * 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 32;
-const MAX_TRACKED_CLIENTS = 2048;
 const buckets = new Map();
 let nextBucketSweepAt = 0;
 
@@ -22,15 +22,26 @@ function clientIp(req) {
   return forwarded || req.socket.remoteAddress || 'unknown';
 }
 
+function requestOrigin(req) {
+  return String(req.headers.origin || '').trim();
+}
+
+function requestHost(req) {
+  const forwarded = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  return forwarded || String(req.headers.host || '').trim();
+}
+
 function allowed(req) {
-  const origin = String(req.headers.origin || '');
-  return !origin || origin === ALLOWED_ORIGIN;
+  const origin = requestOrigin(req);
+  const host = requestHost(req);
+  const ownOrigin = host ? `https://${host}` : '';
+  return isTtsOriginAllowed(origin, ownOrigin);
 }
 
 function corsHeaders(req) {
-  const origin = String(req.headers.origin || '');
+  const origin = requestOrigin(req);
   return {
-    'access-control-allow-origin': origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN,
+    ...(origin && allowed(req) ? { 'access-control-allow-origin': origin } : {}),
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400',
@@ -49,16 +60,16 @@ function sendJson(req, res, status, body) {
 }
 
 function pruneRateBuckets(now) {
-  if (now < nextBucketSweepAt && buckets.size < MAX_TRACKED_CLIENTS) return;
-  nextBucketSweepAt = now + WINDOW_MS;
+  if (now < nextBucketSweepAt && buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS) return;
+  nextBucketSweepAt = now + MIRA_TTS_RATE_WINDOW_MS;
   for (const [key, bucket] of buckets) {
-    if (now - bucket.startedAt >= WINDOW_MS) buckets.delete(key);
+    if (now - bucket.startedAt >= MIRA_TTS_RATE_WINDOW_MS) buckets.delete(key);
   }
 }
 
 function ensureRateBucketCapacity() {
-  if (buckets.size < MAX_TRACKED_CLIENTS) return;
-  const toRemove = buckets.size - MAX_TRACKED_CLIENTS + 1;
+  if (buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS) return;
+  const toRemove = buckets.size - MIRA_TTS_MAX_TRACKED_CLIENTS + 1;
   let removed = 0;
   for (const key of buckets.keys()) {
     buckets.delete(key);
@@ -73,14 +84,14 @@ function takeRateSlot(req) {
   pruneRateBuckets(now);
 
   const previous = buckets.get(ip);
-  if (!previous || now - previous.startedAt >= WINDOW_MS) {
+  if (!previous || now - previous.startedAt >= MIRA_TTS_RATE_WINDOW_MS) {
     if (previous) buckets.delete(ip);
     ensureRateBucketCapacity();
     buckets.set(ip, { startedAt: now, count: 1 });
     return true;
   }
   previous.count += 1;
-  return previous.count <= MAX_REQUESTS_PER_WINDOW;
+  return previous.count <= MIRA_TTS_MAX_REQUESTS_PER_WINDOW;
 }
 
 async function readJson(req) {
@@ -135,9 +146,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/health') {
       return sendJson(req, res, 200, {
         ok: true,
-        provider: 'elevenlabs',
-        configured: Boolean(API_KEY),
-        model: defaultElevenModel(),
+        ...ttsContractMetadata(Boolean(API_KEY)),
+        runtime: 'render-node-gateway',
       });
     }
 
@@ -146,6 +156,7 @@ const server = http.createServer(async (req, res) => {
         voices: [
           { id: `elevenlabs:${defaultElevenVoice()}`, label: 'ElevenLabs · Sarah · Gentle · Active' },
         ],
+        serverControlled: true,
       });
     }
 
