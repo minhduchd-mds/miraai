@@ -17,7 +17,7 @@ import {
   EMPTY_SPATIAL_CONTROL_FRAME,
   SpatialUIController,
 } from '../core/vision/spatial-ui-control';
-import { measureTwoHands, rotationFromAngles, scaleFromDistance, smoothValue } from '../presence/spatial-math';
+import { measureTwoHands, rotationFromAngles, scaleFromDistance } from '../presence/spatial-math';
 import { SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
 import {
   EMPTY_SPATIAL_TOUCH,
@@ -112,6 +112,7 @@ import { updateVisionHandInteraction } from './vision-hand-interaction';
 import { applySpatialSelectionGesture } from './spatial-selection-gesture';
 import { handleSpatialObjectManipulation } from './spatial-object-manipulation';
 import { handleSpatialWindowControl } from './spatial-window-control';
+import { updateSpatialWindowBimanual } from './spatial-window-bimanual';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -1462,62 +1463,16 @@ export default function AppV2() {
         })) continue;
       }
 
-      const transformTarget = spatialFrameNext.focus?.kind === 'window'
-        ? spatialFrameNext.focus.id
-        : lastSpatialWindowRef.current;
-      if (twoHandsActive && spatialWindowAvailable(transformTarget)) {
-        const a = pinchedHands[0];
-        const b = pinchedHands[1];
-        const geometry = measureTwoHands(
-          {
-            x: clampSpatial(Number(a?.pointerX ?? a?.x ?? 0.5), 0, 1),
-            y: clampSpatial(Number(a?.pointerY ?? a?.y ?? 0.5), 0, 1),
-          },
-          {
-            x: clampSpatial(Number(b?.pointerX ?? b?.x ?? 0.5), 0, 1),
-            y: clampSpatial(Number(b?.pointerY ?? b?.y ?? 0.5), 0, 1),
-          },
-        );
-        let session = twoHandSpatialSessionRef.current;
-        if (!session || session.id !== transformTarget) {
-          const base = spatialWindowsRef.current[transformTarget];
-          session = {
-            id: transformTarget,
-            since: now,
-            active: false,
-            startDistance: geometry.distance,
-            startAngle: geometry.angleDeg,
-            baseScale: base.scale,
-            baseRotation: base.rotation,
-          };
-          twoHandSpatialSessionRef.current = session;
-        } else if (!session.active && now - session.since >= 240 && geometry.distance >= 0.08) {
-          session.active = true;
-          showSpatialFeedback('Hai tay · scale / rotate');
-        } else if (session.active) {
-          const targetScale = scaleFromDistance(
-            session.baseScale,
-            session.startDistance,
-            geometry.distance,
-            0.82,
-            1.28,
-          );
-          const targetRotation = rotationFromAngles(
-            session.baseRotation,
-            session.startAngle,
-            geometry.angleDeg,
-            -12,
-            12,
-          );
-          updateSpatialWindow(session.id, (current) => ({
-            ...current,
-            scale: smoothValue(current.scale, targetScale, 0.26),
-            rotation: smoothValue(current.rotation, targetRotation, 0.22),
-          }));
-        }
-      } else {
-        twoHandSpatialSessionRef.current = null;
-      }
+      updateSpatialWindowBimanual({
+        pinchedHands,
+        focus: spatialFrameNext.focus,
+        lastWindowId: lastSpatialWindowRef.current,
+        now,
+        sessionRef: twoHandSpatialSessionRef,
+        windowsRef: spatialWindowsRef,
+        updateWindow: updateSpatialWindow,
+        showFeedback: showSpatialFeedback,
+      });
 
       const objectTarget = spatialFrameNext.focus?.kind === 'object'
         ? spatialFrameNext.focus.id
