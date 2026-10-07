@@ -150,6 +150,19 @@ jobs:
           Write-Host ("Mira app PE machine: 0x{0:X4}" -f $appMachine)
           if ($appMachine -ne 0x8664) { throw ("Expected Mira app x86_64 PE machine 0x8664, got 0x{0:X4}" -f $appMachine) }
 
+          $installerSignature = Get-AuthenticodeSignature $installer.FullName
+          $appSignature = Get-AuthenticodeSignature $appExe.FullName
+          Write-Host "Installer Authenticode: $($installerSignature.Status)"
+          Write-Host "App Authenticode: $($appSignature.Status)"
+
+          if ($env:WINDOWS_SIGNING_ENABLED -eq "true") {
+            if ($installerSignature.Status -ne "Valid") { throw "Signed installer Authenticode validation failed: $($installerSignature.Status)" }
+            if ($appSignature.Status -ne "Valid") { throw "Signed Mira executable Authenticode validation failed: $($appSignature.Status)" }
+            "✅ Windows Authenticode signatures verified." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            "⚠️ Windows build is unsigned; SmartScreen may warn until signing is configured." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
           New-Item -ItemType Directory -Force -Path "release" | Out-Null
           Copy-Item $installer.FullName "release/$env:RELEASE_EXE"
 
@@ -191,7 +204,7 @@ jobs:
               "- Installer: Mira-v0.1.0-Windows-x64-Setup.exe",
               "- Tauri + NSIS",
               "- Requires Microsoft Edge WebView2 Runtime; Windows 10/11 normally includes or can install it.",
-              "- This build is not Authenticode-signed yet, so Windows SmartScreen may show a warning on first install."
+              "- Signing status is validated by the release workflow; unsigned builds may trigger Windows SmartScreen."
             )
             $append = $appendLines -join [Environment]::NewLine
             Set-Content -Path "release-notes-updated.md" -Value ($body + $append)
