@@ -1,6 +1,16 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 const failures = [];
+function sourceTree(root) {
+  const files = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = `${root}/${entry.name}`;
+    if (entry.isDirectory()) files.push(...sourceTree(path));
+    else if (/\.(?:ts|tsx)$/i.test(entry.name)) files.push(path);
+  }
+  return files;
+}
+
 const mustExist = [
   'src/app/AppV2.tsx',
   'src/app/spatial-ui-helpers.ts',
@@ -1259,6 +1269,24 @@ if (!settingsPanelSource.includes("lazy(() => import('./StructuredMemoryInspecto
 }
 
 const desktopMain = readFileSync('src-tauri/src/main.rs', 'utf8');
+const registeredDesktopCommands = new Set(
+  Array.from(desktopMain.matchAll(/\b(?:memory|media)::(desktop_[a-z0-9_]+)/g), (match) => match[1]),
+);
+const invokedDesktopCommands = new Map();
+for (const path of sourceTree('src')) {
+  const source = readFileSync(path, 'utf8');
+  for (const match of source.matchAll(/desktopInvoke(?:<[^>]+>)?\(\s*['"]([^'"]+)['"]/g)) {
+    const command = match[1];
+    if (!invokedDesktopCommands.has(command)) invokedDesktopCommands.set(command, []);
+    invokedDesktopCommands.get(command).push(path);
+  }
+}
+for (const [command, paths] of invokedDesktopCommands) {
+  if (!registeredDesktopCommands.has(command)) {
+    failures.push(`desktop invoke is not registered in Tauri handler: ${command} <- ${[...new Set(paths)].join(', ')}`);
+  }
+}
+
 for (const token of ['desktop_memory_save_turn', 'desktop_memory_recall', 'desktop_memory_graph', 'desktop_memory_structured_update', 'desktop_memory_structured_delete', 'desktop_memory_import_structured', 'desktop_permission_set', 'desktop_music_library_status', 'desktop_music_choose_folder', 'desktop_music_rescan', 'desktop_media_action']) {
   if (!desktopMain.includes(token)) failures.push(`desktop native command missing: ${token}`);
 }
