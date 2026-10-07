@@ -16,3 +16,6 @@ dist-ssr
 .neon/
 
 .tmp-mira-assets/
+
+# Local real-device validation exports (privacy-sensitive)
+artifacts/device-lab/
