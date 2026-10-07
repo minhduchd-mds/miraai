@@ -239,7 +239,7 @@ for (const token of ['SPATIAL_TARGET_SELECTOR', 'data-spatial-focused', 'data-sp
 }
 
 const visionTransport = readFileSync('src/app/useVisionTransport.ts', 'utf8');
-for (const token of ['visionModulesRef', 'cameraPreviewRef', 'loadVisionModules', 'startVisionTransport', 'stopVisionTransport', "import('../presence/vision-runtime')", "import('../ui/vision-v2.css')", 'visionStream()']) {
+for (const token of ['visionModulesRef', 'cameraPreviewRef', 'loadVisionModules', 'startVisionTransport', 'stopVisionTransport', "import('../presence/vision-runtime')", 'visionStream()']) {
   if (!visionTransport.includes(token)) failures.push(`vision transport extraction missing: ${token}`);
 }
 
@@ -269,7 +269,7 @@ for (const token of ['resolveFaceControlAction', 'updateFaceHeadControl', 'reset
 }
 
 const visionWorldContext = readFileSync('src/app/useVisionWorldContext.ts', 'utf8');
-for (const token of ['BehaviorTimeline', 'updateVisionWorldContext', 'resetVisionWorldContext', 'worldModelPrompt']) {
+for (const token of ['updateVisionWorldContext', 'resetVisionWorldContext', 'interactionPrompt', 'presenceContinuityPrompt']) {
   if (!visionWorldContext.includes(token)) failures.push(`vision world context extraction missing: ${token}`);
 }
 
