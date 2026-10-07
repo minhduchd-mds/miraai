@@ -33,6 +33,15 @@ test('Vercel TTS defaults to the active ElevenLabs premade female voice contract
   assert.equal(MIRA_TTS_MAX_TRACKED_CLIENTS, 2048);
 });
 
+test('shared TTS contract preserves the production GitHub Pages origin', () => {
+  assert.equal(originAllowed({
+    headers: {
+      origin: 'https://minhduchd-mds.github.io',
+      host: 'miraai-five.vercel.app',
+    },
+  }), true);
+});
+
 test('Vercel TTS allows its own deployment origin', () => {
   assert.equal(originAllowed({
     headers: {
