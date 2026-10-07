@@ -247,6 +247,58 @@ test('device lab result re-sanitizes source reports and excludes identifying/raw
   }
 });
 
+test('device lab sanitizes malformed enums and rejects unsafe privacy flags', () => {
+  const malformed = {
+    format: 'mira.device-report',
+    schemaVersion: 1,
+    createdAt: '2026-10-07T08:00:00.000Z',
+    privacy: {
+      mediaCaptured: false,
+      rawInputIncluded: false,
+      identifiersIncluded: false,
+      locationIncluded: false,
+    },
+    device: {
+      checkedAt: '2026-10-07T08:00:00.000Z',
+      secureContext: true,
+      mediaDevices: true,
+      cameraPermission: 'magic',
+      microphonePermission: 'always',
+      webxr: false,
+      immersiveAr: false,
+      webgpu: false,
+      webnn: false,
+      requestVideoFrameCallback: false,
+      audioWorklet: false,
+      crossOriginIsolated: false,
+      productMode: 'turbo',
+      hardwareConcurrency: 9999,
+      deviceMemoryGb: 9999,
+    },
+    voice: { provider: 'ElevenLabs', health: 'healthy' },
+  };
+
+  const sanitized = deviceLab.buildDeviceLabResult('Malformed', malformed, {
+    cameraStarted: true,
+    desktopLaunch: true,
+  });
+
+  assert.equal(sanitized.source.device.cameraPermission, 'unknown');
+  assert.equal(sanitized.source.device.microphonePermission, 'unknown');
+  assert.equal(sanitized.source.device.productMode, 'compatibility');
+  assert.equal(sanitized.source.device.hardwareConcurrency, 256);
+  assert.equal(sanitized.source.device.deviceMemoryGb, 1024);
+  assert.equal(deviceLab.isPrivateDeviceLabResult(sanitized), true);
+
+  const unsafe = structuredClone(sanitized);
+  unsafe.source.privacy.mediaCaptured = true;
+  assert.equal(deviceLab.isPrivateDeviceLabResult(unsafe), false);
+
+  const forbidden = structuredClone(sanitized);
+  forbidden.source.device.deviceId = 'secret';
+  assert.equal(deviceLab.isPrivateDeviceLabResult(forbidden), false);
+});
+
 test('device lab assessment separates pass warn fail and XR applicability', () => {
   const source = {
     format: 'mira.device-report',
