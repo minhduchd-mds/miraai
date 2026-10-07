@@ -5873,6 +5873,64 @@ test('AppV2 delegates two-hand spatial window scale and rotation', () => {
   }
 });
 
+test('AppV2 delegates two-hand object, joint and group manipulation', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/spatial-object-bimanual.ts', 'utf8');
+
+  assert.match(app, /updateSpatialObjectBimanual\(/);
+  for (const forbidden of [
+    'beginSpatialGroupTransform(',
+    'applySpatialGroupTransform(',
+    'measureTwoHands(',
+    'scaleFromDistance(',
+    'rotationFromAngles(',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'updateSpatialObjectBimanual',
+    'beginSpatialGroupTransform',
+    'applySpatialGroupTransform',
+    'measureTwoHands',
+    'scaleFromDistance',
+    'rotationFromAngles',
+    'constrainLocalPose',
+    'clusterRootObjectId',
+  ]) {
+    assert.ok(helper.includes(token), `spatial object bimanual helper missing ${token}`);
+  }
+});
+
+test('AppV2 delegates webcam inertia collision stacking and auto-snap world step', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/spatial-object-world-step.ts', 'utf8');
+
+  assert.match(app, /stepSpatialObjectWorld\(/);
+  for (const forbidden of [
+    'let spatialObjectsChanged = false',
+    'const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject',
+    'contact.stackCandidate && !a.grabbed',
+    'Đã bắt neo ·',
+    'Va chạm · truyền lực',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'stepSpatialObjectWorld',
+    'resolveSpatialObjectCollisions',
+    'previewSnapObject',
+    'snapObject',
+    'spatialJointForAttachment',
+    'stackCandidate',
+    'attachObject',
+    'collisionFeedbackAtRef',
+  ]) {
+    assert.ok(helper.includes(token), `spatial object world-step helper missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
