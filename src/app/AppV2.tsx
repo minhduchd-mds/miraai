@@ -136,6 +136,7 @@ import {
 } from './app-preferences';
 import { usePresenceReturnLearning } from './usePresenceReturnLearning';
 import { useVoiceSessionLifecycle } from './useVoiceSessionLifecycle';
+import { useSpatialDomFeedback } from './useSpatialDomFeedback';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -330,6 +331,16 @@ export default function AppV2() {
     environmentConfidence: 0,
     headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
     muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
+  });
+
+  useSpatialDomFeedback({
+    focusId: spatialFrame.focus?.id,
+    selectedClusterRoots,
+    selectionVersion: spatialObjects,
+    spatialWorld: spatialWorldRuntimeRef.current,
+    touchReady: spatialTouch.ready,
+    touchTargetId: spatialTouch.targetId,
+    humanHandContact,
   });
 
   useDialogFocus(settingsOpen, '.v2-settings');
@@ -2312,89 +2323,6 @@ export default function AppV2() {
     }, 120);
     return () => window.clearInterval(timer);
   }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateSpatialWindow, visionOn, voiceReady]);
-
-  useEffect(() => {
-    const previouslyFocused = document.querySelectorAll<HTMLElement>('[data-spatial-focused="true"]');
-    previouslyFocused.forEach((element) => element.removeAttribute('data-spatial-focused'));
-    const focusId = spatialFrame.focus?.id;
-    if (!focusId) return;
-
-    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle], [data-spatial-object]'))
-      .find((element) =>
-        element.dataset.spatialAction === focusId ||
-        element.dataset.spatialGrabHandle === focusId ||
-        element.dataset.spatialObject === focusId
-      );
-    target?.setAttribute('data-spatial-focused', 'true');
-    return () => target?.removeAttribute('data-spatial-focused');
-  }, [spatialFrame.focus?.id]);
-
-  useEffect(() => {
-    const objects = document.querySelectorAll<HTMLElement>('[data-spatial-object]');
-    objects.forEach((element) => element.removeAttribute('data-spatial-selected'));
-    if (!selectedClusterRoots.length) return;
-
-    objects.forEach((element) => {
-      const id = String(element.dataset.spatialObject || '');
-      if (!id) return;
-      const root = spatialWorldRuntimeRef.current.clusterRootObjectId(id);
-      if (selectedClusterRoots.includes(root)) {
-        element.setAttribute('data-spatial-selected', 'true');
-      }
-    });
-
-    return () => objects.forEach((element) => element.removeAttribute('data-spatial-selected'));
-  }, [selectedClusterRoots, spatialObjects]);
-
-  useEffect(() => {
-    const previouslyTouched = document.querySelectorAll<HTMLElement>('[data-spatial-contacted="true"]');
-    previouslyTouched.forEach((element) => element.removeAttribute('data-spatial-contacted'));
-    if (!spatialTouch.ready || !spatialTouch.targetId) return;
-
-    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle], [data-spatial-object]'))
-      .find((element) =>
-        element.dataset.spatialAction === spatialTouch.targetId ||
-        element.dataset.spatialGrabHandle === spatialTouch.targetId ||
-        element.dataset.spatialObject === spatialTouch.targetId
-      );
-    target?.setAttribute('data-spatial-contacted', 'true');
-    return () => target?.removeAttribute('data-spatial-contacted');
-  }, [spatialTouch.ready, spatialTouch.targetId]);
-
-  useEffect(() => {
-    const previouslyHumanTouched = document.querySelectorAll<HTMLElement>('[data-spatial-human-contact]');
-    previouslyHumanTouched.forEach((element) => {
-      element.removeAttribute('data-spatial-human-contact');
-      element.removeAttribute('data-spatial-pressed');
-      element.style.removeProperty('--spatial-pressure');
-    });
-    if (!humanHandContact.active || !humanHandContact.primaryTargetId) return;
-
-    const target = Array.from(document.querySelectorAll<HTMLElement>('[data-spatial-action], [data-spatial-grab-handle], [data-spatial-object]'))
-      .find((element) =>
-        element.dataset.spatialAction === humanHandContact.primaryTargetId ||
-        element.dataset.spatialGrabHandle === humanHandContact.primaryTargetId ||
-        element.dataset.spatialObject === humanHandContact.primaryTargetId
-      );
-    if (!target) return;
-
-    target.setAttribute('data-spatial-human-contact', humanHandContact.phase);
-    target.style.setProperty('--spatial-pressure', String(humanHandContact.pressure));
-    if (humanHandContact.phase === 'press' || humanHandContact.phase === 'grab') {
-      target.setAttribute('data-spatial-pressed', 'true');
-    }
-
-    return () => {
-      target.removeAttribute('data-spatial-human-contact');
-      target.removeAttribute('data-spatial-pressed');
-      target.style.removeProperty('--spatial-pressure');
-    };
-  }, [
-    humanHandContact.active,
-    humanHandContact.phase,
-    humanHandContact.pressure,
-    humanHandContact.primaryTargetId,
-  ]);
 
   useEffect(() => () => {
     const modules = visionModulesRef.current;
