@@ -231,6 +231,20 @@ const visualQaWorkflow = readFileSync('.github/workflows/visual-qa.yml', 'utf8')
 for (const token of ['@playwright/test@1.55.0', 'Install Chromium', 'Run visual QA', 'Upload visual QA output']) {
   if (!visualQaWorkflow.includes(token)) failures.push(`visual QA workflow missing: ${token}`);
 }
+const visualQaSource = readFileSync('scripts/visual-qa.spec.mjs', 'utf8');
+for (const token of [
+  'desktop-1440x900',
+  'desktop-1366x768',
+  'tablet-768x1024',
+  'mobile-390x844',
+  'mobile-360x800',
+  'horizontalOverflowPx',
+  'runtimeMedia',
+]) {
+  if (!visualQaSource.includes(token)) failures.push(`visual QA viewport matrix missing: ${token}`);
+}
+const playwrightConfig = readFileSync('playwright.config.mjs', 'utf8');
+if (!playwrightConfig.includes('timeout: 180_000')) failures.push('expanded visual QA matrix needs 180s test timeout');
 const desktopCheckWorkflow = readFileSync('.github/workflows/desktop-check.yml', 'utf8');
 for (const token of ['macos-15-intel', 'windows-latest', 'cargo check --manifest-path src-tauri/Cargo.toml --all-targets', 'cargo test --manifest-path src-tauri/Cargo.toml', 'workflow_dispatch:']) {
   if (!desktopCheckWorkflow.includes(token)) failures.push(`desktop native check workflow missing: ${token}`);
