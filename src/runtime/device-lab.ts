@@ -39,6 +39,22 @@ export interface DeviceLabAssessment {
   warnings: string[];
 }
 
+function permissionState(value: unknown): MiraDeviceReport['device']['cameraPermission'] {
+  return value === 'granted' ||
+    value === 'denied' ||
+    value === 'prompt' ||
+    value === 'unsupported' ||
+    value === 'unknown'
+    ? value
+    : 'unknown';
+}
+
+function productMode(value: unknown): MiraDeviceReport['device']['productMode'] {
+  return value === 'full' || value === 'balanced' || value === 'compatibility'
+    ? value
+    : 'compatibility';
+}
+
 function sanitizeDeviceReport(source: MiraDeviceReport): MiraDeviceReport {
   return {
     format: 'mira.device-report',
@@ -54,8 +70,8 @@ function sanitizeDeviceReport(source: MiraDeviceReport): MiraDeviceReport {
       checkedAt: String(source?.device?.checkedAt || '').slice(0, 40),
       secureContext: Boolean(source?.device?.secureContext),
       mediaDevices: Boolean(source?.device?.mediaDevices),
-      cameraPermission: source?.device?.cameraPermission || 'unknown',
-      microphonePermission: source?.device?.microphonePermission || 'unknown',
+      cameraPermission: permissionState(source?.device?.cameraPermission),
+      microphonePermission: permissionState(source?.device?.microphonePermission),
       webxr: Boolean(source?.device?.webxr),
       immersiveAr: source?.device?.immersiveAr == null
         ? null
@@ -65,12 +81,15 @@ function sanitizeDeviceReport(source: MiraDeviceReport): MiraDeviceReport {
       requestVideoFrameCallback: Boolean(source?.device?.requestVideoFrameCallback),
       audioWorklet: Boolean(source?.device?.audioWorklet),
       crossOriginIsolated: Boolean(source?.device?.crossOriginIsolated),
-      productMode: source?.device?.productMode || 'compatibility',
-      hardwareConcurrency: Math.max(
-        0,
-        Math.round(Number(source?.device?.hardwareConcurrency || 0)),
+      productMode: productMode(source?.device?.productMode),
+      hardwareConcurrency: Math.min(
+        256,
+        Math.max(0, Math.round(Number(source?.device?.hardwareConcurrency || 0))),
       ),
-      deviceMemoryGb: Math.max(0, Number(source?.device?.deviceMemoryGb || 0)),
+      deviceMemoryGb: Math.min(
+        1024,
+        Math.max(0, Number(source?.device?.deviceMemoryGb || 0)),
+      ),
     },
     voice: {
       provider: String(source?.voice?.provider || 'unknown').trim().slice(0, 80),
@@ -200,21 +219,49 @@ export function assessDeviceLabResult(
   };
 }
 
-export function isPrivateDeviceLabResult(value: unknown): boolean {
+function hasForbiddenKey(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
-  const serialized = JSON.stringify(value);
-  const forbidden = [
-    'userAgent',
-    'deviceId',
-    'rawFrame',
-    'rawAudio',
+  const forbidden = new Set([
+    'useragent',
+    'deviceid',
+    'rawframe',
+    'rawaudio',
     'transcript',
-    'preciseLocation',
+    'preciselocation',
     'latitude',
     'longitude',
-    'lastError',
-    'apiKey',
+    'lasterror',
+    'apikey',
     'cookie',
-  ];
-  return forbidden.every((token) => !serialized.includes(token));
+  ]);
+
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (forbidden.has(key.toLowerCase())) return true;
+    if (hasForbiddenKey(child)) return true;
+  }
+  return false;
+}
+
+export function isPrivateDeviceLabResult(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Partial<MiraDeviceLabResult>;
+  if (result.format !== 'mira.device-lab-result' || result.schemaVersion !== 1) return false;
+  if (result.source?.format !== 'mira.device-report' || result.source?.schemaVersion !== 1) return false;
+
+  const privacy = result.privacy;
+  const sourcePrivacy = result.source?.privacy;
+  if (
+    privacy?.mediaCaptured !== false ||
+    privacy?.rawInputIncluded !== false ||
+    privacy?.identifiersIncluded !== false ||
+    privacy?.locationIncluded !== false ||
+    sourcePrivacy?.mediaCaptured !== false ||
+    sourcePrivacy?.rawInputIncluded !== false ||
+    sourcePrivacy?.identifiersIncluded !== false ||
+    sourcePrivacy?.locationIncluded !== false
+  ) {
+    return false;
+  }
+
+  return !hasForbiddenKey(value);
 }
