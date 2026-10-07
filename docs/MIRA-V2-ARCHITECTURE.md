@@ -55,7 +55,8 @@ Labs contains camera, hand gesture, Splat, simulator, raw telemetry and Develope
 
 - `src/app/spatial-ui-helpers.ts` — spatial DOM/math helpers;
 - `src/app/app-preferences.ts` — local presentation preference persistence;
-- `src/app/usePresenceReturnLearning.ts` — local return-pattern learning lifecycle.
+- `src/app/usePresenceReturnLearning.ts` — local return-pattern learning lifecycle;
+- `src/app/useVoiceSessionLifecycle.ts` — voice activation/handshake, keyboard shortcut, resume/focus và background companion lifecycle.
 
 Các module này không đổi capability contract; mục tiêu là giảm orchestration coupling trong AppV2 trước khi tách các sensor lifecycle lớn hơn.
 
