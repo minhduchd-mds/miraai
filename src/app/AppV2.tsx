@@ -57,7 +57,6 @@ import {
   SpatialWorldRuntime,
   type SpatialObjectAttachment,
   type SpatialPlacementPreview,
-  type SpatialWorldAnchor,
 } from '../core/vision/spatial-world';
 import {
   PRESENCE_SCENE_LABEL,
