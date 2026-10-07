@@ -19,6 +19,7 @@ fn main() {
             memory::desktop_memory_recall,
             memory::desktop_memory_clear,
             memory::desktop_memory_import_turns,
+            memory::desktop_memory_import_structured,
             memory::desktop_memory_export,
             memory::desktop_memory_graph,
             memory::desktop_memory_structured_update,
