@@ -142,6 +142,7 @@ const mustExist = [
   'src-tauri/tauri.conf.json',
   'src-tauri/Info.plist',
   '.github/workflows/macos-dmg.yml',
+  '.github/workflows/desktop-check.yml',
   'api/tts.js',
 ];
 
@@ -214,6 +215,11 @@ const visualQaWorkflow = readFileSync('.github/workflows/visual-qa.yml', 'utf8')
 for (const token of ['@playwright/test@1.55.0', 'Install Chromium', 'Run visual QA', 'Upload visual QA output']) {
   if (!visualQaWorkflow.includes(token)) failures.push(`visual QA workflow missing: ${token}`);
 }
+const desktopCheckWorkflow = readFileSync('.github/workflows/desktop-check.yml', 'utf8');
+for (const token of ['macos-15-intel', 'windows-latest', 'cargo check --manifest-path src-tauri/Cargo.toml --all-targets', 'cargo test --manifest-path src-tauri/Cargo.toml', 'workflow_dispatch:']) {
+  if (!desktopCheckWorkflow.includes(token)) failures.push(`desktop native check workflow missing: ${token}`);
+}
+
 const pagesWorkflow = readFileSync('.github/workflows/pages.yml', 'utf8');
 if (!pagesWorkflow.includes('npm run prune:pages')) failures.push('Pages must prune heavy legacy assets after build');
 if (!pagesWorkflow.includes('npm run check:pages')) failures.push('Pages must run deploy artifact smoke before publish');
