@@ -110,6 +110,7 @@ const mustExist = [
   'src/app/useFaceSocialLifecycle.ts',
   'src/app/useFaceHeadControlLifecycle.ts',
   'src/app/useVisionWorldContext.ts',
+  'src/app/useVisionHandInput.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -273,6 +274,11 @@ for (const token of ['SpatialSceneGraphTracker', 'ObjectInteractionTracker', 'Ac
   if (!visionWorldContext.includes(token)) failures.push(`vision world context extraction missing: ${token}`);
 }
 
+const visionHandInput = readFileSync('src/app/useVisionHandInput.ts', 'utf8');
+for (const token of ['GestureIntentTracker', 'mirrorSpatialHandKinematicsX', 'updateVisionHandInput', 'resetVisionHandInput', 'webcamPoint', 'pointingConfidence', 'pinchConfidence']) {
+  if (!visionHandInput.includes(token)) failures.push(`vision hand input extraction missing: ${token}`);
+}
+
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 if (v2.includes('v2-presence-scenes')) failures.push('Mira v16.1 must not expose manual presence scene tabs');
 if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
@@ -284,7 +290,7 @@ for (const token of ['IconCamera', 'IconCameraOff', 'IconSettings', 'ShellSvg'])
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'resolvePresenceScene', 'visualTestPresenceScene', 'learnedPresenceReturnMinute', 'voice-control-dock', 'cameraConnected', 'presenceScene={presenceScene}', 'FaceMeshOverlay', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'SpatialXRProjectionRuntime', 'projectMetricPointAcrossViews', 'xrProjectionRef', 'SpatialXRSurfaceRuntime', 'SpatialXRMetricManipulationRuntime', 'SpatialXRRigidBodyRuntime', 'SpatialXRHandCollisionRuntime', 'xrSurfaceRef', 'xrMetricManipulationRef', 'xrRigidBodyRef', 'xrHandCollisionRef', 'xrObjectDepthScale', 'xrWindowDepthScale', 'xrWindowBimanual', 'requestAnchorAtCurrentHit', 'data-xr-depth', 'data-xr-surface', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'mirrorSpatialHandKinematicsX', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'XR · đã căn tâm DOM', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'interactionTelemetry', 'headYaw={faceTelemetry.yaw}', 'cameraDistanceM={faceTelemetry.distanceM}', 'cameraPoseConfidence={faceTelemetry.confidence}', 'environmentLabel={faceTelemetry.environmentLabel}', 'environmentConfidence={faceTelemetry.environmentConfidence}', 'micProsodySnapshot', 'observeAffect']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'resolvePresenceScene', 'visualTestPresenceScene', 'learnedPresenceReturnMinute', 'voice-control-dock', 'cameraConnected', 'presenceScene={presenceScene}', 'FaceMeshOverlay', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'beginSpatialGroupTransform', 'applySpatialGroupTransform', 'SpatialDeviceAdapterRuntime', 'SpatialXRProjectionRuntime', 'projectMetricPointAcrossViews', 'xrProjectionRef', 'SpatialXRSurfaceRuntime', 'SpatialXRMetricManipulationRuntime', 'SpatialXRRigidBodyRuntime', 'SpatialXRHandCollisionRuntime', 'xrSurfaceRef', 'xrMetricManipulationRef', 'xrRigidBodyRef', 'xrHandCollisionRef', 'xrObjectDepthScale', 'xrWindowDepthScale', 'xrWindowBimanual', 'requestAnchorAtCurrentHit', 'data-xr-depth', 'data-xr-surface', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'XR · đã căn tâm DOM', 'victory_hold', 'open_palm_hold', 'selectedClusterRoots', 'mira.node', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'measureTwoHands', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'interactionTelemetry', 'headYaw={faceTelemetry.yaw}', 'cameraDistanceM={faceTelemetry.distanceM}', 'cameraPoseConfidence={faceTelemetry.confidence}', 'environmentLabel={faceTelemetry.environmentLabel}', 'environmentConfidence={faceTelemetry.environmentConfidence}', 'micProsodySnapshot', 'observeAffect']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (!v2.includes('enableBackgroundCompanion') && !v2.includes('useVoiceSessionLifecycle')) failures.push('AppV2 voice session lifecycle wiring missing');
@@ -319,6 +325,10 @@ for (const forbidden of ['lastHeadGestureRef', 'lastFaceActionAtRef', 'resolveFa
 if (!v2.includes('useVisionWorldContext')) failures.push('AppV2 vision world context wiring missing');
 for (const forbidden of ['sceneGraphTrackerRef', 'objectInteractionTrackerRef', 'actionSequenceTrackerRef', 'causalActionGraphTrackerRef', 'worldModelTrackerRef', 'behaviorTimelineRef', 'worldModelPrompt(']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision world context pipeline: ${forbidden}`);
+}
+if (!v2.includes('useVisionHandInput')) failures.push('AppV2 vision hand input wiring missing');
+for (const forbidden of ['gestureIntentTrackerRef', 'mirrorSpatialHandKinematicsX', 'const rawKinematics =', 'const relativePointer = spatialDeviceAdapterRef.current.webcamPoint']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision hand input pipeline: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
