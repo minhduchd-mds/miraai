@@ -49,6 +49,16 @@ ASSISTANT TURN
 
 Labs contains camera, hand gesture, Splat, simulator, raw telemetry and Developer Console. These capabilities do not belong on the default production surface.
 
+### App shell extraction boundaries
+
+`AppV2.tsx` vẫn là composition root nhưng các trách nhiệm thuần đã được tách ra:
+
+- `src/app/spatial-ui-helpers.ts` — spatial DOM/math helpers;
+- `src/app/app-preferences.ts` — local presentation preference persistence;
+- `src/app/usePresenceReturnLearning.ts` — local return-pattern learning lifecycle.
+
+Các module này không đổi capability contract; mục tiêu là giảm orchestration coupling trong AppV2 trước khi tách các sensor lifecycle lớn hơn.
+
 ## 3. Conversation Runtime
 
 `src/core/useMira.ts` remains the React binding/compatibility API, but orchestration responsibilities have been moved behind explicit services:

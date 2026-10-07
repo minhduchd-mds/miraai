@@ -70,9 +70,9 @@ Sau cleanup:
 
 Hiện tại:
 
-- **3,308 dòng**
-- **136.6 KB source**
-- **51 imports**
+- **2,873 dòng**
+- **122.0 KB source**
+- **50 imports**
 - **47 refs**
 - **25 effects**
 - **18 states**
@@ -123,3 +123,14 @@ Mira có Vercel/Render/Neon gateway alternatives. Policy CORS/rate-limit/provide
 3. Source asset có thể giữ trong git nhưng không được mặc định ship trong production artifact.
 4. Không xóa fallback/research path nếu vẫn reachable hoặc có deployment contract.
 5. Mỗi đợt cleanup phải giữ Node 24/26 + tests + benchmark + artifact smoke xanh.
+
+
+## AppV2 refactor progress
+
+Đã tách các boundary ít rủi ro trước, không đổi behavior:
+
+- `src/app/spatial-ui-helpers.ts` — DOM target collection, spatial styles, anchors, joint mapping;
+- `src/app/app-preferences.ts` — theme, affect-follow và presence-return persistence;
+- `src/app/usePresenceReturnLearning.ts` — minute clock + local learning khi người dùng quay lại.
+
+Kết quả hiện tại: `AppV2.tsx` còn khoảng **2,873 dòng / 122 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
