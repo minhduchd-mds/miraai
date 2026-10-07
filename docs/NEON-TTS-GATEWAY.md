@@ -23,7 +23,7 @@ The function keeps `ELEVENLABS_API_KEY` server-side, enforces origin checks, bou
 ```env
 ELEVENLABS_API_KEY=
 MIRA_TTS_ALLOWED_ORIGIN=https://minhduchd-mds.github.io
-ELEVENLABS_TTS_MODEL=eleven_multilingual_v2
+ELEVENLABS_TTS_MODEL=eleven_v4
 ELEVENLABS_TTS_VOICE=EXAVITQu4vr4xnSDxMaL
 ```
 
