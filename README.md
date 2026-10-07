@@ -120,6 +120,7 @@ ELEVENLABS_API_KEY=
 ## Docs
 
 - [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md) — capability/status matrix.
+- [`docs/CODE-AUDIT.md`](docs/CODE-AUDIT.md) — expert code audit, cleanup policy & technical debt.
 - [`docs/MIRA-V2-ARCHITECTURE.md`](docs/MIRA-V2-ARCHITECTURE.md) — architecture.
 - [`docs/MIRA-COMPANION-RUNTIME.md`](docs/MIRA-COMPANION-RUNTIME.md) — companion runtime.
 - [`docs/MIRA-AFFECT-V3.md`](docs/MIRA-AFFECT-V3.md) — affect engine.
