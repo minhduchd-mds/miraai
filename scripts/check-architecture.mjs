@@ -197,7 +197,7 @@ if (packageJson.includes('"protobufjs": true')) failures.push('protobufjs instal
 for (const token of ['scripts/prune-runtime-assets.mjs', '"prune:runtime"', 'npm run build && npm run check:bundle']) {
   if (!packageJson.includes(token)) failures.push(`runtime build prune contract missing: ${token}`);
 }
-for (const token of ['"device:lab:capture"', '"device:lab:matrix"', 'scripts/device-lab-capture.mjs', 'scripts/device-lab-matrix.mjs']) {
+for (const token of ['"device:lab:capture"', '"device:lab:matrix"', '"check:device-lab"', 'scripts/device-lab-capture.mjs', 'scripts/device-lab-matrix.mjs', 'npm run check:device-lab']) {
   if (!packageJson.includes(token)) failures.push(`device lab package script missing: ${token}`);
 }
 const runtimePrune = readFileSync('scripts/prune-runtime-assets.mjs', 'utf8');
