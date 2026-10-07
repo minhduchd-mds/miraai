@@ -4,6 +4,7 @@ const failures = [];
 const mustExist = [
   'src/app/AppV2.tsx',
   'src/app/spatial-ui-helpers.ts',
+  'src/app/app-preferences.ts',
   'src/presence/HolographicMira.tsx',
   'src/presence/PhotorealMira.tsx',
   'src/presence/presence-scene.ts',
@@ -181,6 +182,15 @@ for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", "j
 const legacyApp = readFileSync('src/App.tsx', 'utf8');
 for (const token of ['GITHUB_PAGES_LITE', "hostname.endsWith('.github.io')", '!GITHUB_PAGES_LITE && !avatar2d']) {
   if (!legacyApp.includes(token)) failures.push(`Pages Labs lightweight fallback missing: ${token}`);
+}
+
+const appPreferences = readFileSync('src/app/app-preferences.ts', 'utf8');
+for (const token of ['loadTheme', 'saveTheme', 'loadAffectFollowing', 'saveAffectFollowing', 'loadPresenceReturnSamples', 'savePresenceReturnSamples']) {
+  if (!appPreferences.includes(token)) failures.push(`app preference boundary missing: ${token}`);
+}
+const appV2Source = readFileSync('src/app/AppV2.tsx', 'utf8');
+for (const forbidden of ["localStorage.setItem('mira.theme'", "localStorage.setItem('mira.affect.follow'", 'PRESENCE_RETURN_STORAGE']) {
+  if (appV2Source.includes(forbidden)) failures.push(`AppV2 still owns local preference persistence: ${forbidden}`);
 }
 
 const spatialUiHelpers = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');

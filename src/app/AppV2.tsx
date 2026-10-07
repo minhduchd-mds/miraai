@@ -110,7 +110,6 @@ import {
   appendPresenceReturnSample,
   learnedPresenceReturnMinute,
   resolvePresenceScene,
-  sanitizePresenceReturnSamples,
   type PresenceReturnSample,
 } from '../presence/presence-scene';
 import { visualTestPresenceScene } from '../presence/presence-visual-test';
@@ -132,6 +131,14 @@ import {
   type SpatialWindowTransform,
   type TwoHandSpatialSession,
 } from './spatial-ui-helpers';
+import {
+  loadAffectFollowing,
+  loadPresenceReturnSamples,
+  loadTheme,
+  saveAffectFollowing,
+  savePresenceReturnSamples,
+  saveTheme,
+} from './app-preferences';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -148,45 +155,6 @@ const STATE_COPY: Record<MiraState, string> = {
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
 const VOICE_HANDSHAKE_TEXT = 'Em nghe anh. Chế độ trò chuyện liên tục đã bật.';
 const VOICE_HANDSHAKE_TIMEOUT = 5000;
-const PRESENCE_RETURN_STORAGE = 'mira.presence.return-samples.v1';
-
-
-function loadTheme(): Theme {
-  try {
-    const raw = localStorage.getItem('mira.theme');
-    if (raw === 'nova' || raw === 'aura' || raw === 'ember' || raw === 'iris') return raw;
-  } catch {
-    // noop
-  }
-  return 'nova';
-}
-
-function loadAffectFollowing(): boolean {
-  try {
-    return localStorage.getItem('mira.affect.follow') !== '0';
-  } catch {
-    return true;
-  }
-}
-
-function loadPresenceReturnSamples(): PresenceReturnSample[] {
-  try {
-    const raw = localStorage.getItem(PRESENCE_RETURN_STORAGE);
-    if (!raw) return [];
-    return sanitizePresenceReturnSamples(JSON.parse(raw));
-  } catch {
-    return [];
-  }
-}
-
-function savePresenceReturnSamples(samples: PresenceReturnSample[]): void {
-  try {
-    localStorage.setItem(PRESENCE_RETURN_STORAGE, JSON.stringify(samples));
-  } catch {
-    // local-only learning is best effort
-  }
-}
-
 export default function AppV2() {
   const mira = useMira();
   const [theme, setTheme] = useState<Theme>(loadTheme);
@@ -400,11 +368,11 @@ export default function AppV2() {
   }, [mira.state, theme]);
 
   useEffect(() => {
-    try { localStorage.setItem('mira.theme', theme); } catch { /* noop */ }
+    saveTheme(theme);
   }, [theme]);
 
   useEffect(() => {
-    try { localStorage.setItem('mira.affect.follow', affectFollowing ? '1' : '0'); } catch { /* noop */ }
+    saveAffectFollowing(affectFollowing);
   }, [affectFollowing]);
 
   useEffect(() => {

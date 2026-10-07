@@ -5491,3 +5491,14 @@ test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', 
     assert.ok(!app.includes(forbidden));
   }
 });
+
+test('AppV2 delegates local presentation preferences to app-preferences', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const prefs = readFileSync('src/app/app-preferences.ts', 'utf8');
+  assert.match(app, /from '\.\/app-preferences'/);
+  for (const token of ['loadTheme','saveTheme','loadAffectFollowing','saveAffectFollowing','loadPresenceReturnSamples','savePresenceReturnSamples']) {
+    assert.ok(prefs.includes(token));
+  }
+  assert.ok(!app.includes("localStorage.setItem('mira.theme'"));
+  assert.ok(!app.includes("localStorage.setItem('mira.affect.follow'"));
+});
