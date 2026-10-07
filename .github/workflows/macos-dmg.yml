@@ -53,8 +53,39 @@ jobs:
 
       - name: Build Intel DMG
         env:
-          APPLE_SIGNING_IDENTITY: "-"
-        run: npx tauri build --bundles dmg --target x86_64-apple-darwin
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY_SECRET: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${APPLE_CERTIFICATE:-}" ]; then
+            echo "MACOS_SIGNING_ENABLED=true" >> "$GITHUB_ENV"
+            if [ -n "${APPLE_SIGNING_IDENTITY_SECRET:-}" ]; then
+              export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY_SECRET"
+            else
+              unset APPLE_SIGNING_IDENTITY
+            fi
+            echo "Apple signing certificate detected; Tauri will sign the app."
+          else
+            echo "MACOS_SIGNING_ENABLED=false" >> "$GITHUB_ENV"
+            export APPLE_SIGNING_IDENTITY="-"
+            echo "No Apple certificate configured; building with ad-hoc signing."
+          fi
+
+          if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+            echo "MACOS_NOTARIZATION_ENABLED=true" >> "$GITHUB_ENV"
+            echo "Apple notarization credentials detected."
+          else
+            echo "MACOS_NOTARIZATION_ENABLED=false" >> "$GITHUB_ENV"
+            unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+            echo "Notarization credentials are incomplete; notarization disabled."
+          fi
+
+          npx tauri build --bundles dmg --target x86_64-apple-darwin
 
       - name: Validate DMG
         shell: bash
@@ -78,6 +109,25 @@ jobs:
           test -n "$app"
           echo "APP=$app"
           codesign --verify --deep --strict "$app"
+          codesign -dv --verbose=4 "$app" 2>&1 | tee /tmp/mira-codesign.txt
+
+          if [ "${MACOS_SIGNING_ENABLED:-false}" = "true" ]; then
+            if ! grep -Eq 'Authority=|TeamIdentifier=' /tmp/mira-codesign.txt; then
+              echo "Expected Developer ID signature metadata was not found."
+              exit 1
+            fi
+            echo "✅ macOS Developer ID signature verified." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ macOS artifact uses ad-hoc signing; configure APPLE_CERTIFICATE to enable Developer ID signing." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${MACOS_NOTARIZATION_ENABLED:-false}" = "true" ]; then
+            xcrun stapler validate "$dmg"
+            echo "✅ macOS notarization/stapling verified." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ macOS notarization is not configured." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
           binary="$(find "$app/Contents/MacOS" -maxdepth 1 -type f | head -n 1)"
           test -n "$binary"
           file "$binary"
