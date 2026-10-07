@@ -121,9 +121,13 @@ Matrix từ chối kết quả có các field/token nhạy cảm như:
 
 Không dùng Device Lab để thu thập media hoặc dữ liệu nhận dạng thiết bị.
 
-## Synthetic viewport regression
+## Synthetic browser regression
 
-CI Visual QA complements Device Lab with five browser viewport profiles:
+CI Visual/Capability QA complements Device Lab with two synthetic layers.
+
+### Viewport matrix
+
+Five browser viewport profiles:
 
 - 1440×900 desktop
 - 1366×768 desktop
@@ -133,4 +137,33 @@ CI Visual QA complements Device Lab with five browser viewport profiles:
 
 This catches layout overflow, broken presence assets and runtime media regressions before hardware testing.
 
-It is **not** counted as empirical device evidence. Only `mira.device-lab-result` files produced from a real Device Report + real observations count toward `--require=N`.
+### Capability smoke
+
+`scripts/capability-smoke.spec.mjs` injects synthetic browser capabilities without opening real media:
+
+- denied camera permission must be reported as `Bị chặn`;
+- granted microphone permission must be reported without requesting mic capture;
+- immersive-AR capability must expose the production XR control;
+- 1366×768 must remain free of horizontal overflow with XR + Settings controls present.
+
+Capability smoke is deliberately **not** camera accuracy, gesture accuracy, real voice playback or real WebXR validation.
+
+## Release device gate
+
+Normal CI runs `npm run check:device-lab` in contract-only mode so a clean checkout does not fail merely because private empirical results are not committed.
+
+Before a hardware-qualified release, run:
+
+```bash
+npm run check:device-release
+```
+
+This requires at least **3 private empirical device results** and fails if the matrix contains invalid/private-contract-breaking input. The recommended minimum evidence set is:
+
+1. one desktop machine running Mira Desktop;
+2. one second browser/OS profile for camera + voice;
+3. one immersive-AR device when XR is part of the release claim.
+
+If XR is not part of the release claim, the third result may be another camera/voice device profile.
+
+Synthetic Playwright output is **never** counted toward these three results. Only `mira.device-lab-result` files produced from a real Device Report + real observations count toward the empirical gate.
