@@ -118,6 +118,8 @@ const mustExist = [
   'src/app/spatial-window-bimanual.ts',
   'src/app/spatial-object-bimanual.ts',
   'src/app/spatial-object-world-step.ts',
+  'src/app/useWebXRSpatialRuntime.ts',
+  'src/app/useVisionSpatialRuntime.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -321,6 +323,16 @@ for (const token of ['stepSpatialObjectWorld', 'resolveSpatialObjectCollisions',
   if (!spatialObjectWorldStep.includes(token)) failures.push(`spatial object world step extraction missing: ${token}`);
 }
 
+const webXRSpatialRuntime = readFileSync('src/app/useWebXRSpatialRuntime.ts', 'utf8');
+for (const token of ['useWebXRSpatialRuntime', 'projectMetricPointAcrossViews', 'bridgeXRHandTo21', 'requestAnchorAtCurrentHit', 'resolveSpatialObjectCollisions', 'requestAnimationFrame', 'XR · rigid collision']) {
+  if (!webXRSpatialRuntime.includes(token)) failures.push(`WebXR spatial runtime extraction missing: ${token}`);
+}
+
+const visionSpatialRuntime = readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8');
+for (const token of ['useVisionSpatialRuntime', 'normalizeVisionPerception', 'stepSpatialObjectWorld', 'updateVisionHandInteraction', 'applySpatialSelectionGesture', 'handleSpatialObjectManipulation', 'handleSpatialWindowControl', 'updateSpatialWindowBimanual', 'updateSpatialObjectBimanual', 'micProsodySnapshot', 'updateFaceHeadControl']) {
+  if (!visionSpatialRuntime.includes(token)) failures.push(`Vision spatial runtime extraction missing: ${token}`);
+}
+
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 if (v2.includes('v2-presence-scenes')) failures.push('Mira v16.1 must not expose manual presence scene tabs');
 if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
@@ -332,7 +344,7 @@ for (const token of ['IconCamera', 'IconCameraOff', 'IconSettings', 'ShellSvg'])
 for (const token of ['SplatViewer', 'face-tracker', 'gesture-tracker', 'DevConsole', "../ui/MiraStage", 'PresenceStage', 'Composer', 'VoiceOrb']) {
   if (v2.includes(token)) failures.push(`AppV2 primary surface imports removed/heavy capability: ${token}`);
 }
-for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'resolvePresenceScene', 'visualTestPresenceScene', 'learnedPresenceReturnMinute', 'voice-control-dock', 'cameraConnected', 'presenceScene={presenceScene}', 'FaceMeshOverlay', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'resolveSpatialObjectCollisions', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'SpatialDeviceAdapterRuntime', 'SpatialXRProjectionRuntime', 'projectMetricPointAcrossViews', 'xrProjectionRef', 'SpatialXRSurfaceRuntime', 'SpatialXRMetricManipulationRuntime', 'SpatialXRRigidBodyRuntime', 'SpatialXRHandCollisionRuntime', 'xrSurfaceRef', 'xrMetricManipulationRef', 'xrRigidBodyRef', 'xrHandCollisionRef', 'xrObjectDepthScale', 'xrWindowDepthScale', 'xrWindowBimanual', 'requestAnchorAtCurrentHit', 'data-xr-depth', 'data-xr-surface', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'XR · đã căn tâm DOM', 'selectedClusterRoots', 'mira.node', 'clusterObjectIds', 'data-spatial-action', 'data-spatial-grab-handle', 'data-spatial-object', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'interactionTelemetry', 'headYaw={faceTelemetry.yaw}', 'cameraDistanceM={faceTelemetry.distanceM}', 'cameraPoseConfidence={faceTelemetry.confidence}', 'environmentLabel={faceTelemetry.environmentLabel}', 'environmentConfidence={faceTelemetry.environmentConfidence}', 'micProsodySnapshot', 'observeAffect']) {
+for (const token of ['PhotorealMira', "lazy(() => import('../settings/SettingsPanel'))", "lazy(() => import('../ui/ContentPanel'))", 'mira.history.slice(-6)', 'contextText={constellationContext}', 'resolvePresenceScene', 'visualTestPresenceScene', 'learnedPresenceReturnMinute', 'voice-control-dock', 'cameraConnected', 'presenceScene={presenceScene}', 'FaceMeshOverlay', 'SpatialUIController', 'SpatialControlOverlay', 'SpatialDirectTouchTracker', 'SpatialObjectRuntime', 'SpatialPhysicsRuntime', 'SpatialJointRuntime', 'SpatialSelectionRuntime', 'SpatialDeviceAdapterRuntime', 'SpatialXRProjectionRuntime', 'xrProjectionRef', 'SpatialXRSurfaceRuntime', 'SpatialXRMetricManipulationRuntime', 'SpatialXRRigidBodyRuntime', 'SpatialXRHandCollisionRuntime', 'xrSurfaceRef', 'xrMetricManipulationRef', 'xrRigidBodyRef', 'xrHandCollisionRef', 'xrObjectDepthScale', 'xrWindowDepthScale', 'xrWindowBimanual', 'data-xr-depth', 'data-xr-surface', 'SpatialHandContactRuntime', 'SpatialHandIntentRuntime', 'humanHandContact', 'humanHandIntent', 'HandSkeletonOverlay', 'webXRRuntimeRef', 'xr.toggle', 'useWebXRSessionFeatures', 'selectedClusterRoots', 'mira.node', 'data-spatial-action', 'data-spatial-grab-handle', 'GazeHeadCalibrator', 'GestureIntentTracker', 'InteractionTracker', 'interactionTelemetry', 'headYaw={faceTelemetry.yaw}', 'cameraDistanceM={faceTelemetry.distanceM}', 'cameraPoseConfidence={faceTelemetry.confidence}', 'environmentLabel={faceTelemetry.environmentLabel}', 'environmentConfidence={faceTelemetry.environmentConfidence}', 'observeAffect']) {
   if (!v2.includes(token)) failures.push(`AppV2 missing production surface: ${token}`);
 }
 if (!v2.includes('enableBackgroundCompanion') && !v2.includes('useVoiceSessionLifecycle')) failures.push('AppV2 voice session lifecycle wiring missing');
@@ -348,11 +360,16 @@ if (!v2.includes('useWebXRTransport')) failures.push('AppV2 WebXR transport wiri
 for (const forbidden of ['setWebXRAvailable(', 'setWebXRSnapshot(', 'new SpatialWebXRSessionRuntime()', 'detectWebXR().then']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns WebXR transport lifecycle: ${forbidden}`);
 }
+if (!v2.includes('useWebXRSpatialRuntime')) failures.push('AppV2 WebXR spatial runtime wiring missing');
+for (const forbidden of ['projectMetricPointAcrossViews(', 'bridgeXRHandTo21(', 'requestAnchorAtCurrentHit(', 'requestAnimationFrame(tick)', 'XR · rigid collision']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns WebXR spatial runtime: ${forbidden}`);
+}
 if (!v2.includes('useSpatialLayoutLifecycle')) failures.push('AppV2 spatial layout lifecycle wiring missing');
 for (const forbidden of ['spatialSessionLayoutRuntime()', 'spatialLayoutSkipCaptureRef', 'const saved = spatialLayoutRef.current.restore()']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial layout lifecycle: ${forbidden}`);
 }
-if (!v2.includes('normalizeVisionPerception')) failures.push('AppV2 vision perception normalization wiring missing');
+if (!v2.includes('useVisionSpatialRuntime')) failures.push('AppV2 Vision spatial runtime wiring missing');
+if (!visionSpatialRuntime.includes('normalizeVisionPerception')) failures.push('Vision runtime must own perception normalization');
 for (const forbidden of ['EMPTY_ENVIRONMENT', 'EMPTY_REAL_PRESENCE_POSE', 'const environmentSensor = snapshot?.environment']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision perception normalization: ${forbidden}`);
 }
@@ -372,33 +389,36 @@ if (!v2.includes('useVisionHandInput')) failures.push('AppV2 vision hand input w
 for (const forbidden of ['gestureIntentTrackerRef', 'mirrorSpatialHandKinematicsX', 'const rawKinematics =', 'const relativePointer = spatialDeviceAdapterRef.current.webcamPoint']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision hand input pipeline: ${forbidden}`);
 }
-if (!v2.includes('updateVisionHandInteraction')) failures.push('AppV2 vision hand interaction wiring missing');
+if (!visionSpatialRuntime.includes('updateVisionHandInteraction')) failures.push('Vision runtime hand interaction wiring missing');
 for (const forbidden of ['const spatialAnchors = spatialTargets.map', 'const spatialRayTargets = spatialTargets', 'rayHitFromContact', 'hitTestSpatialRay(']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision hand interaction resolver: ${forbidden}`);
 }
-if (!v2.includes('applySpatialSelectionGesture')) failures.push('AppV2 spatial selection gesture wiring missing');
+if (!visionSpatialRuntime.includes('applySpatialSelectionGesture')) failures.push('Vision runtime selection gesture wiring missing');
 for (const forbidden of ["intent.intent === 'victory_hold'", "intent.intent === 'open_palm_hold'", 'Victory · chọn cụm', 'Open Palm · bỏ chọn nhóm']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial selection gesture behavior: ${forbidden}`);
 }
-if (!v2.includes('handleSpatialObjectManipulation')) failures.push('AppV2 spatial object manipulation wiring missing');
+if (!visionSpatialRuntime.includes('handleSpatialObjectManipulation')) failures.push('Vision runtime object manipulation wiring missing');
 for (const forbidden of ['const existingAttachment = spatialWorldRuntimeRef.current.attachment(event.targetId)', "const intentDepthDelta = humanIntent.intent === 'push'", 'const previewAtRelease = placementPreviewRef.current', 'spatialObjectRuntimeRef.current.cancelGrab()', 'Đã hoàn tác vật thể']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial object manipulation lifecycle: ${forbidden}`);
 }
-if (!v2.includes('handleSpatialWindowControl')) failures.push('AppV2 spatial window control wiring missing');
+if (!visionSpatialRuntime.includes('handleSpatialWindowControl')) failures.push('Vision runtime window control wiring missing');
 for (const forbidden of ['Pinch giữ · di chuyển cửa sổ', 'const dx = (event.point.x - session.start.x) * window.innerWidth * 1.42', 'Đã thả cửa sổ', 'Đã hủy thao tác']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial window control lifecycle: ${forbidden}`);
 }
-if (!v2.includes('updateSpatialWindowBimanual')) failures.push('AppV2 bimanual window transform wiring missing');
+if (!visionSpatialRuntime.includes('updateSpatialWindowBimanual')) failures.push('Vision runtime bimanual window wiring missing');
 for (const forbidden of ["const transformTarget = spatialFrameNext.focus?.kind === 'window'", "showSpatialFeedback('Hai tay · scale / rotate');", 'smoothValue(current.scale']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns bimanual window transform: ${forbidden}`);
 }
-if (!v2.includes('updateSpatialObjectBimanual')) failures.push('AppV2 bimanual object/group manipulation wiring missing');
+if (!visionSpatialRuntime.includes('updateSpatialObjectBimanual')) failures.push('Vision runtime bimanual object/group wiring missing');
 for (const forbidden of ['beginSpatialGroupTransform(', 'applySpatialGroupTransform(', 'measureTwoHands(', 'scaleFromDistance(', 'rotationFromAngles(']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns bimanual object/group manipulation: ${forbidden}`);
 }
-if (!v2.includes('stepSpatialObjectWorld')) failures.push('AppV2 object physics/collision world-step wiring missing');
+if (!visionSpatialRuntime.includes('stepSpatialObjectWorld')) failures.push('Vision runtime object world-step wiring missing');
 for (const forbidden of ['let spatialObjectsChanged = false', 'const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject', 'contact.stackCandidate && !a.grabbed', 'Đã bắt neo ·', 'Va chạm · truyền lực']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns object physics/collision world step: ${forbidden}`);
+}
+for (const forbidden of ['window.setInterval(() =>', 'normalizeVisionPerception(snapshot)', 'const gestureScoreNow = Number(snapshot?.gestureScore', 'micProsodySnapshot()']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns Vision frame loop: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
