@@ -25,6 +25,7 @@ async function importTypeScript(path) {
 
 const caps = await importTypeScript('src/runtime/browser-capabilities.ts');
 const deviceDiagnostics = await importTypeScript('src/runtime/device-diagnostics.ts');
+const deviceLab = await importTypeScript('src/runtime/device-lab.ts');
 const trace = await importTypeScript('src/core/vision/perception-trace.ts');
 const camera = await importTypeScript('src/core/vision/camera-profile.ts');
 
@@ -170,6 +171,154 @@ test('device report is versioned and excludes raw or identifying fields', async 
   for (const forbiddenKey of ['userAgent', 'deviceId', 'rawFrame', 'preciseLocation', 'lastError']) {
     assert.equal(Object.prototype.hasOwnProperty.call(report.device, forbiddenKey), false);
   }
+});
+
+test('device lab result re-sanitizes source reports and excludes identifying/raw fields', () => {
+  const pollutedReport = {
+    format: 'mira.device-report',
+    schemaVersion: 1,
+    createdAt: '2026-10-07T08:00:00.000Z',
+    privacy: {
+      mediaCaptured: false,
+      rawInputIncluded: false,
+      identifiersIncluded: false,
+      locationIncluded: false,
+    },
+    device: {
+      checkedAt: '2026-10-07T08:00:00.000Z',
+      secureContext: true,
+      mediaDevices: true,
+      cameraPermission: 'granted',
+      microphonePermission: 'granted',
+      webxr: true,
+      immersiveAr: true,
+      webgpu: true,
+      webnn: false,
+      requestVideoFrameCallback: true,
+      audioWorklet: true,
+      crossOriginIsolated: false,
+      productMode: 'full',
+      hardwareConcurrency: 8,
+      deviceMemoryGb: 8,
+      userAgent: 'SECRET_USER_AGENT',
+      deviceId: 'SECRET_DEVICE_ID',
+      rawFrame: 'SECRET_FRAME',
+      preciseLocation: 'SECRET_LOCATION',
+    },
+    voice: {
+      provider: 'ElevenLabs',
+      health: 'healthy',
+      lastError: 'SECRET_PROVIDER_ERROR',
+    },
+    cookie: 'SECRET_COOKIE',
+  };
+
+  const result = deviceLab.buildDeviceLabResult('Mac test | local', pollutedReport, {
+    cameraStarted: true,
+    cameraStartMs: 1200.8,
+    faceDetected: true,
+    handDetected: true,
+    gestureStable: true,
+    voicePlayback: true,
+    voiceFirstAudioMs: 1400.2,
+    interruptionWorked: true,
+    desktopLaunch: true,
+    xrSessionStarted: true,
+    xrAnchorStable: true,
+  });
+  const serialized = JSON.stringify(result);
+
+  assert.equal(result.format, 'mira.device-lab-result');
+  assert.equal(result.schemaVersion, 1);
+  assert.equal(result.observation.cameraStartMs, 1201);
+  assert.equal(result.observation.voiceFirstAudioMs, 1400);
+  assert.equal(result.source.voice.provider, 'ElevenLabs');
+  assert.equal(deviceLab.isPrivateDeviceLabResult(result), true);
+
+  for (const secret of [
+    'SECRET_USER_AGENT',
+    'SECRET_DEVICE_ID',
+    'SECRET_FRAME',
+    'SECRET_LOCATION',
+    'SECRET_PROVIDER_ERROR',
+    'SECRET_COOKIE',
+  ]) {
+    assert.ok(!serialized.includes(secret), `device lab result leaked ${secret}`);
+  }
+});
+
+test('device lab assessment separates pass warn fail and XR applicability', () => {
+  const source = {
+    format: 'mira.device-report',
+    schemaVersion: 1,
+    createdAt: '2026-10-07T08:00:00.000Z',
+    privacy: {
+      mediaCaptured: false,
+      rawInputIncluded: false,
+      identifiersIncluded: false,
+      locationIncluded: false,
+    },
+    device: {
+      checkedAt: '2026-10-07T08:00:00.000Z',
+      secureContext: true,
+      mediaDevices: true,
+      cameraPermission: 'granted',
+      microphonePermission: 'granted',
+      webxr: false,
+      immersiveAr: false,
+      webgpu: true,
+      webnn: false,
+      requestVideoFrameCallback: true,
+      audioWorklet: true,
+      crossOriginIsolated: false,
+      productMode: 'full',
+      hardwareConcurrency: 8,
+      deviceMemoryGb: 8,
+    },
+    voice: { provider: 'ElevenLabs', health: 'healthy' },
+  };
+
+  const passing = deviceLab.buildDeviceLabResult('Desktop', source, {
+    cameraStarted: true,
+    cameraStartMs: 1300,
+    faceDetected: true,
+    handDetected: true,
+    gestureStable: true,
+    voicePlayback: true,
+    voiceFirstAudioMs: 1500,
+    interruptionWorked: true,
+    desktopLaunch: true,
+  });
+  const passAssessment = deviceLab.assessDeviceLabResult(passing);
+  assert.equal(passAssessment.overall, 'pass');
+  assert.equal(passAssessment.checks.xrSessionStarted, 'not-applicable');
+  assert.equal(passAssessment.checks.xrAnchorStable, 'not-applicable');
+
+  const warning = deviceLab.buildDeviceLabResult('Desktop partial', source, {
+    cameraStarted: true,
+    faceDetected: true,
+    handDetected: true,
+    voicePlayback: true,
+    desktopLaunch: true,
+  });
+  const warningAssessment = deviceLab.assessDeviceLabResult(warning);
+  assert.equal(warningAssessment.overall, 'warn');
+  assert.ok(warningAssessment.warnings.includes('gestureStable'));
+  assert.ok(warningAssessment.warnings.includes('interruptionWorked'));
+
+  const failing = deviceLab.buildDeviceLabResult('Desktop fail', source, {
+    cameraStarted: false,
+    faceDetected: false,
+    handDetected: true,
+    gestureStable: true,
+    voicePlayback: false,
+    interruptionWorked: true,
+    desktopLaunch: true,
+  });
+  const failAssessment = deviceLab.assessDeviceLabResult(failing);
+  assert.equal(failAssessment.overall, 'fail');
+  assert.ok(failAssessment.blockers.includes('cameraStarted'));
+  assert.ok(failAssessment.blockers.includes('voicePlayback'));
 });
 
 test('device preflight degrades permission and WebXR probes without throwing', async () => {
