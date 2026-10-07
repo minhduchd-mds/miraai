@@ -5,14 +5,26 @@ import ts from 'typescript';
 
 async function importTypeScript(path) {
   const source = readFileSync(path, 'utf8');
-  const output = ts.transpileModule(source, {
+  let output = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
     fileName: path,
   }).outputText;
+
+  if (output.includes("from './browser-capabilities'")) {
+    const dependencySource = readFileSync('src/runtime/browser-capabilities.ts', 'utf8');
+    const dependency = ts.transpileModule(dependencySource, {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+      fileName: 'src/runtime/browser-capabilities.ts',
+    }).outputText;
+    const dependencyUrl = `data:text/javascript;base64,${Buffer.from(dependency).toString('base64')}`;
+    output = output.replace("from './browser-capabilities'", `from '${dependencyUrl}'`);
+  }
+
   return import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
 }
 
 const caps = await importTypeScript('src/runtime/browser-capabilities.ts');
+const deviceDiagnostics = await importTypeScript('src/runtime/device-diagnostics.ts');
 const trace = await importTypeScript('src/core/vision/perception-trace.ts');
 const camera = await importTypeScript('src/core/vision/camera-profile.ts');
 
@@ -45,6 +57,74 @@ test('v15.2 product mode degrades conservatively on a small mobile device', () =
   const result = caps.browserCapabilitySummary(scope, nav);
   assert.equal(result.mode, 'compatibility');
   assert.equal(result.acceleratedMl, false);
+});
+
+test('device preflight reads capabilities without opening camera or microphone', async () => {
+  class FakeVideo {}
+  FakeVideo.prototype.requestVideoFrameCallback = () => 1;
+
+  let getUserMediaCalls = 0;
+  const permissionStates = { camera: 'granted', microphone: 'prompt' };
+  const scope = {
+    isSecureContext: true,
+    HTMLVideoElement: FakeVideo,
+    AudioWorkletNode: function AudioWorkletNode() {},
+    crossOriginIsolated: true,
+    PerformanceObserver: { supportedEntryTypes: [] },
+  };
+  const nav = {
+    gpu: {},
+    hardwareConcurrency: 8,
+    deviceMemory: 8,
+    userAgent: 'Chrome Desktop',
+    mediaDevices: {
+      getUserMedia() {
+        getUserMediaCalls += 1;
+        throw new Error('device preflight must not open media');
+      },
+    },
+    permissions: {
+      async query({ name }) {
+        return { state: permissionStates[name] || 'prompt' };
+      },
+    },
+    xr: {
+      async isSessionSupported(mode) {
+        return mode === 'immersive-ar';
+      },
+    },
+  };
+
+  const result = await deviceDiagnostics.runDeviceDiagnostics(scope, nav);
+  assert.equal(getUserMediaCalls, 0);
+  assert.equal(result.secureContext, true);
+  assert.equal(result.mediaDevices, true);
+  assert.equal(result.cameraPermission, 'granted');
+  assert.equal(result.microphonePermission, 'prompt');
+  assert.equal(result.webxr, true);
+  assert.equal(result.immersiveAr, true);
+  assert.equal(result.webgpu, true);
+  assert.equal(result.webnn, false);
+  assert.equal(result.productMode, 'full');
+  assert.equal(result.hardwareConcurrency, 8);
+  assert.equal(result.deviceMemoryGb, 8);
+});
+
+test('device preflight degrades permission and WebXR probes without throwing', async () => {
+  const scope = { isSecureContext: false, PerformanceObserver: { supportedEntryTypes: [] } };
+  const nav = {
+    userAgent: 'Unknown',
+    permissions: { async query() { throw new Error('unsupported permission name'); } },
+    xr: { async isSessionSupported() { throw new Error('XR unavailable'); } },
+  };
+
+  const result = await deviceDiagnostics.runDeviceDiagnostics(scope, nav);
+  assert.equal(result.secureContext, false);
+  assert.equal(result.mediaDevices, false);
+  assert.equal(result.cameraPermission, 'unsupported');
+  assert.equal(result.microphonePermission, 'unsupported');
+  assert.equal(result.webxr, true);
+  assert.equal(result.immersiveAr, null);
 });
 
 test('adaptive camera profile prioritizes latency on constrained devices', () => {
