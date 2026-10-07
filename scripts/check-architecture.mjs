@@ -116,6 +116,8 @@ const mustExist = [
   'src/app/spatial-object-manipulation.ts',
   'src/app/spatial-window-control.ts',
   'src/app/spatial-window-bimanual.ts',
+  'src/app/spatial-object-bimanual.ts',
+  'src/app/spatial-object-world-step.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -305,8 +307,18 @@ for (const token of ['handleSpatialWindowControl', 'spatialWindowAvailable', 'gr
 }
 
 const spatialWindowBimanual = readFileSync('src/app/spatial-window-bimanual.ts', 'utf8');
-for (const token of ['updateSpatialWindowBimanual', 'measureTwoHands', 'scaleFromDistance', 'rotationFromAngles', 'smoothValue', 'spatialWindowAvailable', 'sessionRef.current']) {
+for (const token of ['updateSpatialWindowBimanual', 'scaleFromDistance', 'rotationFromAngles', 'smoothValue', 'spatialWindowAvailable', 'sessionRef.current']) {
   if (!spatialWindowBimanual.includes(token)) failures.push(`spatial window bimanual extraction missing: ${token}`);
+}
+
+const spatialObjectBimanual = readFileSync('src/app/spatial-object-bimanual.ts', 'utf8');
+for (const token of ['updateSpatialObjectBimanual', 'measureTwoHands', 'scaleFromDistance', 'rotationFromAngles', 'constrainLocalPose', 'clusterRootObjectId']) {
+  if (!spatialObjectBimanual.includes(token)) failures.push(`spatial object bimanual extraction missing: ${token}`);
+}
+
+const spatialObjectWorldStep = readFileSync('src/app/spatial-object-world-step.ts', 'utf8');
+for (const token of ['stepSpatialObjectWorld', 'resolveSpatialObjectCollisions', 'previewSnapObject', 'snapObject', 'spatialJointForAttachment', 'stackCandidate', 'attachObject', 'collisionFeedbackAtRef']) {
+  if (!spatialObjectWorldStep.includes(token)) failures.push(`spatial object world step extraction missing: ${token}`);
 }
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
@@ -379,6 +391,14 @@ for (const forbidden of ['Pinch giữ · di chuyển cửa sổ', 'const dx = (e
 if (!v2.includes('updateSpatialWindowBimanual')) failures.push('AppV2 bimanual window transform wiring missing');
 for (const forbidden of ["const transformTarget = spatialFrameNext.focus?.kind === 'window'", "showSpatialFeedback('Hai tay · scale / rotate');", 'smoothValue(current.scale']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns bimanual window transform: ${forbidden}`);
+}
+if (!v2.includes('updateSpatialObjectBimanual')) failures.push('AppV2 bimanual object/group manipulation wiring missing');
+for (const forbidden of ['beginSpatialGroupTransform(', 'applySpatialGroupTransform(', 'measureTwoHands(', 'scaleFromDistance(', 'rotationFromAngles(']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns bimanual object/group manipulation: ${forbidden}`);
+}
+if (!v2.includes('stepSpatialObjectWorld')) failures.push('AppV2 object physics/collision world-step wiring missing');
+for (const forbidden of ['let spatialObjectsChanged = false', 'const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject', 'contact.stackCandidate && !a.grabbed', 'Đã bắt neo ·', 'Va chạm · truyền lực']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns object physics/collision world step: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
