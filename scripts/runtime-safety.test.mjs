@@ -266,6 +266,38 @@ test('desktop structured memory graph is inspectable and user-editable without f
   assert.match(settings, /desktopRuntime &&/);
 });
 
+test('desktop structured memory graph survives bounded merge-only Identity Capsule portability', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  const main = readFileSync('src-tauri/src/main.rs', 'utf8');
+  const localStore = readFileSync('src/intelligence/memory/local-memory-store.ts', 'utf8');
+  const desktopStore = readFileSync('src/intelligence/memory/desktop-memory-store.ts', 'utf8');
+  const capsule = readFileSync('src/intelligence/identity/capsule-client.ts', 'utf8');
+
+  assert.match(memory, /desktop_memory_import_structured/);
+  assert.match(main, /desktop_memory_import_structured/);
+  assert.match(memory, /nodes\.into_iter\(\)\.take\(240\)/);
+  assert.match(memory, /links\.into_iter\(\)\.take\(600\)/);
+  assert.match(memory, /HashMap::<i64,i64>::new\(\)/);
+  assert.match(memory, /"co_occurs"/);
+  assert.match(memory, /"semantic_temporal"/);
+  assert.match(memory, /weight\.clamp\(0\.0,3\.0\)/);
+  assert.match(memory, /memory_links: Vec<StructuredMemoryLink>/);
+  assert.match(memory, /#\[serde\(rename = "memoryLinks"\)\]/);
+
+  assert.match(localStore, /structuredMemories\?: PortableStructuredMemory\[\]/);
+  assert.match(localStore, /memoryLinks\?: PortableMemoryLink\[\]/);
+  assert.match(localStore, /async importStructuredMemoryGraph/);
+  assert.match(desktopStore, /desktop_memory_import_structured/);
+  assert.match(desktopStore, /nodes\.slice\(-240\)/);
+  assert.match(desktopStore, /links\.slice\(-600\)/);
+
+  assert.match(capsule, /structuredMemory/);
+  assert.match(capsule, /portableNodes/);
+  assert.match(capsule, /portableLinks/);
+  assert.match(capsule, /localMemory\.importStructuredMemoryGraph/);
+  assert.match(capsule, /const CAPSULE_VERSION = 1/);
+});
+
 test('companion graph adds guarded semantic-temporal links and narrows passive music context window', () => {
   const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
   const media = readFileSync('src-tauri/src/media.rs', 'utf8');
