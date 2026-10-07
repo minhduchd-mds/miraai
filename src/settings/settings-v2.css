@@ -51,6 +51,21 @@
 .v2-voice-runtime small { flex: 0 0 auto; color: var(--faint); font-size: 9.5px; }
 .v2-voice-runtime[data-health="healthy"] > i { background: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent); }
 .v2-voice-runtime[data-health="unhealthy"] > i { background: #f2b96f; box-shadow: 0 0 0 4px rgba(242,185,111,.12); }
+.v2-device-check-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.v2-device-check-head > div { min-width: 0; }
+.v2-device-check-head h3 { margin-bottom: 4px; }
+.v2-device-check-head p { margin: 0; color: var(--faint); font-size: 10px; }
+.v2-device-check-head > button { min-height: 34px; padding: 0 11px; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--stroke)); border-radius: 9px; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); color: var(--text); cursor: pointer; font-size: 10px; }
+.v2-device-check-head > button:disabled { opacity: .52; cursor: default; }
+.v2-device-grid { margin-top: 13px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.v2-device-item { min-width: 0; min-height: 58px; padding: 9px 10px; display: grid; align-content: center; gap: 5px; border: 1px solid var(--stroke); border-radius: 11px; background: color-mix(in srgb, var(--bg) 86%, transparent); }
+.v2-device-item span { overflow: hidden; color: var(--faint); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.v2-device-item b { overflow: hidden; color: var(--dim); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.v2-device-item[data-status="ok"] { border-color: color-mix(in srgb, var(--accent) 28%, var(--stroke)); }
+.v2-device-item[data-status="ok"] b { color: var(--text); }
+.v2-device-item[data-status="warn"] { border-color: rgba(242, 185, 111, .32); }
+.v2-device-item[data-status="warn"] b { color: #f2c589; }
+.v2-device-meta { margin: 9px 0 0 !important; color: var(--faint) !important; font: 9px/1.45 'JetBrains Mono', monospace !important; }
 .v2-choice-block { margin-top: 14px; display: grid; gap: 8px; color: var(--dim); font-size: 10.5px; }
 .v2-segmented { display: flex; gap: 5px; padding: 4px; border: 1px solid var(--stroke); border-radius: 12px; background: var(--bg); }
 .v2-segmented button { flex: 1; min-height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--dim); cursor: pointer; }
@@ -95,6 +110,9 @@
   .v2-settings > header, .v2-settings-body { padding-left: 16px; padding-right: 16px; }
   .v2-settings-tabs { padding-left: 16px; padding-right: 16px; }
   .v2-personas, .v2-avatar-grid, .v2-theme-grid { grid-template-columns: repeat(2, 1fr); }
+  .v2-device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .v2-device-check-head { align-items: stretch; flex-direction: column; }
+  .v2-device-check-head > button { width: 100%; }
   .v2-memory-fact { align-items: stretch; flex-direction: column; }
   .v2-memory-fact > div { justify-content: flex-end; }
   .v2-labs-entry { align-items: flex-start; flex-direction: column; }
