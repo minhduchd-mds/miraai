@@ -21,20 +21,16 @@ import { SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
 import {
   EMPTY_SPATIAL_TOUCH,
   SpatialDirectTouchTracker,
-  spatialAnchorFromRect,
 } from '../core/vision/spatial-anchor';
-import { micProsodySnapshot } from '../core/audio-level';
 import type { EnvironmentLabel } from '../core/vision/environment-model';
 import { SpatialObjectRuntime } from '../core/vision/spatial-object';
 import {
   SpatialPhysicsRuntime,
   type SpatialPhysicsState,
 } from '../core/vision/spatial-physics';
-import { resolveSpatialObjectCollisions } from '../core/vision/spatial-collision';
 import { SpatialJointRuntime, type SpatialJointState } from '../core/vision/spatial-joint';
 import { SpatialSelectionRuntime } from '../core/vision/spatial-layout';
 import { SpatialDeviceAdapterRuntime } from '../core/vision/spatial-device-adapter';
-import { bridgeXRHandTo21 } from '../core/vision/spatial-xr-hand-bridge';
 import {
   EMPTY_HAND_KINEMATICS,
   SpatialHandKinematicsTracker,
@@ -49,10 +45,7 @@ import {
   SpatialHandIntentRuntime,
   type SpatialHandIntentState,
 } from '../core/vision/spatial-hand-intent';
-import {
-  SpatialXRProjectionRuntime,
-  projectMetricPointAcrossViews,
-} from '../core/vision/spatial-xr-projection';
+import { SpatialXRProjectionRuntime } from '../core/vision/spatial-xr-projection';
 import {
   SpatialXRSurfaceRuntime,
   type XRSurfaceProbe,
@@ -74,15 +67,8 @@ import {
 import { visualTestPresenceScene } from '../presence/presence-visual-test';
 import {
   DEFAULT_SPATIAL_WINDOWS,
-  clampSpatial,
-  collectSpatialTargets,
-  collectSpatialWorldAnchors,
-  setXRWindowSurfaceState,
-  spatialActionElement,
-  spatialObjectAvailable,
   spatialObjectStyle,
   spatialPoseStyle,
-  spatialWindowAvailable,
   spatialWindowStyle,
   type SpatialGrabSession,
   type SpatialWindowId,
@@ -96,18 +82,10 @@ import { useAppPresentationState } from './useAppPresentationState';
 import { useVisionTransport } from './useVisionTransport';
 import { useWebXRTransport } from './useWebXRTransport';
 import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
-import { normalizeVisionPerception } from './vision-perception-normalizer';
 import { useFaceSocialLifecycle } from './useFaceSocialLifecycle';
 import { useFaceHeadControlLifecycle } from './useFaceHeadControlLifecycle';
 import { useVisionWorldContext } from './useVisionWorldContext';
 import { useVisionHandInput } from './useVisionHandInput';
-import { updateVisionHandInteraction } from './vision-hand-interaction';
-import { applySpatialSelectionGesture } from './spatial-selection-gesture';
-import { handleSpatialObjectManipulation } from './spatial-object-manipulation';
-import { handleSpatialWindowControl } from './spatial-window-control';
-import { updateSpatialWindowBimanual } from './spatial-window-bimanual';
-import { updateSpatialObjectBimanual, type SpatialGroupTransformState, type TwoHandObjectSession } from './spatial-object-bimanual';
-import { stepSpatialObjectWorld } from './spatial-object-world-step';
 import { useWebXRSpatialRuntime } from './useWebXRSpatialRuntime';
 import { useVisionSpatialRuntime } from './useVisionSpatialRuntime';
 import '../ui/a11y.css';
