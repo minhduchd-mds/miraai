@@ -9,8 +9,8 @@
 | Brain gateway | Beta+ | 8/10 | Gemini/OpenAI/Anthropic fallback | routing eval sâu hơn |
 | Smart Query Router | Beta | 8/10 | pre-brain tool evidence + parallel skills | thêm domain/eval |
 | Finance | Beta | 8/10 | deterministic math, verified FX, market adapter, advice policy | broader instruments + portfolio engine |
-| Structured memory | Beta+ | 8/10 | fact/preference/event/relationship/emotion/thread | UI inspect/edit |
-| Memory Graph | Beta | 7.5/10 | co-occurrence + semantic-temporal links | local embeddings/graph pruning |
+| Structured memory | Beta+ | 8.8/10 | fact/preference/event/relationship/emotion/thread + Desktop inspect/edit | semantic embeddings/eval |
+| Memory Graph | Beta+ | 8.3/10 | co-occurrence + semantic-temporal links + Desktop inspector + capsule portability | local embeddings/graph pruning |
 | Privacy memory | Beta+ | 8.5/10 | disable/export/clear + session-only opt-out | per-memory retention |
 | Affect engine | Beta | 7.5/10 | face/voice/posture/micro-expression fusion | dataset/eval rộng hơn |
 | Proactive companion | Beta | 7.5/10 | silence/resume/affect prompts | long-horizon behavior eval |
@@ -37,6 +37,6 @@
 
 1. Signed/notarized desktop releases.
 2. Local semantic embeddings cho memory retrieval.
-3. Structured-memory inspect/edit UI.
+3. Local semantic embeddings + bounded graph pruning.
 4. Chạy Device Check + affect/camera/XR evaluation trên nhiều thiết bị thật.
 5. Music metadata/playlists + contextual ranking.
