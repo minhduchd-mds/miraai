@@ -660,6 +660,11 @@ for (const token of [
   "MIRA_DEFAULT_MODEL_ID = 'eleven_v4'",
   "MIRA_TTS_OUTPUT_FORMAT = 'mp3_44100_128'",
   'MIRA_TTS_MAX_TEXT_LENGTH = 2000',
+  'MIRA_TTS_RATE_WINDOW_MS = 5 * 60 * 1000',
+  'MIRA_TTS_MAX_REQUESTS_PER_WINDOW = 48',
+  'MIRA_TTS_MAX_TRACKED_CLIENTS = 2048',
+  'isTtsOriginAllowed',
+  'ttsContractMetadata',
   'elevenDialoguePayload',
   'elevenDialogueUrl',
   "language_code: 'vi'",
@@ -696,6 +701,11 @@ for (const token of [
   'xi-api-key',
   'origin_not_allowed',
   'MIRA_TTS_MAX_TEXT_LENGTH',
+  'MIRA_TTS_MAX_REQUESTS_PER_WINDOW',
+  'MIRA_TTS_MAX_TRACKED_CLIENTS',
+  'MIRA_TTS_RATE_WINDOW_MS',
+  'isTtsOriginAllowed',
+  'ttsContractMetadata',
   'AbortSignal.timeout(18_000)',
   'elevenDialoguePayload',
   'elevenDialogueUrl',
@@ -713,15 +723,27 @@ const renderTtsGateway = readFileSync('server/tts-gateway.mjs', 'utf8');
 for (const token of [
   "from './tts-contract.mjs'",
   'MIRA_TTS_MAX_TEXT_LENGTH',
+  'MIRA_TTS_MAX_REQUESTS_PER_WINDOW',
+  'MIRA_TTS_MAX_TRACKED_CLIENTS',
+  'MIRA_TTS_RATE_WINDOW_MS',
+  'isTtsOriginAllowed',
+  'ttsContractMetadata',
   'AbortSignal.timeout(18_000)',
   'elevenDialoguePayload',
   'elevenDialogueUrl',
+  "serverControlled: true",
+  "runtime: 'render-node-gateway'",
   "x-mira-tts-model': payload.model_id",
 ]) {
   if (!renderTtsGateway.includes(token)) failures.push(`Render TTS gateway missing shared contract: ${token}`);
 }
 if (renderTtsGateway.includes('/v1/text-to-speech/')) failures.push('Render TTS must not use legacy text-to-speech endpoint');
 if (neonTtsGateway.includes('/v1/text-to-speech/')) failures.push('Neon TTS must not use legacy text-to-speech endpoint');
+for (const [name, source] of [['Render', renderTtsGateway], ['Neon', neonTtsGateway]]) {
+  for (const forbidden of ['MAX_REQUESTS_PER_WINDOW = 32', 'MAX_TRACKED_CLIENTS = 2048', 'const WINDOW_MS', 'const ALLOWED_ORIGIN']) {
+    if (source.includes(forbidden)) failures.push(`${name} TTS gateway still owns shared policy: ${forbidden}`);
+  }
+}
 
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
 for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", 'return new CloudTTS(serverUrl)']) {
@@ -768,7 +790,7 @@ for (const retired of [
 }
 
 const apiHealth = readFileSync('api/health.js', 'utf8');
-for (const token of ['originAllowed', "provider: 'elevenlabs'", 'elevenLabsOnly: true', "runtime: 'vercel-serverless-api'", 'defaultElevenVoice', 'defaultElevenModel']) {
+for (const token of ['originAllowed', 'ttsContractMetadata', "runtime: 'vercel-serverless-api'", 'defaultElevenVoice', 'defaultElevenModel']) {
   if (!apiHealth.includes(token)) failures.push(`serverless TTS health endpoint missing: ${token}`);
 }
 
@@ -1162,7 +1184,7 @@ for (const token of ['1.30.0', 'ort.all.min.mjs', 'squeezenet1.1-7.onnx', '@vite
 
 
 const vercelTtsPolicy = readFileSync('server/tts-policy.mjs', 'utf8');
-for (const token of ['MIRA_TTS_ALLOWED_ORIGINS', 'originAllowed', 'takeRateSlot', "from './tts-contract.mjs'"]) {
+for (const token of ['isTtsOriginAllowed', 'MIRA_TTS_MAX_REQUESTS_PER_WINDOW', 'MIRA_TTS_MAX_TRACKED_CLIENTS', 'MIRA_TTS_RATE_WINDOW_MS', 'originAllowed', 'takeRateSlot', "from './tts-contract.mjs'"]) {
   if (!vercelTtsPolicy.includes(token)) failures.push(`Vercel TTS policy missing: ${token}`);
 }
 for (const route of ['api/health.js', 'api/voices.js', 'api/tts.js']) {
