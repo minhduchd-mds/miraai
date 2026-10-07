@@ -107,10 +107,8 @@ import {
 } from '../core/vision/spatial-world';
 import {
   PRESENCE_SCENE_LABEL,
-  appendPresenceReturnSample,
   learnedPresenceReturnMinute,
   resolvePresenceScene,
-  type PresenceReturnSample,
 } from '../presence/presence-scene';
 import { visualTestPresenceScene } from '../presence/presence-visual-test';
 import {
@@ -133,12 +131,11 @@ import {
 } from './spatial-ui-helpers';
 import {
   loadAffectFollowing,
-  loadPresenceReturnSamples,
   loadTheme,
   saveAffectFollowing,
-  savePresenceReturnSamples,
   saveTheme,
 } from './app-preferences';
+import { usePresenceReturnLearning } from './usePresenceReturnLearning';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -170,10 +167,6 @@ export default function AppV2() {
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [presenceClockMs, setPresenceClockMs] = useState(() => Date.now());
-  const [presenceReturnSamples, setPresenceReturnSamples] = useState<PresenceReturnSample[]>(loadPresenceReturnSamples);
-  const [recentReturnAt, setRecentReturnAt] = useState<number | null>(null);
-  const previousReturnSignalRef = useRef(false);
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
   const bootPendingRef = useRef(false);
@@ -215,6 +208,10 @@ export default function AppV2() {
   const [faceAffect, setFaceAffect] = useState<AffectState>(() => neutralAffect());
   const affectTrackerRef = useRef(new AffectTracker());
   const [interactionTelemetry, setInteractionTelemetry] = useState<InteractionContext>(() => ({ ...EMPTY_INTERACTION }));
+  const { presenceClockMs, presenceReturnSamples, recentReturnAt } = usePresenceReturnLearning(
+    presenceContinuity,
+    interactionTelemetry.state,
+  );
   const interactionTrackerRef = useRef(new InteractionTracker());
   const behaviorTimelineRef = useRef(new BehaviorTimeline());
   const gazeHeadCalibratorRef = useRef(new GazeHeadCalibrator());
@@ -374,42 +371,6 @@ export default function AppV2() {
   useEffect(() => {
     saveAffectFollowing(affectFollowing);
   }, [affectFollowing]);
-
-  useEffect(() => {
-    let timer = 0;
-    const scheduleNextMinute = () => {
-      const now = Date.now();
-      const delay = Math.max(1_000, 60_000 - (now % 60_000) + 24);
-      timer = window.setTimeout(() => {
-        setPresenceClockMs(Date.now());
-        scheduleNextMinute();
-      }, delay);
-    };
-    scheduleNextMinute();
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const returnSignal = (
-      presenceContinuity.cue === 'return' ||
-      presenceContinuity.mode === 'reconnect' ||
-      interactionTelemetry.state === 'returning'
-    );
-
-    if (returnSignal && !previousReturnSignalRef.current) {
-      const now = new Date();
-      const at = now.getTime();
-      setRecentReturnAt(at);
-      setPresenceClockMs(at);
-      setPresenceReturnSamples((previous) => {
-        const next = appendPresenceReturnSample(previous, now);
-        if (next !== previous) savePresenceReturnSamples(next);
-        return next;
-      });
-    }
-
-    previousReturnSignalRef.current = returnSignal;
-  }, [interactionTelemetry.state, presenceContinuity.cue, presenceContinuity.mode]);
 
   useEffect(() => () => {
     if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);

@@ -5502,3 +5502,15 @@ test('AppV2 delegates local presentation preferences to app-preferences', () => 
   assert.ok(!app.includes("localStorage.setItem('mira.theme'"));
   assert.ok(!app.includes("localStorage.setItem('mira.affect.follow'"));
 });
+
+test('AppV2 delegates presence-return learning lifecycle to a hook', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/usePresenceReturnLearning.ts', 'utf8');
+  assert.match(app, /usePresenceReturnLearning\(/);
+  for (const token of ['scheduleNextMinute','appendPresenceReturnSample','savePresenceReturnSamples',"interactionState === 'returning'"]) {
+    assert.ok(hook.includes(token));
+  }
+  for (const forbidden of ['setPresenceClockMs','setPresenceReturnSamples','previousReturnSignalRef','appendPresenceReturnSample']) {
+    assert.ok(!app.includes(forbidden));
+  }
+});

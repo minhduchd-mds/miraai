@@ -5,6 +5,7 @@ const mustExist = [
   'src/app/AppV2.tsx',
   'src/app/spatial-ui-helpers.ts',
   'src/app/app-preferences.ts',
+  'src/app/usePresenceReturnLearning.ts',
   'src/presence/HolographicMira.tsx',
   'src/presence/PhotorealMira.tsx',
   'src/presence/presence-scene.ts',
@@ -191,6 +192,14 @@ for (const token of ['loadTheme', 'saveTheme', 'loadAffectFollowing', 'saveAffec
 const appV2Source = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const forbidden of ["localStorage.setItem('mira.theme'", "localStorage.setItem('mira.affect.follow'", 'PRESENCE_RETURN_STORAGE']) {
   if (appV2Source.includes(forbidden)) failures.push(`AppV2 still owns local preference persistence: ${forbidden}`);
+}
+
+const presenceReturnHook = readFileSync('src/app/usePresenceReturnLearning.ts', 'utf8');
+for (const token of ['scheduleNextMinute', 'appendPresenceReturnSample', 'savePresenceReturnSamples', "interactionState === 'returning'"]) {
+  if (!presenceReturnHook.includes(token)) failures.push(`presence-return hook missing: ${token}`);
+}
+for (const forbidden of ['setPresenceClockMs', 'setPresenceReturnSamples', 'previousReturnSignalRef', 'appendPresenceReturnSample']) {
+  if (readFileSync('src/app/AppV2.tsx', 'utf8').includes(forbidden)) failures.push(`AppV2 still owns presence-return lifecycle: ${forbidden}`);
 }
 
 const spatialUiHelpers = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
