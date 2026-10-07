@@ -96,9 +96,17 @@ Refactor phải **không đổi hành vi**, mỗi extraction đi kèm behavior t
 
 Runtime orchestration đã tách khỏi AppV2. Bước tối ưu tiếp theo chỉ còn là **performance hardening**: cân nhắc lazy-load sâu hơn theo camera/XR capability nếu bundle measurement cho thấy cần thiết. Đây không còn là blocker kiến trúc.
 
-### 3. Chuẩn hóa gateway/shared policy
+### 3. Gateway/shared policy — hoàn tất
 
-Mira có Vercel/Render/Neon gateway alternatives. Policy CORS/rate-limit/provider metadata nên tiếp tục hội tụ về contract chung để tránh drift giữa deployment targets.
+Vercel/Render/Neon hiện dùng cùng `server/tts-contract.mjs` cho:
+- ElevenLabs v4 Text-to-Dialogue;
+- voice/model/output format cố định phía server;
+- giới hạn 2.000 ký tự;
+- CORS own-origin/Tauri/allowlist;
+- rate limit 48 request / 5 phút / client với tối đa 2.048 bucket;
+- health metadata thống nhất.
+
+Architecture/runtime guards khóa các gateway không quay lại `text-to-speech`, `eleven_multilingual_v2` hoặc policy cục bộ lệch nhau.
 
 ## P2 — release/product hardening
 
