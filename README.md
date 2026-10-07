@@ -51,7 +51,7 @@ flowchart LR
 
 ## Desktop Local
 
-- Tauri 2 + Vite frontend đóng gói local.
+- Tauri 2 + Vite frontend đóng gói local; production build tự loại source/reference media không dùng khỏi `dist`.
 - SQLite `mira.db`: turns, episodes, structured memory, graph, affect, permissions, music history.
 - Permission được kiểm tra lại ở Rust/native layer.
 - Local Music Library chỉ scan thư mục người dùng chủ động chọn.

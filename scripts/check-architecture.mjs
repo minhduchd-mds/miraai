@@ -99,6 +99,7 @@ const mustExist = [
   'src/core/useMira.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
+  'scripts/prune-runtime-assets.mjs',
   'scripts/prune-pages-assets.mjs',
   'scripts/check-deploy-artifact.mjs',
   'scripts/check-media.mjs',
@@ -133,6 +134,15 @@ if (!entry.includes("import './ui/base-v2.css';")) failures.push('AppV2 base sty
 const viteConfig = readFileSync('vite.config.ts', 'utf8');
 for (const token of ["target: 'es2022'", "minify: 'oxc'", "cssMinify: 'lightningcss'", "modulePreload: { polyfill: false }"]) {
   if (!viteConfig.includes(token)) failures.push(`modern Vite compression target missing: ${token}`);
+}
+
+const packageJson = readFileSync('package.json', 'utf8');
+for (const token of ['scripts/prune-runtime-assets.mjs', '"prune:runtime"', 'npm run build && npm run check:bundle']) {
+  if (!packageJson.includes(token)) failures.push(`runtime build prune contract missing: ${token}`);
+}
+const runtimePrune = readFileSync('scripts/prune-runtime-assets.mjs', 'utf8');
+for (const token of ["join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')", "join(DIST, 'scenes', 'home.png')", "join(DIST, 'scenes', 'office.png')", "join(DIST, 'mira-assets', 'scenes')", "join(DIST, 'mira-assets', 'expressions')", 'Runtime asset prune']) {
+  if (!runtimePrune.includes(token)) failures.push(`runtime asset prune missing: ${token}`);
 }
 
 const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
@@ -444,6 +454,12 @@ if (/VITE_.*ELEVENLABS_API_KEY|localStorage.*ELEVENLABS_API_KEY/.test(neonTtsGat
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
 for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", 'legacyGatewayOverride', 'return new CloudTTS(serverUrl)']) {
   if (!localTts.includes(token)) failures.push(`ElevenLabs-only browser TTS routing missing: ${token}`);
+}
+for (const token of ['isTauriRuntime', 'needsRemoteGateway', "ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'"]) {
+  if (!localTts.includes(token)) failures.push(`desktop/Pages TTS remote gateway contract missing: ${token}`);
+}
+for (const forbidden of ['legacyGatewayOverride', 'LEGACY_CONFIG_KEY']) {
+  if (localTts.includes(forbidden)) failures.push(`retired browser TTS gateway override remains: ${forbidden}`);
 }
 
 const cloudTts = readFileSync('src/core/tts/cloud-tts.ts', 'utf8');

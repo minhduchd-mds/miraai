@@ -5461,3 +5461,21 @@ test('finance calculator computes amortized loan payment deterministically', () 
   assert.ok(result.outputs.monthlyPayment > 9_000_000);
   assert.ok(result.outputs.monthlyPayment < 12_000_000);
 });
+
+test('Tauri and GitHub Pages use the server-side ElevenLabs gateway without legacy browser overrides', () => {
+  const source = readFileSync('src/core/tts/index.ts', 'utf8');
+  assert.match(source, /function isTauriRuntime/);
+  assert.match(source, /needsRemoteGateway/);
+  assert.match(source, /ELEVENLABS_REMOTE_URL = 'https:\/\/miraai-five\.vercel\.app\/api'/);
+  assert.doesNotMatch(source, /legacyGatewayOverride|LEGACY_CONFIG_KEY/);
+});
+
+test('production build prunes source and reference media before artifact validation', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+  const prune = readFileSync('scripts/prune-runtime-assets.mjs', 'utf8');
+  assert.match(pkg.scripts.build, /prune-runtime-assets\.mjs/);
+  assert.match(pkg.scripts.check, /npm run build/);
+  for (const token of ["join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')"]) {
+    assert.ok(prune.includes(token));
+  }
+});

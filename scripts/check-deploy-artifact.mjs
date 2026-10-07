@@ -70,6 +70,23 @@ if (existsSync(join(DIST, 'manifest.webmanifest'))) {
   }
 }
 
+const runtimeForbidden = [
+  join(DIST, 'looks'),
+  join(DIST, 'mira-assets', 'poses'),
+  join(DIST, 'mira-assets', 'gestures'),
+  join(DIST, 'mira-assets', 'ui'),
+  join(DIST, 'scenes', 'home.png'),
+  join(DIST, 'scenes', 'office.png'),
+];
+for (const path of runtimeForbidden) {
+  if (existsSync(path)) failures.push(`runtime artifact contains source/reference asset: ${path}`);
+}
+for (const root of [join(DIST, 'mira-assets', 'scenes'), join(DIST, 'mira-assets', 'expressions')]) {
+  for (const path of walk(root)) {
+    if (/\.png$/i.test(path)) failures.push(`runtime artifact contains source PNG: ${path}`);
+  }
+}
+
 const files = walk(DIST);
 const heavy = files.filter((path) => /\.vrm$|splat\.ply$/i.test(path));
 if (pagesMode && heavy.length) failures.push(`Pages artifact contains heavy 3D assets: ${heavy.join(', ')}`);

@@ -8,7 +8,6 @@ export interface MiraTTS extends TTSAdapter {
   diagnostics(): TTSDiagnostics;
 }
 
-const LEGACY_CONFIG_KEY = 'mira.tts.config';
 const BUILD_TTS_URL = String(import.meta.env.VITE_MIRA_TTS_URL || '').trim().replace(/\/$/, '');
 const ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api';
 
@@ -16,22 +15,15 @@ function isGitHubPagesRuntime(): boolean {
   return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
 }
 
-function legacyGatewayOverride(): string {
-  try {
-    const raw = localStorage.getItem(LEGACY_CONFIG_KEY);
-    if (!raw) return '';
-    const value = JSON.parse(raw)?.serverUrl;
-    if (typeof value !== 'string' || !/^https:\/\//i.test(value.trim())) return '';
-    return value.trim().replace(/\/$/, '');
-  } catch {
-    return '';
-  }
+function isTauriRuntime(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window as typeof window & { __TAURI_INTERNALS__?: unknown; __TAURI__?: unknown };
+  return Boolean(host.__TAURI_INTERNALS__ || host.__TAURI__);
 }
 
 export function createTTS(): MiraTTS {
-  const serverUrl = BUILD_TTS_URL
-    || legacyGatewayOverride()
-    || (isGitHubPagesRuntime() ? ELEVENLABS_REMOTE_URL : '/api');
+  const needsRemoteGateway = isGitHubPagesRuntime() || isTauriRuntime();
+  const serverUrl = BUILD_TTS_URL || (needsRemoteGateway ? ELEVENLABS_REMOTE_URL : '/api');
   return new CloudTTS(serverUrl);
 }
 
