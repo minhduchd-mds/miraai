@@ -18,7 +18,7 @@ import {
   SpatialUIController,
 } from '../core/vision/spatial-ui-control';
 import { measureTwoHands, rotationFromAngles, scaleFromDistance, smoothValue } from '../presence/spatial-math';
-import { hitTestSpatialRay, SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
+import { SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
 import {
   EMPTY_SPATIAL_TOUCH,
   SpatialDirectTouchTracker,
@@ -109,6 +109,7 @@ import { useFaceSocialLifecycle } from './useFaceSocialLifecycle';
 import { useFaceHeadControlLifecycle } from './useFaceHeadControlLifecycle';
 import { useVisionWorldContext } from './useVisionWorldContext';
 import { useVisionHandInput } from './useVisionHandInput';
+import { updateVisionHandInteraction } from './vision-hand-interaction';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -1343,73 +1344,32 @@ export default function AppV2() {
       if (spatialObjectsChanged) {
         setSpatialObjects(spatialObjectRuntimeRef.current.snapshot());
       }
-      const spatialAnchors = spatialTargets.map((target) => spatialAnchorFromRect({
-        ...target,
-        depthRadius: Math.max(
-          Number(target.depthRadius || 0),
-          target.kind === 'window' ? 0.1 : 0.12,
-        ),
-      }));
-      const humanContact = handContactRef.current.update(
-        screenKinematics,
-        spatialAnchors.map((anchor) => ({
-          id: anchor.id,
-          label: anchor.label,
-          kind: anchor.kind,
-          center: { ...anchor.center },
-          halfExtents: { ...anchor.halfExtents },
-          priority: anchor.priority,
-        })),
-        now,
-      );
-      setHumanHandContact(humanContact);
-      const humanIntent = handIntentRef.current.update(screenKinematics, humanContact, now);
-      setHumanHandIntent(humanIntent);
-
-      const directTouch = spatialTouchRef.current.update({
-        active: Boolean(snapshot?.handSeen && primaryHand),
-        confidence: handConfidence,
-        point: {
-          x: primaryPointerX,
-          y: primaryPointerY,
-          z: primaryPointerZ,
-        },
-        pinching: primaryPinching,
-        anchors: spatialAnchors,
-      }, now);
-      setSpatialTouch(directTouch);
-      const directHand = pointingHand ||
-        directTouch.ready ||
-        humanContact.phase === 'contact' ||
-        humanContact.phase === 'press' ||
-        humanContact.phase === 'grab';
-
-      const spatialRayTargets = spatialTargets
-        .filter((target) => Number.isFinite(target.z))
-        .map((target) => ({
-          id: target.id,
-          label: target.label,
-          left: target.left,
-          top: target.top,
-          right: target.right,
-          bottom: target.bottom,
-          z: Number(target.z || 0),
-          depthRadius: Number(target.depthRadius || 0),
-          priority: target.priority,
-        }));
       const handRay = primaryHand?.ray || snapshot?.pointerRay || null;
-      const rayHitFromContact = directTouch.ready && directTouch.hit
-        ? {
-            targetId: directTouch.hit.targetId,
-            label: directTouch.hit.label,
-            point: { ...directTouch.hit.point },
-            distance: 0,
-            confidence: directTouch.hit.confidence,
-          }
-        : null;
-      const rayHit = directHand
-        ? rayHitFromContact || hitTestSpatialRay(handRay, spatialRayTargets)
-        : null;
+      const {
+        humanContact,
+        humanIntent,
+        directTouch,
+        directHand,
+        rayHit,
+      } = updateVisionHandInteraction({
+        spatialTargets,
+        handActive: Boolean(snapshot?.handSeen && primaryHand),
+        screenKinematics,
+        handConfidence,
+        primaryPointerX,
+        primaryPointerY,
+        primaryPointerZ,
+        primaryPinching,
+        pointingHand,
+        handRay,
+        contactRuntime: handContactRef.current,
+        intentRuntime: handIntentRef.current,
+        touchRuntime: spatialTouchRef.current,
+        now,
+      });
+      setHumanHandContact(humanContact);
+      setHumanHandIntent(humanIntent);
+      setSpatialTouch(directTouch);
 
       const spatialFrameNext = spatialUiRef.current.update({
         face: {
