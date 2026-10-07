@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 const failures = [];
 const mustExist = [
@@ -181,6 +181,21 @@ for (const token of ['scripts/prune-runtime-assets.mjs', '"prune:runtime"', 'npm
 const runtimePrune = readFileSync('scripts/prune-runtime-assets.mjs', 'utf8');
 for (const token of ["join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')", "join(DIST, 'scenes', 'home.png')", "join(DIST, 'scenes', 'office.png')", "join(DIST, 'mira-assets', 'scenes')", "join(DIST, 'mira-assets', 'expressions')", 'Runtime asset prune']) {
   if (!runtimePrune.includes(token)) failures.push(`runtime asset prune missing: ${token}`);
+}
+
+const workflowDir = '.github/workflows';
+for (const file of readdirSync(workflowDir).filter((name) => /\.ya?ml$/i.test(name))) {
+  const source = readFileSync(`${workflowDir}/${file}`, 'utf8');
+  source.split('\n').forEach((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const match = trimmed.match(/^(?:-\s*)?uses:\s+([^@\s]+)@([^\s#]+)/);
+    if (!match) return;
+    const ref = match[2];
+    if (!/^[0-9a-f]{40}$/i.test(ref)) {
+      failures.push(`workflow action must be pinned to a full commit SHA: ${file}:${index + 1} -> ${match[1]}@${ref}`);
+    }
+  });
 }
 
 const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
