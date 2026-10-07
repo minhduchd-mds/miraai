@@ -70,6 +70,18 @@ export async function exportIdentityCapsule(theme: Theme, voiceURI?: string): Pr
       text: turn.text,
       createdAt: new Date(turn.ts).toISOString(),
     }));
+    const portableNodes = Array.isArray(snapshot.structuredMemories)
+      ? snapshot.structuredMemories.slice(-240)
+      : [];
+    const portableNodeIds = new Set(portableNodes.map((node) => node.id));
+    const portableLinks = Array.isArray(snapshot.memoryLinks)
+      ? snapshot.memoryLinks
+          .filter((link) => portableNodeIds.has(link.sourceId) && portableNodeIds.has(link.targetId))
+          .slice(-600)
+      : [];
+    const structuredMemory = portableNodes.length
+      ? { nodes: portableNodes, links: portableLinks }
+      : undefined;
     const capsule = await withIntegrity({
       format: CAPSULE_FORMAT,
       schemaVersion: CAPSULE_VERSION,
@@ -87,6 +99,7 @@ export async function exportIdentityCapsule(theme: Theme, voiceURI?: string): Pr
       },
       facts: [],
       history,
+      structuredMemory,
       preferences: collectPreferences(theme, voiceURI),
     });
     downloadJson(capsule);
@@ -117,6 +130,11 @@ export async function importIdentityCapsule(file: File): Promise<CapsuleRestore>
   if (isLocalOnlyMemoryRuntime()) {
     if (!await verifyLocalCapsule(capsule)) throw new Error('Capsule không hợp lệ hoặc hash không khớp');
     await localMemory.importTurns(Array.isArray(capsule?.history) ? capsule.history : []);
+    const structuredMemory = capsule?.structuredMemory;
+    await localMemory.importStructuredMemoryGraph(
+      Array.isArray(structuredMemory?.nodes) ? structuredMemory.nodes : [],
+      Array.isArray(structuredMemory?.links) ? structuredMemory.links : [],
+    );
     prefs = capsule?.preferences || {};
   } else {
     const response = await fetch('/api/identity-capsule', {
