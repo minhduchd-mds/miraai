@@ -5607,7 +5607,7 @@ test('AppV2 delegates vision snapshot defaults and environment normalization', (
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/vision-perception-normalizer.ts', 'utf8');
 
-  assert.match(app, /normalizeVisionPerception\(snapshot\)/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /normalizeVisionPerception\(snapshot\)/);
   assert.doesNotMatch(app, /EMPTY_ENVIRONMENT/);
   assert.doesNotMatch(app, /EMPTY_REAL_PRESENCE_POSE/);
   assert.doesNotMatch(app, /const environmentSensor = snapshot\?\.environment/);
@@ -5628,7 +5628,7 @@ test('AppV2 delegates face social cue and presence continuity lifecycle', () => 
   const hook = readFileSync('src/app/useFaceSocialLifecycle.ts', 'utf8');
 
   assert.match(app, /useFaceSocialLifecycle/);
-  assert.match(app, /updateFaceSocial\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateFaceSocial\(/);
   assert.match(app, /resetFaceSocial\(\)/);
   assert.doesNotMatch(app, /faceSocialTrackerRef/);
   assert.doesNotMatch(app, /presenceContinuityRef/);
@@ -5654,7 +5654,7 @@ test('AppV2 delegates debounced face head voice control lifecycle', () => {
   const hook = readFileSync('src/app/useFaceHeadControlLifecycle.ts', 'utf8');
 
   assert.match(app, /useFaceHeadControlLifecycle/);
-  assert.match(app, /updateFaceHeadControl\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateFaceHeadControl\(/);
   assert.match(app, /resetFaceHeadControl\(\)/);
   assert.doesNotMatch(app, /lastHeadGestureRef/);
   assert.doesNotMatch(app, /lastFaceActionAtRef/);
@@ -5677,7 +5677,7 @@ test('AppV2 delegates scene graph to short-term world context orchestration', ()
   const hook = readFileSync('src/app/useVisionWorldContext.ts', 'utf8');
 
   assert.match(app, /useVisionWorldContext/);
-  assert.match(app, /updateVisionWorldContext\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateVisionWorldContext\(/);
   assert.match(app, /resetVisionWorldContext\(\)/);
 
   for (const forbidden of [
@@ -5712,7 +5712,7 @@ test('AppV2 delegates webcam hand input normalization and gesture intent trackin
   const hook = readFileSync('src/app/useVisionHandInput.ts', 'utf8');
 
   assert.match(app, /useVisionHandInput/);
-  assert.match(app, /updateVisionHandInput\(snapshot, now\)/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateVisionHandInput\(snapshot, now\)/);
   assert.match(app, /resetVisionHandInput\(\)/);
 
   for (const forbidden of [
@@ -5741,7 +5741,7 @@ test('AppV2 delegates webcam hand contact, intent, direct touch and ray resoluti
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/vision-hand-interaction.ts', 'utf8');
 
-  assert.match(app, /updateVisionHandInteraction\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateVisionHandInteraction\(/);
   for (const forbidden of [
     'const spatialAnchors = spatialTargets.map',
     'const spatialRayTargets = spatialTargets',
@@ -5794,7 +5794,7 @@ test('AppV2 delegates spatial object grab, move, release and cancel lifecycle', 
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-object-manipulation.ts', 'utf8');
 
-  assert.match(app, /handleSpatialObjectManipulation\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /handleSpatialObjectManipulation\(/);
   for (const forbidden of [
     'const existingAttachment = spatialWorldRuntimeRef.current.attachment(event.targetId)',
     "const intentDepthDelta = humanIntent.intent === 'push'",
@@ -5824,7 +5824,7 @@ test('AppV2 delegates one-hand spatial window grab lifecycle', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-window-control.ts', 'utf8');
 
-  assert.match(app, /handleSpatialWindowControl\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /handleSpatialWindowControl\(/);
   for (const forbidden of [
     'Pinch giữ · di chuyển cửa sổ',
     'const dx = (event.point.x - session.start.x) * window.innerWidth * 1.42',
@@ -5851,7 +5851,7 @@ test('AppV2 delegates two-hand spatial window scale and rotation', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-window-bimanual.ts', 'utf8');
 
-  assert.match(app, /updateSpatialWindowBimanual\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateSpatialWindowBimanual\(/);
   for (const forbidden of [
     "const transformTarget = spatialFrameNext.focus?.kind === 'window'",
     "showSpatialFeedback('Hai tay · scale / rotate');",
@@ -5877,7 +5877,7 @@ test('AppV2 delegates two-hand object, joint and group manipulation', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-object-bimanual.ts', 'utf8');
 
-  assert.match(app, /updateSpatialObjectBimanual\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateSpatialObjectBimanual\(/);
   for (const forbidden of [
     'beginSpatialGroupTransform(',
     'applySpatialGroupTransform(',
@@ -5906,7 +5906,7 @@ test('AppV2 delegates webcam inertia collision stacking and auto-snap world step
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-object-world-step.ts', 'utf8');
 
-  assert.match(app, /stepSpatialObjectWorld\(/);
+  assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /stepSpatialObjectWorld\(/);
   for (const forbidden of [
     'let spatialObjectsChanged = false',
     'const inertiaPreview = spatialWorldRuntimeRef.current.previewSnapObject',
@@ -5928,6 +5928,65 @@ test('AppV2 delegates webcam inertia collision stacking and auto-snap world step
     'collisionFeedbackAtRef',
   ]) {
     assert.ok(helper.includes(token), `spatial object world-step helper missing ${token}`);
+  }
+});
+
+test('AppV2 delegates the complete WebXR spatial frame and rigid-body loops', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const runtime = readFileSync('src/app/useWebXRSpatialRuntime.ts', 'utf8');
+
+  assert.match(app, /useWebXRSpatialRuntime\(/);
+  for (const forbidden of [
+    'projectMetricPointAcrossViews(',
+    'bridgeXRHandTo21(',
+    'requestAnchorAtCurrentHit(',
+    'requestAnimationFrame(tick)',
+    'XR · rigid collision',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'useWebXRSpatialRuntime',
+    'projectMetricPointAcrossViews',
+    'bridgeXRHandTo21',
+    'requestAnchorAtCurrentHit',
+    'resolveSpatialObjectCollisions',
+    'requestAnimationFrame',
+    'XR · rigid collision',
+  ]) {
+    assert.ok(runtime.includes(token), `WebXR spatial runtime missing ${token}`);
+  }
+});
+
+test('AppV2 delegates the complete Vision 120ms frame orchestration', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const runtime = readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8');
+
+  assert.match(app, /useVisionSpatialRuntime\(/);
+  for (const forbidden of [
+    'window.setInterval(() =>',
+    'normalizeVisionPerception(snapshot)',
+    'const gestureScoreNow = Number(snapshot?.gestureScore',
+    'micProsodySnapshot()',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'useVisionSpatialRuntime',
+    'normalizeVisionPerception',
+    'stepSpatialObjectWorld',
+    'updateVisionHandInteraction',
+    'applySpatialSelectionGesture',
+    'handleSpatialObjectManipulation',
+    'handleSpatialWindowControl',
+    'updateSpatialWindowBimanual',
+    'updateSpatialObjectBimanual',
+    'micProsodySnapshot',
+    'updateFaceHeadControl',
+  ]) {
+    assert.ok(runtime.includes(token), `Vision spatial runtime missing ${token}`);
   }
 });
 
