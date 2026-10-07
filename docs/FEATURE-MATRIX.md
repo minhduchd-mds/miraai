@@ -19,8 +19,8 @@
 | Desktop Windows | Beta+ | 8.5/10 | Tauri + local frontend + NSIS + optional Authenticode CI | certificate/reputation validation |
 | Desktop macOS | Beta+ | 8/10 | Tauri + local frontend + DMG + optional Developer ID/notarization CI | certificate + real notarized artifact validation |
 | Permission gate | Beta+ | 8.5/10 | native Rust checks | richer consent UI |
-| Vision | Beta | 8/10 | face/gaze/hand/pose | hardware eval matrix |
-| Spatial interaction | Experimental | 6.5/10 | webcam spatial + XR stack | device calibration/validation |
+| Vision | Beta+ | 8.5/10 | face/gaze/hand/pose + read-only Device Check | multi-device empirical matrix |
+| Spatial interaction | Experimental | 7/10 | webcam spatial + XR stack + immersive-AR capability preflight | real XR device calibration/validation |
 | Presence | Beta | 8/10 | 2D scenes, expressions, optional VRM | adaptive scene QA |
 | Host integration | Beta+ | 8/10 | HostBridge + write/sensitive auth | production adapters |
 | Web/PWA | Stable/Beta | 8.5/10 | Pages/PWA/wake recovery | OS background limits |
@@ -38,5 +38,5 @@
 1. Signed/notarized desktop releases.
 2. Local semantic embeddings cho memory retrieval.
 3. Structured-memory inspect/edit UI.
-4. Affect/camera evaluation trên nhiều thiết bị thật.
+4. Chạy Device Check + affect/camera/XR evaluation trên nhiều thiết bị thật.
 5. Music metadata/playlists + contextual ranking.
