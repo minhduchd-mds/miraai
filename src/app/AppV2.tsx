@@ -45,7 +45,6 @@ import { bridgeXRHandTo21 } from '../core/vision/spatial-xr-hand-bridge';
 import {
   EMPTY_HAND_KINEMATICS,
   SpatialHandKinematicsTracker,
-  mirrorSpatialHandKinematicsX,
   type SpatialHandKinematicsState,
 } from '../core/vision/spatial-hand-kinematics';
 import {
@@ -109,6 +108,7 @@ import { normalizeVisionPerception } from './vision-perception-normalizer';
 import { useFaceSocialLifecycle } from './useFaceSocialLifecycle';
 import { useFaceHeadControlLifecycle } from './useFaceHeadControlLifecycle';
 import { useVisionWorldContext } from './useVisionWorldContext';
+import { useVisionHandInput } from './useVisionHandInput';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -190,7 +190,6 @@ export default function AppV2() {
   );
   const interactionTrackerRef = useRef(new InteractionTracker());
   const gazeHeadCalibratorRef = useRef(new GazeHeadCalibrator());
-  const gestureIntentTrackerRef = useRef(new GestureIntentTracker());
   const spatialUiRef = useRef(new SpatialUIController());
   const [spatialFrame, setSpatialFrame] = useState(() => ({
     ...EMPTY_SPATIAL_CONTROL_FRAME,
@@ -247,6 +246,10 @@ export default function AppV2() {
   const spatialJointRuntimeRef = useRef(new SpatialJointRuntime());
   const spatialSelectionRef = useRef(new SpatialSelectionRuntime());
   const spatialDeviceAdapterRef = useRef(new SpatialDeviceAdapterRuntime());
+  const {
+    updateVisionHandInput,
+    resetVisionHandInput,
+  } = useVisionHandInput(spatialDeviceAdapterRef.current);
   const {
     webXRRuntimeRef,
     webXRAvailable,
@@ -411,7 +414,7 @@ export default function AppV2() {
     setGazeTelemetry({ x: 0, y: 0 });
     setFaceLandmarks([]);
     resetVisionWorldContext();
-    gestureIntentTrackerRef.current.reset();
+    resetVisionHandInput();
     setSpatialFrame(spatialUiRef.current.reset());
     spatialGrabSessionRef.current = null;
     spatialDepthAnchorRef.current.reset();
@@ -448,7 +451,7 @@ export default function AppV2() {
       headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
-  }, [captureSpatialLayout, mira.observeAffect, resetFaceHeadControl, resetFaceSocial, resetVisionWorldContext, stopVisionTransport]);
+  }, [captureSpatialLayout, mira.observeAffect, resetFaceHeadControl, resetFaceSocial, resetVisionHandInput, resetVisionWorldContext, stopVisionTransport]);
 
   const toggleWebXR = useCallback(async () => {
     if (webXRSnapshot.active) {
@@ -1175,47 +1178,20 @@ export default function AppV2() {
       }, now);
       setInteractionTelemetry(interaction);
 
-      const intent = gestureIntentTrackerRef.current.update({
-        gesture: String(snapshot?.gesture || 'None'),
-        score: Number(snapshot?.gestureScore || 0),
-        pinching: Boolean(snapshot?.pinching),
-        wave: Boolean(snapshot?.wave),
-      }, now);
-
-      const rawHands = (Array.isArray(snapshot?.hands) ? snapshot.hands : []) as any[];
-      const primaryHand = rawHands.find((hand) => String(hand?.handedness || '') === 'Right') || rawHands[0] || null;
-      const primaryGesture = String(primaryHand?.gesture || snapshot?.gesture || 'None');
-      const primaryScore = Number(primaryHand?.score ?? snapshot?.gestureScore ?? 0);
-      const primaryPinching = Boolean(primaryHand?.pinching ?? snapshot?.pinching);
-      const rawKinematics = primaryHand?.kinematics as SpatialHandKinematicsState | undefined;
-      const screenKinematics = rawKinematics?.present
-        ? mirrorSpatialHandKinematicsX(rawKinematics)
-        : {
-            ...EMPTY_HAND_KINEMATICS,
-            handedness: String(primaryHand?.handedness || 'none'),
-            at: now,
-          };
+      const {
+        intent,
+        rawHands,
+        primaryHand,
+        primaryPinching,
+        screenKinematics,
+        primaryPointerX,
+        primaryPointerY,
+        primaryPointerZ,
+        pointingHand,
+        handConfidence,
+      } = updateVisionHandInput(snapshot, now);
       setHandLandmarks(Array.isArray(primaryHand?.landmarks) ? primaryHand.landmarks : []);
       setHandKinematics(screenKinematics);
-      const relativePointer = spatialDeviceAdapterRef.current.webcamPoint({
-        x: Number(primaryHand?.pointerX ?? snapshot?.pointerX ?? 0.5),
-        y: Number(primaryHand?.pointerY ?? snapshot?.pointerY ?? 0.5),
-        z: Number(primaryHand?.z ?? snapshot?.pointerZ ?? 0),
-        confidence: primaryScore,
-      });
-      const primaryPointerX = relativePointer.x;
-      const primaryPointerY = relativePointer.y;
-      const primaryPointerZ = clampSpatial(relativePointer.z, -0.45, 0.45);
-      const pointingHand = Boolean(snapshot?.handSeen) && (
-        (primaryGesture === 'Pointing_Up' && primaryScore >= 0.55) ||
-        intent.intent === 'point_hold' ||
-        screenKinematics.pointingConfidence >= 0.62
-      );
-      const handConfidence = primaryPinching
-        ? Math.max(0.78, primaryScore, screenKinematics.pinchConfidence)
-        : pointingHand
-          ? Math.max(0.62, primaryScore, screenKinematics.pointingConfidence)
-          : Math.max(0.5, primaryScore, screenKinematics.confidence * 0.82);
 
       const spatialTargets = settingsOpen ? [] : collectSpatialTargets();
 
@@ -2072,7 +2048,7 @@ export default function AppV2() {
       });
     }, 120);
     return () => window.clearInterval(timer);
-  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateFaceHeadControl, updateFaceSocial, updateSpatialWindow, updateVisionWorldContext, visionOn, voiceReady]);
+  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateFaceHeadControl, updateFaceSocial, updateSpatialWindow, updateVisionHandInput, updateVisionWorldContext, visionOn, voiceReady]);
 
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
