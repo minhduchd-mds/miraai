@@ -103,6 +103,7 @@ const mustExist = [
   'src/app/useVoiceSessionLifecycle.ts',
   'src/app/useSpatialDomFeedback.ts',
   'src/app/useAppPresentationState.ts',
+  'src/app/useVisionTransport.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -229,6 +230,11 @@ for (const token of ['VOICE_HANDSHAKE_TEXT', 'VOICE_HANDSHAKE_TIMEOUT', 'activat
 const spatialDomFeedback = readFileSync('src/app/useSpatialDomFeedback.ts', 'utf8');
 for (const token of ['SPATIAL_TARGET_SELECTOR', 'data-spatial-focused', 'data-spatial-selected', 'data-spatial-contacted', 'data-spatial-human-contact', 'data-spatial-pressed', '--spatial-pressure', 'clusterRootObjectId']) {
   if (!spatialDomFeedback.includes(token)) failures.push(`spatial DOM feedback extraction missing: ${token}`);
+}
+
+const visionTransport = readFileSync('src/app/useVisionTransport.ts', 'utf8');
+for (const token of ['visionModulesRef', 'cameraPreviewRef', 'loadVisionModules', 'startVisionTransport', 'stopVisionTransport', "import('../presence/vision-runtime')", "import('../ui/vision-v2.css')", 'visionStream()']) {
+  if (!visionTransport.includes(token)) failures.push(`vision transport extraction missing: ${token}`);
 }
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
