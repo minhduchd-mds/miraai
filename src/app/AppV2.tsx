@@ -85,6 +85,7 @@ import { useFaceSocialLifecycle } from './useFaceSocialLifecycle';
 import { useFaceHeadControlLifecycle } from './useFaceHeadControlLifecycle';
 import { useVisionWorldContext } from './useVisionWorldContext';
 import { useVisionHandInput } from './useVisionHandInput';
+import type { SpatialGroupTransformState, TwoHandObjectSession } from './spatial-object-bimanual';
 import { useWebXRSpatialRuntime } from './useWebXRSpatialRuntime';
 import { useVisionSpatialRuntime } from './useVisionSpatialRuntime';
 import '../ui/a11y.css';
