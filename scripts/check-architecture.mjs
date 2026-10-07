@@ -1265,6 +1265,18 @@ for (const token of [
   if (!windowsReleaseWorkflow.includes(token)) failures.push(`Windows release signing workflow missing: ${token}`);
 }
 
+const releaseWorkflow = readFileSync('.github/workflows/release-v0.1.0.yml', 'utf8');
+for (const token of [
+  'Resolve latest validated macOS DMG run',
+  '--workflow "macos-dmg.yml"',
+  '--status success',
+  'VALIDATED_DMG_RUN=$run_id',
+  'latest successful `macos-dmg.yml` run',
+]) {
+  if (!releaseWorkflow.includes(token)) failures.push(`release artifact selection missing: ${token}`);
+}
+if (releaseWorkflow.includes('37279977051')) failures.push('release workflow must not pin a stale macOS DMG run id');
+
 const financeIntent = readFileSync('src/intelligence/finance/finance-intent.ts', 'utf8');
 const financeCalculator = readFileSync('src/intelligence/finance/calculators.ts', 'utf8');
 const financeLive = readFileSync('src/intelligence/skills/finance-live-skill.ts', 'utf8');
