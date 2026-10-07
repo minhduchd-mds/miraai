@@ -50,8 +50,34 @@ Workflow: `.github/workflows/macos-dmg.yml`
 - CI compatibility: Node 26 Current.
 - Repo contract: `>=24 <27`.
 
+## Signing & notarization
+
+Release workflows đã hỗ trợ **optional real signing** mà không làm gãy build khi chưa có certificate.
+
+### Windows
+
+GitHub Secrets:
+
+- `WINDOWS_CERTIFICATE` — file PFX base64;
+- `WINDOWS_CERTIFICATE_PASSWORD` — mật khẩu PFX.
+
+Khi có đủ secret, workflow import certificate, inject `certificateThumbprint` + SHA-256 timestamp vào Tauri config trong runner, rồi bắt buộc cả app EXE và NSIS installer phải đạt `Get-AuthenticodeSignature = Valid`.
+
+Nếu chưa có certificate, workflow vẫn build nhưng job summary ghi rõ artifact unsigned.
+
+### macOS
+
+GitHub Secrets:
+
+- `APPLE_CERTIFICATE`;
+- `APPLE_CERTIFICATE_PASSWORD`;
+- optional `APPLE_SIGNING_IDENTITY`;
+- `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` cho notarization.
+
+Khi có certificate, Tauri dùng Developer ID signing. Khi có đủ notarization credentials, workflow yêu cầu stapling validation thành công. Nếu chưa cấu hình, build giữ ad-hoc signing để không phá pipeline.
+
 ## Release limitations
 
-- Windows installer chưa Authenticode-signed.
-- macOS build hiện ad-hoc signed, chưa Apple notarized.
+- Artifact chỉ được xem là Authenticode/Developer ID signed khi workflow validation tương ứng báo thành công.
+- Apple notarization chỉ được xem là hoàn tất khi `xcrun stapler validate` pass.
 - Local-first không đồng nghĩa fully-offline: cloud Brain/ElevenLabs vẫn cần mạng khi được chọn.
