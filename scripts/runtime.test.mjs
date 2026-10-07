@@ -5603,6 +5603,26 @@ test('AppV2 delegates spatial layout restore and capture lifecycle to a hook', (
   }
 });
 
+test('AppV2 delegates vision snapshot defaults and environment normalization', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/vision-perception-normalizer.ts', 'utf8');
+
+  assert.match(app, /normalizeVisionPerception\(snapshot\)/);
+  assert.doesNotMatch(app, /EMPTY_ENVIRONMENT/);
+  assert.doesNotMatch(app, /EMPTY_REAL_PRESENCE_POSE/);
+  assert.doesNotMatch(app, /const environmentSensor = snapshot\?\.environment/);
+
+  for (const token of [
+    'normalizeVisionPerception',
+    'EMPTY_ENVIRONMENT',
+    'EMPTY_REAL_PRESENCE_POSE',
+    'environmentObjects',
+    'faceConfidence',
+  ]) {
+    assert.ok(helper.includes(token), `vision perception normalizer missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
