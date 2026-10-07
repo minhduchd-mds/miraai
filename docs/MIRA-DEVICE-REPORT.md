@@ -46,3 +46,10 @@ The runtime builds the report from an explicit allow-list instead of serializing
 5. Share the JSON only when you want the device result reviewed.
 
 The preflight itself does not call `getUserMedia()`, so it does not turn on camera/microphone or request media permission.
+
+
+## Empirical validation
+
+Device Report is only the read-only capability preflight. To record what actually happened on hardware, use the privacy-safe Device Lab workflow documented in `docs/MIRA-DEVICE-LAB.md`.
+
+The lab layer records only bounded booleans/latencies for camera, face, hand, gesture, voice, interruption, desktop launch and optional XR. It re-sanitizes the source report through another explicit allow-list before writing a result.
