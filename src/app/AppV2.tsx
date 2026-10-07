@@ -132,6 +132,7 @@ import { usePresenceReturnLearning } from './usePresenceReturnLearning';
 import { useVoiceSessionLifecycle } from './useVoiceSessionLifecycle';
 import { useSpatialDomFeedback } from './useSpatialDomFeedback';
 import { useAppPresentationState } from './useAppPresentationState';
+import { useVisionTransport } from './useVisionTransport';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -165,11 +166,15 @@ export default function AppV2() {
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const cameraPreviewRef = useRef<HTMLVideoElement>(null);
-  const visionModulesRef = useRef<typeof import('../presence/vision-runtime') | null>(null);
-  const [visionOn, setVisionOn] = useState(false);
-  const [visionBooting, setVisionBooting] = useState(false);
-  const [visionError, setVisionError] = useState('');
+  const {
+    cameraPreviewRef,
+    visionModulesRef,
+    visionOn,
+    visionBooting,
+    visionError,
+    startVisionTransport,
+    stopVisionTransport,
+  } = useVisionTransport();
   const [faceSeen, setFaceSeen] = useState(false);
   const [handSeen, setHandSeen] = useState(false);
   const [faceLandmarks, setFaceLandmarks] = useState<FaceLandmarkPoint[]>([]);
@@ -408,16 +413,6 @@ export default function AppV2() {
     });
   }, [mira.observeAffect]);
 
-  const loadVisionModules = useCallback(async () => {
-    if (visionModulesRef.current) return visionModulesRef.current;
-    const [runtime] = await Promise.all([
-      import('../presence/vision-runtime'),
-      import('../ui/vision-v2.css'),
-    ]);
-    visionModulesRef.current = runtime;
-    return runtime;
-  }, []);
-
   const stopVision = useCallback(async () => {
     spatialLayoutRef.current.capture({
       objects: spatialObjectRuntimeRef.current.snapshot(),
@@ -426,10 +421,7 @@ export default function AppV2() {
       selectedClusterRoots: spatialSelectionRef.current.snapshot(),
     });
 
-    const modules = visionModulesRef.current;
-    modules?.stopVision();
-    if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
-    setVisionOn(false);
+    stopVisionTransport();
     setFaceSeen(false);
     setHandSeen(false);
     setHandLandmarks([]);
@@ -500,7 +492,7 @@ export default function AppV2() {
       headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
-  }, [mira.observeAffect]);
+  }, [mira.observeAffect, stopVisionTransport]);
 
   const toggleWebXR = useCallback(async () => {
     if (webXRSnapshot.active) {
@@ -568,15 +560,12 @@ export default function AppV2() {
     );
 
     if (visionOn) {
-      const modules = visionModulesRef.current;
-      modules?.stopVision();
-      if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
-      setVisionOn(false);
+      stopVisionTransport();
       setFaceSeen(false);
       setHandSeen(false);
       setFaceLandmarks([]);
     }
-  }, [showSpatialFeedback, visionOn, webXRSnapshot.active]);
+  }, [showSpatialFeedback, stopVisionTransport, visionOn, webXRSnapshot.active]);
 
   const toggleVision = useCallback(async () => {
     if (visionBooting) return;
@@ -585,24 +574,9 @@ export default function AppV2() {
       return;
     }
 
-    setVisionBooting(true);
-    setVisionError('');
-    try {
-      const modules = await loadVisionModules();
-      const result = await modules.startVision();
-      const on = result.ok;
-      setVisionOn(on);
-
-      if (!on) {
-        setVisionError(result.error || 'Không mở được camera. Hãy kiểm tra quyền Camera của trình duyệt.');
-      }
-    } catch (error) {
-      setVisionError(error instanceof Error ? error.message : 'Không mở được camera.');
-      await stopVision();
-    } finally {
-      setVisionBooting(false);
-    }
-  }, [loadVisionModules, stopVision, visionBooting, visionOn]);
+    const on = await startVisionTransport();
+    if (!on) await stopVision();
+  }, [startVisionTransport, stopVision, visionBooting, visionOn]);
 
   const {
     voiceReady,
@@ -616,18 +590,6 @@ export default function AppV2() {
     visionBooting,
     toggleVision,
   });
-
-  useEffect(() => {
-    if (!visionOn) return;
-    const preview = cameraPreviewRef.current;
-    const stream = visionModulesRef.current?.visionStream();
-    if (!preview || !stream) return;
-
-    preview.srcObject = stream;
-    preview.muted = true;
-    preview.playsInline = true;
-    void preview.play().catch(() => {});
-  }, [visionOn]);
 
   useEffect(() => {
     if (!webXRSnapshot.active) return;
@@ -1275,16 +1237,6 @@ export default function AppV2() {
 
   useEffect(() => {
     if (!visionOn) return;
-    const modules = visionModulesRef.current;
-    const preview = cameraPreviewRef.current;
-    const stream = modules?.visionStream() || null;
-    if (preview && stream) {
-      preview.srcObject = stream;
-      preview.muted = true;
-      preview.playsInline = true;
-      void preview.play().catch(() => {});
-    }
-
     const timer = window.setInterval(() => {
       const current = visionModulesRef.current;
       const snapshot = current?.visionSnapshot();
@@ -2311,8 +2263,6 @@ export default function AppV2() {
   }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateSpatialWindow, visionOn, voiceReady]);
 
   useEffect(() => () => {
-    const modules = visionModulesRef.current;
-    modules?.stopVision();
     void webXRRuntimeRef.current.stop();
   }, []);
 
