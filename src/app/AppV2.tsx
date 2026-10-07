@@ -4,9 +4,8 @@ import type { MiraState, Theme } from '../core/types';
 import { IconCamera, IconCameraOff, IconMic, IconPhoneOff, IconSettings } from '../ui/app-shell-icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 import PhotorealMira from '../presence/PhotorealMira';
-import FaceMeshOverlay, { type FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
-import HandSkeletonOverlay, { type HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
-import SpatialControlOverlay from '../presence/SpatialControlOverlay';
+import type { FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
+import type { HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { describeAffectSignal } from '../intelligence/affect/affect-control';
 import { EMPTY_INTERACTION, InteractionTracker, type InteractionContext } from '../intelligence/social/interaction-engine';
@@ -90,6 +89,9 @@ import { useWebXRSpatialRuntime } from './useWebXRSpatialRuntime';
 import { useVisionSpatialRuntime } from './useVisionSpatialRuntime';
 import '../ui/a11y.css';
 
+const FaceMeshOverlay = lazy(() => import('../presence/FaceMeshOverlay'));
+const HandSkeletonOverlay = lazy(() => import('../presence/HandSkeletonOverlay'));
+const SpatialControlOverlay = lazy(() => import('../presence/SpatialControlOverlay'));
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
 const SettingsPanel = lazy(() => import('../settings/SettingsPanel'));
 
@@ -743,20 +745,24 @@ export default function AppV2() {
               </div>
             )}
             {visionOn && faceSeen && (
-              <FaceMeshOverlay
-                points={faceLandmarks}
-                active={faceSeen}
-                muscles={faceTelemetry.muscles}
-              />
+              <Suspense fallback={null}>
+                <FaceMeshOverlay
+                  points={faceLandmarks}
+                  active={faceSeen}
+                  muscles={faceTelemetry.muscles}
+                />
+              </Suspense>
             )}
             {visionOn && handSeen && (
-              <HandSkeletonOverlay
-                points={handLandmarks}
-                active={handSeen}
-                kinematics={handKinematics}
-                contact={humanHandContact}
-                intent={humanHandIntent}
-              />
+              <Suspense fallback={null}>
+                <HandSkeletonOverlay
+                  points={handLandmarks}
+                  active={handSeen}
+                  kinematics={handKinematics}
+                  contact={humanHandContact}
+                  intent={humanHandIntent}
+                />
+              </Suspense>
             )}
             {visionOn && faceSeen && (
               <>
@@ -877,13 +883,15 @@ export default function AppV2() {
         )}
       </main>
 
-      <SpatialControlOverlay
-        frame={spatialFrame}
-        touch={spatialTouch}
-        placementPreview={placementPreview}
-        visible={(visionOn || webXRSnapshot.active) && !settingsOpen && (faceSeen || handSeen || webXRSnapshot.hands.length > 0)}
-        feedback={spatialFeedback}
-      />
+      <Suspense fallback={null}>
+        <SpatialControlOverlay
+          frame={spatialFrame}
+          touch={spatialTouch}
+          placementPreview={placementPreview}
+          visible={(visionOn || webXRSnapshot.active) && !settingsOpen && (faceSeen || handSeen || webXRSnapshot.hands.length > 0)}
+          feedback={spatialFeedback}
+        />
+      </Suspense>
 
       <div className={`voice-footer state-${mira.state}${mira.live ? ' is-live' : ''}`}>
         <div className="voice-session-caption" role="status" aria-live="polite" aria-atomic="true">
