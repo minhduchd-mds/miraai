@@ -111,9 +111,13 @@ Architecture/runtime guards khóa các gateway không quay lại `text-to-speech
 - macOS workflow đã **Developer ID/notarization-ready**: có Apple certificate thì ký, có đủ Apple credentials thì bắt buộc stapling validation.
 - Việc còn lại cho desktop release là cung cấp credential thật và xác nhận artifact signed/notarized trên runner.
 - Tách Labs khỏi production installer nếu sau này không cần ship 3D research assets.
-- UI inspect/edit cho structured memory graph.
-- Semantic local embeddings + bounded pruning.
+- Structured Memory Graph inspector/edit + capsule portability + bounded derived-link pruning đã hoàn tất.
+- Còn lại: local semantic embedding model thật cho Desktop recall; không dùng feature-hash rồi gắn nhãn embedding.
 - Device Check read-only đã có; còn chạy real-device matrix cho camera/affect/XR và lưu kết quả thực nghiệm.
+
+### Structured Memory Graph
+
+Mira Desktop hiện có inspector/edit UI, Tauri commands để list/update/delete node, bounded graph (24 link/node; semantic link yếu quá 45 ngày được dọn), và Identity Capsule merge-only portability tối đa 240 node / 600 link. Không tự xoá structured-memory node trong maintenance.
 
 ### Real-device preflight
 
