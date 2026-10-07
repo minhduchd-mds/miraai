@@ -120,3 +120,17 @@ Matrix từ chối kết quả có các field/token nhạy cảm như:
 - API key / cookie
 
 Không dùng Device Lab để thu thập media hoặc dữ liệu nhận dạng thiết bị.
+
+## Synthetic viewport regression
+
+CI Visual QA complements Device Lab with five browser viewport profiles:
+
+- 1440×900 desktop
+- 1366×768 desktop
+- 768×1024 tablet
+- 390×844 mobile
+- 360×800 mobile
+
+This catches layout overflow, broken presence assets and runtime media regressions before hardware testing.
+
+It is **not** counted as empirical device evidence. Only `mira.device-lab-result` files produced from a real Device Report + real observations count toward `--require=N`.
