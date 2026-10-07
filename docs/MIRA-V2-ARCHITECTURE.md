@@ -61,7 +61,11 @@ Labs contains camera, hand gesture, Splat, simulator, raw telemetry and Develope
 - `src/app/useAppPresentationState.ts` — theme/affect-follow preference lifecycle và body presentation dataset sync;
 - `src/app/useVisionTransport.ts` — camera transport lifecycle, lazy vision-module loading và preview binding;
 - `src/app/useWebXRTransport.ts` — WebXR availability/session transport và snapshot polling; projection/physics/anchors vẫn thuộc AppV2 interaction layer;
-- `src/app/useSpatialLayoutLifecycle.ts` — session layout restore/capture; object physics/manipulation vẫn nằm ở interaction layer.
+- `src/app/useSpatialLayoutLifecycle.ts` — session layout restore/capture; object physics/manipulation vẫn nằm ở interaction layer;
+- `src/app/vision-perception-normalizer.ts` — chuẩn hóa snapshot mặc định cho face/posture/rPPG/environment/spatial;
+- `src/app/useFaceSocialLifecycle.ts` — session-local face social cue + presence continuity;
+- `src/app/useFaceHeadControlLifecycle.ts` — temporal guard cho nod/shake voice actions;
+- `src/app/useVisionWorldContext.ts` — RAM-only scene/object/action/causal/world-model orchestration và prompt context synthesis.
 
 Các module này không đổi capability contract; mục tiêu là giảm orchestration coupling trong AppV2 trước khi tách các sensor lifecycle lớn hơn.
 
