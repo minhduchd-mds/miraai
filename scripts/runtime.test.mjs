@@ -5505,6 +5505,29 @@ test('AppV2 delegates voice session lifecycle without changing the voice-only su
   }
 });
 
+test('AppV2 delegates spatial DOM feedback effects to a dedicated hook', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useSpatialDomFeedback.ts', 'utf8');
+
+  assert.match(app, /useSpatialDomFeedback/);
+  assert.doesNotMatch(app, /const previouslyFocused = document\.querySelectorAll/);
+  assert.doesNotMatch(app, /const previouslyTouched = document\.querySelectorAll/);
+  assert.doesNotMatch(app, /const previouslyHumanTouched = document\.querySelectorAll/);
+
+  for (const token of [
+    'SPATIAL_TARGET_SELECTOR',
+    'data-spatial-focused',
+    'data-spatial-selected',
+    'data-spatial-contacted',
+    'data-spatial-human-contact',
+    'data-spatial-pressed',
+    '--spatial-pressure',
+    'clusterRootObjectId',
+  ]) {
+    assert.ok(hook.includes(token), `spatial DOM feedback hook missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
