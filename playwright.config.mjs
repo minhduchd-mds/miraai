@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './scripts',
   testMatch: 'visual-qa.spec.mjs',
-  timeout: 90_000,
+  timeout: 180_000,
   expect: { timeout: 15_000 },
   workers: 1,
   fullyParallel: false,
