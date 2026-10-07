@@ -56,8 +56,10 @@
 .v2-device-check-head > div { min-width: 0; }
 .v2-device-check-head h3 { margin-bottom: 4px; }
 .v2-device-check-head p { margin: 0; color: var(--faint); font-size: 10px; }
-.v2-device-check-head > button { min-height: 34px; padding: 0 11px; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--stroke)); border-radius: 9px; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); color: var(--text); cursor: pointer; font-size: 10px; }
-.v2-device-check-head > button:disabled { opacity: .52; cursor: default; }
+.v2-device-check-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+.v2-device-check-actions button { min-height: 34px; padding: 0 11px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--stroke)); border-radius: 9px; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); color: var(--text); cursor: pointer; font-size: 10px; white-space: nowrap; }
+.v2-device-check-actions button + button { border-color: var(--stroke); background: var(--bg); color: var(--dim); }
+.v2-device-check-actions button:disabled { opacity: .52; cursor: default; }
 .v2-device-grid { margin-top: 13px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .v2-device-item { min-width: 0; min-height: 58px; padding: 9px 10px; display: grid; align-content: center; gap: 5px; border: 1px solid var(--stroke); border-radius: 11px; background: color-mix(in srgb, var(--bg) 86%, transparent); }
 .v2-device-item span { overflow: hidden; color: var(--faint); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
@@ -144,7 +146,8 @@
   .v2-personas, .v2-avatar-grid, .v2-theme-grid { grid-template-columns: repeat(2, 1fr); }
   .v2-device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .v2-device-check-head { align-items: stretch; flex-direction: column; }
-  .v2-device-check-head > button { width: 100%; }
+  .v2-device-check-actions { width: 100%; }
+  .v2-device-check-actions button { flex: 1; min-width: 0; }
   .v2-memory-inspector-layout { grid-template-columns: 1fr; }
   .v2-memory-node-list { max-height: 240px; }
   .v2-memory-node-controls { grid-template-columns: 1fr; }
