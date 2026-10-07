@@ -206,6 +206,9 @@ if (packageJson.includes('"protobufjs": true')) failures.push('protobufjs instal
 for (const token of ['scripts/prune-runtime-assets.mjs', '"prune:runtime"', 'npm run build && npm run check:bundle']) {
   if (!packageJson.includes(token)) failures.push(`runtime build prune contract missing: ${token}`);
 }
+for (const token of ['"check:device-lab"', '"check:device-release"', 'device-lab-matrix.mjs --require=3']) {
+  if (!packageJson.includes(token)) failures.push(`device release gate command missing: ${token}`);
+}
 for (const token of ['"build:desktop"', '"prune:desktop"', '"check:desktop"', 'scripts/build-desktop.mjs', 'scripts/prune-desktop-assets.mjs', '--desktop']) {
   if (!packageJson.includes(token)) failures.push(`desktop build profile package contract missing: ${token}`);
 }
