@@ -83,7 +83,7 @@ const KNOWN_3D: Record<string, string> = {
   'male-intimate-casual': '/avatars/male/mira_male_01_black_casual.vrm',
 };
 
-// Ảnh "look" 2D cho từng bộ (đặt trong public/looks/). Bộ chưa có ảnh → dùng ảnh mặc định.
+// Ảnh "look" 2D/WebP cho từng bộ. Bộ chưa có ảnh → dùng ảnh mặc định.
 const LOOKS: Record<string, string> = {
   // Nữ: ảnh NỀN TRONG SUỐT (cutout) khớp từng model, đã nén WebP ~0.1MB — public/avatars/female/.
   'female-home-idol': '/avatars/female/mira_female_01_idol_nova.webp',
@@ -132,7 +132,7 @@ export function saveAvatarSel(s: AvatarSel): void {
 }
 
 // Bộ này đã có model 3D riêng (đăng ký trong KNOWN_3D) chưa?
-// Có → sân khấu hiện VRM (xoay đầu/lip-sync). Chưa → hiện thẳng ảnh PNG "look" của bộ.
+// Có → sân khấu hiện VRM (xoay đầu/lip-sync). Chưa → hiện ảnh WebP "look" của bộ.
 export function has3D(s: AvatarSel): boolean {
   return key(s) in KNOWN_3D;
 }
@@ -144,13 +144,4 @@ export function resolveAvatarUrl(s: AvatarSel): string {
 // khi bộ chưa có model 3D. Thiếu ảnh riêng → ảnh mặc định.
 export function lookImage(s: AvatarSel): string {
   return LOOKS[key(s)] || FALLBACK_LOOK;
-}
-// Ảnh nền theo bối cảnh (public/scenes/). Thân mật mượn nền phòng ngủ. Thiếu file → giữ gradient.
-const SCENE_BG: Record<Scene, string> = {
-  office: '/scenes/office.png',
-  home: '/scenes/home.png',
-  intimate: '/scenes/home.png',
-};
-export function sceneBg(scene: Scene): string {
-  return SCENE_BG[scene];
 }

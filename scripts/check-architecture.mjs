@@ -122,6 +122,20 @@ for (const path of mustExist) {
   if (!existsSync(path)) failures.push(`missing required file: ${path}`);
 }
 
+for (const retired of [
+  'src/conversation/Composer.tsx',
+  'src/conversation/composer.css',
+  'src/conversation/ConversationHistory.tsx',
+  'src/conversation/history.css',
+  'src/voice/VoiceOrb.tsx',
+  'src/voice/voice-orb.css',
+  'public/scenes/home.png',
+  'public/scenes/office.png',
+]) {
+  if (existsSync(retired)) failures.push(`retired UI/legacy media still present: ${retired}`);
+}
+if (existsSync('public/looks')) failures.push('retired public/looks directory must stay removed');
+
 const entry = readFileSync('src/main.tsx', 'utf8');
 if (!entry.includes("const AppV2 = lazy(() => import('./app/AppV2'))")) failures.push('production AppV2 must stay route-level lazy-loaded');
 if (/^import\s+AppV2\s+from\s+['"]\.\/app\/AppV2['"]/m.test(entry)) failures.push('AppV2 must not leak back into the bootstrap initial graph');

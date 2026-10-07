@@ -3,7 +3,7 @@ import { useMira } from './core/useMira';
 import { audioLevel } from './core/audio-level';
 import { startFaceTracking, stopFaceTracking, faceData } from './core/face/face-tracker';
 import { startGestureTracking, stopGestureTracking, handData } from './core/face/gesture-tracker';
-import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, has3D, lookImage, sceneBg, type AvatarSel } from './core/avatar-config';
+import { loadAvatarSel, saveAvatarSel, resolveAvatarUrl, has3D, lookImage, type AvatarSel } from './core/avatar-config';
 import type { MiraState, Theme } from './core/types';
 import MiraStage from './ui/MiraStage';
 import VoiceDock from './ui/VoiceDock';
@@ -25,7 +25,7 @@ export default function App() {
   const [splatOn, setSplatOn] = useState(false); // xem Gaussian Splat 3D (tĩnh)
   const [avatarSel, setAvatarSel] = useState<AvatarSel>(loadAvatarSel);
   const [avatarOpacity, setAvatarOpacity] = useState(1);
-  // Ưu tiên ảnh 2D (PNG trong suốt) thay vì model 3D — bật/tắt bằng nút trên header, nhớ qua localStorage.
+  // Ưu tiên ảnh 2D/WebP thay vì model 3D — bật/tắt bằng nút trên header, nhớ qua localStorage.
   const [avatar2d, setAvatar2d] = useState(() => {
     if (GITHUB_PAGES_LITE) return true;
     try { return localStorage.getItem('mira.avatar2d') === '1'; } catch { return false; }
@@ -35,7 +35,7 @@ export default function App() {
     try { localStorage.setItem('mira.avatar2d', n ? '1' : '0'); } catch { /* noop */ }
     return n;
   });
-  // Hiện 3D khi: không ưu tiên 2D & bộ có model 3D. Còn lại → avatarUrl=null để sân khấu hiện ảnh PNG (lookSrc).
+  // Hiện 3D khi: không ưu tiên 2D & bộ có model 3D. Còn lại → avatarUrl=null để sân khấu hiện ảnh WebP (lookSrc).
   const avatarUrl = !GITHUB_PAGES_LITE && !avatar2d && has3D(avatarSel) ? resolveAvatarUrl(avatarSel) : null;
   const lookSrc = lookImage(avatarSel);
   const onAvatarChange = (s: AvatarSel) => {
