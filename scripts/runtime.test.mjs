@@ -5540,12 +5540,20 @@ test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', 
   }
 });
 
-test('AppV2 delegates local presentation preferences to app-preferences', () => {
+test('AppV2 delegates local presentation preference lifecycle to a hook', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const prefs = readFileSync('src/app/app-preferences.ts', 'utf8');
-  assert.match(app, /from '\.\/app-preferences'/);
+  const hook = readFileSync('src/app/useAppPresentationState.ts', 'utf8');
+
+  assert.match(app, /useAppPresentationState/);
+  assert.doesNotMatch(app, /from '\.\/app-preferences'/);
+  assert.doesNotMatch(app, /document\.body\.dataset\.(state|theme)/);
+
   for (const token of ['loadTheme','saveTheme','loadAffectFollowing','saveAffectFollowing','loadPresenceReturnSamples','savePresenceReturnSamples']) {
     assert.ok(prefs.includes(token));
+  }
+  for (const token of ['loadTheme','saveTheme','loadAffectFollowing','saveAffectFollowing','document.body.dataset.state','document.body.dataset.theme']) {
+    assert.ok(hook.includes(token));
   }
   assert.ok(!app.includes("localStorage.setItem('mira.theme'"));
   assert.ok(!app.includes("localStorage.setItem('mira.affect.follow'"));
