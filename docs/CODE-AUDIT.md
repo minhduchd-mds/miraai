@@ -34,7 +34,7 @@
 - UI/legacy file removal: **17.18 MiB** khỏi current checkout.
 - Runtime artifact pruning: **123.89 MiB → 84.16 MiB**, giảm **39.73 MiB**.
 - Initial bundle: **140.9 KiB JS + 9.9 KiB CSS**.
-- Deferred AppV2 graph: **292.2 KiB JS**, dưới budget 300 KiB.
+- Deferred AppV2 graph: **298.1 KiB JS**, dưới budget 300 KiB sau khi lazy-load Face/Hand/Spatial overlays.
 
 ## Phần cố tình giữ
 
@@ -53,13 +53,16 @@ Không xóa module chỉ vì “experimental”. Điều kiện xóa: **không c
 
 ## P0 — validation status
 
-Đã có production Vercel build **READY** tại commit `7878eee7`:
-- Vite production build ✅
-- Runtime asset prune ✅
-- Production alias `miraai-five.vercel.app` ✅
-- Runtime error scan gần nhất: **0 lỗi** ✅
+Current code validation đã có GitHub Actions thực tế:
+- CI run `37598973647` tại commit `4a1677ab`: **SUCCESS** ✅
+- Node 24 + Node 26: architecture/skill guards, `tsc --noEmit`, runtime tests, functional benchmark, camera trace benchmark, media budget, Vite build, bundle budget, deploy-artifact smoke và critical dependency audit đều **PASS** ✅
+- Runtime tests: **344 tests**, không còn stale XR/selection ownership assertion.
+- Initial bundle: **140.9 KiB JS + 9.9 KiB CSS**.
+- Deferred AppV2 graph: **298.1 KiB JS / budget 300 KiB**.
+- Visual QA run `37598941529`: **SUCCESS** trên 5 viewport profiles ✅
+- GitHub Pages build cho commit `4a1677ab`: **SUCCESS** ✅
 
-Các gate `tsc`, runtime tests, benchmark, bundle/artifact smoke và Node 24/26 vẫn được khai báo trong CI. Tuy nhiên commit tạo qua connector hiện không sinh GitHub Actions run cho HEAD mới, nên không ghi nhận các gate đó là **current-HEAD verified** cho tới khi workflow được dispatch/run lại.
+Production Vercel đã có build **READY** trong chuỗi TTS/runtime mới và runtime error scan gần nhất: **0 lỗi**. Vercel HEAD mới hơn vẫn có thể bị daily build-rate-limit; không đồng nhất CI success với production deployment nếu Vercel chưa build đúng SHA.
 
 ## P1 — refactor cần làm có kiểm soát
 
@@ -162,4 +165,4 @@ Mira Desktop hiện có inspector/edit UI, Tauri commands để list/update/dele
 
 Kết quả hiện tại: `AppV2.tsx` còn khoảng **942 dòng / 37.9 KB source**, giảm từ 2,873 dòng ban đầu. Không còn sensor/XR frame loop lớn nằm trực tiếp trong component.
 
-> Validation note: source-contract/architecture guards đã cập nhật cho boundary mới. Production build `7878eee7` đã READY; các commit sau đó chủ yếu là policy guards/docs/desktop hardening và vẫn có thể gặp Vercel daily build-rate-limit. HEAD mới nhất chưa có GitHub Actions run quan sát được.
+> Validation note: source-contract/architecture guards đã cập nhật cho boundary mới. Commit code `4a1677ab` đã pass full CI Node 24/26 và Visual QA; Vercel deployment vẫn được đánh giá riêng vì daily build-rate-limit có thể chặn HEAD.
