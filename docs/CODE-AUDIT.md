@@ -70,8 +70,8 @@ Sau cleanup:
 
 Hiện tại:
 
-- **2,406 dòng**
-- **102.8 KB source**
+- **2,113 dòng**
+- **88.4 KB source**
 - **50 imports**
 - **47 refs**
 - **25 effects**
@@ -142,6 +142,12 @@ Mira có Vercel/Render/Neon gateway alternatives. Policy CORS/rate-limit/provide
 - `src/app/vision-perception-normalizer.ts` — chuẩn hóa face/posture/rPPG/environment/spatial defaults;
 - `src/app/useFaceSocialLifecycle.ts` — face social cue + presence continuity lifecycle;
 - `src/app/useFaceHeadControlLifecycle.ts` — debounce/cooldown cho nod/shake voice control;
-- `src/app/useVisionWorldContext.ts` — scene graph → object interaction → action sequence → causal graph → short-term world model + prompt context.
+- `src/app/useVisionWorldContext.ts` — scene graph → object interaction → action sequence → causal graph → short-term world model + prompt context;
+- `src/app/useVisionHandInput.ts` — webcam hand normalization + gesture-intent tracking;
+- `src/app/vision-hand-interaction.ts` — contact/intent/direct-touch/ray-hit resolver;
+- `src/app/spatial-selection-gesture.ts` — Victory/Open Palm selection behavior;
+- `src/app/spatial-object-manipulation.ts` — object grab/move/release/cancel lifecycle;
+- `src/app/spatial-window-control.ts` — one-hand window grab/move/release lifecycle;
+- `src/app/spatial-window-bimanual.ts` — two-hand window scale/rotate lifecycle.
 
-Kết quả hiện tại: `AppV2.tsx` còn khoảng **2,406 dòng / 102.8 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
+Kết quả hiện tại: `AppV2.tsx` còn khoảng **2,113 dòng / 88.4 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
