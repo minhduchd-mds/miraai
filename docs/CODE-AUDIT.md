@@ -70,8 +70,8 @@ Sau cleanup:
 
 Hiện tại:
 
-- **2,662 dòng**
-- **113.2 KB source**
+- **2,648 dòng**
+- **112.9 KB source**
 - **50 imports**
 - **47 refs**
 - **25 effects**
@@ -134,6 +134,7 @@ Mira có Vercel/Render/Neon gateway alternatives. Policy CORS/rate-limit/provide
 - `src/app/app-preferences.ts` — theme, affect-follow và presence-return persistence;
 - `src/app/usePresenceReturnLearning.ts` — minute clock + local learning khi người dùng quay lại;
 - `src/app/useVoiceSessionLifecycle.ts` — audio unlock, voice handshake, Space shortcut, resume/focus và background companion lifecycle;
-- `src/app/useSpatialDomFeedback.ts` — DOM-only feedback cho focused/selected/contact/press, tách khỏi sensor math và XR runtime.
+- `src/app/useSpatialDomFeedback.ts` — DOM-only feedback cho focused/selected/contact/press, tách khỏi sensor math và XR runtime;
+- `src/app/useAppPresentationState.ts` — theme/affect-follow state, persistence và body dataset sync.
 
-Kết quả hiện tại: `AppV2.tsx` còn khoảng **2,662 dòng / 113.2 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
+Kết quả hiện tại: `AppV2.tsx` còn khoảng **2,648 dòng / 112.9 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
