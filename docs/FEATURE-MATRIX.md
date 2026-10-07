@@ -5,7 +5,7 @@
 | Capability | Maturity | Score | Hiện có | Còn thiếu chính |
 |---|---:|---:|---|---|
 | Voice conversation | Stable | 9/10 | VAD, turn-taking, barge-in, speech queue | latency telemetry dài hạn |
-| ElevenLabs voice | Stable | 9/10 | server-side gateway, smoke test, fallback | voice tuning/presets |
+| ElevenLabs voice | Stable | 9/10 | server-side gateway, smoke test, explicit failure surface | voice tuning/presets |
 | Brain gateway | Beta+ | 8/10 | Gemini/OpenAI/Anthropic fallback | routing eval sâu hơn |
 | Smart Query Router | Beta | 8/10 | pre-brain tool evidence + parallel skills | thêm domain/eval |
 | Finance | Beta | 8/10 | deterministic math, verified FX, market adapter, advice policy | broader instruments + portfolio engine |
