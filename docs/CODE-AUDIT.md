@@ -70,8 +70,8 @@ Sau cleanup:
 
 Hiện tại:
 
-- **2,113 dòng**
-- **88.4 KB source**
+- **1,772 dòng**
+- **73.2 KB source**
 - **50 imports**
 - **47 refs**
 - **25 effects**
@@ -148,6 +148,8 @@ Mira có Vercel/Render/Neon gateway alternatives. Policy CORS/rate-limit/provide
 - `src/app/spatial-selection-gesture.ts` — Victory/Open Palm selection behavior;
 - `src/app/spatial-object-manipulation.ts` — object grab/move/release/cancel lifecycle;
 - `src/app/spatial-window-control.ts` — one-hand window grab/move/release lifecycle;
-- `src/app/spatial-window-bimanual.ts` — two-hand window scale/rotate lifecycle.
+- `src/app/spatial-window-bimanual.ts` — two-hand window scale/rotate lifecycle;
+- `src/app/spatial-object-bimanual.ts` — two-hand object/joint/group scale, rotate, translate;
+- `src/app/spatial-object-world-step.ts` — webcam inertia, collision, auto-stack, attachment follow và auto-snap world step.
 
-Kết quả hiện tại: `AppV2.tsx` còn khoảng **2,113 dòng / 88.4 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
+Kết quả hiện tại: `AppV2.tsx` còn khoảng **1,772 dòng / 73.2 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
