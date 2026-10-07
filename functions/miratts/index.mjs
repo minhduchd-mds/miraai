@@ -1,9 +1,12 @@
+import {
+  MIRA_TTS_MAX_TEXT_LENGTH,
+  defaultElevenModel,
+  defaultElevenVoice,
+  elevenDialoguePayload,
+  elevenDialogueUrl,
+} from '../../server/tts-contract.mjs';
+
 const ALLOWED_ORIGIN = process.env.MIRA_TTS_ALLOWED_ORIGIN || 'https://minhduchd-mds.github.io';
-const DEFAULT_VOICE = process.env.ELEVENLABS_TTS_VOICE
-  || process.env.ELEVENLABS_VOICE_ID
-  || 'EXAVITQu4vr4xnSDxMaL';
-const DEFAULT_MODEL = process.env.ELEVENLABS_TTS_MODEL || 'eleven_multilingual_v2';
-const MAX_TEXT_LENGTH = 1600;
 const WINDOW_MS = 5 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 32;
 const MAX_TRACKED_CLIENTS = 2048;
@@ -88,34 +91,21 @@ function takeRateSlot(request) {
   return previous.count <= MAX_REQUESTS_PER_WINDOW;
 }
 
-function normalizeVoice(raw) {
-  const value = String(raw || '').trim();
-  if (!value || value === 'auto') return DEFAULT_VOICE;
-  return value.startsWith('elevenlabs:') ? value.slice('elevenlabs:'.length) : value;
-}
 
-async function synthesize(text, voice) {
+async function synthesize(text, instructions) {
   const key = apiKey();
   if (!key) return { ok: false, status: 503, error: 'elevenlabs_not_configured' };
 
+  const payload = elevenDialoguePayload(text, instructions);
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=mp3_44100_64`,
+    elevenDialogueUrl(),
     {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'xi-api-key': key,
       },
-      body: JSON.stringify({
-        text,
-        model_id: DEFAULT_MODEL,
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.78,
-          style: 0.16,
-          use_speaker_boost: false,
-        },
-      }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(18_000),
     },
   );
@@ -124,7 +114,7 @@ async function synthesize(text, voice) {
     return { ok: false, status: 502, error: 'tts_provider_error' };
   }
 
-  return { ok: true, response };
+  return { ok: true, response, payload };
 }
 
 async function handler(request) {
@@ -143,7 +133,7 @@ async function handler(request) {
       ok: true,
       provider: 'elevenlabs',
       configured: Boolean(apiKey()),
-      model: DEFAULT_MODEL,
+      model: defaultElevenModel(),
       runtime: 'neon-function',
     });
   }
@@ -151,10 +141,9 @@ async function handler(request) {
   if (request.method === 'GET' && url.pathname.endsWith('/voices')) {
     return json(request, {
       voices: [
-        { id: 'elevenlabs:EXAVITQu4vr4xnSDxMaL', label: 'ElevenLabs · Sarah · Gentle' },
-        { id: 'elevenlabs:21m00Tcm4TlvDq8ikWAM', label: 'ElevenLabs · Rachel' },
-        { id: 'elevenlabs:XB0fDUnXU5powFXDhCwa', label: 'ElevenLabs · Charlotte' },
+        { id: `elevenlabs:${defaultElevenVoice()}`, label: 'ElevenLabs · Sarah · Gentle · Active' },
       ],
+      serverControlled: true,
     });
   }
 
@@ -172,12 +161,11 @@ async function handler(request) {
 
     const text = String(body?.text || '').trim();
     if (!text) return json(request, { error: 'text_required' }, 400);
-    if (text.length > MAX_TEXT_LENGTH) {
+    if (text.length > MIRA_TTS_MAX_TEXT_LENGTH) {
       return json(request, { error: 'text_too_long' }, 413);
     }
 
-    const voice = normalizeVoice(body?.voice);
-    const result = await synthesize(text, voice);
+    const result = await synthesize(text, body?.instructions);
     if (!result.ok) {
       return json(request, { error: result.error }, result.status);
     }
@@ -191,7 +179,8 @@ async function handler(request) {
         'cache-control': 'no-store',
         'x-content-type-options': 'nosniff',
         'x-mira-tts-provider': 'elevenlabs',
-        'x-mira-tts-voice': voice,
+        'x-mira-tts-voice': result.payload.inputs[0].voice_id,
+        'x-mira-tts-model': result.payload.model_id,
       },
     });
   }
