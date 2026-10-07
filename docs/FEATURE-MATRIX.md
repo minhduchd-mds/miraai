@@ -16,8 +16,8 @@
 | Proactive companion | Beta | 7.5/10 | silence/resume/affect prompts | long-horizon behavior eval |
 | Local music | Beta | 7.5/10 | opt-in folder index, search, history | metadata parser + playlists |
 | Contextual music | Beta | 7/10 | context-linked playback history | richer context ranking |
-| Desktop Windows | Beta+ | 8/10 | Tauri + local frontend + NSIS | Authenticode signing |
-| Desktop macOS | Beta | 7.5/10 | Tauri + local frontend + DMG | Apple signing + notarization |
+| Desktop Windows | Beta+ | 8.5/10 | Tauri + local frontend + NSIS + optional Authenticode CI | certificate/reputation validation |
+| Desktop macOS | Beta+ | 8/10 | Tauri + local frontend + DMG + optional Developer ID/notarization CI | certificate + real notarized artifact validation |
 | Permission gate | Beta+ | 8.5/10 | native Rust checks | richer consent UI |
 | Vision | Beta | 8/10 | face/gaze/hand/pose | hardware eval matrix |
 | Spatial interaction | Experimental | 6.5/10 | webcam spatial + XR stack | device calibration/validation |
