@@ -4,15 +4,17 @@ const MAX_TRACKED_CLIENTS = 2048;
 const buckets = new Map();
 let nextBucketSweepAt = 0;
 
-export const MIRA_DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL';
-
-export function defaultElevenVoice() {
-  return process.env.ELEVENLABS_TTS_VOICE || MIRA_DEFAULT_VOICE_ID;
-}
-
-export function defaultElevenModel() {
-  return process.env.ELEVENLABS_TTS_MODEL || 'eleven_v4';
-}
+export {
+  MIRA_DEFAULT_MODEL_ID,
+  MIRA_DEFAULT_VOICE_ID,
+  MIRA_TTS_MAX_TEXT_LENGTH,
+  MIRA_TTS_OUTPUT_FORMAT,
+  defaultElevenModel,
+  defaultElevenVoice,
+  elevenDialoguePayload,
+  elevenDialogueUrl,
+  performanceText,
+} from './tts-contract.mjs';
 
 function requestOrigin(req) {
   return String(req.headers?.origin || '').trim();
