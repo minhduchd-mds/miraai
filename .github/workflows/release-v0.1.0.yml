@@ -24,7 +24,6 @@ jobs:
       RELEASE_TAG: v0.1.0
       RELEASE_NAME: Mira v0.1.0
       RELEASE_DMG: Mira-v0.1.0-macOS-Intel.dmg
-      VALIDATED_DMG_RUN: "37279977051"
 
     steps:
       - name: Checkout
@@ -43,6 +42,24 @@ jobs:
           console.log('Mira version contract: 0.1.0');
           NODE
 
+      - name: Resolve latest validated macOS DMG run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow "macos-dmg.yml" \
+            --branch main \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+          test -n "$run_id"
+          echo "VALIDATED_DMG_RUN=$run_id" >> "$GITHUB_ENV"
+          echo "Using macOS DMG workflow run: $run_id"
+
       - name: Download validated macOS DMG artifact
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,7 +67,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-src release
-          gh run download "$VALIDATED_DMG_RUN"             --repo "$GITHUB_REPOSITORY"             --name "Mira-macOS-Intel-DMG"             --dir release-src
+          gh run download "$VALIDATED_DMG_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "Mira-macOS-Intel-DMG" \
+            --dir release-src
 
           source_dmg="$(find release-src -name '*.dmg' -type f | head -n 1)"
           test -n "$source_dmg"
@@ -89,13 +109,15 @@ jobs:
           - File cài đặt: `Mira-v0.1.0-macOS-Intel.dmg`
 
           ### Xác minh
-          File DMG này lấy từ workflow **macOS DMG #2**, đã PASS:
+          File DMG được lấy từ **latest successful `macos-dmg.yml` run** trên nhánh `main`.
+          Workflow bắt buộc:
           - `hdiutil verify`
           - `codesign --verify --deep --strict`
           - binary architecture `x86_64`
+          - nếu Apple signing/notarization credentials được cấu hình: Developer ID signature + stapling validation
 
           ### Lưu ý
-          Bản này dùng **ad-hoc code signing** và chưa Apple notarize. macOS có thể hiện cảnh báo Gatekeeper khi mở lần đầu.
+          Trạng thái ký/notarize phụ thuộc credential trong workflow run dùng để phát hành. Nếu chưa cấu hình Apple Developer credential, artifact vẫn dùng ad-hoc signing và macOS có thể hiện Gatekeeper warning.
 
           SHA256 được đính kèm trong file `.sha256`.
           EOF
