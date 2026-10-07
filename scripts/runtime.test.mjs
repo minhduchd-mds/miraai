@@ -175,16 +175,28 @@ test('Vietnamese speech director keeps a soft gentle baseline', () => {
   assert.ok(plan.rateMultiplier < 1);
 });
 
-test('ElevenLabs v4 gateway uses Vietnamese Text-to-Dialogue only', () => {
+test('ElevenLabs v4 gateway uses the shared Vietnamese Text-to-Dialogue contract', () => {
   const source = readFileSync('api/tts.js', 'utf8');
+  const contract = readFileSync('server/tts-contract.mjs', 'utf8');
   for (const token of [
-    '/v1/text-to-dialogue?output_format=mp3_44100_128',
+    "MIRA_DEFAULT_MODEL_ID = 'eleven_v4'",
+    "MIRA_TTS_OUTPUT_FORMAT = 'mp3_44100_128'",
+    'MIRA_TTS_MAX_TEXT_LENGTH = 2000',
     "language_code: 'vi'",
     'inputs: [{',
-    'voice_id: voice',
+    'voice_id: defaultElevenVoice()',
     "apply_text_normalization: 'auto'",
     'performanceText',
+    'elevenDialogueUrl',
+  ]) {
+    assert.ok(contract.includes(token));
+  }
+  for (const token of [
+    'elevenDialoguePayload',
+    'elevenDialogueUrl',
+    'MIRA_TTS_MAX_TEXT_LENGTH',
     "x-mira-tts-provider', 'elevenlabs'",
+    "x-mira-tts-model', payload.model_id",
   ]) {
     assert.ok(source.includes(token));
   }
@@ -5305,8 +5317,9 @@ test('Neon Mira TTS function exposes health and voices safely', async () => {
   assert.equal(voices.status, 200);
   const voicesJson = await voices.json();
   assert.ok(Array.isArray(voicesJson.voices));
-  assert.ok(voicesJson.voices.length >= 3);
+  assert.ok(voicesJson.voices.length >= 1);
   assert.ok(voicesJson.voices.some((voice) => /Sarah/.test(voice.label)));
+  assert.equal(voicesJson.serverControlled, true);
 });
 
 test('Neon Mira TTS function rejects untrusted origins and invalid speech input', async () => {
@@ -5330,22 +5343,43 @@ test('Neon Mira TTS function rejects untrusted origins and invalid speech input'
   assert.deepEqual(await missing.json(), { error: 'text_required' });
 });
 
-test('Neon Mira TTS function keeps ElevenLabs credentials server-side', () => {
+test('Neon Mira TTS function keeps ElevenLabs credentials server-side and shares v4 contract', () => {
   const source = readFileSync('functions/miratts/index.mjs', 'utf8');
   for (const token of [
+    "../../server/tts-contract.mjs",
     'process.env.ELEVENLABS_API_KEY',
     'process.env.elevenlabs_api_key',
     'xi-api-key',
     'AbortSignal.timeout(18_000)',
     'origin_not_allowed',
-    'MAX_TEXT_LENGTH = 1600',
-    'use_speaker_boost: false',
+    'MIRA_TTS_MAX_TEXT_LENGTH',
+    'elevenDialoguePayload',
+    'elevenDialogueUrl',
+    "serverControlled: true",
+    "'x-mira-tts-model': result.payload.model_id",
   ]) {
     assert.ok(source.includes(token));
   }
+  assert.ok(!source.includes('/v1/text-to-speech/'));
   assert.ok(!/VITE_.*ELEVENLABS|localStorage.*ELEVENLABS_API_KEY/.test(source));
 });
 
+
+test('Render gateway shares the same Eleven v4 dialogue contract', () => {
+  const source = readFileSync('server/tts-gateway.mjs', 'utf8');
+  for (const token of [
+    "from './tts-contract.mjs'",
+    'MIRA_TTS_MAX_TEXT_LENGTH',
+    'AbortSignal.timeout(18_000)',
+    'elevenDialoguePayload',
+    'elevenDialogueUrl',
+    "x-mira-tts-model': payload.model_id",
+  ]) {
+    assert.ok(source.includes(token));
+  }
+  assert.ok(!source.includes('/v1/text-to-speech/'));
+  assert.ok(!source.includes('normalizeVoice('));
+});
 
 test('server TTS health probe recovers neural routing without reload', () => {
   const source = readFileSync('src/core/tts/server-tts.ts', 'utf8');
