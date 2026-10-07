@@ -13,6 +13,11 @@ import type { TTSDiagnostics } from '../core/tts';
 import { loadSmartTurn, saveSmartTurn } from '../core/stt/turn-config';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 import {
+  runDeviceDiagnostics,
+  type DevicePermissionState,
+  type MiraDeviceDiagnostics,
+} from '../runtime/device-diagnostics';
+import {
   loadVoicePrefs,
   PERSONAS,
   RESPONSE_LENGTHS,
@@ -53,6 +58,18 @@ function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange
   return <label className="v2-setting-row"><span><b>{label}</b>{hint && <small>{hint}</small>}</span><button type="button" className={`v2-switch${checked ? ' on' : ''}`} role="switch" aria-checked={checked} onClick={() => onChange(!checked)}><i /></button></label>;
 }
 
+function permissionLabel(state: DevicePermissionState) {
+  if (state === 'granted') return 'Đã cấp';
+  if (state === 'denied') return 'Bị chặn';
+  if (state === 'prompt') return 'Chưa hỏi';
+  if (state === 'unsupported') return 'Không đọc được';
+  return 'Không rõ';
+}
+
+function DeviceCheckItem({ label, value, status = 'neutral' }: { label: string; value: string; status?: 'ok' | 'warn' | 'neutral' }) {
+  return <div className="v2-device-item" data-status={status}><span>{label}</span><b>{value}</b></div>;
+}
+
 function FactRow({ fact, onChanged }: { fact: MemoryFact; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(fact.fact);
@@ -79,6 +96,8 @@ export default function SettingsPanel(props: Props) {
   const [desktopPrivacyBusy, setDesktopPrivacyBusy] = useState(false);
   const [desktopLibraryBusy, setDesktopLibraryBusy] = useState(false);
   const [voiceDiagnostics, setVoiceDiagnostics] = useState<TTSDiagnostics | null>(null);
+  const [deviceDiagnostics, setDeviceDiagnostics] = useState<MiraDeviceDiagnostics | null>(null);
+  const [deviceDiagnosticsBusy, setDeviceDiagnosticsBusy] = useState(false);
   const capsuleInputRef = useRef<HTMLInputElement>(null);
 
   const refreshDesktopPrivacy = useCallback(async () => {
@@ -118,6 +137,13 @@ export default function SettingsPanel(props: Props) {
   }, [props.getVoiceDiagnostics, props.open, tab]);
   if (!props.open) return null;
 
+  const runDeviceCheck = async () => {
+    if (deviceDiagnosticsBusy) return;
+    setDeviceDiagnosticsBusy(true);
+    try { setDeviceDiagnostics(await runDeviceDiagnostics()); }
+    catch { setDeviceDiagnostics(null); }
+    finally { setDeviceDiagnosticsBusy(false); }
+  };
   const changeRate = (next: number) => { setRate(next); saveVoicePrefs({ rate: next }); };
   const changePersona = (next: string) => { setPersona(next); saveVoicePrefs({ persona: next }); };
   const changeResponseLength = (next: ResponseLength) => { setResponseLength(next); saveVoicePrefs({ responseLength: next }); };
@@ -212,6 +238,25 @@ export default function SettingsPanel(props: Props) {
               <div className="v2-choice-block"><span>Tốc độ</span><div className="v2-segmented">{SPEEDS.map((speed) => <button key={speed.id} type="button" className={Math.abs(rate - speed.rate) < .01 ? 'active' : ''} onClick={() => changeRate(speed.rate)}>{speed.label}</button>)}</div></div>
               <div className="v2-memory-actions"><button type="button" onClick={props.onTestVoice}>Nghe thử giọng</button></div>
               <p className="v2-disclosure">Mira dùng ElevenLabs qua gateway server-side; khi gateway lỗi Mira báo trạng thái và không tự chuyển sang provider khác.</p>
+            </div>
+            <div className="v2-setting-group v2-device-check">
+              <div className="v2-device-check-head">
+                <div><h3>Thiết bị & kết nối</h3><p>Preflight read-only · không bật camera/mic, không xin quyền.</p></div>
+                <button type="button" disabled={deviceDiagnosticsBusy} onClick={() => void runDeviceCheck()}>{deviceDiagnosticsBusy ? 'Đang kiểm tra…' : 'Kiểm tra thiết bị'}</button>
+              </div>
+              {deviceDiagnostics ? <>
+                <div className="v2-device-grid">
+                  <DeviceCheckItem label="Kết nối an toàn" value={deviceDiagnostics.secureContext ? 'HTTPS / Local' : 'Cần HTTPS'} status={deviceDiagnostics.secureContext ? 'ok' : 'warn'} />
+                  <DeviceCheckItem label="Camera" value={deviceDiagnostics.mediaDevices ? permissionLabel(deviceDiagnostics.cameraPermission) : 'API không có'} status={deviceDiagnostics.mediaDevices && deviceDiagnostics.cameraPermission !== 'denied' ? 'ok' : 'warn'} />
+                  <DeviceCheckItem label="Microphone" value={deviceDiagnostics.mediaDevices ? permissionLabel(deviceDiagnostics.microphonePermission) : 'API không có'} status={deviceDiagnostics.mediaDevices && deviceDiagnostics.microphonePermission !== 'denied' ? 'ok' : 'warn'} />
+                  <DeviceCheckItem label="WebXR AR" value={!deviceDiagnostics.webxr ? 'Không hỗ trợ' : deviceDiagnostics.immersiveAr === true ? 'Sẵn sàng' : deviceDiagnostics.immersiveAr === false ? 'Không có AR' : 'Không xác định'} status={deviceDiagnostics.immersiveAr === true ? 'ok' : 'neutral'} />
+                  <DeviceCheckItem label="AI tăng tốc" value={deviceDiagnostics.webnn ? 'WebNN' : deviceDiagnostics.webgpu ? 'WebGPU' : 'CPU / WASM'} status={deviceDiagnostics.webnn || deviceDiagnostics.webgpu ? 'ok' : 'neutral'} />
+                  <DeviceCheckItem label="Video frame" value={deviceDiagnostics.requestVideoFrameCallback ? 'Tối ưu' : 'Fallback'} status={deviceDiagnostics.requestVideoFrameCallback ? 'ok' : 'neutral'} />
+                  <DeviceCheckItem label="Voice gateway" value={voiceStatus} status={voiceDiagnostics?.health === 'healthy' ? 'ok' : voiceDiagnostics?.health === 'unhealthy' ? 'warn' : 'neutral'} />
+                  <DeviceCheckItem label="Chế độ đề xuất" value={deviceDiagnostics.productMode === 'full' ? 'Full' : deviceDiagnostics.productMode === 'balanced' ? 'Balanced' : 'Compatibility'} status={deviceDiagnostics.productMode === 'full' ? 'ok' : 'neutral'} />
+                </div>
+                <p className="v2-device-meta">{deviceDiagnostics.hardwareConcurrency ? `${deviceDiagnostics.hardwareConcurrency} CPU threads` : 'CPU threads: không rõ'} · {deviceDiagnostics.deviceMemoryGb ? `${deviceDiagnostics.deviceMemoryGb} GB RAM báo bởi trình duyệt` : 'RAM: trình duyệt không báo'} · {deviceDiagnostics.crossOriginIsolated ? 'cross-origin isolated' : 'standard isolation'}</p>
+              </> : <p className="v2-disclosure">Bấm “Kiểm tra thiết bị” để xem khả năng hiện tại. Mira chỉ đọc capability và permission state nếu trình duyệt cho phép.</p>}
             </div>
             <div className="v2-setting-group"><h3>Độ dài câu trả lời</h3><div className="v2-choice-block"><span>Mức chi tiết</span><div className="v2-segmented">{RESPONSE_LENGTHS.map((item) => <button key={item.id} type="button" className={responseLength === item.id ? 'active' : ''} onClick={() => changeResponseLength(item.id)}>{item.label}</button>)}</div><p className="v2-disclosure">{selectedResponseLength.description}</p></div></div>
             <div className="v2-setting-group"><h3>Tính cách</h3><div className="v2-personas">{PERSONAS.map((item) => <button key={item.id} type="button" className={persona === item.id ? 'active' : ''} onClick={() => changePersona(item.id)}><span>{item.icon}</span><b>{item.label}</b></button>)}</div></div>
