@@ -113,6 +113,7 @@ const mustExist = [
   'src/app/useVisionHandInput.ts',
   'src/app/vision-hand-interaction.ts',
   'src/app/spatial-selection-gesture.ts',
+  'src/app/spatial-object-manipulation.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -291,6 +292,11 @@ for (const token of ['applySpatialSelectionGesture', "'victory_hold'", "'open_pa
   if (!spatialSelectionGesture.includes(token)) failures.push(`spatial selection gesture extraction missing: ${token}`);
 }
 
+const spatialObjectManipulation = readFileSync('src/app/spatial-object-manipulation.ts', 'utf8');
+for (const token of ['handleSpatialObjectManipulation', 'beginGrab', 'moveGrab', 'release(', 'cancelGrab', 'previewSnapObject', 'snapObject', 'applySpatialSpringConstraint', 'spatialJointForAttachment']) {
+  if (!spatialObjectManipulation.includes(token)) failures.push(`spatial object manipulation extraction missing: ${token}`);
+}
+
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 if (v2.includes('v2-presence-scenes')) failures.push('Mira v16.1 must not expose manual presence scene tabs');
 if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
@@ -349,6 +355,10 @@ for (const forbidden of ['const spatialAnchors = spatialTargets.map', 'const spa
 if (!v2.includes('applySpatialSelectionGesture')) failures.push('AppV2 spatial selection gesture wiring missing');
 for (const forbidden of ["intent.intent === 'victory_hold'", "intent.intent === 'open_palm_hold'", 'Victory · chọn cụm', 'Open Palm · bỏ chọn nhóm']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial selection gesture behavior: ${forbidden}`);
+}
+if (!v2.includes('handleSpatialObjectManipulation')) failures.push('AppV2 spatial object manipulation wiring missing');
+for (const forbidden of ['const existingAttachment = spatialWorldRuntimeRef.current.attachment(event.targetId)', "const intentDepthDelta = humanIntent.intent === 'push'", 'const previewAtRelease = placementPreviewRef.current', 'spatialObjectRuntimeRef.current.cancelGrab()', 'Đã hoàn tác vật thể']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial object manipulation lifecycle: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
