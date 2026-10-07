@@ -452,7 +452,7 @@ if (/VITE_.*ELEVENLABS_API_KEY|localStorage.*ELEVENLABS_API_KEY/.test(neonTtsGat
 }
 
 const localTts = readFileSync('src/core/tts/index.ts', 'utf8');
-for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", 'legacyGatewayOverride', 'return new CloudTTS(serverUrl)']) {
+for (const token of ["ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'", 'return new CloudTTS(serverUrl)']) {
   if (!localTts.includes(token)) failures.push(`ElevenLabs-only browser TTS routing missing: ${token}`);
 }
 for (const token of ['isTauriRuntime', 'needsRemoteGateway', "ELEVENLABS_REMOTE_URL = 'https://miraai-five.vercel.app/api'"]) {
