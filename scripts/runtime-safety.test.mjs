@@ -137,16 +137,23 @@ test('camera lifecycle rejects stale getUserMedia results and preserves a newer 
   }
 });
 
-test('all in-memory TTS gateways bound and prune rate-limit buckets', () => {
+test('all in-memory TTS gateways share bounded rate-limit policy and prune buckets', () => {
+  const contract = readFileSync('server/tts-contract.mjs', 'utf8');
+  assert.match(contract, /MIRA_TTS_MAX_TRACKED_CLIENTS = 2048/);
+  assert.match(contract, /MIRA_TTS_MAX_REQUESTS_PER_WINDOW = 48/);
+  assert.match(contract, /MIRA_TTS_RATE_WINDOW_MS = 5 \* 60 \* 1000/);
+
   for (const path of [
     'server/tts-policy.mjs',
     'server/tts-gateway.mjs',
     'functions/miratts/index.mjs',
   ]) {
     const source = readFileSync(path, 'utf8');
-    assert.match(source, /MAX_TRACKED_CLIENTS\s*=\s*2048/);
+    assert.match(source, /MIRA_TTS_MAX_TRACKED_CLIENTS/);
+    assert.match(source, /MIRA_TTS_MAX_REQUESTS_PER_WINDOW/);
     assert.match(source, /function pruneRateBuckets\(now\)/);
     assert.match(source, /function ensureRateBucketCapacity\(\)/);
+    assert.ok(!source.includes('MAX_REQUESTS_PER_WINDOW = 32'));
   }
 });
 
@@ -226,6 +233,37 @@ test('companion memory graph links co-occurring memories and music to user-state
   assert.match(skill, /Bật bài anh hay nghe lúc mệt/);
   assert.match(media, /hay nghe/);
   assert.match(media, /dung nho/);
+});
+
+test('desktop structured memory graph is inspectable and user-editable without fabricating semantic links', () => {
+  const memory = readFileSync('src-tauri/src/memory.rs', 'utf8');
+  const main = readFileSync('src-tauri/src/main.rs', 'utf8');
+  const client = readFileSync('src/desktop/memory-graph.ts', 'utf8');
+  const inspector = readFileSync('src/settings/StructuredMemoryInspector.tsx', 'utf8');
+  const settings = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
+
+  for (const token of [
+    'desktop_memory_graph',
+    'desktop_memory_structured_update',
+    'desktop_memory_structured_delete',
+  ]) {
+    assert.ok(memory.includes(token), 'missing native memory graph command: ' + token);
+    assert.ok(main.includes(token), 'native memory graph command is not registered: ' + token);
+    assert.ok(client.includes(token), 'desktop client missing memory graph command: ' + token);
+  }
+
+  assert.match(memory, /LIMIT 240/);
+  assert.match(memory, /LIMIT 600/);
+  assert.match(memory, /relation='semantic_temporal'/);
+  assert.match(memory, /DELETE FROM structured_memories WHERE id=\?1/);
+  assert.match(memory, /normalized_text=\?2/);
+  assert.match(memory, /another memory with the same normalized text already exists/);
+  assert.match(inspector, /Ký ức có cấu trúc/);
+  assert.match(inspector, /Liên kết gần nhất/);
+  assert.match(inspector, /Quên ký ức/);
+  assert.match(inspector, /Lưu thay đổi/);
+  assert.match(settings, /lazy\(\(\) => import\('\.\/StructuredMemoryInspector'\)\)/);
+  assert.match(settings, /desktopRuntime &&/);
 });
 
 test('companion graph adds guarded semantic-temporal links and narrows passive music context window', () => {
