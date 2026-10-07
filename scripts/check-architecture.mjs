@@ -714,6 +714,7 @@ const ttsContract = readFileSync('server/tts-contract.mjs', 'utf8');
 for (const token of [
   "MIRA_DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'",
   "MIRA_DEFAULT_MODEL_ID = 'eleven_v4'",
+  "MIRA_DEFAULT_ALLOWED_ORIGIN = 'https://minhduchd-mds.github.io'",
   "MIRA_TTS_OUTPUT_FORMAT = 'mp3_44100_128'",
   'MIRA_TTS_MAX_TEXT_LENGTH = 2000',
   'MIRA_TTS_RATE_WINDOW_MS = 5 * 60 * 1000',
