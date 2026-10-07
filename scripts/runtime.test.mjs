@@ -5554,6 +5554,33 @@ test('AppV2 delegates camera module loading and preview transport to useVisionTr
   }
 });
 
+test('AppV2 delegates WebXR session transport while retaining spatial interaction ownership', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useWebXRTransport.ts', 'utf8');
+
+  assert.match(app, /useWebXRTransport/);
+  assert.doesNotMatch(app, /setWebXRAvailable\(/);
+  assert.doesNotMatch(app, /setWebXRSnapshot\(/);
+  assert.doesNotMatch(app, /new SpatialWebXRSessionRuntime\(\)/);
+  assert.doesNotMatch(app, /detectWebXR\(\)\.then/);
+
+  for (const token of [
+    'SpatialWebXRSessionRuntime',
+    'detectWebXR',
+    'startWebXRTransport',
+    'stopWebXRTransport',
+    'setWebXRSnapshot',
+    'setWebXRAvailable',
+    'window.setInterval',
+  ]) {
+    assert.ok(hook.includes(token), `WebXR transport hook missing ${token}`);
+  }
+
+  assert.match(app, /webXRRuntimeRef\.current\.requestAnchorAtCurrentHit/);
+  assert.match(app, /SpatialXRProjectionRuntime/);
+  assert.match(app, /SpatialXRMetricManipulationRuntime/);
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
