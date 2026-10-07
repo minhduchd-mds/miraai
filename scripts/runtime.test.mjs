@@ -5649,6 +5649,29 @@ test('AppV2 delegates face social cue and presence continuity lifecycle', () => 
   }
 });
 
+test('AppV2 delegates debounced face head voice control lifecycle', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useFaceHeadControlLifecycle.ts', 'utf8');
+
+  assert.match(app, /useFaceHeadControlLifecycle/);
+  assert.match(app, /updateFaceHeadControl\(/);
+  assert.match(app, /resetFaceHeadControl\(\)/);
+  assert.doesNotMatch(app, /lastHeadGestureRef/);
+  assert.doesNotMatch(app, /lastFaceActionAtRef/);
+  assert.doesNotMatch(app, /resolveFaceControlAction/);
+
+  for (const token of [
+    'resolveFaceControlAction',
+    'updateFaceHeadControl',
+    'resetFaceHeadControl',
+    'lastHeadGestureRef',
+    'lastFaceActionAtRef',
+    'spatialHeadConsumedAt',
+  ]) {
+    assert.ok(hook.includes(token), `face head control lifecycle hook missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
