@@ -1,7 +1,7 @@
 import type { BrainTurn } from '../../core/types';
 import type { AffectState } from '../affect/mood-engine';
 import { desktopInvoke } from '../../desktop/bridge';
-import type { LocalMemorySnapshot } from './local-memory-store';
+import type { LocalMemorySnapshot, PortableMemoryLink, PortableStructuredMemory } from './local-memory-store';
 
 interface DesktopAffectRow {
   mood: AffectState['mood'];
@@ -25,6 +25,19 @@ export class DesktopMemoryStore {
 
   async exportSnapshot(): Promise<LocalMemorySnapshot> {
     return desktopInvoke<LocalMemorySnapshot>('desktop_memory_export');
+  }
+
+  async importStructuredMemoryGraph(
+    nodes: PortableStructuredMemory[],
+    links: PortableMemoryLink[],
+  ): Promise<void> {
+    if (!Array.isArray(nodes) || !nodes.length) return;
+    try {
+      await desktopInvoke('desktop_memory_import_structured', {
+        nodes: nodes.slice(-240),
+        links: Array.isArray(links) ? links.slice(-600) : [],
+      });
+    } catch { /* best effort merge-only import */ }
   }
 
   async importTurns(items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>): Promise<void> {
