@@ -1234,8 +1234,35 @@ for (const token of ['NSCameraUsageDescription', 'NSMicrophoneUsageDescription',
   if (!desktopPlist.includes(token)) failures.push(`desktop Info.plist missing: ${token}`);
 }
 const desktopWorkflow = readFileSync('.github/workflows/macos-dmg.yml', 'utf8');
-for (const token of ['macos-15-intel', '@tauri-apps/cli@2.12.0', 'x86_64-apple-darwin', 'hdiutil verify', 'codesign --verify', 'Mira-macOS-Intel-DMG']) {
+for (const token of [
+  'macos-15-intel',
+  '@tauri-apps/cli@2.12.0',
+  'x86_64-apple-darwin',
+  'hdiutil verify',
+  'codesign --verify',
+  'APPLE_CERTIFICATE',
+  'APPLE_CERTIFICATE_PASSWORD',
+  'APPLE_SIGNING_IDENTITY_SECRET',
+  'MACOS_SIGNING_ENABLED',
+  'MACOS_NOTARIZATION_ENABLED',
+  'xcrun stapler validate',
+  'Mira-macOS-Intel-DMG',
+]) {
   if (!desktopWorkflow.includes(token)) failures.push(`desktop DMG workflow missing: ${token}`);
+}
+
+const windowsReleaseWorkflow = readFileSync('.github/workflows/release-windows-v0.1.0.yml', 'utf8');
+for (const token of [
+  'WINDOWS_CERTIFICATE',
+  'WINDOWS_CERTIFICATE_PASSWORD',
+  'Import-PfxCertificate',
+  'certificateThumbprint',
+  'Get-AuthenticodeSignature',
+  'WINDOWS_SIGNING_ENABLED',
+  'timestamp.digicert.com',
+  'Mira-Windows-x64-Setup',
+]) {
+  if (!windowsReleaseWorkflow.includes(token)) failures.push(`Windows release signing workflow missing: ${token}`);
 }
 
 const financeIntent = readFileSync('src/intelligence/finance/finance-intent.ts', 'utf8');
