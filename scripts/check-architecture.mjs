@@ -114,6 +114,7 @@ const mustExist = [
   'src/app/vision-hand-interaction.ts',
   'src/app/spatial-selection-gesture.ts',
   'src/app/spatial-object-manipulation.ts',
+  'src/app/spatial-window-control.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -297,6 +298,11 @@ for (const token of ['handleSpatialObjectManipulation', 'beginGrab', 'moveGrab',
   if (!spatialObjectManipulation.includes(token)) failures.push(`spatial object manipulation extraction missing: ${token}`);
 }
 
+const spatialWindowControl = readFileSync('src/app/spatial-window-control.ts', 'utf8');
+for (const token of ['handleSpatialWindowControl', 'spatialWindowAvailable', 'grabSessionRef.current', 'depthRuntime.begin', 'depthRuntime.update', 'updateWindow', 'spatialHeadConsumedAtRef.current']) {
+  if (!spatialWindowControl.includes(token)) failures.push(`spatial window control extraction missing: ${token}`);
+}
+
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 if (v2.includes('v2-presence-scenes')) failures.push('Mira v16.1 must not expose manual presence scene tabs');
 if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
@@ -359,6 +365,10 @@ for (const forbidden of ["intent.intent === 'victory_hold'", "intent.intent === 
 if (!v2.includes('handleSpatialObjectManipulation')) failures.push('AppV2 spatial object manipulation wiring missing');
 for (const forbidden of ['const existingAttachment = spatialWorldRuntimeRef.current.attachment(event.targetId)', "const intentDepthDelta = humanIntent.intent === 'push'", 'const previewAtRelease = placementPreviewRef.current', 'spatialObjectRuntimeRef.current.cancelGrab()', 'Đã hoàn tác vật thể']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial object manipulation lifecycle: ${forbidden}`);
+}
+if (!v2.includes('handleSpatialWindowControl')) failures.push('AppV2 spatial window control wiring missing');
+for (const forbidden of ['Pinch giữ · di chuyển cửa sổ', 'const dx = (event.point.x - session.start.x) * window.innerWidth * 1.42', 'Đã thả cửa sổ', 'Đã hủy thao tác']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns spatial window control lifecycle: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
