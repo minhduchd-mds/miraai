@@ -1,15 +1,15 @@
 import {
+  MIRA_TTS_MAX_REQUESTS_PER_WINDOW,
   MIRA_TTS_MAX_TEXT_LENGTH,
-  defaultElevenModel,
+  MIRA_TTS_MAX_TRACKED_CLIENTS,
+  MIRA_TTS_RATE_WINDOW_MS,
   defaultElevenVoice,
   elevenDialoguePayload,
   elevenDialogueUrl,
+  isTtsOriginAllowed,
+  ttsContractMetadata,
 } from '../../server/tts-contract.mjs';
 
-const ALLOWED_ORIGIN = process.env.MIRA_TTS_ALLOWED_ORIGIN || 'https://minhduchd-mds.github.io';
-const WINDOW_MS = 5 * 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 32;
-const MAX_TRACKED_CLIENTS = 2048;
 const buckets = new Map();
 let nextBucketSweepAt = 0;
 
@@ -23,13 +23,14 @@ function requestOrigin(request) {
 
 function originAllowed(request) {
   const origin = requestOrigin(request);
-  return !origin || origin === ALLOWED_ORIGIN;
+  const ownOrigin = new URL(request.url).origin;
+  return isTtsOriginAllowed(origin, ownOrigin);
 }
 
 function corsHeaders(request) {
   const origin = requestOrigin(request);
   return {
-    'access-control-allow-origin': origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN,
+    ...(origin && originAllowed(request) ? { 'access-control-allow-origin': origin } : {}),
     'access-control-allow-methods': 'GET,POST,OPTIONS',
     'access-control-allow-headers': 'content-type',
     'access-control-max-age': '86400',
@@ -57,16 +58,16 @@ function clientKey(request) {
 }
 
 function pruneRateBuckets(now) {
-  if (now < nextBucketSweepAt && buckets.size < MAX_TRACKED_CLIENTS) return;
-  nextBucketSweepAt = now + WINDOW_MS;
+  if (now < nextBucketSweepAt && buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS) return;
+  nextBucketSweepAt = now + MIRA_TTS_RATE_WINDOW_MS;
   for (const [key, bucket] of buckets) {
-    if (now - bucket.startedAt >= WINDOW_MS) buckets.delete(key);
+    if (now - bucket.startedAt >= MIRA_TTS_RATE_WINDOW_MS) buckets.delete(key);
   }
 }
 
 function ensureRateBucketCapacity() {
-  if (buckets.size < MAX_TRACKED_CLIENTS) return;
-  const toRemove = buckets.size - MAX_TRACKED_CLIENTS + 1;
+  if (buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS) return;
+  const toRemove = buckets.size - MIRA_TTS_MAX_TRACKED_CLIENTS + 1;
   let removed = 0;
   for (const key of buckets.keys()) {
     buckets.delete(key);
@@ -81,14 +82,14 @@ function takeRateSlot(request) {
   pruneRateBuckets(now);
 
   const previous = buckets.get(key);
-  if (!previous || now - previous.startedAt >= WINDOW_MS) {
+  if (!previous || now - previous.startedAt >= MIRA_TTS_RATE_WINDOW_MS) {
     if (previous) buckets.delete(key);
     ensureRateBucketCapacity();
     buckets.set(key, { startedAt: now, count: 1 });
     return true;
   }
   previous.count += 1;
-  return previous.count <= MAX_REQUESTS_PER_WINDOW;
+  return previous.count <= MIRA_TTS_MAX_REQUESTS_PER_WINDOW;
 }
 
 
@@ -131,9 +132,7 @@ async function handler(request) {
   if (request.method === 'GET' && url.pathname.endsWith('/health')) {
     return json(request, {
       ok: true,
-      provider: 'elevenlabs',
-      configured: Boolean(apiKey()),
-      model: defaultElevenModel(),
+      ...ttsContractMetadata(Boolean(apiKey())),
       runtime: 'neon-function',
     });
   }
