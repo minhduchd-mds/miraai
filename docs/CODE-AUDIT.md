@@ -6,16 +6,16 @@
 
 | Hạng mục | Điểm | Nhận định |
 |---|---:|---|
-| Architecture boundaries | **8/10** | Runtime/Memory/Skills/Host đã tách tương đối rõ; AppV2 còn quá nhiều orchestration |
+| Architecture boundaries | **9/10** | Vision/WebXR/spatial orchestration đã tách khỏi AppV2; component chính chủ yếu còn composition + state wiring |
 | Runtime safety | **8.5/10** | Permission gate, memory boundary, TTS health/circuit breaker và fail-safe khá tốt |
 | CI/CD | **9/10** | Node 24 + 26, typecheck, tests, benchmark, bundle/artifact/dependency gates |
 | Bundle/performance | **8.5/10** | Finance lazy-load; production media prune; initial budget đang xanh |
-| Code organization | **6.5/10** | `AppV2.tsx` là monolith lớn nhất |
+| Code organization | **8.5/10** | `AppV2.tsx` đã giảm mạnh; runtime nặng nằm ở các boundary chuyên trách |
 | Dead-code hygiene | **8.5/10** | TTS legacy/Python backend/UI orphan đã loại; architecture guard khóa regression |
 | Desktop hardening | **7/10** | Local-first tốt; release signing/notarization còn thiếu |
-| Testability | **8/10** | Nhiều pure runtimes có unit test; AppV2 coupling làm integration test khó hơn |
+| Testability | **8.5/10** | Runtime/helper có contract tests; AppV2 coupling lớn đã được gỡ đáng kể |
 
-**Đánh giá tổng thể: 8.1/10 — nền tảng kỹ thuật tốt, technical debt chính nằm ở orchestration/UI monolith chứ không phải dependency rác.**
+**Đánh giá tổng thể: 8.7/10 — runtime boundaries đã rõ hơn đáng kể; technical debt còn lại tập trung vào release hardening và real-device validation.**
 
 ## Cleanup đã xác minh
 
@@ -70,15 +70,12 @@ Sau cleanup:
 
 Hiện tại:
 
-- **1,772 dòng**
-- **73.2 KB source**
-- **50 imports**
-- **47 refs**
-- **25 effects**
-- **18 states**
-- **11 callbacks**
+- **942 dòng**
+- **~37.9 KB source**
+- Vision 120ms frame loop đã nằm trong `useVisionSpatialRuntime`
+- WebXR projection/manipulation/anchors/rigid-body loop đã nằm trong `useWebXRSpatialRuntime`
 
-Đây là rủi ro maintainability lớn nhất. Không nên tiếp tục nhét thêm Vision/XR/Companion logic trực tiếp vào component.
+AppV2 hiện chủ yếu là composition root + session state/ref wiring; không còn là nơi thực thi trực tiếp sensor frame hay XR physics loop.
 
 Target:
 
@@ -97,12 +94,7 @@ Refactor phải **không đổi hành vi**, mỗi extraction đi kèm behavior t
 
 ### 2. Sensor capability lazy boundary
 
-Các sensor/XR module đã có nhiều boundary tốt, nhưng AppV2 vẫn static-import nhiều pure orchestration module. Bước sau nên tải capability theo:
-- camera enabled;
-- hand tracking enabled;
-- XR session requested.
-
-Mục tiêu: giảm deferred AppV2 graph mà không phá startup reliability.
+Runtime orchestration đã tách khỏi AppV2. Bước tối ưu tiếp theo chỉ còn là **performance hardening**: cân nhắc lazy-load sâu hơn theo camera/XR capability nếu bundle measurement cho thấy cần thiết. Đây không còn là blocker kiến trúc.
 
 ### 3. Chuẩn hóa gateway/shared policy
 
@@ -150,6 +142,10 @@ Mira có Vercel/Render/Neon gateway alternatives. Policy CORS/rate-limit/provide
 - `src/app/spatial-window-control.ts` — one-hand window grab/move/release lifecycle;
 - `src/app/spatial-window-bimanual.ts` — two-hand window scale/rotate lifecycle;
 - `src/app/spatial-object-bimanual.ts` — two-hand object/joint/group scale, rotate, translate;
-- `src/app/spatial-object-world-step.ts` — webcam inertia, collision, auto-stack, attachment follow và auto-snap world step.
+- `src/app/spatial-object-world-step.ts` — webcam inertia, collision, auto-stack, attachment follow và auto-snap world step;
+- `src/app/useWebXRSpatialRuntime.ts` — XR hand projection, surface/contact, anchor sync, window/object manipulation và rigid-body/collision RAF loop;
+- `src/app/useVisionSpatialRuntime.ts` — complete 120ms Vision frame orchestration: perception → hand/spatial → social/world context → affect → face control.
 
-Kết quả hiện tại: `AppV2.tsx` còn khoảng **1,772 dòng / 73.2 KB source**. Các bước tiếp theo phải tiếp tục theo nguyên tắc extraction nhỏ + behavior tests + Node 24/26 + bundle/artifact gates; không refactor sensor loop lớn trong một commit.
+Kết quả hiện tại: `AppV2.tsx` còn khoảng **942 dòng / 37.9 KB source**, giảm từ 2,873 dòng ban đầu. Không còn sensor/XR frame loop lớn nằm trực tiếp trong component.
+
+> Validation note: source-contract/architecture guards đã cập nhật cho boundary mới. Vercel đang chặn các commit cuối bởi build-rate-limit, vì vậy không ghi nhận các commit cuối là production-verified cho tới khi quota build mở lại.
