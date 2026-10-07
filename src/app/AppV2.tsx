@@ -27,7 +27,6 @@ import {
   spatialAnchorFromRect,
 } from '../core/vision/spatial-anchor';
 import { micProsodySnapshot } from '../core/audio-level';
-import { disableBackgroundCompanion, enableBackgroundCompanion } from '../runtime/background-companion';
 import { EMPTY_ENVIRONMENT, environmentPrompt, type EnvironmentLabel } from '../core/vision/environment-model';
 import {
   SpatialSceneGraphTracker,
@@ -136,6 +135,7 @@ import {
   saveTheme,
 } from './app-preferences';
 import { usePresenceReturnLearning } from './usePresenceReturnLearning';
+import { useVoiceSessionLifecycle } from './useVoiceSessionLifecycle';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -150,8 +150,6 @@ const STATE_COPY: Record<MiraState, string> = {
   error: 'Cần kiểm tra',
 };
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
-const VOICE_HANDSHAKE_TEXT = 'Em nghe anh. Chế độ trò chuyện liên tục đã bật.';
-const VOICE_HANDSHAKE_TIMEOUT = 5000;
 export default function AppV2() {
   const mira = useMira();
   const [theme, setTheme] = useState<Theme>(loadTheme);
@@ -167,11 +165,6 @@ export default function AppV2() {
   const faceSocialCueTimerRef = useRef<number | null>(null);
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [voiceReady, setVoiceReady] = useState(false);
-  const [voiceBooting, setVoiceBooting] = useState(false);
-  const bootPendingRef = useRef(false);
-  const bootSawSpeakingRef = useRef(false);
-  const bootTimerRef = useRef<number | null>(null);
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
   const visionModulesRef = useRef<typeof import('../presence/vision-runtime') | null>(null);
   const [visionOn, setVisionOn] = useState(false);
@@ -613,6 +606,19 @@ export default function AppV2() {
       setVisionBooting(false);
     }
   }, [loadVisionModules, stopVision, visionBooting, visionOn]);
+
+  const {
+    voiceReady,
+    voiceBooting,
+    activateVoice,
+    voiceSessionActive,
+  } = useVoiceSessionLifecycle({
+    mira,
+    settingsOpen,
+    visionOn,
+    visionBooting,
+    toggleVision,
+  });
 
   useEffect(() => {
     if (!visionOn) return;
@@ -2396,150 +2402,12 @@ export default function AppV2() {
     void webXRRuntimeRef.current.stop();
   }, []);
 
-  useEffect(() => {
-    const unlock = () => mira.unlockAudio();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    window.addEventListener('keydown', unlock, { once: true });
-    return () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-  }, [mira.unlockAudio]);
-
-  const clearBootTimer = useCallback(() => {
-    if (bootTimerRef.current != null) {
-      window.clearTimeout(bootTimerRef.current);
-      bootTimerRef.current = null;
-    }
-  }, []);
-
-  const finishVoiceHandshake = useCallback(() => {
-    if (!bootPendingRef.current) return;
-    bootPendingRef.current = false;
-    bootSawSpeakingRef.current = false;
-    clearBootTimer();
-    setVoiceBooting(false);
-    setVoiceReady(true);
-    window.setTimeout(() => mira.startLive(), 80);
-  }, [clearBootTimer, mira.startLive]);
-
-  useEffect(() => {
-    if (!voiceBooting || !bootPendingRef.current) return;
-    if (mira.state === 'speaking') bootSawSpeakingRef.current = true;
-    if (mira.state === 'idle' && bootSawSpeakingRef.current) finishVoiceHandshake();
-  }, [finishVoiceHandshake, mira.state, voiceBooting]);
-
-  useEffect(() => () => clearBootTimer(), [clearBootTimer]);
-
-  const activateVoice = useCallback(() => {
-    mira.unlockAudio();
-    if (!visionOn && !visionBooting) void toggleVision();
-
-    if (voiceReady) {
-      if (!mira.live) {
-        mira.startLive();
-      } else if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') {
-        mira.interrupt();
-      } else if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
-        mira.startListening();
-      }
-      return;
-    }
-
-    if (bootPendingRef.current) {
-      bootPendingRef.current = false;
-      bootSawSpeakingRef.current = false;
-      clearBootTimer();
-      setVoiceBooting(false);
-      setVoiceReady(true);
-      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') {
-        mira.interrupt();
-        window.setTimeout(() => mira.startLive(), 160);
-      } else {
-        mira.startLive();
-      }
-      return;
-    }
-
-    if (mira.stateRef.current !== 'idle') {
-      setVoiceReady(true);
-      mira.startLive();
-      return;
-    }
-
-    bootPendingRef.current = true;
-    bootSawSpeakingRef.current = false;
-    setVoiceBooting(true);
-    mira.say(VOICE_HANDSHAKE_TEXT);
-
-    bootTimerRef.current = window.setTimeout(() => {
-      if (!bootPendingRef.current) return;
-      bootPendingRef.current = false;
-      bootSawSpeakingRef.current = false;
-      bootTimerRef.current = null;
-      setVoiceBooting(false);
-      setVoiceReady(true);
-      if (mira.stateRef.current === 'speaking' || mira.stateRef.current === 'thinking') {
-        mira.interrupt();
-        window.setTimeout(() => mira.startLive(), 160);
-      } else {
-        mira.startLive();
-      }
-    }, VOICE_HANDSHAKE_TIMEOUT);
-  }, [clearBootTimer, mira.interrupt, mira.live, mira.say, mira.startListening, mira.startLive, mira.stateRef, mira.unlockAudio, toggleVision, visionBooting, visionOn, voiceReady]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (settingsOpen || event.code !== 'Space' || event.repeat) return;
-      const element = event.target as HTMLElement | null;
-      if (element && /^(BUTTON|SELECT|INPUT|TEXTAREA)$/.test(element.tagName)) return;
-      event.preventDefault();
-      activateVoice();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [activateVoice, settingsOpen]);
-
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
     const url = new URL(window.location.href);
     url.searchParams.set('legacy', '1');
     window.location.assign(url.toString());
   };
-  useEffect(() => {
-    const resumeIfNeeded = () => {
-      if (document.visibilityState !== 'visible' || !mira.live) return;
-      mira.notifyContextEvent('resume');
-      if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
-        window.setTimeout(() => {
-          if (mira.live && (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted')) {
-            mira.startListening();
-          }
-        }, 180);
-      }
-    };
-    document.addEventListener('visibilitychange', resumeIfNeeded);
-    window.addEventListener('focus', resumeIfNeeded);
-    return () => {
-      document.removeEventListener('visibilitychange', resumeIfNeeded);
-      window.removeEventListener('focus', resumeIfNeeded);
-    };
-  }, [mira.live, mira.notifyContextEvent, mira.startListening, mira.stateRef]);
-
-  useEffect(() => {
-    if (!mira.live) {
-      void disableBackgroundCompanion();
-      return;
-    }
-    void enableBackgroundCompanion(() => {
-      mira.notifyContextEvent('wake');
-      if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
-        mira.startListening();
-      }
-    });
-    return () => { void disableBackgroundCompanion(); };
-  }, [mira.live, mira.notifyContextEvent, mira.startListening, mira.stateRef]);
-
   const moodLabel = ({
     happy: 'Tín hiệu tích cực',
     sad: 'Tín hiệu trầm',
@@ -2577,13 +2445,6 @@ export default function AppV2() {
   const cameraConnected = Boolean(
     webXRSnapshot.active ||
     (visionOn && (faceSeen || handSeen)),
-  );
-  const voiceSessionActive = Boolean(
-    mira.live ||
-    voiceReady ||
-    mira.state === 'listening' ||
-    mira.state === 'thinking' ||
-    mira.state === 'speaking',
   );
 
   return (
