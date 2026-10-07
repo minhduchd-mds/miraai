@@ -39,6 +39,46 @@ export interface DeviceLabAssessment {
   warnings: string[];
 }
 
+function sanitizeDeviceReport(source: MiraDeviceReport): MiraDeviceReport {
+  return {
+    format: 'mira.device-report',
+    schemaVersion: 1,
+    createdAt: String(source?.createdAt || '').slice(0, 40),
+    privacy: {
+      mediaCaptured: false,
+      rawInputIncluded: false,
+      identifiersIncluded: false,
+      locationIncluded: false,
+    },
+    device: {
+      checkedAt: String(source?.device?.checkedAt || '').slice(0, 40),
+      secureContext: Boolean(source?.device?.secureContext),
+      mediaDevices: Boolean(source?.device?.mediaDevices),
+      cameraPermission: source?.device?.cameraPermission || 'unknown',
+      microphonePermission: source?.device?.microphonePermission || 'unknown',
+      webxr: Boolean(source?.device?.webxr),
+      immersiveAr: source?.device?.immersiveAr == null
+        ? null
+        : Boolean(source.device.immersiveAr),
+      webgpu: Boolean(source?.device?.webgpu),
+      webnn: Boolean(source?.device?.webnn),
+      requestVideoFrameCallback: Boolean(source?.device?.requestVideoFrameCallback),
+      audioWorklet: Boolean(source?.device?.audioWorklet),
+      crossOriginIsolated: Boolean(source?.device?.crossOriginIsolated),
+      productMode: source?.device?.productMode || 'compatibility',
+      hardwareConcurrency: Math.max(
+        0,
+        Math.round(Number(source?.device?.hardwareConcurrency || 0)),
+      ),
+      deviceMemoryGb: Math.max(0, Number(source?.device?.deviceMemoryGb || 0)),
+    },
+    voice: {
+      provider: String(source?.voice?.provider || 'unknown').trim().slice(0, 80),
+      health: String(source?.voice?.health || 'unknown').trim().slice(0, 80),
+    },
+  };
+}
+
 function boundedLabel(value: unknown): string {
   const text = String(value || '').trim().slice(0, 80);
   return text || 'Unnamed device';
@@ -64,7 +104,7 @@ export function buildDeviceLabResult(
     schemaVersion: 1,
     createdAt: new Date().toISOString(),
     label: boundedLabel(label),
-    source,
+    source: sanitizeDeviceReport(source),
     observation: {
       cameraStarted: boolOrUndefined(observation.cameraStarted),
       cameraStartMs: finiteMs(observation.cameraStartMs),
