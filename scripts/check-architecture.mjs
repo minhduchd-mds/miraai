@@ -175,6 +175,8 @@ for (const token of ["target: 'es2022'", "minify: 'oxc'", "cssMinify: 'lightning
 }
 
 const packageJson = readFileSync('package.json', 'utf8');
+if (!packageJson.includes('"protobufjs@7.6.6": true')) failures.push('reviewed protobufjs postinstall approval must stay version-pinned');
+if (packageJson.includes('"protobufjs": true')) failures.push('protobufjs install-script approval must not be widened to all versions');
 for (const token of ['scripts/prune-runtime-assets.mjs', '"prune:runtime"', 'npm run build && npm run check:bundle']) {
   if (!packageJson.includes(token)) failures.push(`runtime build prune contract missing: ${token}`);
 }
