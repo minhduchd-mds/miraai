@@ -111,6 +111,7 @@ const mustExist = [
   'src/app/useFaceHeadControlLifecycle.ts',
   'src/app/useVisionWorldContext.ts',
   'src/app/useVisionHandInput.ts',
+  'src/app/vision-hand-interaction.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -279,6 +280,11 @@ for (const token of ['GestureIntentTracker', 'mirrorSpatialHandKinematicsX', 'up
   if (!visionHandInput.includes(token)) failures.push(`vision hand input extraction missing: ${token}`);
 }
 
+const visionHandInteraction = readFileSync('src/app/vision-hand-interaction.ts', 'utf8');
+for (const token of ['updateVisionHandInteraction', 'spatialAnchorFromRect', 'hitTestSpatialRay', 'contactRuntime.update', 'intentRuntime.update', 'touchRuntime.update', 'rayHitFromContact']) {
+  if (!visionHandInteraction.includes(token)) failures.push(`vision hand interaction extraction missing: ${token}`);
+}
+
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
 if (v2.includes('v2-presence-scenes')) failures.push('Mira v16.1 must not expose manual presence scene tabs');
 if (!v2.includes("from '../ui/app-shell-icons'")) failures.push('AppV2 shell icons must stay isolated from the full icon library');
@@ -329,6 +335,10 @@ for (const forbidden of ['sceneGraphTrackerRef', 'objectInteractionTrackerRef', 
 if (!v2.includes('useVisionHandInput')) failures.push('AppV2 vision hand input wiring missing');
 for (const forbidden of ['gestureIntentTrackerRef', 'mirrorSpatialHandKinematicsX', 'const rawKinematics =', 'const relativePointer = spatialDeviceAdapterRef.current.webcamPoint']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision hand input pipeline: ${forbidden}`);
+}
+if (!v2.includes('updateVisionHandInteraction')) failures.push('AppV2 vision hand interaction wiring missing');
+for (const forbidden of ['const spatialAnchors = spatialTargets.map', 'const spatialRayTargets = spatialTargets', 'rayHitFromContact', 'hitTestSpatialRay(']) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 still owns vision hand interaction resolver: ${forbidden}`);
 }
 if (v2.includes('sendText')) failures.push('voice-only production surface must not expose text composer flow');
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
