@@ -97,6 +97,7 @@ const mustExist = [
   'src/intelligence/memory/local-memory-store.ts',
   'src/runtime/background-companion.ts',
   'src/runtime/device-diagnostics.ts',
+  'src/runtime/device-lab.ts',
   'src/presence/FaceMeshOverlay.tsx',
   'public/sw.js',
   'public/manifest.webmanifest',
@@ -139,6 +140,8 @@ const mustExist = [
   'scripts/prune-pages-assets.mjs',
   'scripts/check-deploy-artifact.mjs',
   'scripts/check-media.mjs',
+  'scripts/device-lab-capture.mjs',
+  'scripts/device-lab-matrix.mjs',
   'scripts/visual-qa.spec.mjs',
   'server/tts-contract.mjs',
   'server/tts-policy.mjs',
@@ -193,6 +196,9 @@ if (!packageJson.includes('"protobufjs@7.6.6": true')) failures.push('reviewed p
 if (packageJson.includes('"protobufjs": true')) failures.push('protobufjs install-script approval must not be widened to all versions');
 for (const token of ['scripts/prune-runtime-assets.mjs', '"prune:runtime"', 'npm run build && npm run check:bundle']) {
   if (!packageJson.includes(token)) failures.push(`runtime build prune contract missing: ${token}`);
+}
+for (const token of ['"device:lab:capture"', '"device:lab:matrix"', 'scripts/device-lab-capture.mjs', 'scripts/device-lab-matrix.mjs']) {
+  if (!packageJson.includes(token)) failures.push(`device lab package script missing: ${token}`);
 }
 const runtimePrune = readFileSync('scripts/prune-runtime-assets.mjs', 'utf8');
 for (const token of ["join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')", "join(DIST, 'scenes', 'home.png')", "join(DIST, 'scenes', 'office.png')", "join(DIST, 'mira-assets', 'scenes')", "join(DIST, 'mira-assets', 'expressions')", 'Runtime asset prune']) {
@@ -720,6 +726,47 @@ for (const token of ['runDeviceDiagnostics', 'buildDeviceDiagnosticsReport', "fo
   if (!deviceDiagnosticsSource.includes(token)) failures.push(`device diagnostics contract missing: ${token}`);
 }
 if (deviceDiagnosticsSource.includes('getUserMedia(')) failures.push('device diagnostics preflight must not call getUserMedia');
+
+const deviceLabSource = readFileSync('src/runtime/device-lab.ts', 'utf8');
+for (const token of [
+  "format: 'mira.device-lab-result'",
+  'schemaVersion: 1',
+  'sanitizeDeviceReport',
+  'assessDeviceLabResult',
+  'cameraStartMs <= 2500',
+  'voiceFirstAudioMs <= 1800',
+  "'not-applicable'",
+  'isPrivateDeviceLabResult',
+  'rawFrame',
+  'rawAudio',
+  'preciseLocation',
+]) {
+  if (!deviceLabSource.includes(token)) failures.push(`device lab contract missing: ${token}`);
+}
+
+const deviceCaptureScript = readFileSync('scripts/device-lab-capture.mjs', 'utf8');
+for (const token of [
+  '--report=',
+  '--label=',
+  'buildDeviceLabResult',
+  'isPrivateDeviceLabResult',
+  'artifacts/device-lab',
+]) {
+  if (!deviceCaptureScript.includes(token)) failures.push(`device lab capture CLI missing: ${token}`);
+}
+
+const deviceMatrixScript = readFileSync('scripts/device-lab-matrix.mjs', 'utf8');
+for (const token of [
+  "format: 'mira.device-matrix'",
+  'schemaVersion: 1',
+  'assessDeviceLabResult',
+  '--require=',
+  'matrix.json',
+  'matrix.md',
+  'privacy contract failed',
+]) {
+  if (!deviceMatrixScript.includes(token)) failures.push(`device lab matrix CLI missing: ${token}`);
+}
 
 const settingsPanelSource = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
 for (const token of ['runDeviceDiagnostics', 'buildDeviceDiagnosticsReport', 'Thiết bị & kết nối', 'không bật camera/mic', 'v2-device-grid', 'Kiểm tra thiết bị', 'Xuất báo cáo', 'mira-device-report-', 'không chứa camera frame']) {
