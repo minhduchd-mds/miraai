@@ -1,6 +1,6 @@
 # Mira — Expert Code Audit
 
-> Snapshot: `4217073` · audit tập trung vào correctness, maintainability, dead-code hygiene, runtime weight và release safety.
+> Snapshot: `5109830` · audit tập trung vào correctness, maintainability, dead-code hygiene, runtime weight và release safety.
 
 ## Tổng quan
 
@@ -12,10 +12,10 @@
 | Bundle/performance | **8.5/10** | Finance lazy-load; production media prune; initial budget đang xanh |
 | Code organization | **8.5/10** | `AppV2.tsx` đã giảm mạnh; runtime nặng nằm ở các boundary chuyên trách |
 | Dead-code hygiene | **8.5/10** | TTS legacy/Python backend/UI orphan đã loại; architecture guard khóa regression |
-| Desktop hardening | **7/10** | Local-first tốt; release signing/notarization còn thiếu |
+| Desktop hardening | **8.5/10** | Hardened runtime + optional Authenticode/Developer ID/notarization workflows đã có; trạng thái signed thật phụ thuộc release secrets |
 | Testability | **8.5/10** | Runtime/helper có contract tests; AppV2 coupling lớn đã được gỡ đáng kể |
 
-**Đánh giá tổng thể: 8.7/10 — runtime boundaries đã rõ hơn đáng kể; technical debt còn lại tập trung vào release hardening và real-device validation.**
+**Đánh giá tổng thể: 8.9/10 — runtime boundaries, TTS gateway policy và desktop release hardening đã rõ; phần còn lại chủ yếu là release credential validation và real-device matrix.**
 
 ## Cleanup đã xác minh
 
@@ -51,18 +51,15 @@
 
 Không xóa module chỉ vì “experimental”. Điều kiện xóa: **không có consumer runtime + không có deployment contract + không được architecture guard cố ý giữ**.
 
-## P0 — không còn blocker đã biết
+## P0 — validation status
 
-Sau cleanup:
-- Node 24 CI ✅
-- Node 26 compatibility ✅
-- TypeScript ✅
-- Runtime tests ✅
-- Functional/camera benchmark ✅
-- Bundle budget ✅
-- Deploy artifact smoke ✅
-- Critical dependency audit ✅
-- GitHub Pages ✅
+Đã có production Vercel build **READY** tại commit `7878eee7`:
+- Vite production build ✅
+- Runtime asset prune ✅
+- Production alias `miraai-five.vercel.app` ✅
+- Runtime error scan gần nhất: **0 lỗi** ✅
+
+Các gate `tsc`, runtime tests, benchmark, bundle/artifact smoke và Node 24/26 vẫn được khai báo trong CI. Tuy nhiên commit tạo qua connector hiện không sinh GitHub Actions run cho HEAD mới, nên không ghi nhận các gate đó là **current-HEAD verified** cho tới khi workflow được dispatch/run lại.
 
 ## P1 — refactor cần làm có kiểm soát
 
@@ -157,4 +154,4 @@ Architecture/runtime guards khóa các gateway không quay lại `text-to-speech
 
 Kết quả hiện tại: `AppV2.tsx` còn khoảng **942 dòng / 37.9 KB source**, giảm từ 2,873 dòng ban đầu. Không còn sensor/XR frame loop lớn nằm trực tiếp trong component.
 
-> Validation note: source-contract/architecture guards đã cập nhật cho boundary mới. Vercel đang chặn các commit cuối bởi build-rate-limit, vì vậy không ghi nhận các commit cuối là production-verified cho tới khi quota build mở lại.
+> Validation note: source-contract/architecture guards đã cập nhật cho boundary mới. Production build `7878eee7` đã READY; các commit sau đó chủ yếu là policy guards/docs/desktop hardening và vẫn có thể gặp Vercel daily build-rate-limit. HEAD mới nhất chưa có GitHub Actions run quan sát được.
