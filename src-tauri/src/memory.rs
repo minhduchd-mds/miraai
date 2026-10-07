@@ -386,6 +386,47 @@ fn semantic_similarity(query: &[String], text: &str) -> f64 {
     hits as f64 / query.len() as f64
 }
 
+const MAX_MEMORY_LINKS_PER_NODE: usize = 24;
+const WEAK_SEMANTIC_LINK_TTL_MS: i64 = 45 * 24 * 60 * 60_000;
+
+fn prune_memory_graph(
+    connection: &Connection,
+    touched_ids: &[i64],
+    ts: i64,
+) -> Result<(), String> {
+    let weak_cutoff = ts - WEAK_SEMANTIC_LINK_TTL_MS;
+    connection.execute(
+      "DELETE FROM memory_links
+       WHERE relation='semantic_temporal' AND weight<0.40 AND created_at<?1",
+      [weak_cutoff]
+    ).map_err(|e| format!("prune stale semantic memory links: {e}"))?;
+
+    let unique_ids = touched_ids.iter().copied().collect::<HashSet<_>>();
+    for id in unique_ids {
+      let mut statement = connection.prepare(
+        "SELECT source_id,target_id,relation
+         FROM memory_links
+         WHERE source_id=?1 OR target_id=?1
+         ORDER BY weight DESC,created_at DESC"
+      ).map_err(|e| format!("prepare memory link degree prune: {e}"))?;
+      let rows = statement.query_map([id],|row| Ok((
+        row.get::<_,i64>(0)?,
+        row.get::<_,i64>(1)?,
+        row.get::<_,String>(2)?,
+      ))).map_err(|e| format!("memory link degree prune: {e}"))?;
+      let links = rows.collect::<Result<Vec<_>,_>>()
+        .map_err(|e| format!("collect memory link degree prune: {e}"))?;
+
+      for (source_id,target_id,relation) in links.into_iter().skip(MAX_MEMORY_LINKS_PER_NODE) {
+        connection.execute(
+          "DELETE FROM memory_links WHERE source_id=?1 AND target_id=?2 AND relation=?3",
+          params![source_id,target_id,relation]
+        ).map_err(|e| format!("prune excess memory link: {e}"))?;
+      }
+    }
+    Ok(())
+}
+
 fn link_recent_related_memories(
     connection: &Connection,
     ids: &[i64],
@@ -493,6 +534,7 @@ fn distill_structured_memories(connection: &Connection, conversation: &str, ts: 
     if active_thread { if let Some(id) = upsert_structured_memory(connection,"active_thread",&statement,0.88,"active",ts)? { linked_ids.push(id); } }
     link_structured_memories(connection,&linked_ids,ts)?;
     link_recent_related_memories(connection,&linked_ids,&statement,ts)?;
+    prune_memory_graph(connection,&linked_ids,ts)?;
     Ok(())
 }
 
@@ -890,6 +932,8 @@ pub(crate) fn desktop_memory_import_structured(
       ).map_err(|e| format!("import structured memory link: {e}"))?;
     }
 
+    let imported_ids = id_map.values().copied().collect::<Vec<_>>();
+    prune_memory_graph(&tx,&imported_ids,now)?;
     tx.commit().map_err(|e| format!("commit structured memory import: {e}"))
 }
 
