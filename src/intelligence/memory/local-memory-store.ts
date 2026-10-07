@@ -18,11 +18,32 @@ interface AffectRow {
   ts: number;
 }
 
+export interface PortableStructuredMemory {
+  id: number;
+  kind: string;
+  text: string;
+  importance: number;
+  status: string;
+  firstSeenTs: number;
+  lastSeenTs: number;
+  hitCount: number;
+}
+
+export interface PortableMemoryLink {
+  sourceId: number;
+  targetId: number;
+  relation: string;
+  weight: number;
+  createdAt: number;
+}
+
 export interface LocalMemorySnapshot {
   exportedAt: string;
   turns: Array<{ role: BrainTurn['role']; text: string; ts: number }>;
   episodes: Array<{ text: string; ts: number }>;
   affects: Array<Omit<AffectRow, 'id'>>;
+  structuredMemories?: PortableStructuredMemory[];
+  memoryLinks?: PortableMemoryLink[];
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -139,6 +160,14 @@ export class LocalMemoryStore {
         .sort((a, b) => a.ts - b.ts)
         .map(({ id: _id, ...row }) => row),
     };
+  }
+
+  async importStructuredMemoryGraph(
+    _nodes: PortableStructuredMemory[],
+    _links: PortableMemoryLink[],
+  ): Promise<void> {
+    // Browser-only IndexedDB runtime does not create inferred structured memory.
+    // The method exists only so portable capsules can stay runtime-polymorphic.
   }
 
   async importTurns(items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>): Promise<void> {
