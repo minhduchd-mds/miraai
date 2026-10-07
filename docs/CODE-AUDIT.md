@@ -113,7 +113,11 @@ Architecture/runtime guards khóa các gateway không quay lại `text-to-speech
 - Tách Labs khỏi production installer nếu sau này không cần ship 3D research assets.
 - UI inspect/edit cho structured memory graph.
 - Semantic local embeddings + bounded pruning.
-- Real-device matrix cho camera/affect/XR.
+- Device Check read-only đã có; còn chạy real-device matrix cho camera/affect/XR và lưu kết quả thực nghiệm.
+
+### Real-device preflight
+
+`src/runtime/device-diagnostics.ts` + Settings Device Check đọc secure context, camera/mic permission state, immersive-AR, WebGPU/WebNN và product mode mà không gọi `getUserMedia()`.
 
 ## Quy tắc cleanup
 
