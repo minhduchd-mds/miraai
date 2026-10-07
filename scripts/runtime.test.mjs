@@ -6168,3 +6168,16 @@ test('release workflow publishes the latest validated macOS artifact instead of 
 
   assert.ok(!source.includes('37279977051'));
 });
+
+
+test('device release gate requires empirical evidence and keeps synthetic smoke separate', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+  const docs = readFileSync('docs/MIRA-DEVICE-LAB.md', 'utf8');
+  const smoke = readFileSync('scripts/capability-smoke.spec.mjs', 'utf8');
+
+  assert.equal(pkg.scripts['check:device-release'], 'node scripts/device-lab-matrix.mjs --require=3');
+  assert.ok(docs.includes('Synthetic Playwright output is **never** counted'));
+  assert.ok(docs.includes('at least **3 private empirical device results**'));
+  assert.ok(smoke.includes('Synthetic smoke profile: media capture disabled'));
+  assert.ok(!smoke.includes('mira.device-lab-result'));
+});
