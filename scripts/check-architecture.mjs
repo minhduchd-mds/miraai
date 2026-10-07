@@ -145,6 +145,7 @@ const mustExist = [
   'scripts/device-lab-capture.mjs',
   'scripts/device-lab-matrix.mjs',
   'scripts/visual-qa.spec.mjs',
+  'scripts/capability-smoke.spec.mjs',
   'server/tts-contract.mjs',
   'server/tts-policy.mjs',
   'scripts/vercel-tts.test.mjs',
@@ -242,8 +243,21 @@ for (const token of ['mira-elevenlabs-v4-vietnamese-sample', 'x-mira-tts-provide
   if (!voiceSmokeWorkflow.includes(token)) failures.push(`ElevenLabs voice smoke workflow missing: ${token}`);
 }
 const visualQaWorkflow = readFileSync('.github/workflows/visual-qa.yml', 'utf8');
-for (const token of ['@playwright/test@1.55.0', 'Install Chromium', 'Run visual QA', 'Upload visual QA output']) {
+for (const token of ['@playwright/test@1.55.0', 'Install Chromium', 'capability-smoke.spec.mjs', 'Run visual and capability QA', 'Upload visual QA output']) {
   if (!visualQaWorkflow.includes(token)) failures.push(`visual QA workflow missing: ${token}`);
+}
+
+const capabilitySmoke = readFileSync('scripts/capability-smoke.spec.mjs', 'utf8');
+for (const token of [
+  'device preflight reports denied camera without opening media capture',
+  'XR capability exposes the production XR control without starting a session',
+  '1366x768 remains overflow-safe with XR capability and settings open',
+  '[data-spatial-action="xr.toggle"]',
+  'Kiểm tra thiết bị',
+  'Bị chặn',
+  'Sẵn sàng',
+]) {
+  if (!capabilitySmoke.includes(token)) failures.push(`capability smoke suite missing: ${token}`);
 }
 const visualQaSource = readFileSync('scripts/visual-qa.spec.mjs', 'utf8');
 for (const token of [
