@@ -5528,6 +5528,32 @@ test('AppV2 delegates spatial DOM feedback effects to a dedicated hook', () => {
   }
 });
 
+test('AppV2 delegates camera module loading and preview transport to useVisionTransport', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const hook = readFileSync('src/app/useVisionTransport.ts', 'utf8');
+
+  assert.match(app, /useVisionTransport/);
+  assert.doesNotMatch(app, /setVisionOn\(/);
+  assert.doesNotMatch(app, /setVisionBooting\(/);
+  assert.doesNotMatch(app, /setVisionError\(/);
+  assert.doesNotMatch(app, /const loadVisionModules/);
+  assert.doesNotMatch(app, /import\('\.\.\/presence\/vision-runtime'\)/);
+  assert.doesNotMatch(app, /import\('\.\.\/ui\/vision-v2\.css'\)/);
+
+  for (const token of [
+    'visionModulesRef',
+    'cameraPreviewRef',
+    'loadVisionModules',
+    'startVisionTransport',
+    'stopVisionTransport',
+    "import('../presence/vision-runtime')",
+    "import('../ui/vision-v2.css')",
+    'visionStream()',
+  ]) {
+    assert.ok(hook.includes(token), `vision transport hook missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
