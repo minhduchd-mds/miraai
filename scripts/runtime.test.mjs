@@ -5399,12 +5399,11 @@ test('server TTS health probe recovers neural routing without reload', () => {
   }
 });
 
-test('serverless TTS health endpoint exposes ElevenLabs-only status but never secrets', () => {
+test('serverless TTS health endpoint exposes shared ElevenLabs-only status but never secrets', () => {
   const source = readFileSync('api/health.js', 'utf8');
   for (const token of [
     "origin_not_allowed",
-    "provider: 'elevenlabs'",
-    "elevenLabsOnly: true",
+    "ttsContractMetadata",
     "runtime: 'vercel-serverless-api'",
     "defaultElevenVoice",
     "defaultElevenModel",
@@ -5415,16 +5414,60 @@ test('serverless TTS health endpoint exposes ElevenLabs-only status but never se
   assert.ok(!source.includes('apiKey:'));
 });
 
-test('remote serverless TTS endpoints enforce shared origin policy', () => {
+test('remote TTS gateways enforce the shared origin and rate policy', async () => {
+  const contract = await import(new URL('../server/tts-contract.mjs', import.meta.url));
+  assert.equal(contract.MIRA_TTS_MAX_REQUESTS_PER_WINDOW, 48);
+  assert.equal(contract.MIRA_TTS_MAX_TRACKED_CLIENTS, 2048);
+  assert.equal(contract.MIRA_TTS_RATE_WINDOW_MS, 5 * 60 * 1000);
+  assert.equal(contract.isTtsOriginAllowed('', ''), true);
+  assert.equal(contract.isTtsOriginAllowed('tauri://localhost', ''), true);
+  assert.equal(
+    contract.isTtsOriginAllowed('https://mira.example', 'https://mira.example'),
+    true,
+  );
+  assert.equal(
+    contract.isTtsOriginAllowed('https://evil.example', 'https://mira.example'),
+    false,
+  );
+
   const policy = readFileSync('server/tts-policy.mjs', 'utf8');
-  for (const token of ['MIRA_TTS_ALLOWED_ORIGIN', 'MIRA_TTS_ALLOWED_ORIGINS', 'access-control-allow-origin', 'originAllowed']) {
+  for (const token of [
+    'isTtsOriginAllowed',
+    'MIRA_TTS_MAX_REQUESTS_PER_WINDOW',
+    'MIRA_TTS_MAX_TRACKED_CLIENTS',
+    'MIRA_TTS_RATE_WINDOW_MS',
+    'access-control-allow-origin',
+    'originAllowed',
+  ]) {
     assert.ok(policy.includes(token));
   }
+
   for (const path of ['api/tts.js', 'api/voices.js', 'api/health.js']) {
     const source = readFileSync(path, 'utf8');
     assert.ok(source.includes('applyCors'));
     assert.ok(source.includes('originAllowed'));
     assert.ok(source.includes('origin_not_allowed'));
+  }
+
+  for (const path of ['server/tts-gateway.mjs', 'functions/miratts/index.mjs']) {
+    const source = readFileSync(path, 'utf8');
+    for (const token of [
+      'isTtsOriginAllowed',
+      'MIRA_TTS_MAX_REQUESTS_PER_WINDOW',
+      'MIRA_TTS_MAX_TRACKED_CLIENTS',
+      'MIRA_TTS_RATE_WINDOW_MS',
+      'ttsContractMetadata',
+    ]) {
+      assert.ok(source.includes(token), `${path} missing ${token}`);
+    }
+    for (const forbidden of [
+      'MAX_REQUESTS_PER_WINDOW = 32',
+      'MAX_TRACKED_CLIENTS = 2048',
+      'const WINDOW_MS',
+      'const ALLOWED_ORIGIN',
+    ]) {
+      assert.ok(!source.includes(forbidden), `${path} still owns ${forbidden}`);
+    }
   }
 });
 
