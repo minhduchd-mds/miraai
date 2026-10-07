@@ -18,7 +18,7 @@ Mira là AI companion ưu tiên **giọng nói + continuity**: trò chuyện, gh
 | Nhóm | Chức năng | Mức hoàn thiện | Điểm |
 |---|---|:---:|:---:|
 | Conversation | Voice-first, VAD, barge-in, turn manager | Stable | 9/10 |
-| Voice | ElevenLabs + fallback TTS | Stable | 9/10 |
+| Voice | ElevenLabs server-side gateway (no silent provider fallback) | Stable | 9/10 |
 | Memory | Structured memory + active thread | Beta+ | 8/10 |
 | Memory Graph | Liên kết context theo chủ đề/thời gian | Beta | 7.5/10 |
 | Affect | Face/voice/posture + micro-expression | Beta | 7.5/10 |
