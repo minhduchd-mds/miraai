@@ -1374,7 +1374,7 @@ for (const token of ['rust-version = "1.89"', 'lofty = "=0.25.4"']) {
 }
 
 const desktopConfig = readFileSync('src-tauri/tauri.conf.json', 'utf8');
-for (const token of ['"frontendDist": "../dist"', '"withGlobalTauri": true', '"url": "index.html"', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"', '"hardenedRuntime": true', '"certificateThumbprint": null', '"digestAlgorithm": "sha256"', '"timestampUrl": "http://timestamp.digicert.com"']) {
+for (const token of ['"beforeBuildCommand": "npm run build:desktop"', '"frontendDist": "../dist"', '"withGlobalTauri": true', '"url": "index.html"', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"', '"hardenedRuntime": true', '"certificateThumbprint": null', '"digestAlgorithm": "sha256"', '"timestampUrl": "http://timestamp.digicert.com"']) {
   if (!desktopConfig.includes(token)) failures.push(`desktop Tauri config missing: ${token}`);
 }
 if (desktopConfig.includes('"frontendDist": "https://')) failures.push('desktop Tauri must bundle the frontend locally');
