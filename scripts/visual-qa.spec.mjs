@@ -5,8 +5,11 @@ import { join } from 'node:path';
 const outputDir = join(process.cwd(), 'artifacts', 'visual-qa');
 const scenes = ['daytime', 'welcome-home', 'home-evening', 'bedtime'];
 const profiles = [
+  { name: 'desktop-1440x900', viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false },
   { name: 'desktop-1366x768', viewport: { width: 1366, height: 768 }, isMobile: false, hasTouch: false },
+  { name: 'tablet-768x1024', viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true },
   { name: 'mobile-390x844', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+  { name: 'mobile-360x800', viewport: { width: 360, height: 800 }, isMobile: true, hasTouch: true },
 ];
 
 test('Mira v16.3 visual scene and device-profile lab', async ({ browser }, testInfo) => {
