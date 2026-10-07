@@ -110,6 +110,68 @@ test('device preflight reads capabilities without opening camera or microphone',
   assert.equal(result.deviceMemoryGb, 8);
 });
 
+test('device report is versioned and excludes raw or identifying fields', async () => {
+  class FakeVideo {}
+  FakeVideo.prototype.requestVideoFrameCallback = () => 1;
+  const scope = {
+    isSecureContext: true,
+    HTMLVideoElement: FakeVideo,
+    AudioWorkletNode: function AudioWorkletNode() {},
+    crossOriginIsolated: false,
+    PerformanceObserver: { supportedEntryTypes: [] },
+  };
+  const nav = {
+    userAgent: 'SECRET_USER_AGENT',
+    gpu: {},
+    hardwareConcurrency: 10,
+    deviceMemory: 16,
+    mediaDevices: {
+      enumerateDevices: async () => [{ deviceId: 'SECRET_DEVICE_ID', label: 'SECRET_CAMERA_LABEL' }],
+      getUserMedia() { throw new Error('must not open media'); },
+    },
+    permissions: { async query() { return { state: 'granted' }; } },
+  };
+  const diagnostics = await deviceDiagnostics.runDeviceDiagnostics(scope, nav);
+  const polluted = {
+    ...diagnostics,
+    userAgent: nav.userAgent,
+    deviceId: 'SECRET_DEVICE_ID',
+    rawFrame: 'SECRET_FRAME',
+    preciseLocation: 'SECRET_LOCATION',
+  };
+  const report = deviceDiagnostics.buildDeviceDiagnosticsReport(polluted, {
+    provider: 'ElevenLabs',
+    health: 'healthy',
+    lastError: 'SECRET_PROVIDER_ERROR',
+  });
+  const serialized = JSON.stringify(report);
+
+  assert.equal(report.format, 'mira.device-report');
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.privacy.mediaCaptured, false);
+  assert.equal(report.privacy.rawInputIncluded, false);
+  assert.equal(report.privacy.identifiersIncluded, false);
+  assert.equal(report.privacy.locationIncluded, false);
+  assert.equal(report.voice.provider, 'ElevenLabs');
+  assert.equal(report.voice.health, 'healthy');
+  assert.equal(report.device.hardwareConcurrency, 10);
+  assert.equal(report.device.deviceMemoryGb, 16);
+
+  for (const secret of [
+    'SECRET_USER_AGENT',
+    'SECRET_DEVICE_ID',
+    'SECRET_CAMERA_LABEL',
+    'SECRET_FRAME',
+    'SECRET_LOCATION',
+    'SECRET_PROVIDER_ERROR',
+  ]) {
+    assert.ok(!serialized.includes(secret), `device report leaked ${secret}`);
+  }
+  for (const forbiddenKey of ['userAgent', 'deviceId', 'rawFrame', 'preciseLocation', 'lastError']) {
+    assert.equal(Object.prototype.hasOwnProperty.call(report.device, forbiddenKey), false);
+  }
+});
+
 test('device preflight degrades permission and WebXR probes without throwing', async () => {
   const scope = { isSecureContext: false, PerformanceObserver: { supportedEntryTypes: [] } };
   const nav = {
