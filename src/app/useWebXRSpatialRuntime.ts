@@ -4,6 +4,7 @@ import { projectMetricPointAcrossViews } from '../core/vision/spatial-xr-project
 import { resolveSpatialObjectCollisions } from '../core/vision/spatial-collision';
 import { spatialAnchorFromRect } from '../core/vision/spatial-anchor';
 import type { SpatialPhysicsState } from '../core/vision/spatial-physics';
+import type { SpatialObjectState } from '../core/vision/spatial-object';
 import {
   clampSpatial,
   collectSpatialTargets,
@@ -687,7 +688,7 @@ export function useWebXRSpatialRuntime(options: any) {
         });
       }
 
-      let objects = spatialObjectRuntimeRef.current.snapshot();
+      let objects: SpatialObjectState[] = spatialObjectRuntimeRef.current.snapshot();
       for (const object of objects) {
         if (
           !object.grabbed &&
