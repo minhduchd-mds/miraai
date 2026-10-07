@@ -1205,7 +1205,7 @@ if (elevenApi.includes('api.openai.com')) failures.push('production TTS API must
 
 
 const desktopConfig = readFileSync('src-tauri/tauri.conf.json', 'utf8');
-for (const token of ['"frontendDist": "../dist"', '"withGlobalTauri": true', '"url": "index.html"', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"']) {
+for (const token of ['"frontendDist": "../dist"', '"withGlobalTauri": true', '"url": "index.html"', 'com.mira.companion', '"targets": [', '"dmg"', '"minimumSystemVersion": "13.0"', '"signingIdentity": "-"', '"hardenedRuntime": true', '"certificateThumbprint": null', '"digestAlgorithm": "sha256"', '"timestampUrl": "http://timestamp.digicert.com"']) {
   if (!desktopConfig.includes(token)) failures.push(`desktop Tauri config missing: ${token}`);
 }
 if (desktopConfig.includes('"frontendDist": "https://')) failures.push('desktop Tauri must bundle the frontend locally');
