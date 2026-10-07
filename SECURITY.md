@@ -59,7 +59,7 @@ Provider/network failure falls through to configured server providers; if no pro
 
 ## Dependency status
 
-As of 2026-09-28, the previously tracked protobufjs advisory is resolved in this repository: the lockfile pins protobufjs 7.6.6, newer than the patched 7.6.5 release.
+As of 2026-09-28, the previously tracked protobufjs advisory is resolved in this repository: the lockfile pins protobufjs 7.6.6, newer than the patched 7.6.5 release. Its `postinstall` was reviewed at tag `protobufjs-v7.6.6`: it only inspects the parent package dependency range and emits a compatibility warning. `package.json` therefore approves install scripts only for the exact `protobufjs@7.6.6` version, not future versions.
 
 The frontend toolchain is aligned on Vite 8.3.1 + @vitejs/plugin-react 6.1.1. CI continues to block critical runtime advisories with `npm audit --omit=dev --audit-level=critical`; lower-severity findings remain review items rather than being silently suppressed.
 
