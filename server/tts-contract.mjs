@@ -5,9 +5,11 @@ export const MIRA_TTS_MAX_TEXT_LENGTH = 2000;
 export const MIRA_TTS_RATE_WINDOW_MS = 5 * 60 * 1000;
 export const MIRA_TTS_MAX_REQUESTS_PER_WINDOW = 48;
 export const MIRA_TTS_MAX_TRACKED_CLIENTS = 2048;
+export const MIRA_DEFAULT_ALLOWED_ORIGIN = 'https://minhduchd-mds.github.io';
 
 export function configuredTtsOrigins() {
   return [
+    MIRA_DEFAULT_ALLOWED_ORIGIN,
     String(process.env.MIRA_TTS_ALLOWED_ORIGIN || '').trim(),
     ...String(process.env.MIRA_TTS_ALLOWED_ORIGINS || '')
       .split(',')
