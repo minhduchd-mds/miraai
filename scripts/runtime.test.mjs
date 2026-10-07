@@ -6138,3 +6138,20 @@ test('desktop release workflows are signing-ready without breaking unsigned buil
     assert.ok(windows.includes(token), `Windows release workflow missing ${token}`);
   }
 });
+
+
+test('release workflow publishes the latest validated macOS artifact instead of a stale run id', () => {
+  const source = readFileSync('.github/workflows/release-v0.1.0.yml', 'utf8');
+
+  for (const token of [
+    'Resolve latest validated macOS DMG run',
+    '--workflow "macos-dmg.yml"',
+    '--status success',
+    'VALIDATED_DMG_RUN=$run_id',
+    'latest successful `macos-dmg.yml` run',
+  ]) {
+    assert.ok(source.includes(token), `release workflow missing ${token}`);
+  }
+
+  assert.ok(!source.includes('37279977051'));
+});
