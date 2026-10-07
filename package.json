@@ -14,7 +14,7 @@
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:skills": "node scripts/check-skills.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
-    "check": "npm run check:architecture && npm run check:skills && tsc --noEmit && npm test && npm run benchmark && npm run check:media && npm run build && npm run check:bundle && npm run check:artifact",
+    "check": "npm run check:architecture && npm run check:skills && tsc --noEmit && npm test && npm run benchmark && npm run check:device-lab && npm run check:media && npm run build && npm run check:bundle && npm run check:artifact",
     "prune:pages": "node scripts/prune-pages-assets.mjs",
     "restore:photoreal": "node scripts/restore-photoreal-assets.mjs",
     "check:artifact": "node scripts/check-deploy-artifact.mjs",
@@ -23,7 +23,8 @@
     "check:media": "node scripts/check-media.mjs",
     "prune:runtime": "node scripts/prune-runtime-assets.mjs",
     "device:lab:capture": "node scripts/device-lab-capture.mjs",
-    "device:lab:matrix": "node scripts/device-lab-matrix.mjs"
+    "device:lab:matrix": "node scripts/device-lab-matrix.mjs",
+    "check:device-lab": "node scripts/device-lab-matrix.mjs --no-write"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
