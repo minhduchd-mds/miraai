@@ -15,6 +15,7 @@ import {
   elevenDialogueUrl,
   isTtsOriginAllowed,
   originAllowed,
+  performanceText,
   ttsContractMetadata,
 } from '../server/tts-policy.mjs';
 
@@ -99,6 +100,18 @@ test('Vercel TTS contract is ElevenLabs-only, Vietnamese and v4 dialogue', () =>
   assert.ok(!tts.includes('api.openai.com'));
 });
 
+
+test('TTS performance tags prioritize specific delivery over the gentle baseline', () => {
+  assert.match(
+    performanceText('Cần dừng lại.', 'Giọng dịu dàng. Đây là cảnh báo nghiêm trọng và có rủi ro.'),
+    /^\[serious\]/,
+  );
+  assert.match(
+    performanceText('Em nghe anh.', 'Giọng dịu dàng. Nói rất nhẹ, riêng tư và gần.'),
+    /^\[whispers\]/,
+  );
+  assert.match(performanceText('Xin chào anh.', 'gentle'), /^\[warmly\]/);
+});
 
 test('production TTS ignores client voice ids so stale paid-library ids cannot leak through', () => {
   const source = readFileSync('api/tts.js', 'utf8');

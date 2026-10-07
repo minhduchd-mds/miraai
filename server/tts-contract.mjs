@@ -54,9 +54,9 @@ export function defaultElevenModel() {
 export function performanceText(text, instructions = '') {
   const clean = String(text || '').trim();
   const cue = String(instructions || '').toLowerCase();
-  if (/thì thầm|whisper|bedtime|sleep|quiet/.test(cue)) return `[whispers] ${clean}`;
-  if (/vui|happy|warm|gentle|dịu|affection|welcome/.test(cue)) return `[warmly] ${clean}`;
-  if (/serious|cảnh báo|warning/.test(cue)) return `[serious] ${clean}`;
+  if (/thì thầm|whisper|bedtime|sleep|quiet|rất nhẹ|riêng tư/.test(cue)) return `[whispers] ${clean}`;
+  if (/serious|cảnh báo|warning|nghiêm trọng|rủi ro|khẩn/.test(cue)) return `[serious] ${clean}`;
+  if (/vui|happy|warm|gentle|dịu|affection|welcome|tươi/.test(cue)) return `[warmly] ${clean}`;
   return clean;
 }
 

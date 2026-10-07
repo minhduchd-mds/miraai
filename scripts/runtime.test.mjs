@@ -169,10 +169,23 @@ test('gentle voice profile is the default', () => {
 test('Vietnamese speech director keeps a soft gentle baseline', () => {
   const plan = director.directVietnameseSpeech('Em nghe anh. Mình nói chuyện một chút nhé.');
   assert.equal(plan.performance, 'warm');
-  assert.match(plan.instructions, /dịu dàng/);
+  assert.match(plan.instructions, /Preset Dịu dàng/);
   assert.match(plan.instructions, /Âm đầu mềm/);
   assert.match(plan.instructions, /cuối câu thường hạ nhẹ/);
   assert.ok(plan.rateMultiplier < 1);
+});
+
+test('Vietnamese speech director maps conversation persona to real TTS delivery presets', () => {
+  const friendly = director.directVietnameseSpeech('Em hiểu rồi, mình làm tiếp nhé.', 'friendly');
+  const pro = director.directVietnameseSpeech('Em sẽ kiểm tra kiến trúc và build.', 'pro');
+  const playful = director.directVietnameseSpeech('Xong rồi anh, build đã pass hết.', 'playful');
+  const fallback = director.directVietnameseSpeech('Em nghe anh.', 'unknown-preset');
+
+  assert.match(friendly.instructions, /Preset Thân thiện/);
+  assert.match(pro.instructions, /Preset Chuyên nghiệp/);
+  assert.match(playful.instructions, /Preset Vui tươi/);
+  assert.ok(playful.rateMultiplier > friendly.rateMultiplier);
+  assert.match(fallback.instructions, /Preset Dịu dàng/);
 });
 
 test('ElevenLabs v4 gateway uses the shared Vietnamese Text-to-Dialogue contract', () => {

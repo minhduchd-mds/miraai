@@ -1,4 +1,5 @@
 export type SpeechPerformance = 'warm' | 'focused' | 'serious' | 'excited' | 'quiet';
+export type VoicePersonaPreset = 'gentle' | 'friendly' | 'pro' | 'playful';
 export type SpeechTurnRole =
   | 'opening'
   | 'explanation'
@@ -34,6 +35,24 @@ const PERFORMANCE_RATE: Record<SpeechPerformance, number> = {
   excited: 1.015,
   quiet: 0.91,
 };
+
+const VOICE_PRESET_GUIDANCE: Record<VoicePersonaPreset, string> = {
+  gentle: 'Preset Dịu dàng: giữ chất giọng dịu dàng, hiền, mềm và thân mật; không cố làm nũng, không kéo dài âm.',
+  friendly: 'Preset Thân thiện: ấm áp và cởi mở hơn một chút; giữ nụ cười nhẹ trong giọng nhưng không hoạt náo hoặc quá phấn khích.',
+  pro: 'Preset Chuyên nghiệp: rõ chữ, gọn nhịp, bình tĩnh và tự tin; giảm từ đệm cảm xúc, không biến thành giọng bản tin.',
+  playful: 'Preset Vui tươi: sáng và linh hoạt hơn một chút; nhấn nhá tự nhiên nhưng không reo, không tăng tốc quá mức.',
+};
+
+const VOICE_PRESET_RATE: Record<VoicePersonaPreset, number> = {
+  gentle: 1,
+  friendly: 1,
+  pro: 0.99,
+  playful: 1.02,
+};
+
+function normalizeVoicePreset(value: string): VoicePersonaPreset {
+  return value === 'friendly' || value === 'pro' || value === 'playful' ? value : 'gentle';
+}
 
 const PERFORMANCE_GUIDANCE: Record<SpeechPerformance, string> = {
   warm: 'Ấm, mượt và gần gũi. Vào câu nhẹ, giữ âm lượng cảm nhận mềm, cuối câu hạ tự nhiên; không phát thanh viên.',
@@ -123,10 +142,11 @@ function extractEmphasis(text: string): string {
   return match[1].replace(/["'`]/g, '').trim().slice(0, 72);
 }
 
-function buildInstructions(performance: SpeechPerformance, emphasis: string): string {
+function buildInstructions(performance: SpeechPerformance, emphasis: string, persona = 'gentle'): string {
   const lines = [
     'Nói tiếng Việt hội thoại tự nhiên, thiên nhịp miền Bắc nhưng không cường điệu vùng miền.',
-    'Giữ chất giọng nữ tính dịu dàng, mượt, hiền và gần gũi. Âm đầu mềm, không sắc; không nâng năng lượng đột ngột; cuối câu thường hạ nhẹ và ấm. Tránh cảm giác đọc quảng cáo, đọc bản tin hoặc cố tỏ ra đáng yêu.',
+    'Giữ chất giọng nữ tính tự nhiên, mượt và gần gũi. Âm đầu mềm, không sắc; không nâng năng lượng đột ngột; cuối câu thường hạ nhẹ và ấm. Tránh cảm giác đọc quảng cáo, đọc bản tin hoặc diễn quá mức.',
+    VOICE_PRESET_GUIDANCE[normalizeVoicePreset(persona)],
     'Đây là lời nói trực tiếp, không phải đọc văn bản: chia câu thành các cụm ý ngắn, có nhịp thở và khoảng nghỉ theo nghĩa.',
     'Không đọc markdown, ký hiệu định dạng, tiêu đề hay cấu trúc danh sách như một tài liệu.',
     'Không kéo dài mọi dấu chấm, không nhấn đều từng từ, không dùng chất giọng phát thanh viên.',
@@ -166,30 +186,33 @@ function performanceForSegment(text: string, role: SpeechTurnRole, turnPerforman
   return localPerformance;
 }
 
-function buildSegmentInstructions(role: SpeechTurnRole, performance: SpeechPerformance, text: string): string {
+function buildSegmentInstructions(role: SpeechTurnRole, performance: SpeechPerformance, text: string, persona: string): string {
   const emphasis = role === 'emphasis' || role === 'conclusion' ? extractEmphasis(text) : '';
-  return `${buildInstructions(performance, emphasis)} ${ROLE_GUIDANCE[role]} Không diễn lại phần trước; chuyển sắc thái mềm giữa các đoạn để cả lượt nói nghe liền mạch.`;
+  return `${buildInstructions(performance, emphasis, persona)} ${ROLE_GUIDANCE[role]} Không diễn lại phần trước; chuyển sắc thái mềm giữa các đoạn để cả lượt nói nghe liền mạch.`;
 }
 
-function segmentRate(performance: SpeechPerformance, role: SpeechTurnRole): number {
-  return Math.max(0.88, Math.min(1.06, PERFORMANCE_RATE[performance] * ROLE_RATE[role]));
+function segmentRate(performance: SpeechPerformance, role: SpeechTurnRole, persona: string): number {
+  const preset = normalizeVoicePreset(persona);
+  return Math.max(0.88, Math.min(1.06, PERFORMANCE_RATE[performance] * ROLE_RATE[role] * VOICE_PRESET_RATE[preset]));
 }
 
-export function directVietnameseSpeech(text: string): DirectedVietnameseSpeech {
+export function directVietnameseSpeech(text: string, persona = 'gentle'): DirectedVietnameseSpeech {
   const speechText = makeConversational(text);
   const performance = detectPerformance(speechText);
   const emphasis = extractEmphasis(speechText);
+  const preset = normalizeVoicePreset(persona);
   return {
     speechText,
     performance,
-    instructions: buildInstructions(performance, emphasis),
-    rateMultiplier: PERFORMANCE_RATE[performance],
+    instructions: buildInstructions(performance, emphasis, preset),
+    rateMultiplier: Math.max(0.88, Math.min(1.06, PERFORMANCE_RATE[performance] * VOICE_PRESET_RATE[preset])),
   };
 }
 
 /** Plans prosody inside one response so opening/explanation/warning/conclusion do not share one flat delivery. */
-export function planVietnameseTurn(text: string): DirectedVietnameseTurn {
-  const directed = directVietnameseSpeech(text);
+export function planVietnameseTurn(text: string, persona = 'gentle'): DirectedVietnameseTurn {
+  const preset = normalizeVoicePreset(persona);
+  const directed = directVietnameseSpeech(text, preset);
   const units = splitSemanticUnits(directed.speechText);
   const segments = units.map((unit, index) => {
     const role = classifyRole(unit, index, units.length);
@@ -198,8 +221,8 @@ export function planVietnameseTurn(text: string): DirectedVietnameseTurn {
       text: unit,
       role,
       performance,
-      instructions: buildSegmentInstructions(role, performance, unit),
-      rateMultiplier: segmentRate(performance, role),
+      instructions: buildSegmentInstructions(role, performance, unit, preset),
+      rateMultiplier: segmentRate(performance, role, preset),
     } satisfies DirectedSpeechSegment;
   });
   return { ...directed, segments };

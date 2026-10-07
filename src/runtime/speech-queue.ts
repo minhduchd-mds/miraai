@@ -1,4 +1,5 @@
 import type { MiraTTS } from '../core/tts';
+import { voicePrefs } from '../core/voice-prefs';
 import { normalizeVietnameseSpeech } from '../core/tts/vi-normalize';
 import {
   directVietnameseSpeech,
@@ -65,7 +66,7 @@ export class SpeechQueue {
     }
 
     const cleaned = cleanForSpeech(options.text) || options.text;
-    const directed = directVietnameseSpeech(cleaned);
+    const directed = directVietnameseSpeech(cleaned, voicePrefs.persona);
     const normalized = normalizeVietnameseSpeech(directed.speechText);
     const token = ++this.sequence;
     const rate = Math.max(0.76, Math.min(1.12, options.rate * 0.94));
@@ -101,7 +102,7 @@ export class SpeechQueue {
     }
 
     const cleaned = cleanForSpeech(options.text) || options.text;
-    const turn = planVietnameseTurn(cleaned);
+    const turn = planVietnameseTurn(cleaned, voicePrefs.persona);
     const plannedChunks: PlannedChunk[] = [];
 
     turn.segments.forEach((segment, segmentIndex) => {
