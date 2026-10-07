@@ -417,6 +417,21 @@ if (!v2.includes('useWebXRTransport')) failures.push('AppV2 WebXR transport wiri
 for (const forbidden of ['setWebXRAvailable(', 'setWebXRSnapshot(', 'new SpatialWebXRSessionRuntime()', 'detectWebXR().then']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns WebXR transport lifecycle: ${forbidden}`);
 }
+for (const token of [
+  "lazy(() => import('../presence/FaceMeshOverlay'))",
+  "lazy(() => import('../presence/HandSkeletonOverlay'))",
+  "lazy(() => import('../presence/SpatialControlOverlay'))",
+]) {
+  if (!v2.includes(token)) failures.push(`AppV2 overlay lazy boundary missing: ${token}`);
+}
+for (const forbidden of [
+  "import FaceMeshOverlay",
+  "import HandSkeletonOverlay",
+  "import SpatialControlOverlay",
+]) {
+  if (v2.includes(forbidden)) failures.push(`AppV2 overlay leaked into deferred shell chunk: ${forbidden}`);
+}
+
 if (!v2.includes('useWebXRSpatialRuntime')) failures.push('AppV2 WebXR spatial runtime wiring missing');
 for (const forbidden of ['projectMetricPointAcrossViews(', 'bridgeXRHandTo21(', 'requestAnchorAtCurrentHit(', 'requestAnimationFrame(tick)', 'XR · rigid collision']) {
   if (v2.includes(forbidden)) failures.push(`AppV2 still owns WebXR spatial runtime: ${forbidden}`);
