@@ -86,6 +86,7 @@ const mustExist = [
   'src/intelligence/proactive/proactive-engine.ts',
   'src/intelligence/memory/local-memory-store.ts',
   'src/runtime/background-companion.ts',
+  'src/runtime/device-diagnostics.ts',
   'src/presence/FaceMeshOverlay.tsx',
   'public/sw.js',
   'public/manifest.webmanifest',
@@ -695,6 +696,17 @@ for (const token of ['elevenlabs', 'elevenDialoguePayload', 'elevenDialogueUrl',
   if (!tts.includes(token)) failures.push(`neural TTS gateway missing: ${token}`);
 }
 if (tts.includes('/v1/text-to-speech/')) failures.push('Vercel TTS must not use legacy text-to-speech endpoint');
+
+const deviceDiagnosticsSource = readFileSync('src/runtime/device-diagnostics.ts', 'utf8');
+for (const token of ['runDeviceDiagnostics', 'permissions.query', "'immersive-ar'", 'browserCapabilitySummary', 'cameraPermission', 'microphonePermission']) {
+  if (!deviceDiagnosticsSource.includes(token)) failures.push(`device diagnostics contract missing: ${token}`);
+}
+if (deviceDiagnosticsSource.includes('getUserMedia(')) failures.push('device diagnostics preflight must not call getUserMedia');
+
+const settingsPanelSource = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
+for (const token of ['runDeviceDiagnostics', 'Thiết bị & kết nối', 'không bật camera/mic', 'v2-device-grid', 'Kiểm tra thiết bị']) {
+  if (!settingsPanelSource.includes(token)) failures.push(`Settings device preflight missing: ${token}`);
+}
 
 const voicePrefsSource = readFileSync('src/core/voice-prefs.ts', 'utf8');
 for (const token of ["rate: 1", "persona: 'gentle'", "label: 'Êm'", 'voiceProfileVersion: 2']) {
