@@ -10,8 +10,8 @@ import SpatialControlOverlay from '../presence/SpatialControlOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { describeAffectSignal, resolveFaceControlAction } from '../intelligence/affect/affect-control';
 import { EMPTY_INTERACTION, InteractionTracker, interactionPrompt, type InteractionContext } from '../intelligence/social/interaction-engine';
-import { FaceSocialControlTracker, gazePresenceLabel, type FaceSocialCue } from '../intelligence/social/face-social-control';
-import { EMPTY_PRESENCE_CONTINUITY, PresenceContinuityTracker, presenceContinuityPrompt, type PresenceContinuityState } from '../intelligence/social/presence-continuity';
+import { gazePresenceLabel } from '../intelligence/social/face-social-control';
+import { presenceContinuityPrompt } from '../intelligence/social/presence-continuity';
 import { BehaviorTimeline } from '../intelligence/social/behavior-timeline';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
 import { GestureIntentTracker } from '../core/vision/gesture-intent';
@@ -128,6 +128,7 @@ import { useVisionTransport } from './useVisionTransport';
 import { useWebXRTransport } from './useWebXRTransport';
 import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
 import { normalizeVisionPerception } from './vision-perception-normalizer';
+import { useFaceSocialLifecycle } from './useFaceSocialLifecycle';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -154,11 +155,12 @@ export default function AppV2() {
   const faceActionTimerRef = useRef<number | null>(null);
   const lastHeadGestureRef = useRef('none');
   const lastFaceActionAtRef = useRef(0);
-  const faceSocialTrackerRef = useRef(new FaceSocialControlTracker());
-  const presenceContinuityRef = useRef(new PresenceContinuityTracker());
-  const [presenceContinuity, setPresenceContinuity] = useState<PresenceContinuityState>(() => ({ ...EMPTY_PRESENCE_CONTINUITY }));
-  const [faceSocialCue, setFaceSocialCue] = useState<FaceSocialCue>('none');
-  const faceSocialCueTimerRef = useRef<number | null>(null);
+  const {
+    faceSocialCue,
+    presenceContinuity,
+    updateFaceSocial,
+    resetFaceSocial,
+  } = useFaceSocialLifecycle();
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
@@ -346,7 +348,6 @@ export default function AppV2() {
 
   useEffect(() => () => {
     if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
-    if (faceSocialCueTimerRef.current != null) window.clearTimeout(faceSocialCueTimerRef.current);
     if (spatialFeedbackTimerRef.current != null) window.clearTimeout(spatialFeedbackTimerRef.current);
   }, []);
 
@@ -427,10 +428,7 @@ export default function AppV2() {
     setFaceActionFeedback('');
     lastHeadGestureRef.current = 'none';
     lastFaceActionAtRef.current = 0;
-    faceSocialTrackerRef.current.reset();
-    presenceContinuityRef.current.reset();
-    setPresenceContinuity({ ...EMPTY_PRESENCE_CONTINUITY });
-    setFaceSocialCue('none');
+    resetFaceSocial();
     setGazeTelemetry({ x: 0, y: 0 });
     setFaceLandmarks([]);
     sceneGraphTrackerRef.current.reset();
@@ -476,7 +474,7 @@ export default function AppV2() {
       headGesture: 'none', faceGesture: 'none', faceGestureConfidence: 0,
       muscles: { brow: 0, eyes: 0, cheeks: 0, mouth: 0, jaw: 0 },
     });
-  }, [captureSpatialLayout, mira.observeAffect, stopVisionTransport]);
+  }, [captureSpatialLayout, mira.observeAffect, resetFaceSocial, stopVisionTransport]);
 
   const toggleWebXR = useCallback(async () => {
     if (webXRSnapshot.active) {
@@ -2043,20 +2041,15 @@ export default function AppV2() {
         now,
       );
 
-      const socialEvent = faceSocialTrackerRef.current.update({
+      const { socialEvent, continuity } = updateFaceSocial({
         faceSeen: Boolean(face?.present),
         faceConfidence,
         gesture: String(face?.faceGesture || 'none'),
         gestureConfidence: Number(face?.faceGestureConfidence || 0),
+        interactionState: interaction.state,
+        attention: interaction.attention,
       }, now);
       if (socialEvent.eventId > 0 && socialEvent.cue !== 'none') {
-        setFaceSocialCue(socialEvent.cue);
-        if (faceSocialCueTimerRef.current != null) window.clearTimeout(faceSocialCueTimerRef.current);
-        faceSocialCueTimerRef.current = window.setTimeout(() => {
-          faceSocialCueTimerRef.current = null;
-          setFaceSocialCue('none');
-        }, 720);
-
         if (socialEvent.action === 'toggle_affect') {
           setAffectFollowing((previous) => !previous);
           showFaceActionFeedback('Nháy mắt trái · đổi chế độ phản ứng');
@@ -2065,14 +2058,6 @@ export default function AppV2() {
           showFaceActionFeedback('Nháy mắt phải · đổi màu');
         }
       }
-
-      const continuity = presenceContinuityRef.current.update({
-        faceSeen: Boolean(face?.present),
-        interactionState: interaction.state,
-        attention: interaction.attention,
-        socialCue: socialEvent.cue,
-      }, now);
-      setPresenceContinuity(continuity);
 
       behaviorTimelineRef.current.observe({
         interaction,
@@ -2176,7 +2161,7 @@ export default function AppV2() {
       });
     }, 120);
     return () => window.clearInterval(timer);
-  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateSpatialWindow, visionOn, voiceReady]);
+  }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateFaceSocial, updateSpatialWindow, visionOn, voiceReady]);
 
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
