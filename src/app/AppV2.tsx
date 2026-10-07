@@ -27,7 +27,7 @@ import {
   spatialAnchorFromRect,
 } from '../core/vision/spatial-anchor';
 import { micProsodySnapshot } from '../core/audio-level';
-import { EMPTY_ENVIRONMENT, environmentPrompt, type EnvironmentLabel } from '../core/vision/environment-model';
+import { environmentPrompt, type EnvironmentLabel } from '../core/vision/environment-model';
 import {
   SpatialSceneGraphTracker,
   spatialScenePrompt,
@@ -48,7 +48,6 @@ import {
   ShortTermWorldModelTracker,
   worldModelPrompt,
 } from '../core/vision/world-model';
-import { EMPTY_REAL_PRESENCE_POSE } from '../core/vision/real-presence';
 import { SpatialObjectRuntime, type SpatialObjectPose, type SpatialObjectState } from '../core/vision/spatial-object';
 import {
   SpatialPhysicsRuntime,
@@ -128,6 +127,7 @@ import { useAppPresentationState } from './useAppPresentationState';
 import { useVisionTransport } from './useVisionTransport';
 import { useWebXRTransport } from './useWebXRTransport';
 import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
+import { normalizeVisionPerception } from './vision-perception-normalizer';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -1161,21 +1161,18 @@ export default function AppV2() {
       const snapshot = current?.visionSnapshot();
       setFaceSeen(Boolean(snapshot?.faceSeen));
       setHandSeen(Boolean(snapshot?.handSeen));
-      const face = snapshot?.face;
+      const {
+        face,
+        micro,
+        posture,
+        pulse,
+        environmentContext,
+        environmentObjects,
+        spatial,
+        faceConfidence,
+      } = normalizeVisionPerception(snapshot);
       setFaceLandmarks(Array.isArray(face?.landmarks) ? face.landmarks : []);
-      const micro = face?.microExpression || { kind: 'none', confidence: 0, durationMs: 0 };
-      const posture = snapshot?.posture || {
-        present: false, label: 'unknown', confidence: 0, upright: 0, slump: 0, lean: 0, motion: 0, landmarks: [],
-      };
-      const pulse = snapshot?.rppg || {
-        status: 'off', bpmTrend: 0, quality: 0, relativeActivation: 0, sampleCount: 0,
-      };
-      const environmentSensor = snapshot?.environment;
-      const environmentContext = environmentSensor?.environment || { ...EMPTY_ENVIRONMENT };
-      const environmentObjects = Array.isArray(environmentSensor?.objects) ? environmentSensor.objects : [];
       const now = performance.now();
-      const spatial = face?.spatialPose || { ...EMPTY_REAL_PRESENCE_POSE };
-      const faceConfidence = Math.max(Number(spatial.confidence || 0), face?.present ? 0.65 : 0);
       gazeHeadCalibratorRef.current.observe({
         facePresent: Boolean(face?.present),
         confidence: faceConfidence,
