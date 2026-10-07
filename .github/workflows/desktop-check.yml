@@ -9,6 +9,8 @@ on:
       - "src/intelligence/memory/desktop-memory-store.ts"
       - "src/settings/StructuredMemoryInspector.tsx"
       - ".github/workflows/desktop-check.yml"
+      - "scripts/build-desktop.mjs"
+      - "package*.json"
   pull_request:
     branches: ["main"]
     paths:
@@ -17,6 +19,8 @@ on:
       - "src/intelligence/memory/desktop-memory-store.ts"
       - "src/settings/StructuredMemoryInspector.tsx"
       - ".github/workflows/desktop-check.yml"
+      - "scripts/build-desktop.mjs"
+      - "package*.json"
   workflow_dispatch:
 
 permissions:
@@ -42,6 +46,25 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Build desktop frontend
+        run: |
+          npm ci
+          npm run build:desktop
+          npm run check:desktop
+
+      - name: Generate Windows resource icon
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false @tauri-apps/cli@2.12.0
+          npx tauri icon src-tauri/icons/icon.png --output src-tauri/icons
 
       - name: Cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml --all-targets

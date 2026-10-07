@@ -52,7 +52,7 @@ Workflow: `.github/workflows/macos-dmg.yml`
 
 ## Signing & notarization
 
-Release workflows đã hỗ trợ **optional real signing** mà không làm gãy build khi chưa có certificate.
+Build workflows hỗ trợ signing tùy cấu hình và giữ artifact để kiểm tra. Publication bắt buộc signing thật và real-device release gate; push vào `main` không tự upload installer lên GitHub Release.
 
 ### Windows
 
@@ -71,10 +71,19 @@ GitHub Secrets:
 
 - `APPLE_CERTIFICATE`;
 - `APPLE_CERTIFICATE_PASSWORD`;
-- optional `APPLE_SIGNING_IDENTITY`;
+- `APPLE_SIGNING_IDENTITY` — bắt buộc khi có certificate, dạng `Developer ID Application: ...`;
 - `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` cho notarization.
 
-Khi có certificate, Tauri dùng Developer ID signing. Khi có đủ notarization credentials, workflow yêu cầu stapling validation thành công. Nếu chưa cấu hình, build giữ ad-hoc signing để không phá pipeline.
+Khi có certificate, workflow yêu cầu identity rõ ràng để không rơi về cấu hình ad-hoc `-`. Khi có đủ notarization credentials, workflow yêu cầu stapling và Gatekeeper validation thành công. Nếu chưa cấu hình, build giữ ad-hoc signing dưới dạng artifact kiểm tra.
+
+## Publication gate
+
+- `macos-dmg.yml` chỉ tạo artifact. Artifact kèm `release-validation.json` ghi commit, checksum và kết quả signing/notarization.
+- Chạy thủ công `release-v0.1.0.yml` trên commit cần phát hành. Publisher chỉ nhận run macOS thành công trên `main` tại đúng `GITHUB_SHA`; bắt buộc Developer ID, notarization/Gatekeeper và checksum khớp. Artifact cũ hoặc ad-hoc bị từ chối.
+- Windows mặc định chỉ build. Chạy thủ công với `publish=true` để xuất bản; app và installer đều phải có Authenticode hợp lệ.
+- Cả hai publisher yêu cầu secret `DEVICE_LAB_RESULTS` chứa ít nhất 3 kết quả PASS của đúng commit; xem [Device Lab](MIRA-DEVICE-LAB.md).
+- Tag release đã tồn tại phải trỏ tới đúng commit được xác minh. Không thay installer của commit mới dưới tag cũ. Các workflow hiện cố định `v0.1.0`; tăng version/tag trước đợt release mới khi cần.
+- Native check build frontend trước Cargo và tạo Windows resource icon từ PNG gốc để clean checkout không thiếu `icon.ico`.
 
 ## Release limitations
 

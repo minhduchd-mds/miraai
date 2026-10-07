@@ -299,7 +299,7 @@ for (const token of ["join(DIST, 'avatars')", "/\\.vrm$|splat\\.ply$/i", 'Deskto
 }
 
 const desktopBuild = readFileSync('scripts/build-desktop.mjs', 'utf8');
-for (const token of ["VITE_MIRA_INCLUDE_LABS: '0'", "['run', 'build']", "scripts/prune-desktop-assets.mjs"]) {
+for (const token of ["VITE_MIRA_INCLUDE_LABS: '0'", 'process.execPath', 'scripts/restore-photoreal-assets.mjs', 'vite/package.json', 'scripts/prune-runtime-assets.mjs', 'scripts/prune-desktop-assets.mjs']) {
   if (!desktopBuild.includes(token)) failures.push(`desktop build wrapper missing: ${token}`);
 }
 
@@ -1492,6 +1492,9 @@ for (const token of [
   '--status success',
   'VALIDATED_DMG_RUN=$run_id',
   'latest successful `macos-dmg.yml` run',
+  '--commit "$GITHUB_SHA"',
+  'node scripts/validate-desktop-release.mjs release-src',
+  'node scripts/check-device-release.mjs',
 ]) {
   if (!releaseWorkflow.includes(token)) failures.push(`release artifact selection missing: ${token}`);
 }

@@ -28,6 +28,7 @@ function parseArgs(argv) {
     report: '',
     label: '',
     output: '',
+    releaseSha: '',
     observation: {},
   };
 
@@ -35,6 +36,7 @@ function parseArgs(argv) {
     if (arg.startsWith('--report=')) out.report = arg.slice('--report='.length);
     else if (arg.startsWith('--label=')) out.label = arg.slice('--label='.length);
     else if (arg.startsWith('--output=')) out.output = arg.slice('--output='.length);
+    else if (arg.startsWith('--release-sha=')) out.releaseSha = arg.slice('--release-sha='.length);
     else if (arg.startsWith('--camera-started=')) out.observation.cameraStarted = parseBool(arg.split('=')[1]);
     else if (arg.startsWith('--camera-start-ms=')) out.observation.cameraStartMs = Number(arg.split('=')[1]);
     else if (arg.startsWith('--face-detected=')) out.observation.faceDetected = parseBool(arg.split('=')[1]);
@@ -79,6 +81,10 @@ if (source?.format !== 'mira.device-report' || source?.schemaVersion !== 1) {
 const runtime = await importDeviceLabRuntime();
 const label = args.label || basename(reportPath, '.json');
 const result = runtime.buildDeviceLabResult(label, source, args.observation);
+if (args.releaseSha) {
+  if (!/^[a-f0-9]{40}$/.test(args.releaseSha)) throw new Error('--release-sha must be a full commit SHA');
+  result.releaseSha = args.releaseSha;
+}
 
 if (!runtime.isPrivateDeviceLabResult(result)) {
   console.error('Refusing to write Device Lab result because privacy contract failed.');

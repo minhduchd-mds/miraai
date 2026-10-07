@@ -1,10 +1,6 @@
 name: Release Mira v0.1.0
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/release-v0.1.0.yml"
   workflow_dispatch:
 
 permissions:
@@ -29,6 +25,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Real-device release gate
+        env:
+          DEVICE_LAB_RESULTS: ${{ secrets.DEVICE_LAB_RESULTS }}
+        run: |
+          npm ci
+          node scripts/check-device-release.mjs
+
       - name: Verify version contract
         shell: bash
         run: |
@@ -52,11 +61,13 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --workflow "macos-dmg.yml" \
             --branch main \
+            --commit "$GITHUB_SHA" \
             --status success \
             --limit 1 \
             --json databaseId \
             --jq '.[0].databaseId')"
           test -n "$run_id"
+          test "$run_id" != "null"
           echo "VALIDATED_DMG_RUN=$run_id" >> "$GITHUB_ENV"
           echo "Using macOS DMG workflow run: $run_id"
 
@@ -72,13 +83,9 @@ jobs:
             --name "Mira-macOS-Intel-DMG" \
             --dir release-src
 
-          source_dmg="$(find release-src -name '*.dmg' -type f | head -n 1)"
-          test -n "$source_dmg"
-          cp "$source_dmg" "release/$RELEASE_DMG"
-          (
-            cd release
-            sha256sum "$RELEASE_DMG" > "$RELEASE_DMG.sha256"
-          )
+          node scripts/validate-desktop-release.mjs release-src
+          cp "release-src/$RELEASE_DMG" "release/$RELEASE_DMG"
+          cp "release-src/$RELEASE_DMG.sha256" "release/$RELEASE_DMG.sha256"
           ls -lh release/
           cat "release/$RELEASE_DMG.sha256"
 
@@ -101,7 +108,7 @@ jobs:
           - Memory + contextual companion runtime.
           - ElevenLabs neural voice gateway.
           - WebP presence assets và Visual QA/device-profile regression.
-          - Desktop shell bằng Tauri, kết nối production Mira trên Vercel.
+          - Desktop shell bằng Tauri, đóng gói frontend local.
 
           ### macOS
           - **Intel x86_64**
@@ -109,20 +116,23 @@ jobs:
           - File cài đặt: `Mira-v0.1.0-macOS-Intel.dmg`
 
           ### Xác minh
-          File DMG được lấy từ **latest successful `macos-dmg.yml` run** trên nhánh `main`.
+          File DMG được lấy từ **latest successful `macos-dmg.yml` run** trên nhánh `main` cho đúng commit phát hành.
           Workflow bắt buộc:
           - `hdiutil verify`
           - `codesign --verify --deep --strict`
           - binary architecture `x86_64`
-          - nếu Apple signing/notarization credentials được cấu hình: Developer ID signature + stapling validation
+          - Developer ID Application signature + stapling + Gatekeeper validation
+          - 3 real-device PASS results bound to the release commit
 
           ### Lưu ý
-          Trạng thái ký/notarize phụ thuộc credential trong workflow run dùng để phát hành. Nếu chưa cấu hình Apple Developer credential, artifact vẫn dùng ad-hoc signing và macOS có thể hiện Gatekeeper warning.
+          Bản ad-hoc hoặc chưa notarize chỉ được giữ dưới dạng build artifact, không được xuất bản bởi workflow này.
 
           SHA256 được đính kèm trong file `.sha256`.
           EOF
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$GITHUB_SHA" || { echo "Release tag does not match validated commit"; exit 1; }
             gh release upload "$RELEASE_TAG"               "release/$RELEASE_DMG"               "release/$RELEASE_DMG.sha256"               --repo "$GITHUB_REPOSITORY"               --clobber
             gh release edit "$RELEASE_TAG"               --repo "$GITHUB_REPOSITORY"               --title "$RELEASE_NAME"               --notes-file /tmp/release-notes.md               --latest
           else

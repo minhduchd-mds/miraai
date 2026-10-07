@@ -10,7 +10,15 @@ on:
       - "src/intelligence/memory/**"
       - "src/intelligence/skills/desktop-music-skill.ts"
       - "src/runtime/turn-manager.ts"
+      - "scripts/build-desktop.mjs"
+      - "scripts/*desktop*.mjs"
+      - "package*.json"
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a signed, device-qualified installer to the existing release
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -40,6 +48,12 @@ jobs:
       - name: Install frontend dependencies
         shell: pwsh
         run: npm ci
+
+      - name: Real-device release gate
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        env:
+          DEVICE_LAB_RESULTS: ${{ secrets.DEVICE_LAB_RESULTS }}
+        run: node scripts/check-device-release.mjs
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
@@ -76,10 +90,12 @@ jobs:
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          PUBLISH_RELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         run: |
           $ErrorActionPreference = "Stop"
 
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE)) {
+            if ($env:PUBLISH_RELEASE -eq "true") { throw "Publication requires WINDOWS_CERTIFICATE" }
             "WINDOWS_SIGNING_ENABLED=false" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
             "⚠️ Windows Authenticode signing is not configured." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             exit 0
@@ -173,11 +189,18 @@ jobs:
           Get-Content "release/$env:RELEASE_EXE.sha256"
 
       - name: Upload installer to GitHub Release
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
+
+          if ($env:WINDOWS_SIGNING_ENABLED -ne "true") { throw "Publication requires Authenticode signing" }
+          git fetch origin "refs/tags/${env:RELEASE_TAG}:refs/tags/${env:RELEASE_TAG}"
+          if ($LASTEXITCODE -ne 0) { throw "Release tag fetch failed" }
+          $tagSha = git rev-parse "$env:RELEASE_TAG^{commit}"
+          if ($tagSha -ne $env:GITHUB_SHA) { throw "Release tag does not match validated commit" }
 
           for ($attempt = 1; $attempt -le 24; $attempt++) {
             gh release view $env:RELEASE_TAG *> $null
@@ -204,7 +227,7 @@ jobs:
               "- Installer: Mira-v0.1.0-Windows-x64-Setup.exe",
               "- Tauri + NSIS",
               "- Requires Microsoft Edge WebView2 Runtime; Windows 10/11 normally includes or can install it.",
-              "- Signing status is validated by the release workflow; unsigned builds may trigger Windows SmartScreen."
+              "- Authenticode signatures and real-device evidence are required by the release workflow."
             )
             $append = $appendLines -join [Environment]::NewLine
             Set-Content -Path "release-notes-updated.md" -Value ($body + $append)
@@ -212,6 +235,7 @@ jobs:
           }
 
       - name: Verify Windows release assets
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

@@ -11,9 +11,12 @@ on:
       - "src/intelligence/skills/desktop-music-skill.ts"
       - "src/runtime/turn-manager.ts"
       - ".github/workflows/macos-dmg.yml"
+      - "scripts/build-desktop.mjs"
+      - "scripts/*desktop*.mjs"
+      - "package*.json"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: mira-macos-dmg
@@ -64,14 +67,15 @@ jobs:
           set -euo pipefail
           if [ -n "${APPLE_CERTIFICATE:-}" ]; then
             echo "MACOS_SIGNING_ENABLED=true" >> "$GITHUB_ENV"
-            if [ -n "${APPLE_SIGNING_IDENTITY_SECRET:-}" ]; then
-              export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY_SECRET"
-            else
-              unset APPLE_SIGNING_IDENTITY
-            fi
+            test -n "${APPLE_SIGNING_IDENTITY_SECRET:-}" || { echo "APPLE_SIGNING_IDENTITY is required with a certificate"; exit 1; }
+            export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY_SECRET"
+            [[ "$APPLE_SIGNING_IDENTITY" == "Developer ID Application:"* ]] || { echo "Expected Developer ID Application identity"; exit 1; }
             echo "Apple signing certificate detected; Tauri will sign the app."
           else
             echo "MACOS_SIGNING_ENABLED=false" >> "$GITHUB_ENV"
+            # Tauri treats an empty-but-present certificate variable as an
+            # import request. Remove it for a genuinely ad-hoc build.
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD
             export APPLE_SIGNING_IDENTITY="-"
             echo "No Apple certificate configured; building with ad-hoc signing."
           fi
@@ -112,7 +116,7 @@ jobs:
           codesign -dv --verbose=4 "$app" 2>&1 | tee /tmp/mira-codesign.txt
 
           if [ "${MACOS_SIGNING_ENABLED:-false}" = "true" ]; then
-            if ! grep -Eq 'Authority=|TeamIdentifier=' /tmp/mira-codesign.txt; then
+            if ! grep -q '^Authority=Developer ID Application:' /tmp/mira-codesign.txt; then
               echo "Expected Developer ID signature metadata was not found."
               exit 1
             fi
@@ -123,6 +127,7 @@ jobs:
 
           if [ "${MACOS_NOTARIZATION_ENABLED:-false}" = "true" ]; then
             xcrun stapler validate "$dmg"
+            spctl --assess --type execute --verbose=4 "$app"
             echo "✅ macOS notarization/stapling verified." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "⚠️ macOS notarization is not configured." >> "$GITHUB_STEP_SUMMARY"
@@ -144,26 +149,18 @@ jobs:
           shasum -a 256 "release/$RELEASE_DMG" | sed 's#release/##' > "release/$RELEASE_DMG.sha256"
           ls -lh release
           cat "release/$RELEASE_DMG.sha256"
-
-      - name: Upload DMG to GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh release view "$RELEASE_TAG" >/dev/null
-          gh release upload "$RELEASE_TAG"             "release/$RELEASE_DMG"             "release/$RELEASE_DMG.sha256"             --clobber
-
-      - name: Verify macOS release assets
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
-          echo "$assets"
-          grep -Fxq "$RELEASE_DMG" <<<"$assets"
-          grep -Fxq "$RELEASE_DMG.sha256" <<<"$assets"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const artifact = process.env.RELEASE_DMG;
+          fs.writeFileSync('release/release-validation.json', JSON.stringify({
+            format: 'mira.desktop-release-validation', schemaVersion: 1,
+            commit: process.env.GITHUB_SHA, platform: 'macos-intel', artifact,
+            sha256: crypto.createHash('sha256').update(fs.readFileSync(`release/${artifact}`)).digest('hex'),
+            signed: process.env.MACOS_SIGNING_ENABLED === 'true',
+            notarized: process.env.MACOS_NOTARIZATION_ENABLED === 'true',
+          }, null, 2));
+          NODE
 
       - name: Upload DMG build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -172,5 +169,6 @@ jobs:
           path: |
             release/*.dmg
             release/*.sha256
+            release/release-validation.json
           if-no-files-found: error
           retention-days: 30

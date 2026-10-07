@@ -6153,7 +6153,7 @@ test('desktop release workflows are signing-ready without breaking unsigned buil
 });
 
 
-test('release workflow publishes the latest validated macOS artifact instead of a stale run id', () => {
+test('release workflow selects a validated macOS artifact for the release commit', () => {
   const source = readFileSync('.github/workflows/release-v0.1.0.yml', 'utf8');
 
   for (const token of [
@@ -6162,6 +6162,9 @@ test('release workflow publishes the latest validated macOS artifact instead of 
     '--status success',
     'VALIDATED_DMG_RUN=$run_id',
     'latest successful `macos-dmg.yml` run',
+    '--commit "$GITHUB_SHA"',
+    'node scripts/validate-desktop-release.mjs release-src',
+    'node scripts/check-device-release.mjs',
   ]) {
     assert.ok(source.includes(token), `release workflow missing ${token}`);
   }

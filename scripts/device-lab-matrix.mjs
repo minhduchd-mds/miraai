@@ -21,11 +21,22 @@ function parseArgs(argv) {
     dir: 'artifacts/device-lab',
     require: 0,
     write: true,
+    releaseSha: '',
   };
   for (const arg of argv) {
     if (arg.startsWith('--dir=')) options.dir = arg.slice('--dir='.length);
-    else if (arg.startsWith('--require=')) options.require = Number(arg.slice('--require='.length)) || 0;
+    else if (arg.startsWith('--require=')) {
+      options.require = Number(arg.slice('--require='.length));
+      if (!Number.isSafeInteger(options.require) || options.require < 0) {
+        throw new Error('--require must be a non-negative integer');
+      }
+    }
+    else if (arg.startsWith('--release-sha=')) {
+      options.releaseSha = arg.slice('--release-sha='.length);
+      if (!/^[a-f0-9]{40}$/.test(options.releaseSha)) throw new Error('--release-sha must be a full commit SHA');
+    }
     else if (arg === '--no-write') options.write = false;
+    else throw new Error(`Unknown argument: ${arg}`);
   }
   return options;
 }
@@ -84,6 +95,26 @@ for (const path of candidates) {
     assert.equal(value.source?.format, 'mira.device-report');
     assert.equal(value.source?.schemaVersion, 1);
     const assessment = runtime.assessDeviceLabResult(value);
+    if (options.require > 0) {
+      if (value.source.device.secureContext !== true || value.source.device.mediaDevices !== true ||
+          typeof value.source.device.immersiveAr !== 'boolean') {
+        failures.push(`${basename(path)}: release requires valid capability fields and a resolved XR preflight`);
+      }
+      if (assessment.overall !== 'pass') {
+        failures.push(`${basename(path)}: release requires PASS, found ${assessment.overall}`);
+      }
+      if (!Number.isFinite(value.observation.cameraStartMs) || value.observation.cameraStartMs < 0 ||
+          !Number.isFinite(value.observation.voiceFirstAudioMs) || value.observation.voiceFirstAudioMs < 0) {
+        failures.push(`${basename(path)}: release requires measured camera and voice latency`);
+      }
+      if (value.source.voice.health === 'unhealthy' || value.source.voice.health === 'unknown' || !value.source.voice.health) {
+        failures.push(`${basename(path)}: voice health is not release-ready`);
+      }
+      if (!value.label?.trim() || value.label === 'Unnamed device') failures.push(`${basename(path)}: device label required`);
+      if (options.releaseSha && value.releaseSha !== options.releaseSha) {
+        failures.push(`${basename(path)}: evidence does not match release commit ${options.releaseSha}`);
+      }
+    }
     results.push({ file: basename(path), result: value, assessment });
   } catch (error) {
     failures.push(`${basename(path)}: ${error instanceof Error ? error.message : String(error)}`);
@@ -92,6 +123,13 @@ for (const path of candidates) {
 
 if (results.length < options.require) {
   failures.push(`expected at least ${options.require} empirical device result(s), found ${results.length}`);
+}
+
+if (options.require > 0) {
+  const labels = new Set(results.map(({ result }) => result.label.trim().toLowerCase()));
+  if (labels.size !== results.length) failures.push('release evidence must use distinct device/profile labels');
+  const captures = new Set(results.map(({ result }) => JSON.stringify({ source: result.source, observation: result.observation })));
+  if (captures.size !== results.length) failures.push('duplicate captures cannot count as separate devices');
 }
 
 const counts = {

@@ -42,6 +42,9 @@ jobs:
       - name: Runtime unit tests
         run: npm test
 
+      - name: Device Lab contract
+        run: npm run check:device-lab
+
       - name: Functional benchmark gate
         run: npm run benchmark:functional
 

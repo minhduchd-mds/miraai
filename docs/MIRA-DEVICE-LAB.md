@@ -158,7 +158,7 @@ Before a hardware-qualified release, run:
 npm run check:device-release
 ```
 
-This requires at least **3 private empirical device results** and fails if the matrix contains invalid/private-contract-breaking input. The recommended minimum evidence set is:
+This requires at least **3 private empirical device results**. Every result must be PASS, contain finite non-negative camera and first-audio latency measurements, and have usable voice health. Missing observations, WARN/FAIL results, repeated device/profile labels, duplicate captures, and invalid/private-contract-breaking input fail the release gate. Contract-only mode remains available for CI without hardware evidence. The recommended minimum evidence set is:
 
 1. one desktop machine running Mira Desktop;
 2. one second browser/OS profile for camera + voice;
@@ -167,3 +167,17 @@ This requires at least **3 private empirical device results** and fails if the m
 If XR is not part of the release claim, the third result may be another camera/voice device profile.
 
 Synthetic Playwright output is **never** counted toward these three results. Only `mira.device-lab-result` files produced from a real Device Report + real observations count toward the empirical gate.
+
+### Bind evidence to the release candidate
+
+Add `--release-sha=<full 40-character commit SHA>` to `device:lab:capture` after testing the candidate built from that commit. Recheck locally with:
+
+```bash
+npm run check:device-release -- --release-sha=<full 40-character commit SHA> --no-write
+```
+
+An operator must confirm the observations came from distinct physical devices/profiles running that candidate. The JSON contract cannot establish physical provenance on its own; changing a label or adding a SHA does not substitute for a new device test.
+
+For publication, configure the repository secret `DEVICE_LAB_RESULTS` as a JSON array of the private result objects. `scripts/check-device-release.mjs` stages the array in a temporary directory, requires three PASS results matching `GITHUB_SHA`, and deletes the staged files afterward. Never place credentials, transcripts, camera/audio data, or device identifiers in this array.
+
+Windows publication requires a manual dispatch with `publish=true`; the macOS release publisher is manual-only. Both fail closed without matching device evidence. Push builds and unsigned/ad-hoc artifacts are for validation, not hardware-qualified publication.

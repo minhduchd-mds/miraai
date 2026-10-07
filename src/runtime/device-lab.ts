@@ -21,6 +21,7 @@ export interface MiraDeviceLabResult {
   schemaVersion: 1;
   createdAt: string;
   label: string;
+  releaseSha?: string;
   source: MiraDeviceReport;
   observation: DeviceLabObservation;
   privacy: {
