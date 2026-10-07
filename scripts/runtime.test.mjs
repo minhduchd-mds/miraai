@@ -5479,3 +5479,15 @@ test('production build prunes source and reference media before artifact validat
     assert.ok(prune.includes(token));
   }
 });
+
+test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
+  assert.match(app, /from '\.\/spatial-ui-helpers'/);
+  for (const token of ['collectSpatialTargets','collectSpatialWorldAnchors','spatialWindowStyle','spatialObjectStyle','spatialJointForAttachment','setXRWindowSurfaceState']) {
+    assert.ok(helper.includes(token));
+  }
+  for (const forbidden of ['function collectSpatialTargets','function collectSpatialWorldAnchors','function spatialWindowStyle','function spatialJointForAttachment']) {
+    assert.ok(!app.includes(forbidden));
+  }
+});

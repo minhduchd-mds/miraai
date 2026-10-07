@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const failures = [];
 const mustExist = [
   'src/app/AppV2.tsx',
+  'src/app/spatial-ui-helpers.ts',
   'src/presence/HolographicMira.tsx',
   'src/presence/PhotorealMira.tsx',
   'src/presence/presence-scene.ts',
@@ -180,6 +181,14 @@ for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", "j
 const legacyApp = readFileSync('src/App.tsx', 'utf8');
 for (const token of ['GITHUB_PAGES_LITE', "hostname.endsWith('.github.io')", '!GITHUB_PAGES_LITE && !avatar2d']) {
   if (!legacyApp.includes(token)) failures.push(`Pages Labs lightweight fallback missing: ${token}`);
+}
+
+const spatialUiHelpers = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
+for (const token of ['collectSpatialTargets', 'collectSpatialWorldAnchors', 'spatialWindowStyle', 'spatialObjectStyle', 'spatialJointForAttachment', 'setXRWindowSurfaceState']) {
+  if (!spatialUiHelpers.includes(token)) failures.push(`spatial UI helper extraction missing: ${token}`);
+}
+for (const forbidden of ['function collectSpatialTargets', 'function collectSpatialWorldAnchors', 'function spatialWindowStyle', 'function spatialJointForAttachment']) {
+  if (readFileSync('src/app/AppV2.tsx', 'utf8').includes(forbidden)) failures.push(`AppV2 still owns extracted spatial helper: ${forbidden}`);
 }
 
 const v2 = readFileSync('src/app/AppV2.tsx', 'utf8');
