@@ -3,6 +3,7 @@ import {
   defaultElevenModel,
   defaultElevenVoice,
   originAllowed,
+  ttsContractMetadata,
 } from '../server/tts-policy.mjs';
 
 export default function handler(req, res) {
@@ -15,10 +16,8 @@ export default function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
   return res.status(200).json({
     ok: true,
-    configured,
-    provider: 'elevenlabs',
+    ...ttsContractMetadata(configured),
     providers: configured ? ['elevenlabs'] : [],
-    elevenLabsOnly: true,
     elevenLabs: {
       configured,
       voice: defaultElevenVoice(),
