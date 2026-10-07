@@ -1,4 +1,5 @@
 use crate::memory;
+use lofty::{file::TaggedFileExt, tag::Accessor};
 use rusqlite::{params, OptionalExtension};
 use serde::Serialize;
 use std::{collections::HashMap, fs, path::{Path, PathBuf}, process::Command};
@@ -25,6 +26,7 @@ pub(crate) struct MusicLibraryStatus {
     enabled: bool,
     root: Option<String>,
     track_count: i64,
+    tagged_track_count: i64,
     last_scan_at: Option<i64>,
 }
 
@@ -85,21 +87,41 @@ fn collect_audio_files(root: &Path, current: &Path, depth: usize, out: &mut Vec<
     Ok(())
 }
 
-fn track_fields(path: &Path, root: &Path) -> (String,String,String,String,String) {
+fn embedded_track_metadata(path: &Path) -> Option<(String,String,String)> {
+    let tagged_file = lofty::read_from_path(path).ok()?;
+    let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag())?;
+    let title = tag.title().map(|value| clip(value.as_ref(),300)).unwrap_or_default();
+    let artist = tag.artist().map(|value| clip(value.as_ref(),240)).unwrap_or_default();
+    let album = tag.album().map(|value| clip(value.as_ref(),240)).unwrap_or_default();
+    (!title.is_empty() || !artist.is_empty() || !album.is_empty()).then_some((title,artist,album))
+}
+
+fn track_fields(path: &Path, root: &Path) -> (String,String,String,String,String,bool) {
     let stem = path.file_stem().map(|value| value.to_string_lossy().trim().to_string()).unwrap_or_else(|| "Unknown".into());
-    let (artist,title) = match stem.split_once(" - ") {
+    let (fallback_artist,fallback_title) = match stem.split_once(" - ") {
       Some((left,right)) if !left.trim().is_empty() && !right.trim().is_empty() => (left.trim().to_string(),right.trim().to_string()),
       _ => (String::new(),stem.clone()),
     };
-    let album = path.parent()
+    let fallback_album = path.parent()
       .filter(|parent| *parent != root)
       .and_then(|parent| parent.file_name())
       .map(|value| value.to_string_lossy().to_string())
       .unwrap_or_default();
+
+    let embedded = embedded_track_metadata(path);
+    let (title,artist,album) = match embedded.as_ref() {
+      Some((tag_title,tag_artist,tag_album)) => (
+        if tag_title.is_empty() { fallback_title } else { tag_title.clone() },
+        if tag_artist.is_empty() { fallback_artist } else { tag_artist.clone() },
+        if tag_album.is_empty() { fallback_album } else { tag_album.clone() },
+      ),
+      None => (fallback_title,fallback_artist,fallback_album),
+    };
+
     let ext = audio_extension(path).unwrap_or_default();
     let file_name = path.file_name().map(|value| value.to_string_lossy().to_string()).unwrap_or_default();
     let search_text = normalize_search(&format!("{title} {artist} {album} {file_name}"));
-    (title,artist,album,search_text,ext)
+    (title,artist,album,search_text,ext,embedded.is_some())
 }
 
 fn scan_music_library(app: &AppHandle, root: &Path) -> Result<MusicLibraryStatus,String> {
@@ -111,10 +133,12 @@ fn scan_music_library(app: &AppHandle, root: &Path) -> Result<MusicLibraryStatus
     let indexed_at = memory::timestamp_ms();
     let mut connection = memory::database(app)?;
     let tx = connection.transaction().map_err(|e| format!("music scan transaction: {e}"))?;
+    let mut tagged_track_count = 0_i64;
 
     for path in files {
       let path_text = path.to_string_lossy().to_string();
-      let (title,artist,album,search_text,ext) = track_fields(&path,&root);
+      let (title,artist,album,search_text,ext,tagged) = track_fields(&path,&root);
+      if tagged { tagged_track_count += 1; }
       tx.execute(
         "INSERT INTO music_tracks(path,root,title,artist,album,search_text,ext,indexed_at,added_at,last_played_at,play_count) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?8,0,0) ON CONFLICT(path) DO UPDATE SET root=excluded.root,title=excluded.title,artist=excluded.artist,album=excluded.album,search_text=excluded.search_text,ext=excluded.ext,indexed_at=excluded.indexed_at",
         params![path_text,root_text,title,artist,album,search_text,ext,indexed_at]
@@ -127,6 +151,7 @@ fn scan_music_library(app: &AppHandle, root: &Path) -> Result<MusicLibraryStatus
 
     memory::setting_set(app,"music.library.root",&root_text)?;
     memory::setting_set(app,"music.library.last_scan_at",&indexed_at.to_string())?;
+    memory::setting_set(app,"music.library.tagged_track_count",&tagged_track_count.to_string())?;
     memory::desktop_permission_set(app.clone(),"media.library".into(),true)?;
     music_library_status(app)
 }
@@ -135,10 +160,13 @@ fn music_library_status(app: &AppHandle) -> Result<MusicLibraryStatus,String> {
     let enabled = memory::permission_enabled(app,"media.library",false);
     let root = memory::setting_get(app,"music.library.root")?.filter(|value| !value.is_empty());
     let last_scan_at = memory::setting_get(app,"music.library.last_scan_at")?.and_then(|value| value.parse::<i64>().ok());
+    let tagged_track_count = memory::setting_get(app,"music.library.tagged_track_count")?
+      .and_then(|value| value.parse::<i64>().ok())
+      .unwrap_or(0);
     let track_count = if let Some(root_value) = root.as_deref() {
       memory::database(app)?.query_row("SELECT COUNT(*) FROM music_tracks WHERE root=?1",[root_value],|row| row.get::<_,i64>(0)).unwrap_or(0)
     } else { 0 };
-    Ok(MusicLibraryStatus{enabled,root,track_count,last_scan_at})
+    Ok(MusicLibraryStatus{enabled,root,track_count,tagged_track_count:tagged_track_count.min(track_count),last_scan_at})
 }
 
 #[cfg(target_os = "macos")]
