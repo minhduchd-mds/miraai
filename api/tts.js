@@ -1,7 +1,8 @@
 import {
   applyCors,
-  defaultElevenModel,
-  defaultElevenVoice,
+  MIRA_TTS_MAX_TEXT_LENGTH,
+  elevenDialoguePayload,
+  elevenDialogueUrl,
   originAllowed,
   takeRateSlot,
 } from '../server/tts-policy.mjs';
@@ -14,14 +15,6 @@ function parseBody(req) {
   return body && typeof body === 'object' ? body : {};
 }
 
-function performanceText(text, instructions) {
-  const clean = String(text || '').trim();
-  const cue = String(instructions || '').toLowerCase();
-  if (/thì thầm|whisper|bedtime|sleep|quiet/.test(cue)) return `[whispers] ${clean}`;
-  if (/vui|happy|warm|gentle|dịu|affection|welcome/.test(cue)) return `[warmly] ${clean}`;
-  if (/serious|cảnh báo|warning/.test(cue)) return `[serious] ${clean}`;
-  return clean;
-}
 
 export default async function handler(req, res) {
   applyCors(req, res, 'POST,OPTIONS');
@@ -33,18 +26,17 @@ export default async function handler(req, res) {
   const body = parseBody(req);
   const text = String(body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'text_required' });
-  if (text.length > 3500) return res.status(413).json({ error: 'text_too_long' });
+  if (text.length > MIRA_TTS_MAX_TEXT_LENGTH) return res.status(413).json({ error: 'text_too_long' });
 
   const key = process.env.elevenlabs_api_key || process.env.ELEVENLABS_API_KEY || '';
   if (!key) return res.status(503).json({ error: 'elevenlabs_not_configured' });
 
-  // Production voice identity is server-controlled. Ignore stale/client voice ids.
-  const voice = defaultElevenVoice();
-  const model = defaultElevenModel();
+  // Production voice identity/model are server-controlled through the shared contract.
+  const payload = elevenDialoguePayload(text, body.instructions);
 
   try {
     const response = await fetch(
-      'https://api.elevenlabs.io/v1/text-to-dialogue?output_format=mp3_44100_128',
+      elevenDialogueUrl(),
       {
         method: 'POST',
         signal: AbortSignal.timeout(18_000),
@@ -52,15 +44,7 @@ export default async function handler(req, res) {
           'content-type': 'application/json',
           'xi-api-key': key,
         },
-        body: JSON.stringify({
-          inputs: [{
-            text: performanceText(text, body.instructions),
-            voice_id: voice,
-          }],
-          model_id: model,
-          language_code: 'vi',
-          apply_text_normalization: 'auto',
-        }),
+        body: JSON.stringify(payload),
       },
     );
 
@@ -75,8 +59,8 @@ export default async function handler(req, res) {
     res.setHeader('content-type', response.headers.get('content-type') || 'audio/mpeg');
     res.setHeader('cache-control', 'no-store');
     res.setHeader('x-mira-tts-provider', 'elevenlabs');
-    res.setHeader('x-mira-tts-model', model);
-    res.setHeader('x-mira-tts-voice', voice);
+    res.setHeader('x-mira-tts-model', payload.model_id);
+    res.setHeader('x-mira-tts-voice', payload.inputs[0].voice_id);
     return res.status(200).send(audio);
   } catch (error) {
     return res.status(502).json({
