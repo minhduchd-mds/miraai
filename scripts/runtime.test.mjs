@@ -5764,6 +5764,32 @@ test('AppV2 delegates webcam hand contact, intent, direct touch and ray resoluti
   }
 });
 
+test('AppV2 delegates victory and open-palm spatial selection gestures', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/spatial-selection-gesture.ts', 'utf8');
+
+  assert.match(app, /applySpatialSelectionGesture\(/);
+  for (const forbidden of [
+    "intent.intent === 'victory_hold'",
+    "intent.intent === 'open_palm_hold'",
+    'Victory · chọn cụm',
+    'Open Palm · bỏ chọn nhóm',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'applySpatialSelectionGesture',
+    "'victory_hold'",
+    "'open_palm_hold'",
+    'clusterRootObjectId',
+    'selectionRuntime.toggle',
+    'selectionRuntime.clear',
+  ]) {
+    assert.ok(helper.includes(token), `spatial selection gesture helper missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
