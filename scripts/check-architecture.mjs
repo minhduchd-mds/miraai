@@ -182,8 +182,14 @@ if (existsSync('public/looks')) failures.push('retired public/looks directory mu
 const entry = readFileSync('src/main.tsx', 'utf8');
 if (!entry.includes("const AppV2 = lazy(() => import('./app/AppV2'))")) failures.push('production AppV2 must stay route-level lazy-loaded');
 if (/^import\s+AppV2\s+from\s+['"]\.\/app\/AppV2['"]/m.test(entry)) failures.push('AppV2 must not leak back into the bootstrap initial graph');
-if (!entry.includes("const LegacyApp = lazy(async () =>") || !entry.includes("import('./ui/styles.css')") || !entry.includes("return import('./App')")) {
-  failures.push('Legacy/Labs shell and legacy stylesheet must stay lazy-loaded');
+for (const token of [
+  "const LABS_ENABLED = import.meta.env.VITE_MIRA_INCLUDE_LABS !== '0'",
+  'const LegacyApp = LABS_ENABLED',
+  "lazy(async () => {",
+  "import('./ui/styles.css')",
+  "return import('./App')",
+]) {
+  if (!entry.includes(token)) failures.push(`Legacy/Labs lazy desktop boundary missing: ${token}`);
 }
 if (entry.includes("import './ui/styles.css';")) failures.push('legacy styles.css must not be in the initial AppV2 graph');
 if (!entry.includes("import './ui/base-v2.css';")) failures.push('AppV2 base stylesheet missing');
