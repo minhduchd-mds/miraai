@@ -200,6 +200,10 @@ const appV2Source = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const forbidden of ["localStorage.setItem('mira.theme'", "localStorage.setItem('mira.affect.follow'", 'PRESENCE_RETURN_STORAGE']) {
   if (appV2Source.includes(forbidden)) failures.push(`AppV2 still owns local preference persistence: ${forbidden}`);
 }
+if (!appV2Source.includes('useAppPresentationState')) failures.push('AppV2 presentation preference lifecycle wiring missing');
+for (const forbidden of ["from './app-preferences'", 'document.body.dataset.state', 'document.body.dataset.theme']) {
+  if (appV2Source.includes(forbidden)) failures.push(`AppV2 still owns presentation preference lifecycle: ${forbidden}`);
+}
 
 const presenceReturnHook = readFileSync('src/app/usePresenceReturnLearning.ts', 'utf8');
 for (const token of ['scheduleNextMinute', 'appendPresenceReturnSample', 'savePresenceReturnSamples', "interactionState === 'returning'"]) {
