@@ -3,6 +3,7 @@ import { join, normalize } from 'node:path';
 
 const DIST = 'dist';
 const pagesMode = process.argv.includes('--pages');
+const desktopMode = process.argv.includes('--desktop');
 const failures = [];
 
 function mustExist(path, label = path) {
@@ -90,6 +91,7 @@ for (const root of [join(DIST, 'mira-assets', 'scenes'), join(DIST, 'mira-assets
 const files = walk(DIST);
 const heavy = files.filter((path) => /\.vrm$|splat\.ply$/i.test(path));
 if (pagesMode && heavy.length) failures.push(`Pages artifact contains heavy 3D assets: ${heavy.join(', ')}`);
+if (desktopMode && heavy.length) failures.push(`Desktop artifact contains Labs 3D assets: ${heavy.join(', ')}`);
 if (pagesMode && existsSync(join(DIST, 'looks'))) failures.push('Pages artifact must not contain dist/looks');
 if (pagesMode) {
   mustExist(join(DIST, '404.html'), 'SPA fallback');
@@ -101,8 +103,31 @@ if (pagesMode) {
   }
 }
 
+if (desktopMode && existsSync(join(DIST, '.vite', 'manifest.json'))) {
+  try {
+    const manifest = JSON.parse(readFileSync(join(DIST, '.vite', 'manifest.json'), 'utf8'));
+    const keys = Object.keys(manifest);
+    const forbiddenEntries = [
+      'src/App.tsx',
+      'src/avatar/SplatViewer.tsx',
+      'src/avatar/VRMAvatar.tsx',
+      'src/ui/MiraStage.tsx',
+      'src/ui/DevConsole.tsx',
+      'src/ui/VoiceDock.tsx',
+      'src/core/avatar-config.ts',
+    ];
+    for (const entry of forbiddenEntries) {
+      if (keys.some((key) => key === entry || key.endsWith('/' + entry))) {
+        failures.push(`Desktop manifest contains Labs entry: ${entry}`);
+      }
+    }
+  } catch (error) {
+    failures.push(`invalid desktop Vite manifest: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 const totalBytes = files.reduce((sum, path) => sum + statSync(path).size, 0);
-console.log(`Deploy artifact smoke: ${files.length} files · ${(totalBytes / 1024 / 1024).toFixed(2)} MiB · mode=${pagesMode ? 'pages' : 'build'}`);
+console.log(`Deploy artifact smoke: ${files.length} files · ${(totalBytes / 1024 / 1024).toFixed(2)} MiB · mode=${pagesMode ? 'pages' : desktopMode ? 'desktop' : 'build'}`);
 
 if (failures.length) {
   console.error('\nMira deploy artifact smoke failed:\n');
