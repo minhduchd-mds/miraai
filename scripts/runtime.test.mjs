@@ -5790,6 +5790,36 @@ test('AppV2 delegates victory and open-palm spatial selection gestures', () => {
   }
 });
 
+test('AppV2 delegates spatial object grab, move, release and cancel lifecycle', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/spatial-object-manipulation.ts', 'utf8');
+
+  assert.match(app, /handleSpatialObjectManipulation\(/);
+  for (const forbidden of [
+    'const existingAttachment = spatialWorldRuntimeRef.current.attachment(event.targetId)',
+    "const intentDepthDelta = humanIntent.intent === 'push'",
+    'const previewAtRelease = placementPreviewRef.current',
+    'spatialObjectRuntimeRef.current.cancelGrab()',
+    'Đã hoàn tác vật thể',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'handleSpatialObjectManipulation',
+    'beginGrab',
+    'moveGrab',
+    'release(',
+    'cancelGrab',
+    'previewSnapObject',
+    'snapObject',
+    'applySpatialSpringConstraint',
+    'spatialJointForAttachment',
+  ]) {
+    assert.ok(helper.includes(token), `spatial object manipulation helper missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
