@@ -5847,6 +5847,32 @@ test('AppV2 delegates one-hand spatial window grab lifecycle', () => {
   }
 });
 
+test('AppV2 delegates two-hand spatial window scale and rotation', () => {
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  const helper = readFileSync('src/app/spatial-window-bimanual.ts', 'utf8');
+
+  assert.match(app, /updateSpatialWindowBimanual\(/);
+  for (const forbidden of [
+    "const transformTarget = spatialFrameNext.focus?.kind === 'window'",
+    "showSpatialFeedback('Hai tay · scale / rotate');",
+    'smoothValue(current.scale',
+  ]) {
+    assert.ok(!app.includes(forbidden), `AppV2 still owns ${forbidden}`);
+  }
+
+  for (const token of [
+    'updateSpatialWindowBimanual',
+    'measureTwoHands',
+    'scaleFromDistance',
+    'rotationFromAngles',
+    'smoothValue',
+    'spatialWindowAvailable',
+    'sessionRef.current',
+  ]) {
+    assert.ok(helper.includes(token), `spatial window bimanual helper missing ${token}`);
+  }
+});
+
 test('AppV2 keeps spatial DOM/math helpers behind a dedicated module boundary', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
   const helper = readFileSync('src/app/spatial-ui-helpers.ts', 'utf8');
