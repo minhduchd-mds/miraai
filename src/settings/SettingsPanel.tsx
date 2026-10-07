@@ -13,6 +13,7 @@ import type { TTSDiagnostics } from '../core/tts';
 import { loadSmartTurn, saveSmartTurn } from '../core/stt/turn-config';
 import { loadVadEnabled, saveVadEnabled } from '../core/vad/config';
 import {
+  buildDeviceDiagnosticsReport,
   runDeviceDiagnostics,
   type DevicePermissionState,
   type MiraDeviceDiagnostics,
@@ -146,6 +147,20 @@ export default function SettingsPanel(props: Props) {
     catch { setDeviceDiagnostics(null); }
     finally { setDeviceDiagnosticsBusy(false); }
   };
+  const exportDeviceReport = () => {
+    if (!deviceDiagnostics) return;
+    const report = buildDeviceDiagnosticsReport(deviceDiagnostics, {
+      provider: voiceDiagnostics?.provider || 'unknown',
+      health: voiceDiagnostics?.health || 'unknown',
+    });
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `mira-device-report-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   const changeRate = (next: number) => { setRate(next); saveVoicePrefs({ rate: next }); };
   const changePersona = (next: string) => { setPersona(next); saveVoicePrefs({ persona: next }); };
   const changeResponseLength = (next: ResponseLength) => { setResponseLength(next); saveVoicePrefs({ responseLength: next }); };
@@ -244,7 +259,10 @@ export default function SettingsPanel(props: Props) {
             <div className="v2-setting-group v2-device-check">
               <div className="v2-device-check-head">
                 <div><h3>Thiết bị & kết nối</h3><p>Preflight read-only · không bật camera/mic, không xin quyền.</p></div>
-                <button type="button" disabled={deviceDiagnosticsBusy} onClick={() => void runDeviceCheck()}>{deviceDiagnosticsBusy ? 'Đang kiểm tra…' : 'Kiểm tra thiết bị'}</button>
+                <div className="v2-device-check-actions">
+                  <button type="button" disabled={deviceDiagnosticsBusy} onClick={() => void runDeviceCheck()}>{deviceDiagnosticsBusy ? 'Đang kiểm tra…' : 'Kiểm tra thiết bị'}</button>
+                  <button type="button" disabled={!deviceDiagnostics} onClick={exportDeviceReport}>Xuất báo cáo</button>
+                </div>
               </div>
               {deviceDiagnostics ? <>
                 <div className="v2-device-grid">
@@ -259,6 +277,7 @@ export default function SettingsPanel(props: Props) {
                 </div>
                 <p className="v2-device-meta">{deviceDiagnostics.hardwareConcurrency ? `${deviceDiagnostics.hardwareConcurrency} CPU threads` : 'CPU threads: không rõ'} · {deviceDiagnostics.deviceMemoryGb ? `${deviceDiagnostics.deviceMemoryGb} GB RAM báo bởi trình duyệt` : 'RAM: trình duyệt không báo'} · {deviceDiagnostics.crossOriginIsolated ? 'cross-origin isolated' : 'standard isolation'}</p>
               </> : <p className="v2-disclosure">Bấm “Kiểm tra thiết bị” để xem khả năng hiện tại. Mira chỉ đọc capability và permission state nếu trình duyệt cho phép.</p>}
+              {deviceDiagnostics && <p className="v2-disclosure">Báo cáo JSON không chứa camera frame, mic audio, user-agent, device ID hay vị trí.</p>}
             </div>
             <div className="v2-setting-group"><h3>Độ dài câu trả lời</h3><div className="v2-choice-block"><span>Mức chi tiết</span><div className="v2-segmented">{RESPONSE_LENGTHS.map((item) => <button key={item.id} type="button" className={responseLength === item.id ? 'active' : ''} onClick={() => changeResponseLength(item.id)}>{item.label}</button>)}</div><p className="v2-disclosure">{selectedResponseLength.description}</p></div></div>
             <div className="v2-setting-group"><h3>Tính cách</h3><div className="v2-personas">{PERSONAS.map((item) => <button key={item.id} type="button" className={persona === item.id ? 'active' : ''} onClick={() => changePersona(item.id)}><span>{item.icon}</span><b>{item.label}</b></button>)}</div></div>
