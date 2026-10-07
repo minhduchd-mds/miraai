@@ -121,7 +121,7 @@ Mira Desktop hiện có inspector/edit UI, Tauri commands để list/update/dele
 
 ### Real-device preflight
 
-`src/runtime/device-diagnostics.ts` + Settings Device Check đọc secure context, camera/mic permission state, immersive-AR, WebGPU/WebNN và product mode mà không gọi `getUserMedia()`.
+`src/runtime/device-diagnostics.ts` + Settings Device Check đọc secure context, camera/mic permission state, immersive-AR, WebGPU/WebNN và product mode mà không gọi `getUserMedia()`. Sau khi kiểm tra, người dùng có thể xuất `mira.device-report` schema v1; export dùng allow-list và loại camera/mic content, user-agent, device IDs, vị trí và provider error detail.
 
 ## Quy tắc cleanup
 
