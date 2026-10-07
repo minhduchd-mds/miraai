@@ -84,10 +84,6 @@ import {
   type SpatialHandIntentState,
 } from '../core/vision/spatial-hand-intent';
 import {
-  SpatialWebXRSessionRuntime,
-  type WebXRSessionSnapshot,
-} from '../core/vision/spatial-webxr-session';
-import {
   SpatialXRProjectionRuntime,
   projectMetricPointAcrossViews,
 } from '../core/vision/spatial-xr-projection';
@@ -133,6 +129,7 @@ import { useVoiceSessionLifecycle } from './useVoiceSessionLifecycle';
 import { useSpatialDomFeedback } from './useSpatialDomFeedback';
 import { useAppPresentationState } from './useAppPresentationState';
 import { useVisionTransport } from './useVisionTransport';
+import { useWebXRTransport } from './useWebXRTransport';
 import '../ui/a11y.css';
 
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
@@ -272,7 +269,13 @@ export default function AppV2() {
   const spatialLayoutRef = useRef(spatialSessionLayoutRuntime());
   const spatialLayoutSkipCaptureRef = useRef(false);
   const spatialDeviceAdapterRef = useRef(new SpatialDeviceAdapterRuntime());
-  const webXRRuntimeRef = useRef(new SpatialWebXRSessionRuntime());
+  const {
+    webXRRuntimeRef,
+    webXRAvailable,
+    webXRSnapshot,
+    startWebXRTransport,
+    stopWebXRTransport,
+  } = useWebXRTransport(spatialDeviceAdapterRef.current);
   const xrProjectionRef = useRef(new SpatialXRProjectionRuntime());
   const xrGestureIntentRef = useRef(new GestureIntentTracker());
   const xrHandKinematicsRef = useRef(new SpatialHandKinematicsTracker());
@@ -294,10 +297,6 @@ export default function AppV2() {
   const [xrSurfaceProbe, setXrSurfaceProbe] = useState<XRSurfaceProbe | null>(null);
   const xrSurfaceFeedbackAtRef = useRef(0);
   const xrAutoCalibratedRef = useRef(false);
-  const [webXRAvailable, setWebXRAvailable] = useState(false);
-  const [webXRSnapshot, setWebXRSnapshot] = useState<WebXRSessionSnapshot>(() =>
-    webXRRuntimeRef.current.snapshot()
-  );
   const [selectedClusterRoots, setSelectedClusterRoots] = useState<string[]>([]);
   const spatialJointBeforeGrabRef = useRef<SpatialJointState | null>(null);
   const spatialJointControlRef = useRef<string | null>(null);
@@ -348,24 +347,6 @@ export default function AppV2() {
   });
 
   useDialogFocus(settingsOpen, '.v2-settings');
-
-  useEffect(() => {
-    let cancelled = false;
-    void spatialDeviceAdapterRef.current.detectWebXR().then((capabilities) => {
-      if (!cancelled) setWebXRAvailable(capabilities.mode === 'webxr-metric');
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!webXRSnapshot.active) return;
-    const timer = window.setInterval(() => {
-      const snapshot = webXRRuntimeRef.current.snapshot();
-      setWebXRSnapshot(snapshot);
-      if (!snapshot.active) setWebXRAvailable(true);
-    }, 100);
-    return () => window.clearInterval(timer);
-  }, [webXRSnapshot.active]);
 
   useEffect(() => () => {
     if (faceActionTimerRef.current != null) window.clearTimeout(faceActionTimerRef.current);
@@ -496,9 +477,7 @@ export default function AppV2() {
 
   const toggleWebXR = useCallback(async () => {
     if (webXRSnapshot.active) {
-      const snapshot = await webXRRuntimeRef.current.stop();
-      setWebXRSnapshot(snapshot);
-      setWebXRAvailable(true);
+      await stopWebXRTransport();
       spatialDeviceAdapterRef.current.useWebcamFallback();
       xrProjectionRef.current.reset();
       xrGestureIntentRef.current.reset();
@@ -523,10 +502,8 @@ export default function AppV2() {
       return;
     }
 
-    const snapshot = await webXRRuntimeRef.current.start(globalThis, document.body);
-    setWebXRSnapshot(snapshot);
+    const snapshot = await startWebXRTransport();
     if (!snapshot.active) {
-      setWebXRAvailable(false);
       showSpatialFeedback(snapshot.error || 'Không mở được XR');
       return;
     }
@@ -552,7 +529,6 @@ export default function AppV2() {
     handIntentRef.current.reset();
     xrAutoCalibratedRef.current = false;
     setSpatialFrame(spatialUiRef.current.reset());
-    setWebXRAvailable(true);
     showSpatialFeedback(
       enabled.includes('hand-tracking')
         ? 'XR · hand tracking đã sẵn sàng'
@@ -565,7 +541,7 @@ export default function AppV2() {
       setHandSeen(false);
       setFaceLandmarks([]);
     }
-  }, [showSpatialFeedback, stopVisionTransport, visionOn, webXRSnapshot.active]);
+  }, [showSpatialFeedback, startWebXRTransport, stopVisionTransport, stopWebXRTransport, visionOn, webXRSnapshot.active]);
 
   const toggleVision = useCallback(async () => {
     if (visionBooting) return;
@@ -2261,10 +2237,6 @@ export default function AppV2() {
     }, 120);
     return () => window.clearInterval(timer);
   }, [affectFollowing, mira.interrupt, mira.observeAffect, mira.startListening, mira.stateRef, settingsOpen, showFaceActionFeedback, showSpatialFeedback, updateSpatialWindow, visionOn, voiceReady]);
-
-  useEffect(() => () => {
-    void webXRRuntimeRef.current.stop();
-  }, []);
 
   const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
