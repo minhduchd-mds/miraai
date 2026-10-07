@@ -102,6 +102,7 @@ const mustExist = [
   'src/core/useMira.ts',
   'src/app/useVoiceSessionLifecycle.ts',
   'src/app/useSpatialDomFeedback.ts',
+  'src/app/useAppPresentationState.ts',
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
@@ -190,6 +191,10 @@ for (const token of ['GITHUB_PAGES_LITE', "hostname.endsWith('.github.io')", '!G
 const appPreferences = readFileSync('src/app/app-preferences.ts', 'utf8');
 for (const token of ['loadTheme', 'saveTheme', 'loadAffectFollowing', 'saveAffectFollowing', 'loadPresenceReturnSamples', 'savePresenceReturnSamples']) {
   if (!appPreferences.includes(token)) failures.push(`app preference boundary missing: ${token}`);
+}
+const appPresentationState = readFileSync('src/app/useAppPresentationState.ts', 'utf8');
+for (const token of ['loadTheme', 'saveTheme', 'loadAffectFollowing', 'saveAffectFollowing', 'document.body.dataset.state', 'document.body.dataset.theme']) {
+  if (!appPresentationState.includes(token)) failures.push(`presentation preference lifecycle missing: ${token}`);
 }
 const appV2Source = readFileSync('src/app/AppV2.tsx', 'utf8');
 for (const forbidden of ["localStorage.setItem('mira.theme'", "localStorage.setItem('mira.affect.follow'", 'PRESENCE_RETURN_STORAGE']) {
