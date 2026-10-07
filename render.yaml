@@ -14,7 +14,7 @@ services:
       - key: MIRA_TTS_ALLOWED_ORIGIN
         value: https://minhduchd-mds.github.io
       - key: ELEVENLABS_TTS_MODEL
-        value: eleven_multilingual_v2
+        value: eleven_v4
       - key: ELEVENLABS_TTS_VOICE
         value: EXAVITQu4vr4xnSDxMaL
       - key: ELEVENLABS_API_KEY
