@@ -137,6 +137,8 @@ const mustExist = [
   'src/ui/v2.css',
   'src/ui/vision-v2.css',
   'scripts/prune-runtime-assets.mjs',
+  'scripts/prune-desktop-assets.mjs',
+  'scripts/build-desktop.mjs',
   'scripts/prune-pages-assets.mjs',
   'scripts/check-deploy-artifact.mjs',
   'scripts/check-media.mjs',
@@ -197,6 +199,9 @@ if (packageJson.includes('"protobufjs": true')) failures.push('protobufjs instal
 for (const token of ['scripts/prune-runtime-assets.mjs', '"prune:runtime"', 'npm run build && npm run check:bundle']) {
   if (!packageJson.includes(token)) failures.push(`runtime build prune contract missing: ${token}`);
 }
+for (const token of ['"build:desktop"', '"prune:desktop"', '"check:desktop"', 'scripts/build-desktop.mjs', 'scripts/prune-desktop-assets.mjs', '--desktop']) {
+  if (!packageJson.includes(token)) failures.push(`desktop build profile package contract missing: ${token}`);
+}
 for (const token of ['"device:lab:capture"', '"device:lab:matrix"', '"check:device-lab"', 'scripts/device-lab-capture.mjs', 'scripts/device-lab-matrix.mjs', 'npm run check:device-lab']) {
   if (!packageJson.includes(token)) failures.push(`device lab package script missing: ${token}`);
 }
@@ -223,6 +228,9 @@ for (const file of readdirSync(workflowDir).filter((name) => /\.ya?ml$/i.test(na
 const ciWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 if (!ciWorkflow.includes('npm run check:artifact')) failures.push('CI must run deploy artifact smoke after build');
 if (!ciWorkflow.includes('npm run check:media')) failures.push('CI must enforce Mira media source budget');
+for (const token of ['Build desktop web profile', 'npm run build:desktop', 'Desktop artifact smoke', 'npm run check:desktop', "matrix.node-version == '24.x'"]) {
+  if (!ciWorkflow.includes(token)) failures.push(`CI desktop artifact gate missing: ${token}`);
+}
 const voiceSmokeWorkflow = readFileSync('.github/workflows/voice-smoke.yml', 'utf8');
 for (const token of ['mira-elevenlabs-v4-vietnamese-sample', 'x-mira-tts-provider: elevenlabs', 'x-mira-tts-model: eleven_v4', 'expected_voice']) {
   if (!voiceSmokeWorkflow.includes(token)) failures.push(`ElevenLabs voice smoke workflow missing: ${token}`);
@@ -257,6 +265,26 @@ const pagesPrune = readFileSync('scripts/prune-pages-assets.mjs', 'utf8');
 for (const token of [".endsWith('.vrm')", "splat.ply", "join(DIST, 'looks')", "join(DIST, 'mira-assets', 'poses')", "join(DIST, 'mira-assets', 'gestures')", "join(DIST, 'mira-assets', 'ui')", "join(DIST, 'mira-assets', 'scenes')", "join(DIST, 'mira-assets', 'expressions')", "path.endsWith('.png')", 'Pages artifact prune']) {
   if (!pagesPrune.includes(token)) failures.push(`Pages asset prune missing: ${token}`);
 }
+const mainEntry = readFileSync('src/main.tsx', 'utf8');
+for (const token of ["VITE_MIRA_INCLUDE_LABS !== '0'", 'LABS_ENABLED', "lazy(async () => {", "return import('./App')"]) {
+  if (!mainEntry.includes(token)) failures.push(`desktop Labs compile boundary missing: ${token}`);
+}
+
+const desktopPrune = readFileSync('scripts/prune-desktop-assets.mjs', 'utf8');
+for (const token of ["join(DIST, 'avatars')", "/\\.vrm$|splat\\.ply$/i", 'Desktop artifact prune']) {
+  if (!desktopPrune.includes(token)) failures.push(`desktop asset prune missing: ${token}`);
+}
+
+const desktopBuild = readFileSync('scripts/build-desktop.mjs', 'utf8');
+for (const token of ["VITE_MIRA_INCLUDE_LABS: '0'", "['run', 'build']", "scripts/prune-desktop-assets.mjs"]) {
+  if (!desktopBuild.includes(token)) failures.push(`desktop build wrapper missing: ${token}`);
+}
+
+const deployArtifactCheck = readFileSync('scripts/check-deploy-artifact.mjs', 'utf8');
+for (const token of ["process.argv.includes('--desktop')", 'Desktop artifact contains Labs 3D assets', 'Desktop manifest contains Labs entry']) {
+  if (!deployArtifactCheck.includes(token)) failures.push(`desktop artifact smoke contract missing: ${token}`);
+}
+
 const legacyApp = readFileSync('src/App.tsx', 'utf8');
 for (const token of ['GITHUB_PAGES_LITE', "hostname.endsWith('.github.io')", '!GITHUB_PAGES_LITE && !avatar2d']) {
   if (!legacyApp.includes(token)) failures.push(`Pages Labs lightweight fallback missing: ${token}`);
