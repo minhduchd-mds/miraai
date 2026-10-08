@@ -62,3 +62,11 @@ Set in Vercel Production (not GitHub Secrets or browser environment variables):
 - Free capacity, account quota and availability are not guaranteed. These are maximum model context windows, NOT Mira's currently capped /api/chat history (40 turns and 36K characters).
 - Privacy: neither free endpoint advertises Zero Data Retention; do not pass confidential company data or sensitive personal history. For that use a vetted private model/endpoint.
 - Disable MIRA_BRAIN_FREE_ONLY only with explicit authorization to use paid models.
+
+## Direct Gemini Free Tier primary (October 2026)
+
+When `MIRA_BRAIN_FREE_ONLY=1` and `MIRA_BRAIN_PROVIDER=gemini`, the server tries the Google Gemini Developer API first **only if a GEMINI_API_KEY exists**. Gemini has its own Free Tier; calls through Vercel AI Gateway do not consume Google API Free Tier quota. Default Gemini Free Tier-eligible models: `gemini-3.8-flash` → `gemini-3.7-flash` → `gemini-3.5-flash-lite`. Each candidate has a 12-second timeout and 30-second cooldown for errors; the whole provider chain is capped at 48 seconds. If no Gemini key exists, the router retains the existing free-only Vercel Gateway as fallback. `OPENAI_API_KEY` remains excluded in free-only mode.
+
+**Credentials:** Add `GEMINI_API_KEY` as a Vercel Production *Sensitive* env var, never `VITE_GEMINI_API_KEY` and never a GitHub Secret. Creating a Google AI Studio Free Tier key/project is required before Gemini can run in Production. The application cannot determine whether a Google project has billing enabled from the key, so verify Free Tier status in Google AI Studio; Google may use Free Tier prompts for product improvement. No real Gemini call is possible without the user's key. After saving the key, redeploy Production.
+
+API details: [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing); [3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash); [thinking config](https://ai.google.dev/gemini-api/docs/thinking).
