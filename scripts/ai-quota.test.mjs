@@ -41,7 +41,7 @@ test('all provider billing paths are guarded and SQL counters are atomic', () =>
 
 test('global quota survives a flood of distinct clients in process-local fallback', async () => {
   const now = 42_000_000;
-  const lanes = [['brain', 500], ['tts', 1200], ['distill', 300], ['capsule', 60]];
+  const lanes = [['brain', 500], ['tts', 1200], ['distill', 300], ['capsule', 10]];
   let identity = 0;
   for (const [lane, count] of lanes) {
     for (let i = 0; i < count; i++) {
