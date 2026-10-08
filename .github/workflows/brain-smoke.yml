@@ -1,0 +1,29 @@
+name: Production Brain Smoke (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_paid_request:
+        description: "Authorize exactly one small paid Brain inference request"
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Read-only Brain readiness
+        run: node scripts/production-brain-smoke.mjs
+      - name: One synthetic paid inference
+        if: inputs.confirm_paid_request == true
+        run: node scripts/production-brain-smoke.mjs --allow-paid-call

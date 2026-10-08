@@ -85,7 +85,7 @@ Xem [`docs/MIRA-DESKTOP-DMG.md`](docs/MIRA-DESKTOP-DMG.md).
 
 ## Brain & Voice
 
-Production Brain Gateway hỗ trợ Gemini / OpenAI / Anthropic qua server-side env. ElevenLabs chạy qua gateway; key không nằm trong production browser.
+Production Brain Gateway hỗ trợ **Vercel AI Gateway (OIDC per-request)**, Gemini, OpenAI và Anthropic qua server-side env. ElevenLabs là voice/TTS riêng; API key không nằm trong production browser. Health chỉ kiểm tra cấu hình, **không chứng minh inference**. Để smoke test một lần bằng dữ liệu tổng hợp: `node scripts/production-brain-smoke.mjs --allow-paid-call` (có thể phát sinh phí), hoặc chạy workflow manual tương ứng.
 
 ```env
 MIRA_BRAIN_PROVIDER=auto
