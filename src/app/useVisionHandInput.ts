@@ -18,9 +18,14 @@ function clamp(value: number, min: number, max: number): number {
 export function useVisionHandInput(deviceAdapter: SpatialDeviceAdapterRuntime) {
   const gestureIntentTrackerRef = useRef(new GestureIntentTracker());
   const primarySessionRef = useRef(new StablePrimaryHandRuntime());
+  const lastHandFrameRef = useRef(0);
 
   const updateVisionHandInput = useCallback((snapshot: VisionSnapshot | undefined, now: number) => {
+    const frameAt = Number(snapshot?.handFrameAt || 0);
+    const newFrame = frameAt > 0 && frameAt !== lastHandFrameRef.current;
     const rawHands = Array.isArray(snapshot?.hands) ? snapshot.hands : [];
+    if (!newFrame && frameAt === 0) gestureIntentTrackerRef.current.reset();
+    lastHandFrameRef.current = frameAt;
     const selection = primarySessionRef.current.update(
       snapshot?.handSeen ? rawHands : [],
       now,
@@ -31,12 +36,15 @@ export function useVisionHandInput(deviceAdapter: SpatialDeviceAdapterRuntime) {
     const primaryGesture = String(primaryHand?.gesture || 'None');
     const primaryScore = Number(primaryHand?.score ?? 0);
     const primaryPinching = Boolean(primaryHand?.pinching && selection.pinchAllowed);
-    const intent = gestureIntentTrackerRef.current.update({
+    const intent = newFrame || !primaryHand
+      ? gestureIntentTrackerRef.current.update({
       gesture: primaryGesture,
       score: primaryScore,
       pinching: primaryPinching,
       wave: Boolean(snapshot?.wave && primaryHand),
-    }, now);
+    }, now)
+      : { eventId: 0, intent: 'none' as const, gesture: primaryGesture,
+          confidence: 0, stableMs: 0, at: now };
     const rawKinematics = primaryHand?.kinematics as SpatialHandKinematicsState | undefined;
     const screenKinematics = rawKinematics?.present
       ? mirrorSpatialHandKinematicsX(rawKinematics)
@@ -86,6 +94,7 @@ export function useVisionHandInput(deviceAdapter: SpatialDeviceAdapterRuntime) {
   const resetVisionHandInput = useCallback(() => {
     gestureIntentTrackerRef.current.reset();
     primarySessionRef.current.reset();
+    lastHandFrameRef.current = 0;
   }, []);
 
   return {

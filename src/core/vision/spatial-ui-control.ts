@@ -222,6 +222,7 @@ export class SpatialUIController {
   private lastActivationAt = -Infinity;
   private grabReleaseSince: number | null = null;
   private focusSource: SpatialPointerSource = 'none';
+  private lastHandledPinchId = 0;
 
   update(input: SpatialControlInput, now = performance.now()): SpatialControlFrame {
     const facePoint = faceSpatialPoint(input.face);
@@ -324,6 +325,11 @@ export class SpatialUIController {
       this.grabTargetKind = null;
     }
 
+    // A unique intent ID can activate at most once; stale polls cannot replay it.
+    const pinchId = input.gestureIntent.intent === 'pinch_down'
+      ? Math.trunc(input.gestureIntent.eventId) : 0;
+    const freshPinch = pinchId > 0 && pinchId !== this.lastHandledPinchId;
+    if (freshPinch) this.lastHandledPinchId = pinchId;
     const nodEdge = input.headGesture === 'nod' && this.previousHeadGesture !== 'nod';
     let activatedByHead = false;
     if (nodEdge && canCommit && focus?.kind === 'action' && this.pointer.source === 'face') {
@@ -340,7 +346,7 @@ export class SpatialUIController {
     }
 
     if (
-      !activatedByHead &&
+      !activatedByHead && freshPinch &&
       input.gestureIntent.intent === 'pinch_down' &&
       input.gestureIntent.confidence >= 0.62 &&
       input.hand.pinching && trackedHand && canCommit && focus &&
@@ -382,7 +388,7 @@ export class SpatialUIController {
       });
     }
 
-    if (this.grabTargetId && input.gestureIntent.intent === 'pinch_up') {
+    if (this.grabTargetId && trackedHand && input.gestureIntent.intent === 'pinch_up') {
       events.push({
         type: 'grab_end',
         targetId: this.grabTargetId,
@@ -417,6 +423,7 @@ export class SpatialUIController {
     this.lastActivationAt = -Infinity;
     this.grabReleaseSince = null;
     this.focusSource = 'none';
+    this.lastHandledPinchId = 0;
     return {
       ...EMPTY_SPATIAL_CONTROL_FRAME,
       pointer: { ...EMPTY_SPATIAL_POINT },

@@ -86,6 +86,7 @@ export function useVisionSpatialRuntime(options: any) {
     const onVisibility = () => {
       if (document.visibilityState !== 'hidden') return;
       bimanualPairRef.current.reset();
+      resetVisionHandInput();
       spatialUiRef.current?.reset();
       spatialGrabSessionRef.current = null;
       spatialDepthAnchorRef.current.reset();
@@ -96,7 +97,7 @@ export function useVisionSpatialRuntime(options: any) {
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
+  }, [resetVisionHandInput]);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -201,7 +202,7 @@ export function useVisionSpatialRuntime(options: any) {
         showFeedback: showSpatialFeedback,
       });
 
-      const handRay = primaryHand?.ray || snapshot?.pointerRay || null;
+      const handRay = primaryHand?.ray || null;
       const {
         humanContact,
         humanIntent,

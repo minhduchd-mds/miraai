@@ -123,13 +123,17 @@ export function stopVision(): void {
 }
 
 export function visionSnapshot() {
-  const landmarks = handData.landmarks.map((point) => ({ ...point }));
+  const now = performance.now();
+  // Polling must not refresh stale camera inference or authorize old pinches.
+  const handFresh = Number.isFinite(handData.lastFrameAt) &&
+    handData.lastFrameAt > 0 && now >= handData.lastFrameAt &&
+    now - handData.lastFrameAt <= 350;
+  const landmarks = handFresh ? handData.landmarks.map((point) => ({ ...point })) : [];
   const spatialPose = estimateRealPresencePose(faceData.landmarks);
-  const indexTip = landmarks[8] || { x: handData.x, y: handData.y, z: 0 };
+  const indexTip = landmarks[8] || { x: 0.5, y: 0.5, z: 0 };
   const thumbTip = landmarks[4] || indexTip;
   const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
-  const now = performance.now();
-  const hands = handData.hands.map((hand) => {
+  const hands = (handFresh ? handData.hands : []).map((hand) => {
     const handIndexTip = hand.landmarks[8] || hand.landmarks[0] || { x: hand.x, y: hand.y, z: 0 };
     const kinematics = handKinematicsTracker.update({
       handedness: hand.handedness,
@@ -227,20 +231,21 @@ export function visionSnapshot() {
       ? holisticPerformanceSnapshot()
       : { ...EMPTY_VISION_PERFORMANCE, engine: activeEngine },
     visionEngine: activeEngine,
-    handSeen: Boolean(handData.active && handData.present),
+    handSeen: Boolean(handFresh && handData.active && handData.present),
+    handFrameAt: handFresh ? handData.lastFrameAt : 0,
     handCount: hands.length,
     hands,
-    gesture: handData.gesture,
-    wave: handData.wave,
-    handX: handData.x,
-    handY: handData.y,
+    gesture: handFresh ? handData.gesture : 'None',
+    wave: handFresh && handData.wave,
+    handX: handFresh ? handData.x : 0.5,
+    handY: handFresh ? handData.y : 0.5,
     pointerX: 1 - indexTip.x,
     pointerY: indexTip.y,
     pointerZ: Number(indexTip.z || 0),
-    pointerRay: handRayFromLandmarks(landmarks),
-    pinching: hands[0]?.pinching ?? (landmarks.length >= 21 && pinchDistance < 0.055),
-    pinchDistance,
-    gestureScore: handData.score,
+    pointerRay: handFresh ? handRayFromLandmarks(landmarks) : null,
+    pinching: handFresh && (hands[0]?.pinching ?? (landmarks.length >= 21 && pinchDistance < 0.055)),
+    pinchDistance: handFresh ? pinchDistance : 1,
+    gestureScore: handFresh ? handData.score : 0,
     landmarks,
   };
 }

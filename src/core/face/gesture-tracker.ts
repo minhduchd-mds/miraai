@@ -31,6 +31,8 @@ export interface HandData {
   score: number;
   landmarks: Array<{ x: number; y: number; z?: number }>;
   hands: TrackedHand[];
+  /** Monotonic time of latest completed inference. */
+  lastFrameAt: number;
 }
 
 export const handData: HandData = {
@@ -43,6 +45,7 @@ export const handData: HandData = {
   score: 0,
   landmarks: [],
   hands: [],
+  lastFrameAt: 0,
 };
 
 let recognizer: { recognizeForVideo: (v: HTMLVideoElement, t: number) => any; close?: () => void } | null = null;
@@ -177,6 +180,7 @@ function readFrame(): void {
     }
   }
 
+  handData.lastFrameAt = res ? now : 0;
   const allLandmarks = Array.isArray(res?.landmarks) ? res.landmarks.slice(0, 2) : [];
   const allWorldLandmarks = Array.isArray(res?.worldLandmarks) ? res.worldLandmarks.slice(0, 2) : [];
   const hands: TrackedHand[] = allLandmarks
@@ -289,6 +293,7 @@ export function stopGestureTracking(): void {
   handData.score = 0;
   handData.landmarks = [];
   handData.hands = [];
+  handData.lastFrameAt = 0;
   lastInferenceAt = 0;
   xHist.length = 0;
 }

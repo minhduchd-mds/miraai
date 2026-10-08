@@ -395,6 +395,7 @@ function trackedHandFromGeometry(
 }
 
 function applyHands(hands: TrackedHand[]): number {
+  handData.lastFrameAt = performance.now();
   handData.active = true;
   handData.hands = hands;
   const primary = hands.find((hand) => hand.handedness === 'Right') || hands[0];
@@ -510,6 +511,7 @@ function clearAllSignals(): void {
   handData.score = 0;
   handData.landmarks = [];
   handData.hands = [];
+  handData.lastFrameAt = 0;
   postureData.active = false;
   postureData.present = false;
   postureData.label = 'unknown';
