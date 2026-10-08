@@ -49,6 +49,9 @@ test('head pose and pointer drive a bounded perspective camera',()=>{
 });
 
 test('spatial 3D runtime stays lazy and does not double mount WebGL renderers',()=>{
+ const app=readFileSync('src/app/AppV2.tsx','utf8');
+ assert.match(app,/const PhotorealMira = lazy\(\(\) => import\('\.\.\/presence\/PhotorealMira'\)\)/);
+ assert.match(app,/<Suspense fallback=\{<div className="voice-presence-loading"/);
  const root=readFileSync('src/presence/PhotorealMira.tsx','utf8');
  const scene=readFileSync('src/presence/PhotorealSpatial3D.tsx','utf8');
  const css=readFileSync('src/presence/photoreal-mira.css','utf8');

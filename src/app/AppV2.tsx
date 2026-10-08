@@ -3,7 +3,7 @@ import { useMira } from '../core/useMira';
 import type { MiraState, Theme } from '../core/types';
 import { IconCamera, IconCameraOff, IconMic, IconPhoneOff, IconSettings } from '../ui/app-shell-icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
-import PhotorealMira from '../presence/PhotorealMira';
+// Spatial/photo rendering is separately lazy to preserve the strict AppV2 bundle budget.
 import type { FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
 import type { HandLandmarkPoint } from '../presence/HandSkeletonOverlay';
 import { AffectTracker, neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
@@ -86,6 +86,7 @@ import { useWebXRSpatialRuntime } from './useWebXRSpatialRuntime';
 import { useVisionSpatialRuntime } from './useVisionSpatialRuntime';
 import '../ui/a11y.css';
 
+const PhotorealMira = lazy(() => import('../presence/PhotorealMira'));
 const FaceMeshOverlay = lazy(() => import('../presence/FaceMeshOverlay'));
 const HandSkeletonOverlay = lazy(() => import('../presence/HandSkeletonOverlay'));
 const SpatialControlOverlay = lazy(() => import('../presence/SpatialControlOverlay'));
@@ -821,6 +822,7 @@ export default function AppV2() {
       {visionBooting && <div className="v2-vision-loading">Đang mở camera…</div>}
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage holographic-stage">
+          <Suspense fallback={<div className="voice-presence-loading" aria-hidden="true" />}>
           <PhotorealMira
             state={mira.state}
             onActivate={activateVoice}
@@ -877,6 +879,7 @@ export default function AppV2() {
             spatialNodeDepth={spatialObjects.find((object) => object.id === 'mira.node')?.pose.position.z || 0}
             spatialCoreActive={visionOn || webXRSnapshot.active}
           />
+          </Suspense>
         </div>
 
         <div className="sr-only" aria-live="polite" aria-atomic="true">
