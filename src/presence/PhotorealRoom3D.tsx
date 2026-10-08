@@ -61,7 +61,7 @@ function WindowCity({night}:{night:boolean}){
 // The portrait below is a photographic billboard, NOT a reconstructed 3D human.
 // Real facial likeness from every camera angle requires an authored VRM/GLB avatar.
 function MiraPortrait({onReady}:{onReady:()=>void}){
-  const src = `${import.meta.env.BASE_URL}mira-assets/scenes/mira_concept_portrait.webp`;
+  const src = `${import.meta.env.BASE_URL}mira-assets/reference/mira_concept_portrait.webp`;
   const image = useLoader(THREE.TextureLoader,src);
   const fade = useMemo(()=>{
     const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;
@@ -274,7 +274,7 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
   const control=useRef<Controls>({yaw:0,pitch:0,x:0,z:4.75,keys:new Set()});
   const [viewPreset,setViewPreset]=useState(1);
   const [referenceView,setReferenceView]=useState(true);
-  const referenceImage=`${import.meta.env.BASE_URL}mira-assets/scenes/mira_concept_front.webp`;
+  const referenceImage=`${import.meta.env.BASE_URL}mira-assets/reference/mira_concept_front.webp`;
   const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
   const invalidateRef=useRef<(() => void)|null>(null);
   const sceneReady=useCallback(()=>onReady(),[onReady]);
