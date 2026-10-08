@@ -1,4 +1,5 @@
 import { acquireVisionCamera, releaseVisionCamera } from './camera-manager';
+import { VisionVideoFrameGate, type VisionFrameMetadata } from './vision-frame-gate';
 import { faceData } from '../face/face-tracker';
 import { handData, type TrackedHand } from '../face/gesture-tracker';
 import { postureData } from './posture-tracker';
@@ -78,6 +79,7 @@ const handXHistory: number[] = [];
 const headHistory: Array<{ at: number; yaw: number; pitch: number }> = [];
 let headGestureUntil = 0;
 let governor = new VisionPerformanceGovernor('holistic');
+const frameGate = new VisionVideoFrameGate();
 const postprocessWorker = new VisionPostprocessWorkerClient();
 let lastWorkerSeq = 0;
 const perceptionTrace = new PerceptionTraceRecorder();
@@ -567,7 +569,7 @@ function scheduleReadFrame(): void {
   if (stopped || !video) return;
   const frameVideo = video as HTMLVideoElement & {
     requestVideoFrameCallback?: (
-      callback: (now: number, metadata: { expectedDisplayTime?: number }) => void
+      callback: (now: number, metadata: VisionFrameMetadata) => void
     ) => number;
   };
 
@@ -596,7 +598,7 @@ function cancelReadFrame(): void {
 
 function readFrame(
   callbackNow = performance.now(),
-  metadata?: { expectedDisplayTime?: number },
+  metadata?: VisionFrameMetadata,
 ): void {
   if (stopped || !video) return;
   const frameLatenessMs = metadata?.expectedDisplayTime == null
@@ -613,7 +615,13 @@ function readFrame(
     return;
   }
   const now = performance.now();
-  if (!governor.shouldProcess(now, typeof document !== 'undefined' && document.hidden)) {
+  // Inference is both unnecessary and unsafe while the tab is not visible.
+  if ((typeof document !== 'undefined' && document.hidden) || !governor.shouldProcess(now)) {
+    scheduleReadFrame();
+    return;
+  }
+  // rAF may fire several times for one actual decoded camera frame.
+  if (!frameGate.accept(metadata, video.currentTime)) {
     scheduleReadFrame();
     return;
   }
@@ -737,6 +745,7 @@ export async function startHolisticTracking(): Promise<boolean> {
     activeDelegate = delegate;
     consecutiveInferenceFailures = 0;
     governor = new VisionPerformanceGovernor('holistic', delegate);
+    frameGate.reset();
     const workerActive = postprocessWorker.start();
     governor.setPostprocess(workerActive ? 'worker' : 'main', 0);
     lastWorkerSeq = 0;
@@ -763,6 +772,7 @@ export async function startHolisticTracking(): Promise<boolean> {
 
 export function stopHolisticTracking(): void {
   stopped = true;
+  frameGate.reset();
   cancelReadFrame();
   releaseVisionCamera('holistic');
   video = null;

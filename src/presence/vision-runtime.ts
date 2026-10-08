@@ -26,6 +26,7 @@ import {
 import { EMPTY_VISION_PERFORMANCE } from '../core/vision/vision-performance';
 import { handRayFromLandmarks } from '../core/vision/spatial-ray';
 import { SpatialHandKinematicsTracker } from '../core/vision/spatial-hand-kinematics';
+import { SpatialHandFrameCache } from '../core/vision/spatial-hand-frame-cache';
 import {
   objectAwarenessSnapshot,
   startObjectAwareness,
@@ -36,7 +37,36 @@ let activeEngine: 'holistic' | 'legacy' = 'legacy';
 let visionSession = 0;
 let faceRecoveryTimer: number | null = null;
 const handKinematicsTracker = new SpatialHandKinematicsTracker();
+const handFrameCache = new SpatialHandFrameCache<ReturnType<typeof buildHandSnapshot>[number]>();
 const senseBus = new MiraSenseBus();
+
+function buildHandSnapshot(frameAt: number) {
+  return handData.hands.map((hand) => {
+    const handIndexTip = hand.landmarks[8] || hand.landmarks[0] || { x: hand.x, y: hand.y, z: 0 };
+    const kinematics = handKinematicsTracker.update({
+      handedness: hand.handedness,
+      landmarks: hand.landmarks,
+      worldLandmarks: hand.worldLandmarks,
+      confidence: hand.score,
+    }, frameAt);
+    return {
+      handedness: hand.handedness,
+      gesture: hand.gesture,
+      score: hand.score,
+      x: 1 - hand.x,
+      y: hand.y,
+      z: Number(handIndexTip.z || 0),
+      pointerX: 1 - Number(handIndexTip.x || hand.x),
+      pointerY: Number(handIndexTip.y || hand.y),
+      ray: handRayFromLandmarks(hand.landmarks),
+      pinching: kinematics.pinching,
+      pinchRatio: kinematics.pinchRatio,
+      kinematics,
+      landmarks: hand.landmarks.map((point) => ({ ...point })),
+      worldLandmarks: hand.worldLandmarks.map((point) => ({ ...point })),
+    };
+  });
+}
 
 function clearFaceRecoveryTimer(): void {
   if (faceRecoveryTimer != null && typeof window !== 'undefined') window.clearTimeout(faceRecoveryTimer);
@@ -118,6 +148,7 @@ export function stopVision(): void {
   stopRppgMonitoring();
   stopObjectAwareness();
   handKinematicsTracker.reset();
+  handFrameCache.reset();
   senseBus.reset();
   activeEngine = 'legacy';
 }
@@ -133,31 +164,11 @@ export function visionSnapshot() {
   const indexTip = landmarks[8] || { x: 0.5, y: 0.5, z: 0 };
   const thumbTip = landmarks[4] || indexTip;
   const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
-  const hands = (handFresh ? handData.hands : []).map((hand) => {
-    const handIndexTip = hand.landmarks[8] || hand.landmarks[0] || { x: hand.x, y: hand.y, z: 0 };
-    const kinematics = handKinematicsTracker.update({
-      handedness: hand.handedness,
-      landmarks: hand.landmarks,
-      worldLandmarks: hand.worldLandmarks,
-      confidence: hand.score,
-    }, now);
-    return {
-      handedness: hand.handedness,
-      gesture: hand.gesture,
-      score: hand.score,
-      x: 1 - hand.x,
-      y: hand.y,
-      z: Number(handIndexTip.z || 0),
-      pointerX: 1 - Number(handIndexTip.x || hand.x),
-      pointerY: Number(handIndexTip.y || hand.y),
-      ray: handRayFromLandmarks(hand.landmarks),
-      pinching: kinematics.pinching,
-      pinchRatio: kinematics.pinchRatio,
-      kinematics,
-      landmarks: hand.landmarks.map((point) => ({ ...point })),
-      worldLandmarks: hand.worldLandmarks.map((point) => ({ ...point })),
-    };
-  });
+  const hands = handFrameCache.read(
+    handFresh ? handData.lastFrameAt : 0,
+    buildHandSnapshot,
+    () => handKinematicsTracker.reset(),
+  );
 
   // Temporal metadata only: do not store landmarks or camera frames in SenseBus.
   if (faceData.active && faceData.present) {
