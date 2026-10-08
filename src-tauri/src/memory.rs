@@ -961,20 +961,37 @@ pub(crate) fn desktop_memory_clear(app: AppHandle) -> Result<(), String> {
     clear_memory_data(&mut open(&app)?)
 }
 
-#[tauri::command]
-pub(crate) fn desktop_memory_import_turns(app: AppHandle, items: Vec<ImportTurn>) -> Result<(), String> {
-    let mut connection = open(&app)?;
+/**
+ * Merge imported turns atomically. A dated turn is identified by role + text
+ * + timestamp; undated legacy items deduplicate by role + text.
+ * Existing conversations are never removed or reordered by an import.
+ */
+fn import_memory_turns(connection: &mut Connection, items: Vec<ImportTurn>) -> Result<(), String> {
     let tx = connection.transaction().map_err(|e| format!("import transaction: {e}"))?;
     for item in items.into_iter().take(500) {
       let role = if item.role.as_deref() == Some("mira") { "mira" } else { "user" };
       let text = clip(item.text.as_deref().unwrap_or_default(),6000);
       if text.is_empty() { continue; }
-      let _created_at = item.created_at;
-      let ts = item.ts.filter(|v| *v > 0).unwrap_or_else(now_ms);
-      tx.execute("INSERT INTO turns(role,text,ts) VALUES (?1,?2,?3)",params![role,text,ts])
-        .map_err(|e| format!("import turn: {e}"))?;
+      // The frontend normalizes createdAt (RFC3339) to ts before IPC.
+      let imported_ts = item.ts.filter(|v| *v > 0);
+      let ts = imported_ts.unwrap_or_else(now_ms);
+      let has_timestamp: i64 = if imported_ts.is_some() { 1 } else { 0 };
+      tx.execute(
+        "INSERT INTO turns(role,text,ts)
+         SELECT ?1,?2,?3
+         WHERE NOT EXISTS (
+           SELECT 1 FROM turns
+           WHERE role=?1 AND text=?2 AND (?4=0 OR ts=?3)
+         )",
+        params![role,text,ts,has_timestamp]
+      ).map_err(|e| format!("import turn: {e}"))?;
     }
     tx.commit().map_err(|e| format!("commit import: {e}"))
+}
+
+#[tauri::command]
+pub(crate) fn desktop_memory_import_turns(app: AppHandle, items: Vec<ImportTurn>) -> Result<(), String> {
+    import_memory_turns(&mut open(&app)?, items)
 }
 
 #[tauri::command]
@@ -1049,7 +1066,7 @@ pub(crate) fn log_action(app: &AppHandle, action: &str, outcome: &str, detail: &
 
 #[cfg(test)]
 mod memory_privacy_tests {
-    use super::{clear_memory_data, clip};
+    use super::{clear_memory_data, clip, import_memory_turns, ImportTurn};
     use rusqlite::Connection;
 
     #[test]
@@ -1110,6 +1127,51 @@ mod memory_privacy_tests {
             ).expect("read preserved table");
             assert_eq!(count, 1, "{table} must be preserved");
         }
+    }
+
+    #[test]
+    fn import_turns_is_idempotent_and_preserves_distinct_occurrences() {
+        let mut db = Connection::open_in_memory().expect("open sqlite");
+        db.execute_batch(
+          "CREATE TABLE turns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL,
+            text TEXT NOT NULL, ts INTEGER NOT NULL
+           );"
+        ).expect("create turns");
+        let turns = || vec![
+          ImportTurn { role: Some("user".into()), text: Some("Xin chào".into()),
+            ts: Some(1700000000000), created_at: None },
+          ImportTurn { role: Some("mira".into()), text: Some("Chào anh".into()),
+            ts: Some(1700000002000), created_at: None },
+          ImportTurn { role: Some("user".into()), text: Some("Xin chào".into()),
+            ts: Some(1700000010000), created_at: None },
+          ImportTurn { role: Some("user".into()), text: Some("Từ capsule cũ".into()),
+            ts: None, created_at: None },
+        ];
+        import_memory_turns(&mut db, turns()).expect("initial restore");
+        import_memory_turns(&mut db, turns()).expect("repeat restore");
+        let count: i64 = db.query_row("SELECT COUNT(*) FROM turns", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 4, "repeating a capsule must not duplicate memory");
+        let timestamp: i64 = db.query_row(
+          "SELECT ts FROM turns WHERE role='user' AND text='Xin chào' ORDER BY ts LIMIT 1",
+          [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(timestamp, 1700000000000);
+    }
+
+    #[test]
+    fn import_turns_rolls_back_on_sql_failure() {
+        let mut db = Connection::open_in_memory().expect("open sqlite");
+        db.execute_batch("CREATE TABLE turns (
+          role TEXT NOT NULL, text TEXT NOT NULL CHECK(text != 'bad'), ts INTEGER NOT NULL
+        );").unwrap();
+        let rows = vec![
+          ImportTurn {role: Some("user".into()), text: Some("keep".into()),ts:Some(20),created_at:None},
+          ImportTurn {role: Some("user".into()), text: Some("bad".into()),ts:Some(21),created_at:None}
+        ];
+        assert!(import_memory_turns(&mut db, rows).is_err());
+        let count:i64=db.query_row("SELECT COUNT(*) FROM turns",[],|r|r.get(0)).unwrap();
+        assert_eq!(count,0,"failed import must not partially restore private memory");
     }
 
     #[test]
