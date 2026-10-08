@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { Theme, VoiceOption } from '../core/types';
 import { isDesktopRuntime } from '../desktop/bridge';
+import { checkMiraConnectivity, type MiraConnectivityReport } from '../runtime/connectivity-diagnostics';
 import {
   chooseDesktopMusicFolder,
   loadDesktopPrivacyState,
@@ -100,6 +101,7 @@ export default function SettingsPanel(props: Props) {
   const [desktopLibraryBusy, setDesktopLibraryBusy] = useState(false);
   const [voiceDiagnostics, setVoiceDiagnostics] = useState<TTSDiagnostics | null>(null);
   const [deviceDiagnostics, setDeviceDiagnostics] = useState<MiraDeviceDiagnostics | null>(null);
+  const [connectivity, setConnectivity] = useState<MiraConnectivityReport | null>(null);
   const [deviceDiagnosticsBusy, setDeviceDiagnosticsBusy] = useState(false);
   const capsuleInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,9 +114,9 @@ export default function SettingsPanel(props: Props) {
   const refreshProfile = useCallback(async () => {
     setLoadingProfile(true); setProfileError('');
     try { setProfile(await loadMemoryProfile()); }
-    catch { setProfile(null); setProfileError('Chưa kết nối được kho ký ức. Mira vẫn dùng được bình thường.'); }
+    catch { setProfile(null); setProfileError(desktopRuntime ? 'Lỗi đọc SQLite native. Kiểm tra thiết bị trong tab Giọng & hội thoại; không xóa dữ liệu.' : 'Không đọc được ký ức cloud. Kiểm tra cấu hình DATABASE_URL.'); }
     finally { setLoadingProfile(false); }
-  }, []);
+  }, [desktopRuntime]);
 
   useEffect(() => {
     if (!props.open) return;
@@ -143,8 +145,9 @@ export default function SettingsPanel(props: Props) {
   const runDeviceCheck = async () => {
     if (deviceDiagnosticsBusy) return;
     setDeviceDiagnosticsBusy(true);
-    try { setDeviceDiagnostics(await runDeviceDiagnostics()); }
-    catch { setDeviceDiagnostics(null); }
+    const [device, network] = await Promise.allSettled([runDeviceDiagnostics(), checkMiraConnectivity()]);
+    setDeviceDiagnostics(device.status === 'fulfilled' ? device.value : null);
+    setConnectivity(network.status === 'fulfilled' ? network.value : null);
     finally { setDeviceDiagnosticsBusy(false); }
   };
   const exportDeviceReport = () => {
@@ -273,8 +276,11 @@ export default function SettingsPanel(props: Props) {
                   <DeviceCheckItem label="AI tăng tốc" value={deviceDiagnostics.webnn ? 'WebNN' : deviceDiagnostics.webgpu ? 'WebGPU' : 'CPU / WASM'} status={deviceDiagnostics.webnn || deviceDiagnostics.webgpu ? 'ok' : 'neutral'} />
                   <DeviceCheckItem label="Video frame" value={deviceDiagnostics.requestVideoFrameCallback ? 'Tối ưu' : 'Fallback'} status={deviceDiagnostics.requestVideoFrameCallback ? 'ok' : 'neutral'} />
                   <DeviceCheckItem label="Voice gateway" value={voiceStatus} status={voiceDiagnostics?.health === 'healthy' ? 'ok' : voiceDiagnostics?.health === 'unhealthy' ? 'warn' : 'neutral'} />
+                  {connectivity && <DeviceCheckItem label="Brain model" value={connectivity.model === 'ready' ? 'Đã cấu hình' : connectivity.model === 'unconfigured' ? 'Thiếu API key' : 'Không kết nối'} status={connectivity.model === 'ready' ? 'ok' : 'warn'} />}
+                  {connectivity && desktopRuntime && <DeviceCheckItem label="SQLite Desktop" value={connectivity.memory === 'ready' ? `Hoạt động · ${connectivity.memoryTurnCount ?? 0} lượt` : 'Không đọc được'} status={connectivity.memory === 'ready' ? 'ok' : 'warn'} />}
                   <DeviceCheckItem label="Chế độ đề xuất" value={deviceDiagnostics.productMode === 'full' ? 'Full' : deviceDiagnostics.productMode === 'balanced' ? 'Balanced' : 'Compatibility'} status={deviceDiagnostics.productMode === 'full' ? 'ok' : 'neutral'} />
                 </div>
+                {connectivity && <p className="v2-disclosure" role="status">{connectivity.modelDetail}{desktopRuntime ? ' · ' + connectivity.memoryDetail : ''}</p>}
                 <p className="v2-device-meta">{deviceDiagnostics.hardwareConcurrency ? `${deviceDiagnostics.hardwareConcurrency} CPU threads` : 'CPU threads: không rõ'} · {deviceDiagnostics.deviceMemoryGb ? `${deviceDiagnostics.deviceMemoryGb} GB RAM báo bởi trình duyệt` : 'RAM: trình duyệt không báo'} · {deviceDiagnostics.crossOriginIsolated ? 'cross-origin isolated' : 'standard isolation'}</p>
               </> : <p className="v2-disclosure">Bấm “Kiểm tra thiết bị” để xem khả năng hiện tại. Mira chỉ đọc capability và permission state nếu trình duyệt cho phép.</p>}
               {deviceDiagnostics && <p className="v2-disclosure">Báo cáo JSON không chứa camera frame, mic audio, user-agent, device ID hay vị trí.</p>}
@@ -285,7 +291,7 @@ export default function SettingsPanel(props: Props) {
           </>}
           {tab === 'appearance' && <div className="v2-setting-group"><h3>Màu quả cầu</h3><div className="v2-theme-grid">{THEMES.map((item) => <button key={item} type="button" data-theme-preview={item} className={props.theme === item ? 'active' : ''} onClick={() => props.onTheme(item)}><i /><span>{item}</span></button>)}</div></div>}
           {tab === 'memory' && <>
-            <div className="v2-setting-group"><h3>Ký ức</h3><Toggle checked={memoryOn} onChange={changeMemory} label="Cho phép Mira ghi nhớ" hint="Tắt để ngừng lưu lượt mới, truy hồi ký ức và chắt lọc hồ sơ." /><div className="v2-memory-meta"><span>{loadingProfile ? 'Đang đọc kho ký ức…' : `${profile?.messageCount ?? 0} lượt hội thoại đã lưu`}</span><button type="button" onClick={() => void refreshProfile()}>Làm mới</button></div>{profileError && <p className="v2-profile-error">{profileError}</p>}<div className="v2-memory-list">{profile?.facts.map((fact) => <FactRow key={fact.id} fact={fact} onChanged={() => void refreshProfile()} />)}{!loadingProfile && profile && !profile.facts.length && <p className="v2-empty">Mira chưa ghi nhớ thông tin bền vững nào về anh.</p>}</div><div className="v2-memory-actions"><button type="button" className="primary" disabled={capsuleBusy} onClick={() => void exportCapsule()}>{capsuleBusy ? 'Đang xử lý…' : 'Xuất Identity Capsule'}</button><button type="button" disabled={capsuleBusy} onClick={() => capsuleInputRef.current?.click()}>Nhập Capsule</button><button type="button" onClick={() => void exportMemory()}>Xuất dữ liệu thô</button><button type="button" className="danger" onClick={() => void eraseAll()}>Xoá toàn bộ ký ức</button><input ref={capsuleInputRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importCapsule(event.target.files?.[0])} /></div><p className="v2-disclosure">Identity Capsule đóng gói ký ức, lịch sử và tuỳ chọn Mira thành JSON có version + SHA-256 để mang sang thiết bị hoặc model khác. Nhập Capsule chỉ gộp dữ liệu, không xoá dữ liệu đang có.</p></div>
+            <div className="v2-setting-group"><h3>Ký ức</h3><Toggle checked={memoryOn} onChange={changeMemory} label="Cho phép Mira ghi nhớ" hint="Tắt để ngừng lưu lượt mới, truy hồi ký ức và chắt lọc hồ sơ." /><div className="v2-memory-meta"><span>{loadingProfile ? 'Đang đọc kho ký ức…' : profile ? `${profile.messageCount} lượt hội thoại đã lưu` : 'Chưa đọc được bộ nhớ'}</span><button type="button" onClick={() => void refreshProfile()}>Làm mới</button></div>{profileError && <p className="v2-profile-error">{profileError}</p>}<div className="v2-memory-list">{profile?.facts.map((fact) => <FactRow key={fact.id} fact={fact} onChanged={() => void refreshProfile()} />)}{!loadingProfile && profile && !profile.facts.length && <p className="v2-empty">Mira chưa ghi nhớ thông tin bền vững nào về anh.</p>}</div><div className="v2-memory-actions"><button type="button" className="primary" disabled={capsuleBusy} onClick={() => void exportCapsule()}>{capsuleBusy ? 'Đang xử lý…' : 'Xuất Identity Capsule'}</button><button type="button" disabled={capsuleBusy} onClick={() => capsuleInputRef.current?.click()}>Nhập Capsule</button><button type="button" onClick={() => void exportMemory()}>Xuất dữ liệu thô</button><button type="button" className="danger" onClick={() => void eraseAll()}>Xoá toàn bộ ký ức</button><input ref={capsuleInputRef} type="file" accept="application/json,.json" hidden onChange={(event) => void importCapsule(event.target.files?.[0])} /></div><p className="v2-disclosure">Identity Capsule đóng gói ký ức, lịch sử và tuỳ chọn Mira thành JSON có version + SHA-256 để mang sang thiết bị hoặc model khác. Nhập Capsule chỉ gộp dữ liệu, không xoá dữ liệu đang có.</p></div>
             {desktopRuntime && <div className="v2-setting-group v2-desktop-local"><h3>Mira Desktop Local</h3><div className="v2-desktop-local-status"><span><b>{desktopPrivacy?.info?.platform === 'macos' ? 'macOS' : desktopPrivacy?.info?.platform === 'windows' ? 'Windows' : 'Desktop'}</b><small>{desktopPrivacy?.info?.localFrontend ? 'Frontend chạy cục bộ · không dùng Vercel làm giao diện' : 'Đang kiểm tra runtime local'}</small></span><i data-ready={desktopPrivacy?.info?.localFrontend ? 'true' : 'false'} /></div><Toggle checked={desktopPrivacy?.permissions['media.control'] ?? true} onChange={(next) => void changeDesktopPermission('media.control', next)} label="Cho phép điều khiển nhạc" hint="Chỉ chạy khi anh ra lệnh rõ ràng như bật, dừng, chuyển hoặc mở một bài cụ thể." /><Toggle checked={desktopPrivacy?.permissions['media.library'] ?? false} onChange={(next) => void changeDesktopPermission('media.library', next)} label="Cho phép thư viện nhạc local" hint="Mira chỉ index file âm thanh trong đúng thư mục anh đã chọn; không tự quét ổ đĩa." /><div className="v2-music-library"><div><b>{desktopPrivacy?.musicLibrary?.trackCount ? desktopPrivacy.musicLibrary.trackCount.toLocaleString('vi-VN') + ' bài đã index' : 'Chưa có thư viện nhạc local'}</b><small>{desktopPrivacy?.musicLibrary?.trackCount ? `${(desktopPrivacy.musicLibrary.taggedTrackCount || 0).toLocaleString('vi-VN')} bài có metadata · ${desktopPrivacy.musicLibrary.root || ''}` : desktopPrivacy?.musicLibrary?.root || 'Chọn một thư mục Music để Mira có thể tìm bài theo tên và lịch sử nghe.'}</small></div><div><button type="button" disabled={desktopLibraryBusy} onClick={() => void chooseMusicFolder()}>{desktopPrivacy?.musicLibrary?.root ? 'Đổi thư mục' : 'Chọn thư mục'}</button><button type="button" disabled={desktopLibraryBusy || !desktopPrivacy?.musicLibrary?.root || !desktopPrivacy?.permissions['media.library']} onClick={() => void rescanMusic()}>Quét lại</button></div></div><Toggle checked={desktopPrivacy?.permissions['memory.affect'] ?? true} onChange={(next) => void changeDesktopPermission('memory.affect', next)} label="Lưu tín hiệu cảm xúc cục bộ" hint="Lưu mood/confidence theo thời gian vào mira.db để giữ mạch cảm xúc; không coi đây là chẩn đoán." />{(desktopPrivacyBusy || desktopLibraryBusy) && <p className="v2-disclosure">Đang cập nhật dữ liệu local…</p>}{desktopPrivacy?.info?.memoryDb && <p className="v2-local-path">Memory DB <code>{desktopPrivacy.info.memoryDb}</code></p>}<p className="v2-disclosure">Quyền được kiểm tra lại ở native Rust layer trước khi thực thi. Tắt quyền ở đây sẽ chặn hành động ngay cả khi UI gửi lệnh.</p></div>}
             {desktopRuntime && <div className="v2-setting-group"><Suspense fallback={<p className="v2-empty">Đang mở memory graph…</p>}><StructuredMemoryInspector /></Suspense></div>}
             <div className="v2-setting-group v2-privacy-note"><h3>Riêng tư mặc định</h3><p>Mic chỉ hoạt động khi anh bật nghe hoặc trò chuyện rảnh tay. Giao diện chính không tải avatar 3D, camera hay hand gesture.</p></div>
