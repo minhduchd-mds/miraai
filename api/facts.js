@@ -21,6 +21,7 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
   const device = resolveMemoryScope(req, res, body?.device);
+  if (!device) return res.status(503).json({ error: 'memory_session_unavailable' });
   const conversation = (body?.conversation || '').toString().slice(0, 8000);
   if (!conversation) return res.status(400).json({ error: 'thiếu conversation' });
   if (!await enforceAiQuota(req, res, 'distill', sql)) return;

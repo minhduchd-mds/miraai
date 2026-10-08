@@ -1,5 +1,4 @@
 import { loadAvatarSel, saveAvatarSel } from '../../core/avatar-config';
-import { legacyDeviceId } from '../../core/history-store';
 import { loadSmartTurn, saveSmartTurn } from '../../core/stt/turn-config';
 import { loadVadEnabled, saveVadEnabled } from '../../core/vad/config';
 import { loadVoicePrefs, saveVoicePrefs, type ResponseLength } from '../../core/voice-prefs';
@@ -112,7 +111,6 @@ export async function exportIdentityCapsule(theme: Theme, voiceURI?: string): Pr
     credentials: 'same-origin',
     body: JSON.stringify({
       action: 'snapshot',
-      device: legacyDeviceId(),
       preferences: collectPreferences(theme, voiceURI),
     }),
   });
@@ -141,7 +139,7 @@ export async function importIdentityCapsule(file: File): Promise<CapsuleRestore>
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ action: 'import', device: legacyDeviceId(), capsule }),
+      body: JSON.stringify({ action: 'import', capsule }),
     });
     if (!response.ok) {
       const json = await response.json().catch(() => ({}));

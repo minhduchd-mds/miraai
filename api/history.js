@@ -15,6 +15,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const device = resolveMemoryScope(req, res, req.query?.device);
+      if (!device) return res.status(503).json({ error: 'memory_session_unavailable' });
       const rows = await sql`
         select role, text from chat_messages
         where device_id = ${device} order by id desc limit 20`;

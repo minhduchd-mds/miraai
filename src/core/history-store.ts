@@ -16,11 +16,9 @@ export function legacyDeviceId(): string {
   }
 }
 
-const seed = () => encodeURIComponent(legacyDeviceId());
-
 export async function loadHistory(): Promise<BrainTurn[]> {
   try {
-    const response = await fetch(`/api/history?device=${seed()}`, { credentials: 'same-origin' });
+    const response = await fetch('/api/history', { credentials: 'same-origin' });
     if (!response.ok) return [];
     const json = await response.json();
     const turns = Array.isArray(json?.turns) ? json.turns : [];
@@ -36,7 +34,7 @@ export async function recallMemory(query: string): Promise<string> {
   const q = (query || '').trim();
   if (!q) return '';
   try {
-    const response = await fetch(`/api/memory?device=${seed()}&q=${encodeURIComponent(q)}`, {
+    const response = await fetch(`/api/memory?q=${encodeURIComponent(q)}`, {
       credentials: 'same-origin',
     });
     if (!response.ok) return '';
@@ -71,7 +69,7 @@ export function distillFacts(conversation: string): void {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ device: legacyDeviceId(), conversation: text }),
+      body: JSON.stringify({ conversation: text }),
     }).catch(() => {});
   } catch {
     // best-effort persistence
@@ -84,7 +82,7 @@ export function saveTurn(turn: BrainTurn): void {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ device: legacyDeviceId(), role: turn.role, text: turn.text }),
+      body: JSON.stringify({ role: turn.role, text: turn.text }),
     }).catch(() => {});
   } catch {
     // best-effort persistence

@@ -1,4 +1,3 @@
-import { legacyDeviceId } from '../../core/history-store';
 import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from './runtime-store';
 
 const localMemory = createRuntimeMemoryStore();
@@ -14,15 +13,11 @@ export interface MemoryProfile {
   messageCount: number;
 }
 
-function seed(): string {
-  return encodeURIComponent(legacyDeviceId());
-}
-
 export async function loadMemoryProfile(): Promise<MemoryProfile> {
   if (isLocalOnlyMemoryRuntime()) {
     return { facts: [], messageCount: await localMemory.countTurns() };
   }
-  const response = await fetch(`/api/profile?device=${seed()}`, { credentials: 'same-origin' });
+  const response = await fetch('/api/profile', { credentials: 'same-origin' });
   if (!response.ok) throw new Error(`profile ${response.status}`);
   const json = await response.json();
   return {
@@ -43,7 +38,7 @@ export async function updateMemoryFact(id: number, fact: string): Promise<void> 
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     credentials: 'same-origin',
-    body: JSON.stringify({ device: legacyDeviceId(), id, fact }),
+    body: JSON.stringify({ id, fact }),
   });
   if (!response.ok) throw new Error(`profile ${response.status}`);
 }
@@ -54,7 +49,7 @@ export async function forgetMemoryFact(id: number): Promise<void> {
     method: 'DELETE',
     headers: { 'content-type': 'application/json' },
     credentials: 'same-origin',
-    body: JSON.stringify({ device: legacyDeviceId(), id }),
+    body: JSON.stringify({ id }),
   });
   if (!response.ok) throw new Error(`profile ${response.status}`);
 }
@@ -68,7 +63,7 @@ export async function forgetAllMemory(): Promise<void> {
     method: 'DELETE',
     headers: { 'content-type': 'application/json' },
     credentials: 'same-origin',
-    body: JSON.stringify({ device: legacyDeviceId(), all: true }),
+    body: JSON.stringify({ all: true }),
   });
   if (!response.ok) throw new Error(`profile ${response.status}`);
 }
@@ -77,7 +72,7 @@ export async function exportMemory(): Promise<void> {
   const value = isLocalOnlyMemoryRuntime()
     ? await localMemory.exportSnapshot()
     : await (async () => {
-        const response = await fetch(`/api/profile?device=${seed()}&export=1`, { credentials: 'same-origin' });
+        const response = await fetch('/api/profile?export=1', { credentials: 'same-origin' });
         if (!response.ok) throw new Error(`profile ${response.status}`);
         return response.json();
       })();

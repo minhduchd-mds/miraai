@@ -13,6 +13,7 @@ export default async function handler(req, res) {
   if (!q) return res.status(400).json({ error: 'thiếu q' });
   if (q.length > 1024) return res.status(413).json({ error: 'query_too_long' });
   const device = resolveMemoryScope(req, res, req.query?.device);
+  if (!device) return res.status(503).json({ error: 'memory_session_unavailable' });
 
   try {
     await ensureSchema(sql);

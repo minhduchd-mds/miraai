@@ -180,6 +180,7 @@ export default async function handler(req, res) {
 
   const body = req.method === 'GET' ? {} : parseBody(req);
   const device = resolveMemoryScope(req, res, req.query?.device || body?.device);
+  if (!device) return res.status(503).json({ error: 'memory_session_unavailable' });
 
   try {
     await ensureSchema(sql);
