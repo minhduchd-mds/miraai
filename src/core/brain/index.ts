@@ -1,7 +1,7 @@
 import type { Brain } from '../types';
 import { GeminiBrain } from './gemini-brain';
 import { LLMBrain } from './llm-brain';
-import { LocalWebLLMBrain } from './local-webllm-brain';
+
 
 const DEFAULT_MODEL: Record<string, string> = {
   anthropic: 'claude-sonnet-4-6',
@@ -56,7 +56,20 @@ export function defaultModelFor(provider: string): string {
 
 export function createBrain(): Brain {
   if (typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io')) {
-    return new LocalWebLLMBrain();
+    // Load the Pages-only WebLLM runtime when a response is first requested.
+    // macOS/Windows Desktop never needs this engine in the AppV2 boot graph.
+    let engine: Promise<Brain> | null = null;
+    return {
+      name: 'Mira Brain · local Qwen',
+      async reply(input, history, context) {
+        if (!engine) {
+          engine = import('./local-webllm-brain')
+            .then(({ LocalWebLLMBrain }) => new LocalWebLLMBrain())
+            .catch((error) => { engine = null; throw error; });
+        }
+        return (await engine).reply(input, history, context);
+      },
+    };
   }
   const config = loadLLMConfig();
   if (browserBYOKAllowed() && config.provider && config.apiKey) {
