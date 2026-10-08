@@ -7,6 +7,10 @@ on:
     paths:
       - "src-tauri/**"
       - "src/desktop/**"
+      - "src/settings/SettingsPanel.tsx"
+      - "src/runtime/connectivity-diagnostics.ts"
+      - "src/core/brain/**"
+      - "api/brain-health.js"
       - "src/intelligence/memory/**"
       - "src/intelligence/skills/desktop-music-skill.ts"
       - "src/runtime/turn-manager.ts"
