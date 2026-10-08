@@ -176,9 +176,11 @@ export default function PhotorealMira({
   // Real geometric room opt-in. Do not confuse photo parallax with 3D geometry.
   const room3DRequested = typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).get('room3d') === '1';
+  // An explicitly opened 3D walkthrough must not unmount midway through
+  // pointer-drag / WASD when the independent frame governor briefly changes.
+  // WebGL errors, reduced-motion, Lite devices and Data Saver still fail back safely.
   const room3DActive = room3DRequested && !room3DFailed && !reducedMotion
-    && visualQuality !== 'lite' && performanceTier === 'full'
-    && !Boolean(connection?.saveData);
+    && visualQuality !== 'lite' && !Boolean(connection?.saveData);
   const spatial3DEnabled = !room3DActive && !spatial3DFailed && shouldUseSpatial3D({
     quality:visualQuality, performance:performanceTier, reducedMotion,
     saveData:Boolean(connection?.saveData),viewportWidth:typeof window !== 'undefined' ? window.innerWidth : 0,

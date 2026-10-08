@@ -36,7 +36,7 @@ test('3D room loads only in explicit ?room3d=1 and always retains 2D fallback',(
  assert.match(integration,/get\('room3d'\) === '1'/);
  assert.match(integration,/!reducedMotion/);
  assert.match(integration,/visualQuality !== 'lite'/);
- assert.match(integration,/performanceTier === 'full'/);
+ assert.doesNotMatch(integration,/visualQuality !== 'lite' && performanceTier === 'full'/);
  assert.match(integration,/!Boolean\(connection\?\.saveData\)/);
  assert.match(integration,/onFailure=\{\(\) => \{setRoom3DFailed\(true\);setRoom3DReady\(false\);\}\}/);
  assert.match(integration,/!room3DActive && \(/);

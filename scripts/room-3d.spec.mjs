@@ -32,11 +32,16 @@ test('opt-in room3d renders 3D geometry, rotates through drag and walks with key
  await page.mouse.move(x,y);await page.mouse.down();
  await page.mouse.move(x+190,y-26,{steps:12});await page.mouse.up();
  await page.waitForTimeout(200);
- const rotated=await canvas.screenshot();
+ // Regressions used to unmount the canvas when the frame governor changed.
+ await expect(stage).toHaveAttribute('data-room3d-active','true');
+ await expect(canvas).toBeVisible({timeout:5_000});
+ const rotated=await canvas.screenshot({timeout:12_000});
  expect(Buffer.compare(before,rotated)).not.toBe(0);
  await page.keyboard.down('KeyW');await page.waitForTimeout(450);await page.keyboard.up('KeyW');
  await page.waitForTimeout(150);
- const moved=await canvas.screenshot();
+ await expect(stage).toHaveAttribute('data-room3d-active','true');
+ await expect(canvas).toBeVisible({timeout:5_000});
+ const moved=await canvas.screenshot({timeout:12_000});
  expect(Buffer.compare(rotated,moved)).not.toBe(0);
  const img=join(process.cwd(),'artifacts','visual-qa','room3d-1366x768.png');
  await mkdir(join(process.cwd(),'artifacts','visual-qa'),{recursive:true});
