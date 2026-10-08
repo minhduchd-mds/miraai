@@ -23,6 +23,10 @@ test('opt-in room3d renders 3D geometry, rotates through drag and walks with key
  }
  await expect(stage).toHaveAttribute('data-room3d-active','true',{timeout:25_000});
  await expect(stage).toHaveAttribute('data-room3d-ready','true',{timeout:25_000});
+ await expect(page.locator('.pm-room3d-reference')).toHaveClass(/is-visible/);
+ await expect.poll(async()=>page.locator('.pm-room3d-reference img').evaluate(
+   img=>img instanceof HTMLImageElement && img.naturalWidth>0
+ )).toBe(true);
  const canvas=page.locator('.pm-room3d-stage canvas');
  await expect(canvas).toBeVisible();
  const box=await canvas.boundingBox();
@@ -30,6 +34,7 @@ test('opt-in room3d renders 3D geometry, rotates through drag and walks with key
  const x=box.x+box.width*.5,y=box.y+box.height*.53;
  const before=await canvas.screenshot();
  await page.mouse.move(x,y);await page.mouse.down();
+ await expect(page.locator('.pm-room3d-reference')).not.toHaveClass(/is-visible/);
  await page.mouse.move(x+190,y-26,{steps:12});await page.mouse.up();
  await page.waitForTimeout(200);
  // Regressions used to unmount the canvas when the frame governor changed.
@@ -42,6 +47,8 @@ test('opt-in room3d renders 3D geometry, rotates through drag and walks with key
  await expect(stage).toHaveAttribute('data-room3d-active','true');
  await expect(canvas).toBeVisible({timeout:5_000});
  const moved=await canvas.screenshot({timeout:12_000});
+ await page.keyboard.press('2');
+ await expect(page.locator('.pm-room3d-reference')).toHaveClass(/is-visible/);
  expect(Buffer.compare(rotated,moved)).not.toBe(0);
  const img=join(process.cwd(),'artifacts','visual-qa','room3d-1366x768.png');
  await mkdir(join(process.cwd(),'artifacts','visual-qa'),{recursive:true});

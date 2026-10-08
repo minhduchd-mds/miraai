@@ -59,7 +59,7 @@ test('room uses bounded GPU work and never captures chat keystrokes',()=>{
 });
 
 test('cinematic room keeps reference composition: real woman sprite, glowing ceiling, warm interior',()=>{
- for(const mark of ['function MiraPortrait','mira-assets/expressions/expr_01_gentle.webp',
+ for(const mark of ['function MiraPortrait','mira-assets/scenes/mira_concept_portrait.webp',
    'THREE.TextureLoader','alphaMap={fade}','function InteriorStyling',
    'torusGeometry args={[2.08,.095,8,72]}','sofa-pillow-',
    'curtain-','slat-','keyboard-','marble-','PHÒNG 3D']){
@@ -74,4 +74,14 @@ test('all five concept camera viewpoints are addressable from keyboard without i
  for(const part of ['Digit([1-5])','setViewPreset(index)','Trái 90°','Trước','Phải 90°',
   'Sau 180°','Toàn cảnh','isEditable(event.target)'])
     assert.ok(room.includes(part),'Missing viewpoint '+part);
+});
+
+test('approved 2D source photo overlays the real 3D model until interaction',()=>{
+ assert.match(room,/mira-assets\/scenes\/mira_concept_front.webp/);
+ assert.match(room,/referenceView\?' is-visible':''/);
+ assert.match(room,/setReferenceView\(false\)/);
+ assert.match(room,/setReferenceView\(index===1\)/);
+ assert.match(css,/\.pm-room3d-reference\.is-visible/);
+ assert.match(css,/object-fit:contain/);
+ assert.match(room,/ẢNH CHUẨN 2D/);
 });

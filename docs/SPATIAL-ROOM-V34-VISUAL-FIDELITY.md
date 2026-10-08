@@ -17,3 +17,8 @@ The canonical visual reference is the user-approved 1672×941 composite image in
 ## QA
 
 `scripts/spatial-room3d.test.mjs` covers presence of photographic sprite and five presets; the main CI runs TypeScript/unit/bundle checks. Full visual regression of angle accuracy needs additional art assets and image-based comparison.
+
+## v35 direct approved source photographs
+- The actual user-approved source is provided at `public/mira-assets/scenes/mira_concept_front.webp` (1280px wide) and the feathered photo cutout `mira_concept_portrait.webp`.
+- `?room3d=1` initially displays the 2D approved image with an explicit **ẢNH CHUẨN 2D** marker; drag or WASD reveals the independent 3D room geometry, and keyboard key **2** restores the static reference image.
+- Portrait geometry now textures from the exact approved woman photo, but as an alpha-masked 2D billboard, not a VRM/GLB human. 360-degree pixel matching remains impossible without additional multi-view/3D assets.

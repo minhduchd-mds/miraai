@@ -61,7 +61,7 @@ function WindowCity({night}:{night:boolean}){
 // The portrait below is a photographic billboard, NOT a reconstructed 3D human.
 // Real facial likeness from every camera angle requires an authored VRM/GLB avatar.
 function MiraPortrait({onReady}:{onReady:()=>void}){
-  const src = `${import.meta.env.BASE_URL}mira-assets/expressions/expr_01_gentle.webp`;
+  const src = `${import.meta.env.BASE_URL}mira-assets/scenes/mira_concept_portrait.webp`;
   const image = useLoader(THREE.TextureLoader,src);
   const fade = useMemo(()=>{
     const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;
@@ -87,7 +87,7 @@ function MiraPortrait({onReady}:{onReady:()=>void}){
       <meshStandardMaterial color="#e9d6cf" roughness={.98}/>
     </mesh>
     <mesh position={[0,2.0,.07]}>
-      <planeGeometry args={[1.9,2.25]}/>
+      <planeGeometry args={[2.38,2.22]}/>
       <meshBasicMaterial map={image} alphaMap={fade} side={THREE.DoubleSide}
         depthWrite={false} transparent toneMapped={false}/>
     </mesh>
@@ -273,6 +273,8 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
 export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
   const control=useRef<Controls>({yaw:0,pitch:0,x:0,z:4.75,keys:new Set()});
   const [viewPreset,setViewPreset]=useState(1);
+  const [referenceView,setReferenceView]=useState(true);
+  const referenceImage=`${import.meta.env.BASE_URL}mira-assets/scenes/mira_concept_front.webp`;
   const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
   const invalidateRef=useRef<(() => void)|null>(null);
   const sceneReady=useCallback(()=>onReady(),[onReady]);
@@ -292,11 +294,13 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
         const index=Number(n[1])-1, preset=presets[index];
         Object.assign(control.current,preset,{pitch:0});
         setViewPreset(index);
+        setReferenceView(index===1);
         invalidateRef.current?.();
         return;
       }
       if(isEditable(event.target)||!MOVE_KEYS.has(event.code))return;
-      event.preventDefault();control.current.keys.add(event.code);invalidateRef.current?.();
+      event.preventDefault();setReferenceView(false);
+      control.current.keys.add(event.code);invalidateRef.current?.();
     };
     const up=(event:KeyboardEvent)=>{control.current.keys.delete(event.code);};
     const blur=()=>control.current.keys.clear();
@@ -304,7 +308,8 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
     return ()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',blur);};
   },[]);
   const pointerDown=(event:ReactPointerEvent<HTMLSpanElement>)=>{
-    event.stopPropagation();event.currentTarget.setPointerCapture(event.pointerId);
+    event.stopPropagation();setReferenceView(false);
+    event.currentTarget.setPointerCapture(event.pointerId);
     last.current={pointerId:event.pointerId,x:event.clientX,y:event.clientY};
   };
   const pointerMove=(event:ReactPointerEvent<HTMLSpanElement>)=>{
@@ -331,6 +336,10 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
         <RoomCamera controls={control}/>
         <RoomMeshes scene={scene} onReady={sceneReady}/>
       </Canvas>
+      <span className={`pm-room3d-reference${referenceView?' is-visible':''}`} aria-hidden="true">
+        <img src={referenceImage} alt="" draggable={false} decoding="async"/>
+        <span className="pm-room3d-reference-label">ẢNH CHUẨN 2D · KÉO ĐỂ MỞ 3D</span>
+      </span>
       <span className="pm-room3d-hud" aria-hidden="true">MIRA HOME · KÉO XOAY 360° · WASD DI CHUYỂN · 1–5 GÓC NHÌN</span>
       <span className="pm-room3d-gallery" aria-hidden="true">
         {['Trái 90°','Trước','Phải 90°','Sau 180°','Toàn cảnh'].map((label,index)=>
