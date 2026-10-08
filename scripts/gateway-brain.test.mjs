@@ -59,6 +59,8 @@ test('gateway is automatically available only with an explicit server credential
     assert.deepEqual(providerOrder(),[]);
     process.env.VERCEL_OIDC_TOKEN='runtime-only';
     assert.deepEqual(providerOrder(),['gateway']);
+    process.env.MIRA_BRAIN_PROVIDER='auto';
+    assert.deepEqual(providerOrder(),[], 'OIDC alone must not silently enable paid model calls');
   } finally {
     for(const k of keys) if(prev[k]===undefined)delete process.env[k]; else process.env[k]=prev[k];
   }
