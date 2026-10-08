@@ -266,6 +266,20 @@ export function visionSnapshot() {
   };
 }
 
+// Late-bound camera runtime diagnostics stay out of the deferred AppV2 bundle.
+export function noteSpatialUiPoll(frameAt: number, now: number, handSeen: boolean): void {
+  spatialPerformanceProfiler.notePoll(frameAt, now, handSeen);
+}
+export function noteSpatialHandAction(frameAt: number, now: number): void {
+  spatialPerformanceProfiler.noteHandAction(frameAt, now);
+}
+export function noteSpatialUiWork(durationMs: number): void {
+  spatialPerformanceProfiler.noteUiWork(durationMs);
+}
+export function resetSpatialPerformance(): void {
+  spatialPerformanceProfiler.reset();
+}
+
 export function visionStream(): MediaStream | null {
   return getVisionCameraStream();
 }

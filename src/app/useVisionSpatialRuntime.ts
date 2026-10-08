@@ -11,7 +11,6 @@ import { handleSpatialWindowControl } from './spatial-window-control';
 import { updateSpatialWindowBimanual } from './spatial-window-bimanual';
 import { updateSpatialObjectBimanual } from './spatial-object-bimanual';
 import { StableBimanualPairRuntime } from './spatial-two-hand';
-import { spatialPerformanceProfiler } from '../core/vision/spatial-performance';
 
 export function useVisionSpatialRuntime(options: any) {
   const {
@@ -79,7 +78,7 @@ export function useVisionSpatialRuntime(options: any) {
   const bimanualPairRef = useRef(new StableBimanualPairRuntime());
 
   useEffect(() => {
-    if (!visionOn) { bimanualPairRef.current.reset(); spatialPerformanceProfiler.reset(); }
+    if (!visionOn) { bimanualPairRef.current.reset(); visionModulesRef.current?.resetSpatialPerformance(); }
   }, [visionOn]);
 
   useEffect(() => {
@@ -88,7 +87,7 @@ export function useVisionSpatialRuntime(options: any) {
     const onVisibility = () => {
       if (document.visibilityState !== 'hidden') return;
       bimanualPairRef.current.reset();
-      spatialPerformanceProfiler.reset();
+      visionModulesRef.current?.resetSpatialPerformance();
       resetVisionHandInput();
       spatialUiRef.current?.reset();
       spatialGrabSessionRef.current = null;
@@ -126,7 +125,7 @@ export function useVisionSpatialRuntime(options: any) {
       const current = visionModulesRef.current;
       const snapshot = current?.visionSnapshot();
       const uiStart = performance.now();
-      spatialPerformanceProfiler.notePoll(Number(snapshot?.handFrameAt || 0), uiStart, Boolean(snapshot?.handSeen));
+      current?.noteSpatialUiPoll(Number(snapshot?.handFrameAt || 0), uiStart, Boolean(snapshot?.handSeen));
 
       setFaceSeen(Boolean(snapshot?.faceSeen));
       setHandSeen(Boolean(snapshot?.handSeen));
@@ -237,7 +236,7 @@ export function useVisionSpatialRuntime(options: any) {
 
       // Spatial intent runtime is loaded on demand; until then fail closed.
       if (!spatialUiRef.current) {
-        spatialPerformanceProfiler.noteUiWork(performance.now() - uiStart);
+        current?.noteSpatialUiWork(performance.now() - uiStart);
         return;
       }
       const spatialFrameNext = spatialUiRef.current.update({
@@ -287,7 +286,7 @@ export function useVisionSpatialRuntime(options: any) {
 
       for (const event of spatialFrameNext.events) {
         if (event.source === 'hand' && (event.type === 'activate' || event.type === 'grab_start')) {
-          spatialPerformanceProfiler.noteHandAction(Number(snapshot?.handFrameAt || 0), now);
+          current?.noteSpatialHandAction(Number(snapshot?.handFrameAt || 0), now);
         }
         if (handleSpatialObjectManipulation({
           event,
@@ -496,7 +495,7 @@ export function useVisionSpatialRuntime(options: any) {
           jaw: 0,
         },
       });
-      spatialPerformanceProfiler.noteUiWork(performance.now() - uiStart);
+      current?.noteSpatialUiWork(performance.now() - uiStart);
     }, 120);
 
     return () => window.clearInterval(timer);
