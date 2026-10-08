@@ -38,7 +38,7 @@ export function resolveSpatial3DOverride(search: string): Spatial3DOverride {
   return match?.[1]==='1'?'on':match?.[1]==='0'?'off':'auto';
 }
 
-export function shouldUseSpatial3D({quality,performance,reducedMotion,saveData,override}: {
+export function shouldUseSpatial3D({quality,performance,reducedMotion,saveData,viewportWidth,override}: {
   quality: PhotorealVisualQuality;
   performance: PhotorealPerformanceTier;
   reducedMotion: boolean;
