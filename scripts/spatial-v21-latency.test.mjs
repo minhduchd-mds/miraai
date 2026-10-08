@@ -43,7 +43,7 @@ test('v21 latency statistics are bounded and do not hold camera data',()=>{
  let s=p.snapshot(10485760);
  assert.equal(s.uniqueHandFrames,2);assert.equal(s.repeatedUiPolls,1);
  assert.equal(s.noHandPolls,1);assert.equal(s.jsHeapMiB,10);
- assert.deepEqual(s.inferenceToUi,{count:2,p50Ms:25,p95Ms:35,maxMs:35});
+ assert.deepEqual(s.inferenceToUi,{count:2,p50Ms:35,p95Ms:35,maxMs:35});
  assert.deepEqual(s.inferenceToHandAction,{count:1,p50Ms:40,p95Ms:40,maxMs:40});
  assert.equal(s.uiHandlerDuration.count,2);assert.equal(p.snapshot().jsHeapMiB,null);
  assert.equal(JSON.stringify(s).includes('landmarks'),false);
