@@ -1,4 +1,7 @@
 import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from './runtime-store';
+import { isDesktopRuntime } from '../../desktop/bridge';
+import { loadDesktopMemoryGraph, updateDesktopStructuredMemory, deleteDesktopStructuredMemory } from '../../desktop/memory-graph';
+import { desktopProfileFacts } from './desktop-profile';
 
 const localMemory = createRuntimeMemoryStore();
 
@@ -15,6 +18,13 @@ export interface MemoryProfile {
 
 export async function loadMemoryProfile(): Promise<MemoryProfile> {
   if (isLocalOnlyMemoryRuntime()) {
+    if (isDesktopRuntime()) {
+      const [messageCount, graph] = await Promise.all([
+        localMemory.countTurns(),
+        loadDesktopMemoryGraph(),
+      ]);
+      return { facts: desktopProfileFacts(graph.nodes), messageCount };
+    }
     return { facts: [], messageCount: await localMemory.countTurns() };
   }
   const response = await fetch('/api/profile', { credentials: 'same-origin' });
@@ -33,7 +43,11 @@ export async function loadMemoryProfile(): Promise<MemoryProfile> {
 }
 
 export async function updateMemoryFact(id: number, fact: string): Promise<void> {
-  if (isLocalOnlyMemoryRuntime()) throw new Error('Structured facts are server-only; local-only memory stores conversation history.');
+  if (isDesktopRuntime()) {
+    await updateDesktopStructuredMemory({ id, text: fact });
+    return;
+  }
+  if (isLocalOnlyMemoryRuntime()) throw new Error('Structured facts are not editable in browser-only memory.');
   const response = await fetch('/api/profile', {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
@@ -44,7 +58,11 @@ export async function updateMemoryFact(id: number, fact: string): Promise<void> 
 }
 
 export async function forgetMemoryFact(id: number): Promise<void> {
-  if (isLocalOnlyMemoryRuntime()) throw new Error('Structured facts are server-only; local-only memory stores conversation history.');
+  if (isDesktopRuntime()) {
+    await deleteDesktopStructuredMemory(id);
+    return;
+  }
+  if (isLocalOnlyMemoryRuntime()) throw new Error('Structured facts are not editable in browser-only memory.');
   const response = await fetch('/api/profile', {
     method: 'DELETE',
     headers: { 'content-type': 'application/json' },

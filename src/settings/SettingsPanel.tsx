@@ -202,7 +202,17 @@ export default function SettingsPanel(props: Props) {
       setProfileError('Không quét lại được thư viện nhạc: ' + (error instanceof Error ? error.message : String(error)));
     } finally { setDesktopLibraryBusy(false); }
   };
-  const eraseAll = async () => { if (!window.confirm('Xoá toàn bộ lịch sử và hồ sơ Mira đã ghi nhớ? Thao tác này không hoàn tác được.')) return; await forgetAllMemory(); await refreshProfile(); };
+  const eraseAll = async () => {
+    if (!window.confirm('Xoá toàn bộ lịch sử và hồ sơ Mira đã ghi nhớ? Thao tác này không hoàn tác được.')) return;
+    setProfileError('');
+    try {
+      await forgetAllMemory();
+      await refreshProfile();
+    } catch (error) {
+      setProfileError('Không xóa được ký ức; vui lòng kiểm tra lại bộ nhớ native: ' +
+        (error instanceof Error ? error.message : String(error)));
+    }
+  };
   const exportCapsule = async () => {
     setCapsuleBusy(true); setProfileError('');
     try { await exportIdentityCapsule(props.theme, props.voiceURI); }

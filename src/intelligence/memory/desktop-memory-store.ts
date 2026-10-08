@@ -33,17 +33,15 @@ export class DesktopMemoryStore {
     links: PortableMemoryLink[],
   ): Promise<void> {
     if (!Array.isArray(nodes) || !nodes.length) return;
-    try {
-      await desktopInvoke('desktop_memory_import_structured', {
-        nodes: nodes.slice(-240),
-        links: Array.isArray(links) ? links.slice(-600) : [],
-      });
-    } catch { /* best effort merge-only import */ }
+    await desktopInvoke('desktop_memory_import_structured', {
+      nodes: nodes.slice(-240),
+      links: Array.isArray(links) ? links.slice(-600) : [],
+    });
   }
 
   async importTurns(items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>): Promise<void> {
     if (!Array.isArray(items) || !items.length) return;
-    try { await desktopInvoke('desktop_memory_import_turns', { items: items.slice(-500) }); } catch { /* best effort */ }
+    await desktopInvoke('desktop_memory_import_turns', { items: items.slice(-500) });
   }
 
   async clearAll(): Promise<void> {
