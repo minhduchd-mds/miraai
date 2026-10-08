@@ -14,7 +14,7 @@ import type { PhotorealCameraDepthController } from './photoreal-camera-depth';
 import type { PhotorealEnvironmentController } from './photoreal-environment';
 import type { PhotorealSceneCanvasHandle } from './PhotorealSceneCanvas';
 import type { PhotorealPerformanceTier } from './photoreal-depth-warp';
-import { resolveSpatial3DOverride, shouldUseSpatial3D } from './spatial-scene-depth';
+import { resolveSpatial3DOverride, shouldUseSpatial3D } from './spatial-scene-policy';
 import {
   PRESENCE_IMAGE,
   PRESENCE_SCENE_COPY,

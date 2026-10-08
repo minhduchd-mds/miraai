@@ -5,7 +5,11 @@ import ts from 'typescript';
 
 const tsSource=readFileSync('src/presence/spatial-scene-depth.ts','utf8');
 const js=ts.transpileModule(tsSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
-const spatial=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+const depth=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+const policySource=readFileSync('src/presence/spatial-scene-policy.ts','utf8');
+const policyJS=ts.transpileModule(policySource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+const policy=await import('data:text/javascript;base64,'+Buffer.from(policyJS).toString('base64'));
+const spatial={...depth,...policy};
 const scenes=['daytime','welcome-home','home-evening','bedtime'];
 
 test('all four real Mira background photos have authored, stable relief depth',()=>{

@@ -1,8 +1,4 @@
 import type { MiraPresenceScene } from './presence-scene';
-import type { PhotorealVisualQuality } from './photoreal-depth';
-import type { PhotorealPerformanceTier } from './photoreal-depth-warp';
-
-export type Spatial3DOverride = 'auto' | 'on' | 'off';
 
 const PROFILES: Record<MiraPresenceScene, {
   subjectX: number; subjectY: number; width: number; height: number;
@@ -30,24 +26,6 @@ export function sceneDepthAt(scene: MiraPresenceScene,u: number,v: number): numb
   const edgeFade=smooth(0,.07,x)*smooth(0,.07,1-x);
   const imageFar=scene==='bedtime' ? (1-smooth(.40,.85,x))*smooth(.55,.85,y)*.05 : 0;
   return clamp((.14+subject*.39+foreground*p.nearGain+imageFar)*(.73+edgeFade*.27),.08,.96);
-}
-
-export function resolveSpatial3DOverride(search: string): Spatial3DOverride {
-  // Read-only diagnostic switch, not user data; omitted in normal URLs.
-  const match=/(?:^|[?&])spatial3d=(1|0)(?:&|$)/.exec(search);
-  return match?.[1]==='1'?'on':match?.[1]==='0'?'off':'auto';
-}
-
-export function shouldUseSpatial3D({quality,performance,reducedMotion,saveData,viewportWidth,override}: {
-  quality: PhotorealVisualQuality;
-  performance: PhotorealPerformanceTier;
-  reducedMotion: boolean;
-  saveData: boolean;
-  viewportWidth: number;
-  override: Spatial3DOverride;
-}): boolean {
-  if(reducedMotion||saveData||quality==='lite'||performance!=='full'||override==='off')return false;
-  return override==='on'||((quality==='high'||quality==='ultra')&&viewportWidth>=900);
 }
 
 export function spatialCameraTarget(pointerX: number,pointerY: number,headYaw=0,headPitch=0) {
