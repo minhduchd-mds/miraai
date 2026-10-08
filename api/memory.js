@@ -11,6 +11,7 @@ export default async function handler(req, res) {
 
   const q = (req.query?.q || '').toString().trim();
   if (!q) return res.status(400).json({ error: 'thiếu q' });
+  if (q.length > 1024) return res.status(413).json({ error: 'query_too_long' });
   const device = resolveMemoryScope(req, res, req.query?.device);
 
   try {

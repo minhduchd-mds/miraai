@@ -38,3 +38,23 @@ test('all provider billing paths are guarded and SQL counters are atomic', () =>
   assert.match(readFileSync('lib/db.js','utf8'), /create table if not exists ai_quota_windows/);
   assert.match(readFileSync('lib/ai-quota.js','utf8'), /on conflict \(quota_key, lane, window_start\)/);
 });
+
+test('global quota survives a flood of distinct clients in process-local fallback', async () => {
+  const now = 42_000_000;
+  const lanes = [['brain', 500], ['tts', 1200], ['distill', 300], ['capsule', 60]];
+  let identity = 0;
+  for (const [lane, count] of lanes) {
+    for (let i = 0; i < count; i++) {
+      const req = { socket: { remoteAddress: '2001:db8::' + (++identity).toString(16) }, headers: {} };
+      assert.equal(await enforceAiQuota(req, response(), lane, null, now), true);
+    }
+  }
+  const denied = response();
+  const req = { socket: { remoteAddress: '2001:db8::ffff' }, headers: {} };
+  assert.equal(await enforceAiQuota(req, denied, 'brain', null, now), false);
+  assert.equal(denied.body.error, 'global_rate_limited');
+});
+
+test('semantic memory queries are bounded before paid embeddings', () => {
+  assert.match(readFileSync('api/memory.js', 'utf8'), /q.length > 1024/);
+});
