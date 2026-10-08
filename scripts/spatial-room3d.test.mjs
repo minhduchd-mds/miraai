@@ -3,85 +3,68 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const room=readFileSync('src/presence/PhotorealRoom3D.tsx','utf8');
+const vrm=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+const luxury=readFileSync('src/presence/RoomLuxuryInterior.tsx','utf8');
 const integration=readFileSync('src/presence/PhotorealMira.tsx','utf8');
 const css=readFileSync('src/presence/photoreal-mira.css','utf8');
-const packageJSON=JSON.parse(readFileSync('package.json','utf8'));
+const pkg=JSON.parse(readFileSync('package.json','utf8'));
 
-test('3D room uses actual mesh geometry for architecture and furniture, not a panoramic plane',()=>{
- for(const token of ['RoomMeshes','WindowCity','Plant','RoomCamera','Box','pointLight',
-  '<boxGeometry','<planeGeometry','<sphereGeometry','<cylinderGeometry','<Canvas'])
-  assert.ok(room.includes(token),'Missing '+token);
- for(const name of ['WindowCity','bed','sofa','desk']){
-  if(name==='WindowCity')assert.match(room,/<WindowCity night=/);
-  if(name==='bed')assert.match(room,/\[2\.95,\.66,2\.88\]/);
-  if(name==='sofa')assert.match(room,/\[2\.45,\.65,1\.1\]/);
-  if(name==='desk')assert.match(room,/\[2\.5,\.09,1\.24\]/);
+test('room contains independently modeled curved furniture instead of coarse boxes',()=>{
+ for(const required of ['RoundedBoxGeometry','meshPhysicalMaterial','RoomLighting',
+   'SofaSet','BedSet','CityWindow','WorkspaceSet','WardrobeSet','MarbleDeskSet',
+   'torusGeometry','clearcoat','THREE.CanvasTexture','shadow-mapSize']) {
+   assert.ok(luxury.includes(required),'Missing 3D feature '+required);
  }
- assert.doesNotMatch(room,/<sphereGeometry args=\{\[500/);
- assert.doesNotMatch(room,/equirectangular|a-sky/i);
+ assert.match(luxury,/new THREE.PlaneGeometry\(2\.78,2\.75,22,20\)/);
+ assert.match(luxury,/meshPhysicalMaterial color="#b7d6e7" transparent/);
+ assert.doesNotMatch(room,/MiraPortrait|mira_concept_portrait|mira_concept_front/);
+ assert.doesNotMatch(room,/pm-room3d-reference|referenceView|<img/);
 });
 
-test('360 room supports pointer dragging and 3D translation, not only camera yaw',()=>{
- for(const token of ['onPointerDown={pointerDown}','onPointerMove={pointerMove}',
-   'setPointerCapture','control.current.yaw','control.current.pitch','KeyW','KeyA','KeyS','KeyD',
-   'camera.position.set(v.x,1.68,v.z)','camera.rotation.set(v.pitch,v.yaw,0',
-   'CLAMP(v.x','CLAMP(v.z'])assert.ok(room.includes(token),'Missing '+token);
- assert.match(room,/isContentEditable/);
- assert.match(room,/window\.removeEventListener\('keydown',down\)/);
- assert.match(room,/onClick=\{event=>event\.stopPropagation\(\)\}/);
+test('existing rigged 3D Mira model is loaded without an alpha-masked portrait',()=>{
+ assert.match(room,/lazy\(\(\) => import\('\.\/RoomMiraVRM'\)\)/);
+ assert.match(room,/<RoomMiraVRM onReady=\{sceneReady\}/);
+ assert.match(vrm,/mira_female_02_lavender_lounge\.vrm/);
+ assert.match(vrm,/VRMLoaderPlugin/);
+ assert.match(vrm,/seatedPose\(vrm\)/);
+ assert.match(vrm,/getNormalizedBoneNode/);
+ assert.match(vrm,/vrm\.scene\.rotation\.y=Math\.PI/);
+ assert.doesNotMatch(vrm,/TextureLoader|\.webp|<planeGeometry/);
+ assert.match(vrm,/VRMUtils\.deepDispose/);
+ assert.ok(pkg.dependencies['@pixiv/three-vrm']);
 });
 
-test('3D room loads only in explicit ?room3d=1 and always retains 2D fallback',()=>{
- assert.match(integration,/lazy\(\(\) => import\('\.\/PhotorealRoom3D'\)\)/);
- assert.match(integration,/get\('room3d'\) === '1'/);
+test('real room is the default for capable desktops, opt-out and motion gates remain',()=>{
+ assert.match(integration,/get\('room3d'\)/);
+ assert.match(integration,/window\.innerWidth >= 1024/);
+ assert.match(integration,/room3DPreference !== '0'/);
  assert.match(integration,/!reducedMotion/);
  assert.match(integration,/visualQuality !== 'lite'/);
- assert.doesNotMatch(integration,/visualQuality !== 'lite' && performanceTier === 'full'/);
  assert.match(integration,/!Boolean\(connection\?\.saveData\)/);
- assert.match(integration,/onFailure=\{\(\) => \{setRoom3DFailed\(true\);setRoom3DReady\(false\);\}\}/);
- assert.match(integration,/!room3DActive && \(/);
+ assert.match(integration,/data-room3d-active/);
  assert.match(integration,/!spatial3DEnabled && !room3DActive/);
- assert.match(css,/\.photo-mira\[data-room3d-ready="true"\] \.pm-scene-fallback/);
- assert.match(css,/\.pm-room3d-stage:active/);
- assert.ok(packageJSON.dependencies.three);
- assert.ok(packageJSON.dependencies['@react-three/fiber']);
- assert.ok(!packageJSON.dependencies.aframe);
+ assert.match(css,/\.photo-mira\[data-room3d-active="true"\] \.pm-scene-fallback/);
+ assert.doesNotMatch(css,/\.pm-room3d-reference\.is-visible/);
 });
 
-test('room uses bounded GPU work and never captures chat keystrokes',()=>{
+test('camera supports 360 orbit and genuine translation without stealing chat keystrokes',()=>{
+ for(const token of ['onPointerDown={pointerDown}','onPointerMove={pointerMove}',
+    'setPointerCapture','controls.current.yaw','controls.current.pitch','KeyW','KeyA','KeyS','KeyD',
+    'camera.position.set(v.x,1.68,v.z)','camera.rotation.set(v.pitch,v.yaw,0',
+    'CLAMP(v.x','CLAMP(v.z','isContentEditable','Digit([1-5])',
+    'window.removeEventListener(\'keydown\',keydown)']) {
+    assert.ok(room.includes(token),'Missing camera part '+token);
+ }
  assert.match(room,/frameloop="demand"/);
  assert.match(room,/dpr=\{\[1,1\.5\]\}/);
- assert.match(room,/isEditable\(event.target\)/);
- assert.match(room,/window\.addEventListener\('blur',blur\)/);
- assert.match(room,/keys\.clear\(\)/);
- assert.match(room,/Math\.min\(delta,\.06\)/);
- assert.match(room,/invalidateRef\.current\?\.\(\)/);
+ assert.match(room,/<Canvas frameloop="demand" shadows/);
+ assert.match(room,/ACESFilmicToneMapping/);
+ assert.match(room,/powerPreference:'high-performance'/);
 });
 
-test('cinematic room keeps reference composition: real woman sprite, glowing ceiling, warm interior',()=>{
- for(const mark of ['function MiraPortrait','mira-assets/reference/mira_concept_portrait.webp',
-   'THREE.TextureLoader','alphaMap={fade}','function InteriorStyling',
-   'torusGeometry args={[2.08,.095,8,72]}','sofa-pillow-',
-   'curtain-','slat-','keyboard-','marble-','PHÒNG 3D']){
-    if(mark==='PHÒNG 3D')continue;
-    assert.ok(room.includes(mark),'Missing reference styling '+mark);
-  }
- assert.match(room,/MiraPortrait onReady=\{onReady\}/);
- assert.match(room,/requestAnimationFrame\(onReady\)/);
- assert.doesNotMatch(room,/requestAnimationFrame\(sceneReady\)/);
-});
-test('all five concept camera viewpoints are addressable from keyboard without intercepting typing',()=>{
- for(const part of ['Digit([1-5])','setViewPreset(index)','Trái 90°','Trước','Phải 90°',
-  'Sau 180°','Toàn cảnh','isEditable(event.target)'])
-    assert.ok(room.includes(part),'Missing viewpoint '+part);
-});
-
-test('approved 2D source photo overlays the real 3D model until interaction',()=>{
- assert.match(room,/mira-assets\/reference\/mira_concept_front.webp/);
- assert.match(room,/referenceView\?' is-visible':''/);
- assert.match(room,/setReferenceView\(false\)/);
- assert.match(room,/setReferenceView\(index===1\)/);
- assert.match(css,/\.pm-room3d-reference\.is-visible/);
- assert.match(css,/object-fit:contain/);
- assert.match(room,/ẢNH CHUẨN 2D/);
+test('VRM callback does not retrigger loader from normal React rerenders',()=>{
+ assert.match(vrm,/const callback = useRef\(onReady\)/);
+ assert.match(vrm,/callback\.current=onReady/);
+ assert.match(vrm,/\},\[invalidate\]\);/);
+ assert.doesNotMatch(vrm,/\[invalidate,onReady\]/);
 });

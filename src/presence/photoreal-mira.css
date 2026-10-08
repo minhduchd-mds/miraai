@@ -2364,20 +2364,21 @@
   .bedroom-presence .pm-room3d-gallery span{font-size:9px;padding:7px 2px}
 }
 
-/* v35: source-photo first frame is 2D, not a claim of 360° reconstruction. */
-.bedroom-presence .pm-room3d-reference {
-  position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;
-  background:#251b20;overflow:hidden;pointer-events:none;
-  opacity:0;visibility:hidden;transition:opacity .45s ease,visibility 0s linear .45s;
+
+/* v36: real mesh-only first frame; do not display the reference or still-photo depth
+   overlays while the user is in the walkable environment. 2D is for accessibility
+   fallback only and returns automatically when WebGL error disables room3DActive. */
+.photo-mira[data-room3d-active="true"] .pm-scene-fallback,
+.photo-mira[data-room3d-active="true"] .pm-depth-mid,
+.photo-mira[data-room3d-active="true"] .pm-depth-near,
+.photo-mira[data-room3d-active="true"] .pm-scene-segments,
+.photo-mira[data-room3d-active="true"] .pm-depth-atmosphere,
+.photo-mira[data-room3d-active="true"] .pm-depth-relight,
+.photo-mira[data-room3d-active="true"] .pm-depth-contact-shadow,
+.photo-mira[data-room3d-active="true"] .pm-env-window-light,
+.photo-mira[data-room3d-active="true"] .pm-env-city-bokeh {
+  visibility:hidden;
 }
-.bedroom-presence .pm-room3d-reference.is-visible {opacity:1;visibility:visible;transition:opacity .45s ease;}
-.bedroom-presence .pm-room3d-reference > img {
-  display:block;width:100%;height:100%;max-width:none;object-fit:contain;object-position:center;pointer-events:none;
+.bedroom-presence .pm-room3d-stage {
+  background:#342633;
 }
-.bedroom-presence .pm-room3d-reference-label {
-  position:absolute;right:clamp(14px,3vw,44px);top:clamp(12px,4vh,42px);
-  padding:8px 12px;border:1px solid rgba(249,224,208,.43);
-  background:rgba(26,19,26,.67);color:#fff4ef;
-  border-radius:99px;font:600 11px/1.2 system-ui,sans-serif;letter-spacing:.035em;
-}
-@media(prefers-reduced-motion:reduce) {.bedroom-presence .pm-room3d-reference {transition:none;}}
