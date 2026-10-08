@@ -127,8 +127,8 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
     if(v.keys.has('ArrowLeft'))v.yaw+=dt*.9;
     if(v.keys.has('ArrowRight'))v.yaw-=dt*.9;
     if(f||side){
-      v.x=CLAMP(v.x+(Math.sin(v.yaw)*-f+Math.cos(v.y)*side)*speed,-4.4,4.4);
-      v.z=CLAMP(v.z+(-Math.cos(v.yaw)*f+Math.sin(v.y)*side)*speed,-5.2,5.2);
+      v.x=CLAMP(v.x+(Math.sin(v.yaw)*-f+Math.cos(v.yaw)*side)*speed,-4.4,4.4);
+      v.z=CLAMP(v.z+(-Math.cos(v.yaw)*f+Math.sin(v.yaw)*side)*speed,-5.2,5.2);
     }
     camera.position.set(v.x,1.68,v.z);
     camera.rotation.set(v.pitch,v.yaw,0,'YXZ');
