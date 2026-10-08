@@ -41,5 +41,5 @@ test('modal opening cancels spatial drag sessions without resetting on every ren
  const source=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
  assert.match(source,/if \(!settingsOpen\) return;[\s\S]*?spatialGrabSessionRef.current = null;/);
  assert.match(source,/spatialDepthAnchorRef.current.reset\(\)/);
- assert.match(source,/return \(\) => window.clearInterval\(timer\)/);
+ assert.match(source,/return \(\) => \{\s*window.clearInterval\(timer\);\s*if \(pendingPrepaint\) window.cancelAnimationFrame\(pendingPrepaint\);/);
 });
