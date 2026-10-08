@@ -58,3 +58,33 @@ test('global quota survives a flood of distinct clients in process-local fallbac
 test('semantic memory queries are bounded before paid embeddings', () => {
   assert.match(readFileSync('api/memory.js', 'utf8'), /q.length > 1024/);
 });
+
+test('untrusted X-Forwarded-For cannot redefine a Vercel quota client', async () => {
+  const old = process.env.VERCEL;
+  try {
+    process.env.VERCEL = '1';
+    const a = { headers: { 'x-forwarded-for': '198.51.100.1' } };
+    const b = { headers: { 'x-forwarded-for': '198.51.100.2' } };
+    assert.equal(quotaClientKey(a), quotaClientKey(b));
+    const c = { headers: { 'x-vercel-forwarded-for': '198.51.100.3' } };
+    assert.notEqual(quotaClientKey(c), quotaClientKey(b));
+  } finally {
+    if (old === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = old;
+  }
+});
+
+test('quota clients beyond active local capacity fail closed rather than evicting active identities', async () => {
+  const now = 99_000_000;
+  let rejected = 0;
+  for (let i = 0; i < 2250; i++) {
+    const user = { socket: { remoteAddress: '2001:db8:5::' + i.toString(16) }, headers: {} };
+    const res = response();
+    const ok = await enforceAiQuota(user, res, 'capsule', null, now);
+    if (!ok) {
+      rejected++;
+      assert.equal(res.statusCode, 429);
+    }
+  }
+  assert.ok(rejected > 0, 'bounded limiter must reject at capacity or global cap');
+});
