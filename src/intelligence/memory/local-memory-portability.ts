@@ -49,26 +49,47 @@ export async function exportLocalSnapshot(db: IDBDatabase): Promise<LocalMemoryS
   };
 }
 
-/** Merge capsule turns; do not suppress transaction errors or remove existing rows. */
+type ImportCandidate = { role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown };
+
+/** Preserve repeated phrases on separate dates and make repeated restores idempotent. */
+export function prepareImportedTurns(
+  existing: readonly TurnRow[],
+  items: readonly ImportCandidate[],
+  fallbackTs = Date.now(),
+): TurnRow[] {
+  const byText = new Set(existing.map(row => JSON.stringify([row.role, row.text])));
+  const byTimestamp = new Set(existing.map(row => JSON.stringify([row.role, row.text, row.ts])));
+  const additions: TurnRow[] = [];
+  for (const item of items.slice(-500)) {
+    if (item?.role !== 'user' && item?.role !== 'mira') continue;
+    const role = item.role;
+    const text = typeof item.text === 'string' ? item.text.trim().slice(0, 6000) : '';
+    if (!text) continue;
+    const numericTs = item.ts == null ? NaN : Number(item.ts);
+    const parsedDate = typeof item.createdAt === 'string' ? Date.parse(item.createdAt) : NaN;
+    const numericOk = Number.isSafeInteger(numericTs) && numericTs > 0;
+    const dateOk = Number.isSafeInteger(parsedDate) && parsedDate > 0;
+    const ts = numericOk ? numericTs : dateOk ? parsedDate : fallbackTs;
+    const textKey = JSON.stringify([role, text]);
+    const timeKey = JSON.stringify([role, text, ts]);
+    if (numericOk || dateOk ? byTimestamp.has(timeKey) : byText.has(textKey)) continue;
+    byText.add(textKey);
+    byTimestamp.add(timeKey);
+    additions.push({ role, text, ts });
+  }
+  return additions;
+}
+
+/** Import only on demand; transaction failures must be surfaced. */
 export async function importLocalTurns(
   db: IDBDatabase,
-  items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>,
+  items: Array<ImportCandidate>,
 ): Promise<void> {
   if (!Array.isArray(items) || !items.length) return;
   const existing = await getAll<TurnRow>(db, 'turns');
-  const seen = new Set(existing.map((row) => row.role + ':' + row.text));
+  const additions = prepareImportedTurns(existing, items);
+  if (!additions.length) return;
   const tx = db.transaction('turns', 'readwrite');
-  const store = tx.objectStore('turns');
-  for (const item of items.slice(-500)) {
-    const role: BrainTurn['role'] = item?.role === 'mira' ? 'mira' : 'user';
-    const text = typeof item?.text === 'string' ? item.text.trim().slice(0, 6000) : '';
-    if (!text || seen.has(role + ':' + text)) continue;
-    seen.add(role + ':' + text);
-    const parsedDate = typeof item?.createdAt === 'string' ? Date.parse(item.createdAt) : NaN;
-    const rawTs = Number(item?.ts);
-    const ts = Number.isFinite(rawTs) && rawTs > 0
-      ? rawTs : Number.isFinite(parsedDate) ? parsedDate : Date.now();
-    store.add({ role, text, ts });
-  }
+  for (const row of additions) tx.objectStore('turns').add(row);
   await transactionDone(tx);
 }

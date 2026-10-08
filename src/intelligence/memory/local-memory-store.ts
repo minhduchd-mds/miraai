@@ -117,6 +117,7 @@ function normalize(text: string): string[] {
   return text.toLocaleLowerCase('vi')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
     .filter((token) => token.length > 1);
