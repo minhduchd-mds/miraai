@@ -188,6 +188,8 @@ export function useVisionSpatialRuntime(options: any) {
       setHumanHandIntent(humanIntent);
       setSpatialTouch(directTouch);
 
+      // Spatial intent runtime is loaded on demand; until then fail closed.
+      if (!spatialUiRef.current) return;
       const spatialFrameNext = spatialUiRef.current.update({
         face: {
           present: Boolean(face?.present),
@@ -446,7 +448,7 @@ export function useVisionSpatialRuntime(options: any) {
       window.clearInterval(timer);
       // A closed Settings overlay or disabled camera must not retain a
       // previously armed gesture focus or a half-open grab session.
-      spatialUiRef.current.reset();
+      spatialUiRef.current?.reset();
     };
   }, [
     affectFollowing,

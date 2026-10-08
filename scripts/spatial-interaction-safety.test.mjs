@@ -93,3 +93,12 @@ test('Visual QA watches settings and spatial controller edits',()=>{
  assert.match(yaml,/src\/settings\/\*\*/);
  assert.match(yaml,/src\/core\/vision\/spatial-\*\.ts/);
 });
+
+test('vision Spatial controller is deferred until camera is enabled', () => {
+  const app=readFileSync('src/app/AppV2.tsx','utf8');
+  assert.match(app,/import\('\.\.\/core\/vision\/spatial-ui-control'\)/);
+  assert.match(app,/if \(!visionOn\) return/);
+  assert.doesNotMatch(app,/import \{ SpatialUIController \} from/);
+  const runtime=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
+  assert.match(runtime,/if \(!spatialUiRef.current\) return/);
+});

@@ -12,10 +12,7 @@ import { EMPTY_INTERACTION, InteractionTracker, type InteractionContext } from '
 import { gazePresenceLabel } from '../intelligence/social/face-social-control';
 import { GazeHeadCalibrator } from '../intelligence/social/gaze-head-calibration';
 import { GestureIntentTracker } from '../core/vision/gesture-intent';
-import {
-  EMPTY_SPATIAL_CONTROL_FRAME,
-  SpatialUIController,
-} from '../core/vision/spatial-ui-control';
+import type { SpatialControlFrame, SpatialUIController } from '../core/vision/spatial-ui-control';
 import { SpatialDepthAnchorTracker } from '../core/vision/spatial-ray';
 import {
   EMPTY_SPATIAL_TOUCH,
@@ -104,6 +101,10 @@ const STATE_COPY: Record<MiraState, string> = {
   error: 'Cần kiểm tra',
 };
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
+const EMPTY_SPATIAL_CONTROL_FRAME: SpatialControlFrame = {
+  pointer: { x: 0.5, y: 0.5, z: 0, confidence: 0, source: 'none' },
+  focus: null, rayHit: null, events: [], grabbing: false, grabTargetId: '',
+};
 export default function AppV2() {
   const mira = useMira();
   const {
@@ -171,7 +172,23 @@ export default function AppV2() {
   );
   const interactionTrackerRef = useRef(new InteractionTracker());
   const gazeHeadCalibratorRef = useRef(new GazeHeadCalibrator());
-  const spatialUiRef = useRef(new SpatialUIController());
+  // Vision-specific intent controller is deferred until the user enables camera.
+  // Voice-only Mira never needs the heavier gesture-control graph.
+  const spatialUiRef = useRef<SpatialUIController | null>(null);
+  useEffect(() => {
+    if (!visionOn) return;
+    let active = true;
+    void import('../core/vision/spatial-ui-control')
+      .then(({ SpatialUIController }) => {
+        if (active && !spatialUiRef.current) spatialUiRef.current = new SpatialUIController();
+      })
+      .catch(() => { /* no synthetic gestures when vision is unavailable */ });
+    return () => {
+      active = false;
+      spatialUiRef.current?.reset();
+      spatialUiRef.current = null;
+    };
+  }, [visionOn]);
   const [spatialFrame, setSpatialFrame] = useState(() => ({
     ...EMPTY_SPATIAL_CONTROL_FRAME,
     pointer: { ...EMPTY_SPATIAL_CONTROL_FRAME.pointer },
@@ -374,7 +391,7 @@ export default function AppV2() {
     setFaceLandmarks([]);
     resetVisionWorldContext();
     resetVisionHandInput();
-    setSpatialFrame(spatialUiRef.current.reset());
+    setSpatialFrame(spatialUiRef.current?.reset() ?? EMPTY_SPATIAL_CONTROL_FRAME);
     spatialGrabSessionRef.current = null;
     spatialDepthAnchorRef.current.reset();
     setSpatialTouch(spatialTouchRef.current.reset());
@@ -434,7 +451,7 @@ export default function AppV2() {
       handContactRef.current.reset();
       handIntentRef.current.reset();
       xrAutoCalibratedRef.current = false;
-      setSpatialFrame(spatialUiRef.current.reset());
+      setSpatialFrame(spatialUiRef.current?.reset() ?? EMPTY_SPATIAL_CONTROL_FRAME);
       showSpatialFeedback('Đã thoát XR');
       return;
     }
@@ -465,7 +482,7 @@ export default function AppV2() {
     handContactRef.current.reset();
     handIntentRef.current.reset();
     xrAutoCalibratedRef.current = false;
-    setSpatialFrame(spatialUiRef.current.reset());
+    setSpatialFrame(spatialUiRef.current?.reset() ?? EMPTY_SPATIAL_CONTROL_FRAME);
     showSpatialFeedback(
       enabled.includes('hand-tracking')
         ? 'XR · hand tracking đã sẵn sàng'
