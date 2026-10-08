@@ -124,8 +124,9 @@
 .v2-memory-meta { margin: 8px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--faint); font-size: 10px; }
 .v2-memory-meta button, .v2-memory-actions button, .v2-memory-fact button, .v2-labs-entry button { min-height: 32px; padding: 0 10px; border: 1px solid var(--stroke); border-radius: 9px; background: var(--bg); color: var(--dim); cursor: pointer; font-size: 10px; }
 .v2-memory-list { display: grid; gap: 7px; }
-.v2-memory-fact { padding: 10px 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid color-mix(in srgb, var(--stroke) 78%, transparent); border-radius: 11px; background: var(--bg); }
-.v2-memory-fact > span { flex: 1; font-size: 11px; line-height: 1.45; }
+.v2-memory-fact { padding: 10px 11px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid color-mix(in srgb, var(--stroke) 78%, transparent); border-radius: 11px; background: var(--bg); }
+.v2-memory-fact > span { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 11px; line-height: 1.45; }
+.v2-memory-fact > .v2-profile-error { flex: 1 0 100%; margin: 0; font-size: 10px; line-height: 1.45; }
 .v2-memory-fact > div { display: flex; gap: 5px; flex: 0 0 auto; }
 .v2-memory-fact button.primary { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
 .v2-memory-fact button.danger, .v2-memory-actions button.danger { color: #ff8d94; border-color: rgba(255, 96, 108, .26); }

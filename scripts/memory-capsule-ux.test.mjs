@@ -55,3 +55,10 @@ test('Vietnamese local recall preserves the đ consonant',()=>{
   const source=readFileSync('src/intelligence/memory/local-memory-store.ts','utf8');
   assert.match(source,/\.replace\(\/đ\/g, 'd'\)/);
 });
+
+test('memory card wraps long facts and inline errors without horizontal overflow', () => {
+  const css=readFileSync('src/settings/settings-v2.css','utf8');
+  assert.match(css,/\.v2-memory-fact \{[^}]*flex-wrap: wrap/);
+  assert.match(css,/\.v2-memory-fact > span \{[^}]*overflow-wrap: anywhere/);
+  assert.match(css,/\.v2-memory-fact > \.v2-profile-error \{[^}]*flex: 1 0 100%/);
+});
