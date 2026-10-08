@@ -47,3 +47,18 @@ The OpenAI adapter sends `store: false` in Responses API calls. Mira does not us
 ## Browser keys
 
 Production browser builds ignore direct BYOK configuration. Direct browser Anthropic/OpenAI keys remain a Developer Labs convenience only in Vite development builds.
+
+## Free-first mode: confirmed zero-price AI Gateway model SKUs
+
+Set in Vercel Production (not GitHub Secrets or browser environment variables):
+
+    MIRA_BRAIN_PROVIDER=gateway
+    MIRA_BRAIN_FREE_ONLY=1
+    MIRA_BRAIN_GATEWAY_FREE_MODELS=inclusionai/ling-3.1-flash-free,poolside/laguna-s-2.1-free
+
+- Ling 3.1 Flash Free: 262K-token context; hybrid reasoning; promotion ends 2026-10-13. Its -free SKU stops rather than billing after expiry.
+- Laguna S 2.1 Free: 256K-token context; thinking/coding/agent tasks; fallback when Ling is unavailable.
+- Strict allowlist. Even if OPENAI_API_KEY, OPENAI_MODEL and MIRA_BRAIN_FALLBACKS=openai exist, free-only mode excludes all paid direct providers. It fails closed if both free models fail.
+- Free capacity, account quota and availability are not guaranteed. These are maximum model context windows, NOT Mira's currently capped /api/chat history (40 turns and 36K characters).
+- Privacy: neither free endpoint advertises Zero Data Retention; do not pass confidential company data or sensitive personal history. For that use a vetted private model/endpoint.
+- Disable MIRA_BRAIN_FREE_ONLY only with explicit authorization to use paid models.

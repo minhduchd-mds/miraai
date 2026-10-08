@@ -1,6 +1,6 @@
 import { markPrivateResponse } from '../lib/private-response.js';
 import { providerOrder } from '../lib/brain-gateway.js';
-import { requestGatewayOidcToken } from '../lib/vercel-ai-gateway.js';
+import { requestGatewayOidcToken, gatewayModels } from '../lib/vercel-ai-gateway.js';
 import { applyCors, originAllowed } from '../server/tts-policy.mjs';
 
 /** Configuration readiness only: never executes a paid model request. */
@@ -16,6 +16,8 @@ export default function handler(req, res) {
     configured: providers.length > 0,
     status: providers.length ? 'configured' : 'unconfigured',
     providers,
+    freeOnly: process.env.MIRA_BRAIN_FREE_ONLY === '1',
+    gatewayModels: providers.includes('gateway') ? gatewayModels() : [],
     scope: 'configuration_only',
   });
 }
