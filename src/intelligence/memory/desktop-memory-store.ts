@@ -41,7 +41,14 @@ export class DesktopMemoryStore {
 
   async importTurns(items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>): Promise<void> {
     if (!Array.isArray(items) || !items.length) return;
-    await desktopInvoke('desktop_memory_import_turns', { items: items.slice(-500) });
+    const prepared = items.slice(-500).map((item) => {
+      const explicitTs = Number(item?.ts);
+      const parsedTs = typeof item?.createdAt === 'string' ? Date.parse(item.createdAt) : NaN;
+      const ts = Number.isSafeInteger(explicitTs) && explicitTs > 0
+        ? explicitTs : Number.isSafeInteger(parsedTs) && parsedTs > 0 ? parsedTs : undefined;
+      return { ...item, ...(ts === undefined ? {} : { ts }) };
+    });
+    await desktopInvoke('desktop_memory_import_turns', { items: prepared });
   }
 
   async clearAll(): Promise<void> {

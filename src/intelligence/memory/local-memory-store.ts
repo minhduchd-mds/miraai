@@ -65,6 +65,7 @@ function openDb(): Promise<IDBDatabase> {
       return new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
+      request.onblocked = () => reject(new Error('IndexedDB upgrade blocked by another Mira tab'));
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains('turns')) {
@@ -80,7 +81,14 @@ function openDb(): Promise<IDBDatabase> {
           store.createIndex('ts', 'ts');
         }
       };
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => {
+          const db = request.result;
+          db.onversionchange = () => {
+            db.close();
+            dbPromise = null;
+          };
+          resolve(db);
+        };
       });
     })().catch((error) => {
       dbPromise = null;
@@ -130,23 +138,50 @@ async function readAll<T>(storeName: 'turns' | 'episodes' | 'affect'): Promise<T
   return rows;
 }
 
+/**
+ * Traverse the timestamp index newest-first rather than materializing the
+ * entire conversation/affect store during each user turn.
+ */
+async function readRecent<T>(storeName: 'turns' | 'episodes' | 'affect', limit: number): Promise<T[]> {
+  const db = await openDb();
+  const tx = db.transaction(storeName, 'readonly');
+  const rows = await new Promise<T[]>((resolve, reject) => {
+    const result: T[] = [];
+    const cursor = tx.objectStore(storeName).index('ts').openCursor(null, 'prev');
+    cursor.onerror = () => reject(cursor.error || new Error('IndexedDB cursor failed'));
+    cursor.onsuccess = () => {
+      const item = cursor.result;
+      if (!item || result.length >= limit) {
+        resolve(result.reverse());
+        return;
+      }
+      result.push(item.value as T);
+      if (result.length >= limit) resolve(result.reverse());
+      else item.continue();
+    };
+  });
+  await transactionDone(tx);
+  return rows;
+}
+
 export class LocalMemoryStore {
   private lastAffectWriteAt = 0;
   private lastAffectKey = '';
 
   async countTurns(): Promise<number> {
-    try {
-      return (await readAll<TurnRow>('turns')).length;
-    } catch {
-      return 0;
-    }
+    // A failed IndexedDB read must never masquerade as an empty archive.
+    const db = await openDb();
+    const tx = db.transaction('turns', 'readonly');
+    const count = await requestResult(tx.objectStore('turns').count());
+    await transactionDone(tx);
+    return count;
   }
 
   async exportSnapshot(): Promise<LocalMemorySnapshot> {
     const [turns, episodes, affects] = await Promise.all([
-      readAll<TurnRow>('turns').catch(() => []),
-      readAll<EpisodeRow>('episodes').catch(() => []),
-      readAll<AffectRow>('affect').catch(() => []),
+      readAll<TurnRow>('turns'),
+      readAll<EpisodeRow>('episodes'),
+      readAll<AffectRow>('affect'),
     ]);
     return {
       exportedAt: new Date().toISOString(),
@@ -172,7 +207,7 @@ export class LocalMemoryStore {
 
   async importTurns(items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>): Promise<void> {
     if (!Array.isArray(items) || !items.length) return;
-    try {
+    {
       const db = await openDb();
       const existing = await readAll<TurnRow>('turns');
       const seen = new Set(existing.map((row) => row.role + ':' + row.text));
@@ -191,11 +226,11 @@ export class LocalMemoryStore {
         store.add({ role, text, ts } satisfies TurnRow);
       }
       await transactionDone(tx);
-    } catch { /* import is best-effort */ }
+    }
   }
 
   async clearAll(): Promise<void> {
-    try {
+    {
       const db = await openDb();
       const tx = db.transaction(['turns', 'episodes', 'affect'], 'readwrite');
       tx.objectStore('turns').clear();
@@ -204,13 +239,13 @@ export class LocalMemoryStore {
       await transactionDone(tx);
       this.lastAffectWriteAt = 0;
       this.lastAffectKey = '';
-    } catch { /* noop */ }
+    }
   }
 
   async loadRecent(limit = 40): Promise<BrainTurn[]> {
     try {
-      const rows = await readAll<TurnRow>('turns');
-      return rows.sort((a, b) => a.ts - b.ts).slice(-limit).map(({ role, text }) => ({ role, text }));
+      const rows = await readRecent<TurnRow>('turns', Math.max(1, Math.min(200, Math.round(limit))));
+      return rows.map(({ role, text }) => ({ role, text }));
     } catch {
       return [];
     }
@@ -271,9 +306,9 @@ export class LocalMemoryStore {
     if (!q) return '';
     try {
       const [turns, episodes, affects] = await Promise.all([
-        readAll<TurnRow>('turns'),
-        readAll<EpisodeRow>('episodes'),
-        readAll<AffectRow>('affect'),
+        readRecent<TurnRow>('turns', 260),
+        readRecent<EpisodeRow>('episodes', 120),
+        readRecent<AffectRow>('affect', 1),
       ]);
       const tokens = normalize(q);
       const now = Date.now();
@@ -288,7 +323,7 @@ export class LocalMemoryStore {
         })),
       ].filter((item) => item.score > 0.08).sort((a, b) => b.score - a.score).slice(0, 6);
 
-      const recentAffect = affects.sort((a, b) => b.ts - a.ts)[0];
+      const recentAffect = affects[affects.length - 1];
       const parts: string[] = [];
       if (scored.length) {
         parts.push('Ký ức cục bộ liên quan:\n' + scored.map((item) => '- ' + item.text).join('\n'));
