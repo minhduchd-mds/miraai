@@ -11,6 +11,8 @@ import {
 } from '../../server/tts-contract.mjs';
 
 const buckets = new Map();
+const MAX_TTS_BODY_BYTES = 16_384;
+const MAX_TTS_AUDIO_BYTES = 8 * 1024 * 1024;
 let nextBucketSweepAt = 0;
 
 function apiKey() {
@@ -23,6 +25,7 @@ function requestOrigin(request) {
 
 function originAllowed(request) {
   const origin = requestOrigin(request);
+  if (!origin && request.headers.get('sec-fetch-site') === 'cross-site') return false;
   const ownOrigin = new URL(request.url).origin;
   return isTtsOriginAllowed(origin, ownOrigin);
 }
@@ -51,10 +54,11 @@ function json(request, body, status = 200) {
 }
 
 function clientKey(request) {
-  const forwarded = request.headers.get('x-forwarded-for') || '';
-  return forwarded.split(',')[0].trim()
-    || request.headers.get('x-real-ip')
-    || 'anonymous';
+  // The Neon Function adapter has no documented trusted remote peer identity
+  // available to this code. Do not trust caller supplied x-forwarded-for here.
+  // A shared anonymous limit fails closed until provider-authenticated identity
+  // or a verified trusted-proxy header can be introduced.
+  return 'anonymous';
 }
 
 function pruneRateBuckets(now) {
@@ -66,14 +70,7 @@ function pruneRateBuckets(now) {
 }
 
 function ensureRateBucketCapacity() {
-  if (buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS) return;
-  const toRemove = buckets.size - MIRA_TTS_MAX_TRACKED_CLIENTS + 1;
-  let removed = 0;
-  for (const key of buckets.keys()) {
-    buckets.delete(key);
-    removed += 1;
-    if (removed >= toRemove) break;
-  }
+  return buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS;
 }
 
 function takeRateSlot(request) {
@@ -84,7 +81,7 @@ function takeRateSlot(request) {
   const previous = buckets.get(key);
   if (!previous || now - previous.startedAt >= MIRA_TTS_RATE_WINDOW_MS) {
     if (previous) buckets.delete(key);
-    ensureRateBucketCapacity();
+    if (!ensureRateBucketCapacity()) return false;
     buckets.set(key, { startedAt: now, count: 1 });
     return true;
   }
@@ -92,6 +89,62 @@ function takeRateSlot(request) {
   return previous.count <= MIRA_TTS_MAX_REQUESTS_PER_WINDOW;
 }
 
+
+
+async function parseBoundedJson(request) {
+  const advertised = Number(request.headers.get('content-length') || 0);
+  if (advertised > MAX_TTS_BODY_BYTES) return { error: 'payload_too_large' };
+  const reader = request.body?.getReader();
+  if (!reader) return { body: {} };
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_TTS_BODY_BYTES) {
+        await reader.cancel().catch(() => {});
+        return { error: 'payload_too_large' };
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let pos = 0;
+  for (const chunk of chunks) { bytes.set(chunk, pos); pos += chunk.length; }
+  try {
+    const body = total ? JSON.parse(new TextDecoder().decode(bytes)) : {};
+    return { body };
+  } catch {
+    return { error: 'invalid_json' };
+  }
+}
+
+function boundedAudioResponseStream(stream) {
+  const reader = stream.getReader();
+  let bytes = 0;
+  return new ReadableStream({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) { controller.close(); return; }
+        bytes += value.byteLength;
+        if (bytes > MAX_TTS_AUDIO_BYTES) {
+          await reader.cancel().catch(() => {});
+          controller.error(new Error('tts_audio_limit_exceeded'));
+          return;
+        }
+        controller.enqueue(value);
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    cancel(reason) { return reader.cancel(reason); },
+  });
+}
 
 async function synthesize(text, instructions) {
   const key = apiKey();
@@ -151,12 +204,11 @@ async function handler(request) {
       return json(request, { error: 'rate_limited' }, 429);
     }
 
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return json(request, { error: 'invalid_json' }, 400);
+    const parsed = await parseBoundedJson(request);
+    if (parsed.error) {
+      return json(request, { error: parsed.error }, parsed.error === 'payload_too_large' ? 413 : 400);
     }
+    const body = parsed.body;
 
     const text = String(body?.text || '').trim();
     if (!text) return json(request, { error: 'text_required' }, 400);
@@ -170,11 +222,20 @@ async function handler(request) {
     }
 
     const upstream = result.response;
-    return new Response(upstream.body, {
+    const type = String(upstream.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (type && !(type.startsWith('audio/') || type === 'application/octet-stream')) {
+      return json(request, { error: 'tts_provider_invalid_audio' }, 502);
+    }
+    const length = Number(upstream.headers.get('content-length') || 0);
+    if (!Number.isFinite(length) || length < 0 || length > MAX_TTS_AUDIO_BYTES) {
+      return json(request, { error: 'tts_provider_audio_too_large' }, 502);
+    }
+    if (!upstream.body) return json(request, { error: 'tts_provider_empty_audio' }, 502);
+    return new Response(boundedAudioResponseStream(upstream.body), {
       status: 200,
       headers: {
         ...corsHeaders(request),
-        'content-type': upstream.headers.get('content-type') || 'audio/mpeg',
+        'content-type': type || 'audio/mpeg',
         'cache-control': 'no-store',
         'x-content-type-options': 'nosniff',
         'x-mira-tts-provider': 'elevenlabs',
