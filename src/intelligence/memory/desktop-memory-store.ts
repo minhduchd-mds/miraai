@@ -20,7 +20,8 @@ export class DesktopMemoryStore {
   private lastAffectKey = '';
 
   async countTurns(): Promise<number> {
-    try { return await desktopInvoke<number>('desktop_memory_count'); } catch { return 0; }
+    // An IPC/SQLite failure is not an empty memory.
+    return desktopInvoke<number>('desktop_memory_count');
   }
 
   async exportSnapshot(): Promise<LocalMemorySnapshot> {
@@ -46,11 +47,10 @@ export class DesktopMemoryStore {
   }
 
   async clearAll(): Promise<void> {
-    try {
-      await desktopInvoke('desktop_memory_clear');
-      this.lastAffectWriteAt = 0;
-      this.lastAffectKey = '';
-    } catch { /* noop */ }
+    // Destructive operations must report errors to their caller.
+    await desktopInvoke('desktop_memory_clear');
+    this.lastAffectWriteAt = 0;
+    this.lastAffectKey = '';
   }
 
   async loadRecent(limit = 40): Promise<BrainTurn[]> {
