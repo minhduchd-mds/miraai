@@ -13,3 +13,10 @@ Source: https://vercel.com/ai-gateway/models/laguna-s-2.1-free
 
 Runtime readiness: GET /api/brain-health lists freeOnly and the configured model IDs, without API calls or disclosing credentials.
 Automated tests exercise free-only allowlists, two-model fallback, paid-credentials present but unused, and failure when free models are exhausted.
+## Automatic free model discovery and rotation
+
+When `MIRA_BRAIN_AUTO_ROUTER=1` with `MIRA_BRAIN_FREE_ONLY=1`, Mira queries the official public AI Gateway model catalog (`GET /v1/models`). Only `-free` language models with **explicit zero input/output prices**, text input/output and context ≥ 8K qualify. Other modalities and unspecified/variable pricing are excluded. Catalog cached 90 seconds; stale or missing catalog means fail closed. Preferred models remain ranking hints, not a fixed allowlist.
+
+Each user turn tries up to three qualifying candidates, skipping short-lived cooldowns after 429/5xx/timeouts. HTTP 401/402/403 stop the current chain because they indicate credential/billing failures shared across models. The adapter never falls through to direct OpenAI/Gemini paid keys when free-only is on. Once the provider updates rates or withdraws a free SKU, a new catalog fetch removes it.
+
+This is **model independence within Vercel Gateway**, not full cloud/provider independence. A Vercel outage still blocks cloud inference. The public catalog does not offer a contractual price lock; zero-charge eligibility is evaluated before requests and must not be described as an absolute billing guarantee. See current pricing: https://vercel.com/docs/ai-gateway/pricing.

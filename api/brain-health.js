@@ -1,6 +1,7 @@
 import { markPrivateResponse } from '../lib/private-response.js';
 import { providerOrder } from '../lib/brain-gateway.js';
 import { requestGatewayOidcToken, gatewayModels } from '../lib/vercel-ai-gateway.js';
+import {freeRouterSnapshot} from '../lib/free-model-router.js';
 import { applyCors, originAllowed } from '../server/tts-policy.mjs';
 
 /** Configuration readiness only: never executes a paid model request. */
@@ -18,6 +19,8 @@ export default function handler(req, res) {
     providers,
     freeOnly: process.env.MIRA_BRAIN_FREE_ONLY === '1',
     gatewayModels: providers.includes('gateway') ? gatewayModels() : [],
+    autoModelRouting: process.env.MIRA_BRAIN_FREE_ONLY === '1' && process.env.MIRA_BRAIN_AUTO_ROUTER === '1',
+    routing: process.env.MIRA_BRAIN_AUTO_ROUTER === '1' ? freeRouterSnapshot() : null,
     inferenceVerified: false,
     // Readiness is NOT proof of a successful LLM response.
     scope: 'configuration_only',
