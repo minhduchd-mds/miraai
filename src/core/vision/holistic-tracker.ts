@@ -82,6 +82,8 @@ let governor = new VisionPerformanceGovernor('holistic');
 const frameGate = new VisionVideoFrameGate();
 const postprocessWorker = new VisionPostprocessWorkerClient();
 let lastWorkerSeq = 0;
+let firstWorkerFallbackDone = false;
+let workerLastHealthyAt = 0;
 const perceptionTrace = new PerceptionTraceRecorder();
 
 const FACE_SMOOTH = 0.4;
@@ -396,8 +398,12 @@ function trackedHandFromGeometry(
   };
 }
 
-function applyHands(hands: TrackedHand[]): number {
-  handData.lastFrameAt = performance.now();
+function applyHands(hands: TrackedHand[], frameAt = performance.now()): number {
+  // A delayed postprocess result must never replace fresher tracking evidence.
+  if (handData.lastFrameAt > frameAt) {
+    return handData.hands.reduce((sum, hand) => sum + hand.landmarks.length, 0);
+  }
+  handData.lastFrameAt = frameAt;
   handData.active = true;
   handData.hands = hands;
   const primary = hands.find((hand) => hand.handedness === 'Right') || hands[0];
@@ -458,7 +464,7 @@ function applyWorkerResult(result: VisionWorkerResult): number {
   }
 
   const hands = result.hands.map(workerHandToTracked);
-  count += applyHands(hands);
+  count += applyHands(hands, result.at);
   return count;
 }
 
@@ -484,15 +490,27 @@ function submitPostprocess(result: any, now: number): number {
     rightHandWorld,
   });
 
-  const latest = postprocessWorker.latest();
-  if (latest && latest.seq !== lastWorkerSeq && now - latest.at <= 700) {
+  // Cloning a landmark payload on every camera tick wastes CPU. The Worker
+  // client rejects previously seen and expired results before copying geometry.
+  const latest = postprocessWorker.latestFresh(lastWorkerSeq, now);
+  if (latest) {
     lastWorkerSeq = latest.seq;
+    workerLastHealthyAt = now;
     governor.setPostprocess('worker', latest.processingMs);
+    if (handData.lastFrameAt > latest.at) return 0;
     return applyWorkerResult(latest);
   }
 
-  if (!latest) {
-    // Only the first frame falls back to synchronous geometry while the worker warms up.
+  if (!firstWorkerFallbackDone) {
+    // Exactly one main-thread warmup, not every frame before first Worker reply.
+    firstWorkerFallbackDone = true;
+    governor.setPostprocess('main', 0);
+    return updatePose(result) + updateHands(result);
+  }
+
+  if (now - workerLastHealthyAt > 1_500) {
+    // A stalled Worker must not leave Mira permanently without hand input.
+    postprocessWorker.stop();
     governor.setPostprocess('main', 0);
     return updatePose(result) + updateHands(result);
   }
@@ -645,7 +663,7 @@ function readFrame(
   let landmarkCount = 0;
   if (result) {
     landmarkCount += updateFace(result, now);
-    landmarkCount += submitPostprocess(result, now);
+    landmarkCount += submitPostprocess(result, performance.now());
   }
   const inferenceMs = performance.now() - started;
   governor.noteFrame(now, inferenceMs, landmarkCount);
@@ -749,6 +767,8 @@ export async function startHolisticTracking(): Promise<boolean> {
     const workerActive = postprocessWorker.start();
     governor.setPostprocess(workerActive ? 'worker' : 'main', 0);
     lastWorkerSeq = 0;
+    firstWorkerFallbackDone = false;
+    workerLastHealthyAt = performance.now();
     video = await acquireVisionCamera('holistic');
     stopped = false;
     holisticRuntimeData.active = true;
@@ -791,5 +811,7 @@ export function stopHolisticTracking(): void {
   };
   postprocessWorker.stop();
   lastWorkerSeq = 0;
+  firstWorkerFallbackDone = false;
+  workerLastHealthyAt = 0;
   clearAllSignals();
 }

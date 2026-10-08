@@ -27,6 +27,7 @@ import { EMPTY_VISION_PERFORMANCE } from '../core/vision/vision-performance';
 import { handRayFromLandmarks } from '../core/vision/spatial-ray';
 import { SpatialHandKinematicsTracker } from '../core/vision/spatial-hand-kinematics';
 import { SpatialHandFrameCache } from '../core/vision/spatial-hand-frame-cache';
+import { SpatialAdaptivePointer } from '../core/vision/spatial-adaptive-pointer';
 import { spatialPerformanceProfiler } from '../core/vision/spatial-performance';
 import {
   objectAwarenessSnapshot,
@@ -38,12 +39,17 @@ let activeEngine: 'holistic' | 'legacy' = 'legacy';
 let visionSession = 0;
 let faceRecoveryTimer: number | null = null;
 const handKinematicsTracker = new SpatialHandKinematicsTracker();
+const adaptiveHandPointer = new SpatialAdaptivePointer();
 const handFrameCache = new SpatialHandFrameCache<ReturnType<typeof buildHandSnapshot>[number]>();
 const senseBus = new MiraSenseBus();
 
 function buildHandSnapshot(frameAt: number) {
+  adaptiveHandPointer.retain(handData.hands.map((hand) => hand.handedness));
   return handData.hands.map((hand) => {
     const handIndexTip = hand.landmarks[8] || hand.landmarks[0] || { x: hand.x, y: hand.y, z: 0 };
+    const pointer = adaptiveHandPointer.update(
+      hand.handedness, 1 - Number(handIndexTip.x), Number(handIndexTip.y), frameAt, hand.score,
+    );
     const kinematics = handKinematicsTracker.update({
       handedness: hand.handedness,
       landmarks: hand.landmarks,
@@ -57,8 +63,8 @@ function buildHandSnapshot(frameAt: number) {
       x: 1 - hand.x,
       y: hand.y,
       z: Number(handIndexTip.z || 0),
-      pointerX: 1 - Number(handIndexTip.x || hand.x),
-      pointerY: Number(handIndexTip.y || hand.y),
+      pointerX: pointer?.x ?? 0.5,
+      pointerY: pointer?.y ?? 0.5,
       ray: handRayFromLandmarks(hand.landmarks),
       pinching: kinematics.pinching,
       pinchRatio: kinematics.pinchRatio,
@@ -149,6 +155,7 @@ export function stopVision(): void {
   stopRppgMonitoring();
   stopObjectAwareness();
   handKinematicsTracker.reset();
+  adaptiveHandPointer.reset();
   handFrameCache.reset();
   spatialPerformanceProfiler.reset();
   senseBus.reset();
@@ -169,7 +176,7 @@ export function visionSnapshot() {
   const hands = handFrameCache.read(
     handFresh ? handData.lastFrameAt : 0,
     buildHandSnapshot,
-    () => handKinematicsTracker.reset(),
+    () => { handKinematicsTracker.reset(); adaptiveHandPointer.reset(); },
   );
 
   // Temporal metadata only: do not store landmarks or camera frames in SenseBus.

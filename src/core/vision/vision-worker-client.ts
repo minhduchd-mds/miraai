@@ -28,6 +28,7 @@ export class VisionPostprocessWorkerClient {
         name: 'mira-vision-postprocess',
       });
       this.worker.onmessage = (event: MessageEvent<VisionWorkerResult>) => {
+        if (!event.data || event.data.seq !== this.seq) return;
         this.latestResult = event.data;
         this.pending = false;
         this.completed += 1;
@@ -65,7 +66,12 @@ export class VisionPostprocessWorkerClient {
       rightHandWorld: input.rightHandWorld || null,
     };
     this.pending = true;
-    this.worker.postMessage(payload);
+    try { this.worker.postMessage(payload); }
+    catch (error) {
+      this.error = error instanceof Error ? error.message : String(error);
+      this.stop();
+      return false;
+    }
     return true;
   }
 
@@ -87,6 +93,19 @@ export class VisionPostprocessWorkerClient {
           })),
         }
       : null;
+  }
+
+  /**
+   * Validate sequence and source timestamp BEFORE cloning landmark geometry.
+   * UI polling cannot refresh the original inference timestamp.
+   */
+  latestFresh(afterSeq: number, now: number, maxAgeMs = 350): VisionWorkerResult | null {
+    const candidate = this.latestResult;
+    if (!candidate || !Number.isFinite(candidate.seq) || candidate.seq <= afterSeq ||
+        !Number.isFinite(candidate.at) || candidate.at <= 0 ||
+        !Number.isFinite(now) || now < candidate.at ||
+        now - candidate.at > maxAgeMs) return null;
+    return this.latest();
   }
 
   status(): VisionWorkerStatus {

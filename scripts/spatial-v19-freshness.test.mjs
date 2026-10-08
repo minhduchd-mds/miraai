@@ -42,7 +42,8 @@ test('camera inference timestamp is not refreshed by UI polling',()=>{
  const hook=readFileSync('src/app/useVisionHandInput.ts','utf8');
  assert.match(legacy,/lastFrameAt: number/);
  assert.match(legacy,/handData.lastFrameAt = res \? now : 0/);
- assert.match(holistic,/handData.lastFrameAt = performance.now\(\)/);
+ assert.match(holistic,/handData.lastFrameAt = frameAt/);
+ assert.match(holistic,/postprocessWorker.latestFresh\(lastWorkerSeq, now\)/);
  assert.match(snapshot,/now - handData.lastFrameAt <= 350/);
  assert.match(snapshot,/handSeen: Boolean\(handFresh && handData.active && handData.present\)/);
  assert.match(snapshot,/handFrameAt: handFresh \? handData.lastFrameAt : 0/);
