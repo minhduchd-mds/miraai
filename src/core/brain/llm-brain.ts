@@ -67,7 +67,7 @@ export class LLMBrain implements Brain {
       .join(' ')
       .trim();
     const parsed = parseMood(text);
-    return { text: parsed.text || 'Dạ em chưa rõ ý anh lắm.', mood: parsed.mood };
+    return { text: parsed.text || 'Dạ em chưa rõ ý anh lắm.', mood: parsed.mood, runtimeSource: 'provider', provider: this.provider };
   }
 
   private async openai(input: string, history: BrainTurn[], memory?: string): Promise<BrainReply> {
@@ -88,6 +88,6 @@ export class LLMBrain implements Brain {
     const data = await res.json();
     const text = (data?.choices?.[0]?.message?.content ?? '').trim();
     const parsed = parseMood(text);
-    return { text: parsed.text || 'Dạ em chưa rõ ý anh lắm.', mood: parsed.mood };
+    return { text: parsed.text || 'Dạ em chưa rõ ý anh lắm.', mood: parsed.mood, runtimeSource: 'provider', provider: this.provider };
   }
 }

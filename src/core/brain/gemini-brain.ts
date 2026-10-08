@@ -34,7 +34,12 @@ export class GeminiBrain implements Brain {
       const json = await response.json();
       const parsed = parseMood(String(json?.text || '').trim());
       if (!parsed.text) throw new Error('empty');
-      return { text: parsed.text, mood: parsed.mood };
+      return {
+        text: parsed.text,
+        mood: parsed.mood,
+        runtimeSource: 'provider',
+        provider: typeof json?.provider === 'string' ? json.provider.slice(0, 40) : 'server',
+      };
     } catch {
       return this.fallback.reply(input, history);
     }

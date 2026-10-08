@@ -72,7 +72,7 @@ export class LocalWebLLMBrain implements Brain {
       const raw = String(response?.choices?.[0]?.message?.content || '').trim();
       if (!raw) throw new Error('local model returned empty reply');
       const parsed = parseMood(raw);
-      return { text: parsed.text || raw, mood: parsed.mood };
+      return { text: parsed.text || raw, mood: parsed.mood, runtimeSource: 'local_model', provider: 'webllm' };
     } catch (error) {
       console.warn('[Mira Local Brain] fallback:', error);
       return this.fallback.reply(input, history, context);

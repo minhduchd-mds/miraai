@@ -224,7 +224,13 @@ export function useMira() {
   const testBrain = useCallback(async (): Promise<string> => {
     try {
       const result = await brainRef.current!.reply('Chào em, em nghe rõ không?', []);
-      return `OK — "${result.text.slice(0, 90)}"`;
+      if (result.runtimeSource === 'fallback') {
+        return 'CHƯA KẾT NỐI MODEL — Mira đang trả lời dự phòng, không phải mô hình AI.';
+      }
+      if (result.runtimeSource !== 'provider' && result.runtimeSource !== 'local_model') {
+        return 'CHƯA XÁC MINH — Không xác định được nguồn phản hồi từ model.';
+      }
+      return `OK MODEL (${result.provider || result.runtimeSource}) — "${result.text.slice(0, 90)}"`;
     } catch (err) {
       return `LỖI: ${err instanceof Error ? err.message : String(err)}`;
     }
@@ -384,6 +390,9 @@ export function useMira() {
       lastBrainLatencyRef.current = result.latencyMs;
       setLatencyMs(result.latencyMs);
       setMoodBoth(result.reply.mood || 'neutral');
+      if (result.reply.runtimeSource === 'fallback') {
+        setError('Brain chưa kết nối model; Mira đang dùng câu trả lời dự phòng.');
+      }
       pushHistory({ role: 'mira', text: result.reply.text });
       speak(result.reply.text);
     } catch (err) {

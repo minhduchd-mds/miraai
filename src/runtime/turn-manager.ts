@@ -211,7 +211,10 @@ export class TurnManager {
         .catch((error) => console.warn('[Mira ToolCall] ' + call.skillId + ' failed', error));
     }
 
-    this.memory.distill('Người dùng: ' + input + '\nMira: ' + reply.text);
+    // Never promote canned fallback text into persistent factual memory.
+    if (reply.runtimeSource !== 'fallback') {
+      this.memory.distill('Người dùng: ' + input + '\nMira: ' + reply.text);
+    }
     return { reply, latencyMs: Math.round(now() - started) };
   }
 }

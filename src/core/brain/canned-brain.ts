@@ -34,10 +34,11 @@ export class CannedBrain implements Brain {
 
   async reply(input: string, _history?: BrainTurn[], _context?: string): Promise<BrainReply> {
     const hit = RULES.find((rule) => rule.test.test(input));
-    if (hit) return hit.reply();
+    if (hit) return { ...hit.reply(), runtimeSource: 'fallback' };
     return {
-      text: 'Em nghe anh nói: “' + truncate(input) + '”. Máy hiện chưa chạy được bộ não WebGPU nên em đang ở chế độ nhẹ; voice, memory và vision vẫn hoạt động.',
+      text: 'Em nghe anh nói: “' + truncate(input) + '”. Mô hình AI chưa sẵn sàng, em đang ở chế độ phản hồi cơ bản. Ký ức cục bộ vẫn được giữ an toàn.',
       mood: 'curious',
+      runtimeSource: 'fallback',
     };
   }
 }

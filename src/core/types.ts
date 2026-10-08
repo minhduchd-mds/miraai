@@ -66,6 +66,9 @@ export interface BrainToolCall {
 
 export interface BrainReply {
   text: string;
+  /** Provenance of a model response; never conflate canned fallback with AI inference. */
+  runtimeSource?: 'provider' | 'local_model' | 'fallback';
+  provider?: string;
   mood?: Mood;
   intent?: string;
   toolCalls?: BrainToolCall[];
