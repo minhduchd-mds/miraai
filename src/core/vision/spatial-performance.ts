@@ -15,7 +15,7 @@ class RollingLatency {
     const percentile = (p:number) => sorted.length ? sorted[Math.ceil((sorted.length-1)*p)] : 0;
     const round = (v:number) => Math.round(v*10)/10;
     return { count:sorted.length, p50Ms:round(percentile(.5)), p95Ms:round(percentile(.95)),
-      maxMs:round(sorted.at(-1) || 0) };
+      maxMs:round(sorted[sorted.length - 1] || 0) };
   }
   reset() { this.values = []; this.cursor = 0; }
 }
