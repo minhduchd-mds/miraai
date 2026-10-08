@@ -13,25 +13,7 @@
 
 Mira là AI companion ưu tiên **giọng nói + continuity**: trò chuyện, ghi nhớ có kiểm soát, nhận biết tín hiệu cảm xúc, thực thi skill và chạy dưới dạng Web/PWA hoặc Desktop Windows/macOS.
 
-## Trạng thái tổng thể
 
-| Nhóm | Chức năng | Mức hoàn thiện | Điểm |
-|---|---|:---:|:---:|
-| Conversation | Voice-first, VAD, barge-in, turn manager | Stable | 9/10 |
-| Voice | ElevenLabs server-side gateway (no silent provider fallback) | Stable | 9/10 |
-| Memory | Structured memory + active thread | Beta+ | 8/10 |
-| Memory Graph | Liên kết context theo chủ đề/thời gian | Beta | 7.5/10 |
-| Affect | Face/voice/posture + micro-expression | Beta | 7.5/10 |
-| Companion | Proactive prompts + continuity | Beta | 7.5/10 |
-| Desktop | Tauri local frontend + SQLite + permission gate | Beta+ | 8/10 |
-| Music | Local library + history + contextual replay | Beta | 7.5/10 |
-| Vision | Face / gaze / hand / pose | Beta | 8/10 |
-| Spatial/XR | Webcam spatial + WebXR stack | Experimental | 6.5/10 |
-| Presence | 2D scenes + optional VRM/3D | Beta | 8/10 |
-| Finance | Tool-first calculator + verified FX/market adapter | Beta | 8/10 |
-| Security | Server-side secrets + capability/host policy | Beta+ | 8/10 |
-
-Chi tiết: [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md).
 
 ## Kiến trúc
 
