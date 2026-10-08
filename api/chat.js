@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { enforceAiQuota } from '../lib/ai-quota.js';
 import { generateBrainChat } from '../lib/brain-gateway.js';
 
 const MAX_SYSTEM = 12000;
@@ -73,6 +74,7 @@ export default async function handler(req, res) {
   const responseLength = normalizeResponseLength(body?.responseLength);
 
   if (!messages.length) return res.status(400).json({ error: 'thiếu messages' });
+  if (!await enforceAiQuota(req, res, 'brain')) return;
 
   try {
     const result = await generateBrainChat(system, messages, { maxTokens: RESPONSE_BUDGETS[responseLength] });

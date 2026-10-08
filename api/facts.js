@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { enforceAiQuota } from '../lib/ai-quota.js';
 import { requireTrustedWrite } from '../lib/request-security.js';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
   const device = resolveMemoryScope(req, res, body?.device);
   const conversation = (body?.conversation || '').toString().slice(0, 8000);
   if (!conversation) return res.status(400).json({ error: 'thiếu conversation' });
+  if (!await enforceAiQuota(req, res, 'distill', sql)) return;
 
   try {
     await ensureSchema(sql);

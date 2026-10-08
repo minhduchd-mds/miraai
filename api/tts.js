@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { enforceAiQuota } from '../lib/ai-quota.js';
 import {
   applyCors,
   MIRA_TTS_MAX_TEXT_LENGTH,
@@ -32,6 +33,7 @@ export default async function handler(req, res) {
 
   const key = process.env.elevenlabs_api_key || process.env.ELEVENLABS_API_KEY || '';
   if (!key) return res.status(503).json({ error: 'elevenlabs_not_configured' });
+  if (!await enforceAiQuota(req, res, 'tts')) return;
 
   // Production voice identity/model are server-controlled through the shared contract.
   const payload = elevenDialoguePayload(text, body.instructions);

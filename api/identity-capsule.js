@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { enforceAiQuota } from '../lib/ai-quota.js';
 import { requireTrustedWrite } from '../lib/request-security.js';
 import { createHash } from 'node:crypto';
 import { getSql, ensureSchema } from '../lib/db.js';
@@ -195,6 +196,7 @@ export default async function handler(req, res) {
 
     const action = shortString(body.action, 20);
     if (action === 'snapshot') {
+      if (!await enforceAiQuota(req, res, 'capsule', sql)) return;
       const preferences = sanitizePreferences(body.preferences);
       const capsule = await buildCapsule(sql, device, preferences);
       await persistCapsule(sql, device, capsule);
