@@ -13,6 +13,8 @@ import {
 import type { PhotorealCameraDepthController } from './photoreal-camera-depth';
 import type { PhotorealEnvironmentController } from './photoreal-environment';
 import type { PhotorealSceneCanvasHandle } from './PhotorealSceneCanvas';
+import type { PhotorealPerformanceTier } from './photoreal-depth-warp';
+import { resolveSpatial3DOverride, shouldUseSpatial3D } from './spatial-scene-depth';
 import {
   PRESENCE_IMAGE,
   PRESENCE_SCENE_COPY,
@@ -72,6 +74,7 @@ interface Props {
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path.startsWith('/') ? path.slice(1) : path}`;
 const PhotorealSceneCanvas = lazy(() => import('./PhotorealSceneCanvas'));
 const PhotorealSceneSegments = lazy(() => import('./PhotorealSceneSegments'));
+const PhotorealSpatial3D = lazy(() => import('./PhotorealSpatial3D'));
 
 const PRESENCE_VISUAL: Record<MiraPresenceScene, {
   scene: string;
@@ -152,7 +155,32 @@ export default function PhotorealMira({
     confidence: 0,
   });
   const reducedMotionRef = useRef(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [visualQuality, setVisualQuality] = useState<PhotorealVisualQuality>('balanced');
+  const [performanceTier, setPerformanceTier] = useState<PhotorealPerformanceTier>('full');
+  const [spatial3DFailed, setSpatial3DFailed] = useState(false);
+  const [spatial3DReadyScene, setSpatial3DReadyScene] = useState<MiraPresenceScene | null>(null);
+  const spatial3DViewRef = useRef({x:0,y:0,headYaw:0,headPitch:0});
+  const spatial3DInvalidatorRef = useRef<(() => void) | null>(null);
+  const registerSpatialInvalidator = useCallback((invalidate: (() => void) | null) => {
+    spatial3DInvalidatorRef.current = invalidate;
+  }, []);
+  const connection = typeof navigator !== 'undefined'
+    ? (navigator as Navigator & {connection?: {saveData?: boolean}}).connection
+    : undefined;
+  const spatial3DOverride = typeof window !== 'undefined'
+    ? resolveSpatial3DOverride(window.location.search) : 'auto';
+  const spatial3DEnabled = !spatial3DFailed && shouldUseSpatial3D({
+    quality:visualQuality, performance:performanceTier, reducedMotion,
+    saveData:Boolean(connection?.saveData),viewportWidth:typeof window !== 'undefined' ? window.innerWidth : 0,
+    override:spatial3DOverride,
+  });
+  const spatial3DReady = spatial3DEnabled && spatial3DReadyScene === presenceScene;
+  const markSpatial3DReady = useCallback(() => setSpatial3DReadyScene(presenceScene),[presenceScene]);
+  const markSpatial3DFailed = useCallback(() => {
+    setSpatial3DFailed(true);
+    setSpatial3DReadyScene(null);
+  }, []);
   const deviceDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const visualProfile = clarityProfile(visualQuality, deviceDpr, attention);
   const presenceVisual = PRESENCE_VISUAL[presenceScene];
@@ -243,6 +271,7 @@ export default function PhotorealMira({
       const nav = navigator as Navigator & { deviceMemory?: number };
       const reducedMotion = motionQuery.matches;
       reducedMotionRef.current = reducedMotion;
+      setReducedMotion(reducedMotion);
       const quality = resolvePhotorealVisualQuality({
         dpr: window.devicePixelRatio || 1,
         width: window.innerWidth,
@@ -262,6 +291,19 @@ export default function PhotorealMira({
       window.removeEventListener('resize', updateQuality);
       motionQuery.removeEventListener?.('change', updateQuality);
     };
+  }, []);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+    const syncTier = () => {
+      const raw = node.dataset.performanceTier;
+      setPerformanceTier(raw === 'reduced' || raw === 'minimal' ? raw : 'full');
+    };
+    syncTier();
+    const observer = new MutationObserver(syncTier);
+    observer.observe(node,{attributes:true,attributeFilter:['data-performance-tier']});
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -348,7 +390,22 @@ export default function PhotorealMira({
         && !reducedMotionRef.current
       );
       node.dataset.depthWarp = depthWarpActive ? 'true' : 'false';
-      if (cameraFrame) {
+      if (spatial3DEnabled) {
+        const updated = {
+          x: pointerDepthRef.current.x,
+          y: pointerDepthRef.current.y,
+          headYaw: cameraPoseRef.current.enabled ? cameraPoseRef.current.yaw : 0,
+          headPitch: cameraPoseRef.current.enabled ? cameraPoseRef.current.pitch : 0,
+        };
+        const before = spatial3DViewRef.current;
+        if (Math.abs(before.x - updated.x) > .003 || Math.abs(before.y - updated.y) > .003
+          || Math.abs(before.headYaw - updated.headYaw) > .003
+          || Math.abs(before.headPitch - updated.headPitch) > .003) {
+          spatial3DViewRef.current = updated;
+          spatial3DInvalidatorRef.current?.();
+        }
+      }
+      if (cameraFrame && !spatial3DEnabled) {
         sceneCanvasRef.current?.updateDepthWarp(
           cameraFrame,
           visualQuality,
@@ -361,7 +418,7 @@ export default function PhotorealMira({
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [visualQuality]);
+  }, [visualQuality, spatial3DEnabled]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
@@ -457,6 +514,8 @@ export default function PhotorealMira({
       type="button"
       className={`photo-mira bedroom-presence scene-${presenceScene} state-${state} user-mood-${observedMood} gaze-${interactionState} social-${socialCue} presence-${presenceMode} presence-cue-${presenceCue}${live ? ' is-live' : ''}${affectActive ? ' affect-active' : ''}${affectFollowing ? ' affect-follow' : ''}${spatialCoreActive ? ' spatial-core-active' : ''}`}
       data-visual-quality={visualQuality}
+      data-spatial3d-ready={spatial3DReady ? 'true' : 'false'}
+      data-spatial3d-enabled={spatial3DEnabled ? 'true' : 'false'}
       data-presence-scene={presenceScene}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
@@ -472,7 +531,21 @@ export default function PhotorealMira({
           decoding="async"
           fetchPriority="high"
         />
-        {visualProfile.sharpness > 0 && (
+        {spatial3DEnabled && (
+          <span className="pm-spatial3d" aria-hidden="true">
+            <Suspense fallback={null}>
+              <PhotorealSpatial3D
+                src={sceneAsset}
+                scene={presenceScene}
+                viewRef={spatial3DViewRef}
+                onReady={markSpatial3DReady}
+                onFailure={markSpatial3DFailed}
+                registerInvalidate={registerSpatialInvalidator}
+              />
+            </Suspense>
+          </span>
+        )}
+        {visualProfile.sharpness > 0 && !spatial3DEnabled && (
           <Suspense fallback={null}>
             <PhotorealSceneCanvas
               ref={sceneCanvasRef}
@@ -497,7 +570,7 @@ export default function PhotorealMira({
           draggable={false}
           decoding="async"
         />
-        {presenceScene === 'bedtime' && (visualQuality === 'high' || visualQuality === 'ultra') && (
+        {!spatial3DEnabled && presenceScene === 'bedtime' && (visualQuality === 'high' || visualQuality === 'ultra') && (
           <Suspense fallback={null}>
             <PhotorealSceneSegments src={sceneAsset} />
           </Suspense>

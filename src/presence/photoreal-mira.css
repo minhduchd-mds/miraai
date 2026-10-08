@@ -1948,10 +1948,12 @@
   display:none;
 }
 
-.photo-mira[data-visual-quality="high"] .pm-depth-mid,
-.photo-mira[data-visual-quality="high"] .pm-depth-near,
-.photo-mira[data-visual-quality="ultra"] .pm-depth-mid,
-.photo-mira[data-visual-quality="ultra"] .pm-depth-near {
+.photo-mira.scene-bedtime[data-visual-quality="high"] .pm-depth-mid,
+.photo-mira.scene-bedtime[data-visual-quality="high"] .pm-depth-near,
+.photo-mira.scene-bedtime[data-visual-quality="ultra"] .pm-depth-mid,
+.photo-mira.scene-bedtime[data-visual-quality="ultra"] .pm-depth-near {
+  /* The authored five-segment profile exists only for bedtime.
+     Other three scenes must retain their generic mid/near depth layers. */
   opacity:.045;
 }
 
@@ -2245,4 +2247,30 @@
   .bedroom-presence .pm-vignette {
     box-shadow: inset 0 0 54px 6px rgba(1, 3, 13, .2);
   }
+}
+
+/* Spatial Presence v31 — optional photographic bas-relief via React Three Fiber.
+   Static WebP remains visible until the alternative GPU scene is actually ready.
+   Never mount the legacy WebGL canvas at the same time. */
+.bedroom-presence .pm-spatial3d {
+  position:absolute;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  overflow:hidden;
+}
+.bedroom-presence .pm-spatial3d-canvas {
+  display:block;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+.photo-mira[data-spatial3d-ready="true"] .pm-scene-fallback,
+.photo-mira[data-spatial3d-ready="true"] .pm-depth-mid,
+.photo-mira[data-spatial3d-ready="true"] .pm-depth-near,
+.photo-mira[data-spatial3d-ready="true"] .pm-scene-segments {
+  visibility:hidden;
+}
+@media (prefers-reduced-motion:reduce) {
+  .bedroom-presence .pm-spatial3d { display:none !important; }
 }
