@@ -100,5 +100,5 @@ test('vision Spatial controller is deferred until camera is enabled', () => {
   assert.match(app,/if \(!visionOn\) return/);
   assert.doesNotMatch(app,/import \{ SpatialUIController \} from/);
   const runtime=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
-  assert.match(runtime,/if \(!spatialUiRef\.current\) \{[\s\S]*?\breturn;\s*\}/);
+  assert.match(runtime,/if \(!spatialUiRef.current\) return/);
 });

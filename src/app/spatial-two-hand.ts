@@ -54,7 +54,6 @@ export class StableBimanualPairRuntime {
   private since = 0;
   private lastAt = -Infinity;
   private previous: Array<{ x: number; y: number }> = [];
-  private lastFrameAt = -Infinity;
   private authorizedPair: BimanualCandidate[] = [];
 
   update(candidates: unknown, now: number, frameAt = now): BimanualCandidate[] {
@@ -67,9 +66,8 @@ export class StableBimanualPairRuntime {
       return [];
     }
     // A repeated snapshot is not fresh evidence of a continuous 180ms hold.
-    if (frameAt === this.lastFrameAt) return this.authorizedPair;
-    if (frameAt < this.lastFrameAt) { this.reset(); return []; }
-    this.lastFrameAt = frameAt;
+    if (frameAt === this.lastAt) return this.authorizedPair;
+    if (frameAt < this.lastAt) { this.reset(); return []; }
 
     const key = labels.join('|');
     const positions = pair.map(point);
@@ -83,7 +81,6 @@ export class StableBimanualPairRuntime {
     if (key !== this.pairKey || movedTooFar || frameGap) {
       this.pairKey = key;
       this.since = frameAt;
-      this.authorizedPair = [];
     }
     this.lastAt = frameAt;
     this.previous = positions;
@@ -96,7 +93,6 @@ export class StableBimanualPairRuntime {
     this.since = 0;
     this.lastAt = -Infinity;
     this.previous = [];
-    this.lastFrameAt = -Infinity;
     this.authorizedPair = [];
   }
 }

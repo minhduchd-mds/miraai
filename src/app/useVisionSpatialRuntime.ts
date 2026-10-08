@@ -78,7 +78,7 @@ export function useVisionSpatialRuntime(options: any) {
   const bimanualPairRef = useRef(new StableBimanualPairRuntime());
 
   useEffect(() => {
-    if (!visionOn) { bimanualPairRef.current.reset(); visionModulesRef.current?.resetSpatialPerformance(); }
+    if (!visionOn) bimanualPairRef.current.reset();
   }, [visionOn]);
 
   useEffect(() => {
@@ -124,8 +124,9 @@ export function useVisionSpatialRuntime(options: any) {
       if (document.visibilityState === 'hidden') return;
       const current = visionModulesRef.current;
       const snapshot = current?.visionSnapshot();
+      const handFrameAt = Number(snapshot?.handFrameAt || 0);
       const uiStart = performance.now();
-      current?.noteSpatialUiPoll(Number(snapshot?.handFrameAt || 0), uiStart, Boolean(snapshot?.handSeen));
+      current?.noteSpatialUiPoll(handFrameAt, uiStart, Boolean(snapshot?.handSeen));
 
       setFaceSeen(Boolean(snapshot?.faceSeen));
       setHandSeen(Boolean(snapshot?.handSeen));
@@ -235,10 +236,7 @@ export function useVisionSpatialRuntime(options: any) {
       setSpatialTouch(directTouch);
 
       // Spatial intent runtime is loaded on demand; until then fail closed.
-      if (!spatialUiRef.current) {
-        current?.noteSpatialUiWork(performance.now() - uiStart);
-        return;
-      }
+      if (!spatialUiRef.current) return;
       const spatialFrameNext = spatialUiRef.current.update({
         face: {
           present: Boolean(face?.present),
@@ -281,12 +279,12 @@ export function useVisionSpatialRuntime(options: any) {
       }
 
       const pinchedHands = settingsOpen
-        ? [] : bimanualPairRef.current.update(snapshot?.handSeen ? rawHands : [], now, Number(snapshot?.handFrameAt || 0));
+        ? [] : bimanualPairRef.current.update(snapshot?.handSeen ? rawHands : [], now, handFrameAt);
       const twoHandsActive = pinchedHands.length >= 2;
 
       for (const event of spatialFrameNext.events) {
         if (event.source === 'hand' && (event.type === 'activate' || event.type === 'grab_start')) {
-          current?.noteSpatialHandAction(Number(snapshot?.handFrameAt || 0), now);
+          current?.noteSpatialHandAction(handFrameAt, now);
         }
         if (handleSpatialObjectManipulation({
           event,

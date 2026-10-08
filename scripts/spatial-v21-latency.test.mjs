@@ -58,7 +58,7 @@ test('rolling percentiles cap memory at 128 samples',()=>{
 test('readout is wired and previous freshness check remains',()=>{
  const app=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
  const runtime=readFileSync('src/presence/vision-runtime.ts','utf8');
- assert.match(app,/noteSpatialHandAction\(Number\(snapshot\?\.handFrameAt \|\| 0\), now\)/);
+ assert.match(app,/noteSpatialHandAction\(handFrameAt, now\)/);
  assert.match(app,/noteSpatialUiPoll\(/);assert.match(app,/noteSpatialUiWork\(/);
  assert.match(runtime,/spatialPerformance: spatialPerformanceProfiler\.snapshot/);
  assert.match(runtime,/export function noteSpatialUiPoll/);
