@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { canonicalRequestHost } from '../lib/request-host.js';
 import { enforceAiQuota } from '../lib/ai-quota.js';
 import { generateBrainChat } from '../lib/brain-gateway.js';
 
@@ -14,13 +15,13 @@ function requestOrigin(req) {
 }
 
 function requestHost(req) {
-  const forwarded = String(req.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
-  return forwarded || String(req.headers?.host || '').trim();
+  return canonicalRequestHost(req);
 }
 
 function originAllowed(req) {
   const origin = requestOrigin(req);
-  if (!origin || DESKTOP_ORIGINS.has(origin)) return true;
+  if (!origin) return String(req.headers?.['sec-fetch-site'] || '') !== 'cross-site';
+  if (DESKTOP_ORIGINS.has(origin)) return true;
   const host = requestHost(req);
   return Boolean(host && origin === `https://${host}`);
 }

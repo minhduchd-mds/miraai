@@ -1,4 +1,6 @@
 import http from 'node:http';
+import { canonicalRequestHost } from '../lib/request-host.js';
+import { readLimitedTtsAudio } from './tts-response.mjs';
 import {
   MIRA_TTS_MAX_REQUESTS_PER_WINDOW,
   MIRA_TTS_MAX_TEXT_LENGTH,
@@ -18,8 +20,8 @@ const buckets = new Map();
 let nextBucketSweepAt = 0;
 
 function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || req.socket.remoteAddress || 'unknown';
+  // On custom hosts without a verified edge, X-Forwarded-For is user-controlled.
+  return String(req.socket.remoteAddress || 'anonymous');
 }
 
 function requestOrigin(req) {
@@ -27,12 +29,12 @@ function requestOrigin(req) {
 }
 
 function requestHost(req) {
-  const forwarded = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
-  return forwarded || String(req.headers.host || '').trim();
+  return canonicalRequestHost(req);
 }
 
 function allowed(req) {
   const origin = requestOrigin(req);
+  if (!origin && String(req.headers['sec-fetch-site'] || '') === 'cross-site') return false;
   const host = requestHost(req);
   const ownOrigin = host ? `https://${host}` : '';
   return isTtsOriginAllowed(origin, ownOrigin);
@@ -68,14 +70,7 @@ function pruneRateBuckets(now) {
 }
 
 function ensureRateBucketCapacity() {
-  if (buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS) return;
-  const toRemove = buckets.size - MIRA_TTS_MAX_TRACKED_CLIENTS + 1;
-  let removed = 0;
-  for (const key of buckets.keys()) {
-    buckets.delete(key);
-    removed += 1;
-    if (removed >= toRemove) break;
-  }
+  return buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS;
 }
 
 function takeRateSlot(req) {
@@ -86,7 +81,7 @@ function takeRateSlot(req) {
   const previous = buckets.get(ip);
   if (!previous || now - previous.startedAt >= MIRA_TTS_RATE_WINDOW_MS) {
     if (previous) buckets.delete(ip);
-    ensureRateBucketCapacity();
+    if (!ensureRateBucketCapacity()) return false;
     buckets.set(ip, { startedAt: now, count: 1 });
     return true;
   }
@@ -170,11 +165,11 @@ const server = http.createServer(async (req, res) => {
       if (text.length > MIRA_TTS_MAX_TEXT_LENGTH) return sendJson(req, res, 413, { error: 'text_too_long' });
 
       const { response, payload } = await synthesize(text, body.instructions);
-      const audio = Buffer.from(await response.arrayBuffer());
+      const { audio, contentType } = await readLimitedTtsAudio(response);
 
       res.writeHead(200, {
         ...corsHeaders(req),
-        'content-type': response.headers.get('content-type') || 'audio/mpeg',
+        'content-type': contentType,
         'content-length': String(audio.length),
         'cache-control': 'no-store',
         'x-content-type-options': 'nosniff',

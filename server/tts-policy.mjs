@@ -1,3 +1,4 @@
+import { canonicalRequestHost } from '../lib/request-host.js';
 import {
   MIRA_TTS_MAX_REQUESTS_PER_WINDOW,
   MIRA_TTS_MAX_TRACKED_CLIENTS,
@@ -30,13 +31,13 @@ function requestOrigin(req) {
 }
 
 function requestHost(req) {
-  const forwarded = String(req.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
-  return forwarded || String(req.headers?.host || '').trim();
+  return canonicalRequestHost(req);
 }
 
 
 export function originAllowed(req) {
   const origin = requestOrigin(req);
+  if (!origin && String(req.headers?.['sec-fetch-site'] || '') === 'cross-site') return false;
   const host = requestHost(req);
   const ownOrigin = host ? `https://${host}` : '';
   return isTtsOriginAllowed(origin, ownOrigin);
@@ -55,8 +56,10 @@ export function applyCors(req, res, methods = 'GET,POST,OPTIONS') {
 }
 
 function clientKey(req) {
-  const forwarded = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || String(req.socket?.remoteAddress || 'anonymous');
+  const trusted = process.env.VERCEL
+    ? req.headers?.['x-vercel-forwarded-for']
+    : req.socket?.remoteAddress;
+  return String(trusted || 'anonymous').split(',')[0].trim().slice(0, 128) || 'anonymous';
 }
 
 function pruneRateBuckets(now) {
@@ -69,15 +72,8 @@ function pruneRateBuckets(now) {
 }
 
 function ensureRateBucketCapacity() {
-  if (buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS) return;
-
-  const toRemove = buckets.size - MIRA_TTS_MAX_TRACKED_CLIENTS + 1;
-  let removed = 0;
-  for (const key of buckets.keys()) {
-    buckets.delete(key);
-    removed += 1;
-    if (removed >= toRemove) break;
-  }
+  // Active clients cannot be evicted to bypass request limits.
+  return buckets.size < MIRA_TTS_MAX_TRACKED_CLIENTS;
 }
 
 export function takeRateSlot(req) {
@@ -88,7 +84,7 @@ export function takeRateSlot(req) {
   const previous = buckets.get(key);
   if (!previous || now - previous.startedAt >= MIRA_TTS_RATE_WINDOW_MS) {
     if (previous) buckets.delete(key);
-    ensureRateBucketCapacity();
+    if (!ensureRateBucketCapacity()) return false;
     buckets.set(key, { startedAt: now, count: 1 });
     return true;
   }

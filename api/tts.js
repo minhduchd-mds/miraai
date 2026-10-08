@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { readLimitedTtsAudio } from '../server/tts-response.mjs';
 import { enforceAiQuota } from '../lib/ai-quota.js';
 import {
   applyCors,
@@ -57,10 +58,9 @@ export default async function handler(req, res) {
       throw new Error(`ElevenLabs TTS ${response.status}: ${detail}`);
     }
 
-    const audio = Buffer.from(await response.arrayBuffer());
-    if (!audio.length) throw new Error('empty_audio');
+    const { audio, contentType } = await readLimitedTtsAudio(response);
 
-    res.setHeader('content-type', response.headers.get('content-type') || 'audio/mpeg');
+    res.setHeader('content-type', contentType);
     res.setHeader('cache-control', 'no-store');
     res.setHeader('x-mira-tts-provider', 'elevenlabs');
     res.setHeader('x-mira-tts-model', payload.model_id);
