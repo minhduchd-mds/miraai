@@ -220,12 +220,16 @@ export class SpatialUIController {
   private grabTargetKind: SpatialTargetKind | null = null;
   private previousHeadGesture = 'none';
   private lastActivationAt = -Infinity;
+  private grabReleaseSince: number | null = null;
+  private focusSource: SpatialPointerSource = 'none';
 
   update(input: SpatialControlInput, now = performance.now()): SpatialControlFrame {
     const facePoint = faceSpatialPoint(input.face);
     const handPoint = handSpatialPoint(input.hand);
 
-    const rayHit = input.hand.direct ? input.rayHit || null : null;
+    // A stale ray must never retarget the UI after hand tracking drops.
+    const rayHit = input.hand.direct && handPoint.source === 'hand' && input.hand.present
+      ? input.rayHit || null : null;
 
     // visionOS-style indirect input: look chooses target, pinch commits.
     // Direct hand pointing takes over only when explicitly stable or face focus is unavailable.
@@ -235,6 +239,11 @@ export class SpatialUIController {
         ? handPoint
         : facePoint;
 
+    if (nextRaw.source !== this.focusSource) {
+      // Re-arm focus after a face/hand source switch: stale dwell cannot activate.
+      this.focus = null;
+      this.focusSource = nextRaw.source;
+    }
     if (nextRaw.source === 'none') {
       this.pointer = { ...EMPTY_SPATIAL_POINT };
       this.focus = null;
@@ -277,7 +286,30 @@ export class SpatialUIController {
 
     const events: SpatialControlEvent[] = [];
     const focus = this.focus;
+    const trackedHand = handPoint.source === 'hand' && input.hand.present;
     const canCommit = Boolean(focus?.ready && now - this.lastActivationAt >= 360);
+    const grabTargetVisible = !this.grabTargetId || input.targets.some((target) => target.id === this.grabTargetId);
+    if (this.grabTargetId && (!trackedHand || !input.hand.pinching)) {
+      this.grabReleaseSince ??= now;
+    } else {
+      this.grabReleaseSince = null;
+    }
+    const trackingLost = this.grabReleaseSince !== null && now - this.grabReleaseSince >= 180;
+    const shouldCancelGrab = Boolean(this.grabTargetId) &&
+      (!grabTargetVisible || trackingLost) && input.gestureIntent.intent !== 'pinch_up';
+    if (shouldCancelGrab) {
+      events.push({
+        type: 'cancel',
+        targetId: this.grabTargetId,
+        targetKind: this.grabTargetKind,
+        source: 'hand',
+        point: { ...this.pointer },
+        at: now,
+      });
+      this.grabTargetId = '';
+      this.grabTargetKind = null;
+      this.grabReleaseSince = null;
+    }
 
     if (input.headGesture === 'shake' && this.previousHeadGesture !== 'shake' && this.grabTargetId) {
       events.push({
@@ -305,10 +337,16 @@ export class SpatialUIController {
       this.lastActivationAt = now;
     }
 
-    if (input.gestureIntent.intent === 'pinch_down' && canCommit && focus) {
+    if (
+      input.gestureIntent.intent === 'pinch_down' &&
+      input.gestureIntent.confidence >= 0.62 &&
+      input.hand.pinching && trackedHand && canCommit && focus &&
+      !shouldCancelGrab
+    ) {
       if ((focus.kind === 'window' || focus.kind === 'object') && input.hand.present) {
         this.grabTargetId = focus.id;
         this.grabTargetKind = focus.kind;
+        this.grabReleaseSince = null;
         events.push({
           type: 'grab_start',
           targetId: focus.id,
@@ -330,7 +368,7 @@ export class SpatialUIController {
       this.lastActivationAt = now;
     }
 
-    if (this.grabTargetId && input.hand.present && input.hand.pinching) {
+    if (this.grabTargetId && trackedHand && input.hand.pinching) {
       events.push({
         type: 'grab_move',
         targetId: this.grabTargetId,
@@ -352,6 +390,7 @@ export class SpatialUIController {
       });
       this.grabTargetId = '';
       this.grabTargetKind = null;
+      this.grabReleaseSince = null;
     }
 
     this.previousHeadGesture = input.headGesture || 'none';
@@ -373,6 +412,8 @@ export class SpatialUIController {
     this.grabTargetKind = null;
     this.previousHeadGesture = 'none';
     this.lastActivationAt = -Infinity;
+    this.grabReleaseSince = null;
+    this.focusSource = 'none';
     return {
       ...EMPTY_SPATIAL_CONTROL_FRAME,
       pointer: { ...EMPTY_SPATIAL_POINT },

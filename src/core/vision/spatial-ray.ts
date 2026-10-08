@@ -84,6 +84,12 @@ export function handRayFromLandmarks(
   const base = landmarks[5] || landmarks[6];
   const tip = landmarks[8];
   if (!base || !tip) return null;
+  // Web camera coordinates must be finite. Invalid landmarks are dropped, not
+  // converted into a misleading normalized pointer/ray.
+  for (const point of [base, tip]) {
+    if (![point.x, point.y, point.z ?? 0].every(Number.isFinite) ||
+        point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) return null;
+  }
 
   const origin: SpatialVec3 = {
     x: 1 - Number(base.x || 0),
@@ -137,9 +143,14 @@ export function hitTestSpatialRay(
   ray: SpatialRay3D | null,
   targets: SpatialRayTarget[],
 ): SpatialRayHit | null {
-  if (!ray || ray.confidence < 0.55) return null;
+  if (!ray || !Number.isFinite(ray.confidence) || ray.confidence < 0.55 ||
+      ![...Object.values(ray.origin), ...Object.values(ray.direction)].every(Number.isFinite)) return null;
 
   const hits = targets
+    .filter((target) =>
+      [target.z, target.left, target.right, target.top, target.bottom].every(Number.isFinite) &&
+      target.right > target.left && target.bottom > target.top
+    )
     .map((target) => {
       const hit = intersectRayWithZPlane(ray, target.z);
       if (!hit) return null;

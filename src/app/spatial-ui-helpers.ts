@@ -82,9 +82,13 @@ export function collectSpatialTargets(): SpatialTargetGeometry[] {
   const targets: SpatialTargetGeometry[] = [];
 
   const push = (element: HTMLElement, id: string, label: string, kind: 'action' | 'window' | 'object', priority: number) => {
-    if (!id || !label || element.offsetParent === null) return;
+    if (!id || !label || element.offsetParent === null ||
+        element.closest('[inert],[aria-hidden="true"],[disabled]')) return;
+    const style = window.getComputedStyle(element);
+    if (style.visibility === 'hidden' || style.pointerEvents === 'none') return;
     const rect = element.getBoundingClientRect();
-    if (rect.width < 2 || rect.height < 2) return;
+    if (rect.width < 2 || rect.height < 2 ||
+        rect.right <= 0 || rect.bottom <= 0 || rect.left >= width || rect.top >= height) return;
     targets.push({
       id,
       label,

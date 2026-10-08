@@ -442,7 +442,12 @@ export function useVisionSpatialRuntime(options: any) {
       });
     }, 120);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      // A closed Settings overlay or disabled camera must not retain a
+      // previously armed gesture focus or a half-open grab session.
+      spatialUiRef.current.reset();
+    };
   }, [
     affectFollowing,
     mira.interrupt,
