@@ -71,11 +71,12 @@ export function handleSpatialWindowControl(input: WindowControlInput): boolean {
       ? depth.normalizedDelta * 120
       : 0;
 
-    updateWindow(session.id, () => ({
-      ...session.base,
-      x: clampSpatial(session.base.x + dx, -limitX, limitX),
-      y: clampSpatial(session.base.y + dy, -limitY, limitY),
-      z: clampSpatial(session.base.z + depthPx, -120, 120),
+    // Damping changes only the visual transform, not the input/gesture TTL.
+    updateWindow(session.id, (current) => ({
+      ...current,
+      x: clampSpatial(current.x * 0.28 + (session.base.x + dx) * 0.72, -limitX, limitX),
+      y: clampSpatial(current.y * 0.28 + (session.base.y + dy) * 0.72, -limitY, limitY),
+      z: clampSpatial(current.z * 0.45 + (session.base.z + depthPx) * 0.55, -120, 120),
     }));
     return true;
   }

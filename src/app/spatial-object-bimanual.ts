@@ -27,6 +27,7 @@ type BimanualHand = {
 export type SpatialGroupTransformState = {
   key: string;
   since: number;
+  lastSampleAt?: number;
   active: boolean;
   startDistance: number;
   startAngle: number;
@@ -37,6 +38,7 @@ export type SpatialGroupTransformState = {
 export type TwoHandObjectSession = {
   id: string;
   since: number;
+  lastSampleAt?: number;
   active: boolean;
   startDistance: number;
   startAngle: number;
@@ -54,6 +56,7 @@ type SpatialObjectBimanualInput = {
   pinchedHands: BimanualHand[];
   focusObjectId: string;
   now: number;
+  frameAt?: number;
   objectRuntime: SpatialObjectRuntime;
   worldRuntime: SpatialWorldRuntime;
   physicsRuntime: SpatialPhysicsRuntime;
@@ -72,6 +75,7 @@ export function updateSpatialObjectBimanual(input: SpatialObjectBimanualInput): 
     pinchedHands,
     focusObjectId,
     now,
+    frameAt = now,
     objectRuntime,
     worldRuntime,
     physicsRuntime,
@@ -141,7 +145,8 @@ export function updateSpatialObjectBimanual(input: SpatialObjectBimanualInput): 
       if (runtimeSession) {
         groupTransformRef.current = {
           key,
-          since: now,
+          since: frameAt,
+          lastSampleAt: frameAt,
           active: false,
           startDistance: geometry.distance,
           startAngle: geometry.angleDeg,
@@ -152,7 +157,9 @@ export function updateSpatialObjectBimanual(input: SpatialObjectBimanualInput): 
       return true;
     }
 
-    if (!groupSession.active && now - groupSession.since >= 240 && geometry.distance >= 0.08) {
+    if (frameAt <= (groupSession.lastSampleAt ?? -Infinity)) return true;
+    groupSession.lastSampleAt = frameAt;
+    if (!groupSession.active && frameAt - groupSession.since >= 240 && geometry.distance >= 0.08) {
       groupSession.active = true;
       showFeedback(`Hai tay · điều khiển ${selectedRoots.length} cụm`);
       return true;
@@ -204,7 +211,8 @@ export function updateSpatialObjectBimanual(input: SpatialObjectBimanualInput): 
       objectSessionRef.current = {
         id: focusObjectId,
         transformObjectId,
-        since: now,
+        since: frameAt,
+        lastSampleAt: frameAt,
         active: false,
         startDistance: geometry.distance,
         startAngle: geometry.angleDeg,
@@ -220,7 +228,9 @@ export function updateSpatialObjectBimanual(input: SpatialObjectBimanualInput): 
     return true;
   }
 
-  if (!objectSession.active && now - objectSession.since >= 240 && geometry.distance >= 0.08) {
+  if (frameAt <= (objectSession.lastSampleAt ?? -Infinity)) return true;
+  objectSession.lastSampleAt = frameAt;
+  if (!objectSession.active && frameAt - objectSession.since >= 240 && geometry.distance >= 0.08) {
     objectSession.active = true;
     showFeedback(
       objectSession.jointKind === 'hinge'

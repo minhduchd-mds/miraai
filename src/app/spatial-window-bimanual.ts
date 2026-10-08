@@ -22,6 +22,7 @@ type SpatialWindowBimanualInput = {
   focus: SpatialFocus | null;
   lastWindowId: SpatialWindowId;
   now: number;
+  frameAt?: number;
   sessionRef: MutableBox<TwoHandSpatialSession | null>;
   windowsRef: MutableBox<Record<SpatialWindowId, SpatialWindowTransform>>;
   updateWindow: (
@@ -37,6 +38,7 @@ export function updateSpatialWindowBimanual(input: SpatialWindowBimanualInput): 
     focus,
     lastWindowId,
     now,
+    frameAt = now,
     sessionRef,
     windowsRef,
     updateWindow,
@@ -76,7 +78,8 @@ export function updateSpatialWindowBimanual(input: SpatialWindowBimanualInput): 
     const base = windowsRef.current[transformTarget];
     sessionRef.current = {
       id: transformTarget,
-      since: now,
+      since: frameAt,
+      lastSampleAt: frameAt,
       active: false,
       startDistance: geometry.distance,
       startAngle: geometry.angleDeg,
@@ -86,7 +89,9 @@ export function updateSpatialWindowBimanual(input: SpatialWindowBimanualInput): 
     return true;
   }
 
-  if (!session.active && now - session.since >= 240 && geometry.distance >= 0.08) {
+  if (frameAt <= (session.lastSampleAt ?? -Infinity)) return true;
+  session.lastSampleAt = frameAt;
+  if (!session.active && frameAt - session.since >= 240 && geometry.distance >= 0.08) {
     session.active = true;
     showFeedback('Hai tay · scale / rotate');
     return true;

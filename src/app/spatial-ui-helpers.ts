@@ -24,6 +24,7 @@ export interface SpatialGrabSession {
 export interface TwoHandSpatialSession {
   id: SpatialWindowId;
   since: number;
+  lastSampleAt?: number;
   active: boolean;
   startDistance: number;
   startAngle: number;

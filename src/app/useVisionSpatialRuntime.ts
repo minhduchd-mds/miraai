@@ -343,6 +343,7 @@ export function useVisionSpatialRuntime(options: any) {
         focus: spatialFrameNext.focus,
         lastWindowId: lastSpatialWindowRef.current,
         now,
+        frameAt: handFrameAt,
         sessionRef: twoHandSpatialSessionRef,
         windowsRef: spatialWindowsRef,
         updateWindow: updateSpatialWindow,
@@ -355,6 +356,7 @@ export function useVisionSpatialRuntime(options: any) {
           ? spatialFrameNext.focus.id
           : '',
         now,
+        frameAt: handFrameAt,
         objectRuntime: spatialObjectRuntimeRef.current,
         worldRuntime: spatialWorldRuntimeRef.current,
         physicsRuntime: spatialPhysicsRef.current,
