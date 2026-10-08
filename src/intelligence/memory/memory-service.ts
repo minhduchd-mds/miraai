@@ -21,6 +21,19 @@ function memoryOptOut(text: string): boolean {
   return /\b(dung nho|dung luu|khong can nho|khong luu|chuyen nay dung nho|chuyen nay dung luu)\b/.test(normalized);
 }
 
+// Optional memory context must not make the conversational model unavailable.
+async function boundedRecall(read: Promise<string>, timeoutMs = 4000): Promise<string> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      read.catch(() => ''),
+      new Promise<string>((resolve) => { timer = setTimeout(() => resolve(''), timeoutMs); }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export class MemoryService {
   private readonly local = createRuntimeMemoryStore();
   private skipAssistantPersistenceOnce = false;
@@ -63,9 +76,10 @@ export class MemoryService {
 
   async recall(query: string): Promise<string> {
     if (!memoryEnabled()) return '';
-    const local = await this.local.recall(query);
-    if (!serverMemoryAvailable()) return local;
-    const remote = await recallMemory(query);
+    const [local, remote] = await Promise.all([
+      boundedRecall(this.local.recall(query)),
+      serverMemoryAvailable() ? boundedRecall(recallMemory(query)) : Promise.resolve(''),
+    ]);
     return [local, remote].filter(Boolean).join('\n\n');
   }
 

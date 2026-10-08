@@ -22,8 +22,8 @@ export async function checkMiraConnectivity(): Promise<MiraConnectivityReport> {
         if (!response.ok) return { state: 'unavailable', detail: 'Brain API HTTP ' + response.status };
         const status = await response.json();
         return status?.configured === true
-          ? { state: 'ready', detail: 'Đã cấu hình Brain; chưa xác minh inference' }
-          : { state: 'unconfigured', detail: 'Server chưa cấu hình Gemini / OpenAI / Anthropic' };
+          ? { state: 'ready', detail: 'Có cấu hình Brain; cần kiểm tra câu trả lời thực tế' }
+          : { state: 'unconfigured', detail: 'Server chưa cấu hình được model trả lời' };
       } catch {
         return { state: 'unavailable', detail: 'Không kết nối được Brain API; kiểm tra mạng hoặc CORS' };
       }

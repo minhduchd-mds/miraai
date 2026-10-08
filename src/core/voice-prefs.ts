@@ -101,7 +101,8 @@ export function responseTokenBudget(mode: ResponseLength): number {
 }
 
 export function responseTimeoutMs(mode: ResponseLength): number {
-  return { short: 25_000, auto: 40_000, detailed: 50_000, deep: 60_000 }[mode];
+  // Server may try two 24s free providers after bounded memory lookup.
+  return { short: 58_000, auto: 70_000, detailed: 75_000, deep: 80_000 }[mode];
 }
 
 export const PERSONAS: { id: string; icon: string; label: string; tone: string }[] = [

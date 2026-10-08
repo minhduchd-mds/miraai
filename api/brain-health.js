@@ -18,6 +18,8 @@ export default function handler(req, res) {
     providers,
     freeOnly: process.env.MIRA_BRAIN_FREE_ONLY === '1',
     gatewayModels: providers.includes('gateway') ? gatewayModels() : [],
+    inferenceVerified: false,
+    // Readiness is NOT proof of a successful LLM response.
     scope: 'configuration_only',
   });
 }

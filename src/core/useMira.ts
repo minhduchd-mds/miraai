@@ -10,6 +10,7 @@ import { loadSmartTurn } from './stt/turn-config';
 import { computeEndpointDelay, ENDPOINT } from './stt/endpointer';
 import { createTTS, type MiraTTS, type TTSDiagnostics } from './tts';
 import { createBrain, saveLLMConfig, type LLMConfig } from './brain';
+import { brainFailureMessage } from './brain/brain-failure';
 import { transition, type ConversationEvent } from '../runtime/conversation-machine';
 import { SpeechQueue } from '../runtime/speech-queue';
 import {
@@ -391,7 +392,7 @@ export function useMira() {
       setLatencyMs(result.latencyMs);
       setMoodBoth(result.reply.mood || 'neutral');
       if (result.reply.runtimeSource === 'fallback') {
-        setError('Brain chưa kết nối model; Mira đang dùng câu trả lời dự phòng.');
+        setError(brainFailureMessage(result.reply.failureCode));
       }
       pushHistory({ role: 'mira', text: result.reply.text });
       speak(result.reply.text);

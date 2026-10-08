@@ -3,6 +3,7 @@ import { voicePrefs, responseTimeoutMs } from '../voice-prefs';
 import { buildSystem, parseMood, buildTurns } from './prompt';
 import { CannedBrain } from './canned-brain';
 import { miraApiUrl } from '../../desktop/cloud-endpoints';
+import { classifyBrainFailure } from './brain-failure';
 
 function isGitHubPagesRuntime(): boolean {
   return typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io');
@@ -30,7 +31,15 @@ export class GeminiBrain implements Brain {
         body: JSON.stringify({ system, messages, responseLength: voicePrefs.responseLength }),
         signal: AbortSignal.timeout(responseTimeoutMs(voicePrefs.responseLength)),
       });
-      if (!response.ok) throw new Error(`/api/chat ${response.status}`);
+      if (!response.ok) {
+        let code = '';
+        try {
+          const status = await response.json();
+          code = typeof status?.error === 'string' ? status.error.slice(0, 48) : '';
+        } catch { /* upstream error text is not user-visible */ }
+        const fallback = await this.fallback.reply(input, history, context);
+        return { ...fallback, failureCode: classifyBrainFailure(response.status, code) };
+      }
       const json = await response.json();
       const parsed = parseMood(String(json?.text || '').trim());
       if (!parsed.text) throw new Error('empty');
@@ -40,8 +49,9 @@ export class GeminiBrain implements Brain {
         runtimeSource: 'provider',
         provider: typeof json?.provider === 'string' ? json.provider.slice(0, 40) : 'server',
       };
-    } catch {
-      return this.fallback.reply(input, history);
+    } catch (error) {
+      const fallback = await this.fallback.reply(input, history, context);
+      return { ...fallback, failureCode: classifyBrainFailure(0, '', error) };
     }
   }
 }

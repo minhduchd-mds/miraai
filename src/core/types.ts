@@ -69,6 +69,8 @@ export interface BrainReply {
   /** Provenance of a model response; never conflate canned fallback with AI inference. */
   runtimeSource?: 'provider' | 'local_model' | 'fallback';
   provider?: string;
+  /** Sanitized runtime failure; no upstream bodies or credentials. */
+  failureCode?: 'offline' | 'timeout' | 'quota' | 'configuration' | 'deployment' | 'provider';
   mood?: Mood;
   intent?: string;
   toolCalls?: BrainToolCall[];
