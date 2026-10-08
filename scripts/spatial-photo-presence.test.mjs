@@ -57,7 +57,7 @@ test('spatial 3D runtime stays lazy and does not double mount WebGL renderers',(
  const css=readFileSync('src/presence/photoreal-mira.css','utf8');
  assert.match(root,/lazy\(\(\) => import\('\.\/PhotorealSpatial3D'\)\)/);
  assert.match(root,/visualProfile\.sharpness > 0 && !spatial3DEnabled/);
- assert.match(root,/!spatial3DEnabled && presenceScene === 'bedtime'/);
+ assert.match(root,/!spatial3DEnabled && !room3DActive && presenceScene === 'bedtime'/);
  assert.match(root,/data-spatial3d-ready/);
  assert.match(root,/registerInvalidate=\{registerSpatialInvalidator\}/);
  assert.match(scene,/frameloop="demand"/);
