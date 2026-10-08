@@ -43,3 +43,50 @@ export function selectStableBimanualHands(candidates: unknown): BimanualCandidat
   if (Math.hypot(a.x-b.x,a.y-b.y) < 0.08) return [];
   return pair;
 }
+
+/**
+ * Adds temporal continuity to bimanual manipulation.
+ * Geometry alone is insufficient: require the SAME pair across a dwell
+ * period and reset after long frame gaps, detector ID swaps or jumps.
+ */
+export class StableBimanualPairRuntime {
+  private pairKey = '';
+  private since = 0;
+  private lastAt = -Infinity;
+  private previous: Array<{ x: number; y: number }> = [];
+
+  update(candidates: unknown, now: number): BimanualCandidate[] {
+    const pair = selectStableBimanualHands(candidates);
+    const validLabels = pair.map((hand) => String(hand.handedness || 'Unknown'));
+    if (!Number.isFinite(now) || pair.length !== 2 ||
+        validLabels.some((name) => name !== 'Left' && name !== 'Right')) {
+      this.reset();
+      return [];
+    }
+
+    const key = validLabels.join('|');
+    const positions = pair.map(point);
+    const movedTooFar = this.previous.length === 2 &&
+      positions.some((position, index) => Math.hypot(
+        position.x - this.previous[index].x,
+        position.y - this.previous[index].y,
+      ) > 0.24);
+    const frameGap = this.lastAt !== -Infinity &&
+      (now < this.lastAt || now - this.lastAt > 360);
+
+    if (key !== this.pairKey || movedTooFar || frameGap) {
+      this.pairKey = key;
+      this.since = now;
+    }
+    this.lastAt = now;
+    this.previous = positions;
+    return now - this.since >= 180 ? pair : [];
+  }
+
+  reset(): void {
+    this.pairKey = '';
+    this.since = 0;
+    this.lastAt = -Infinity;
+    this.previous = [];
+  }
+}

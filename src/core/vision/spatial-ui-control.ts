@@ -325,6 +325,7 @@ export class SpatialUIController {
     }
 
     const nodEdge = input.headGesture === 'nod' && this.previousHeadGesture !== 'nod';
+    let activatedByHead = false;
     if (nodEdge && canCommit && focus?.kind === 'action' && this.pointer.source === 'face') {
       events.push({
         type: 'activate',
@@ -335,9 +336,11 @@ export class SpatialUIController {
         at: now,
       });
       this.lastActivationAt = now;
+      activatedByHead = true;
     }
 
     if (
+      !activatedByHead &&
       input.gestureIntent.intent === 'pinch_down' &&
       input.gestureIntent.confidence >= 0.62 &&
       input.hand.pinching && trackedHand && canCommit && focus &&

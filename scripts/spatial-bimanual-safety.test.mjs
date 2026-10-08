@@ -26,7 +26,7 @@ test('two hand input rejects near-zero baseline, duplicate hand and weak confide
 
 test('disabled settings overlay cannot receive spatial transforms or selection gestures',()=>{
  const runtime=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
- assert.match(runtime,/settingsOpen \? \[\] : selectStableBimanualHands\(rawHands\)/);
+ assert.match(runtime,/settingsOpen[\s\S]*?: bimanualPairRef\.current\.update\(snapshot\?\.handSeen \? rawHands : \[\], now\)/);
  assert.match(runtime,/settingsOpen \? null : applySpatialSelectionGesture\(/);
 });
 

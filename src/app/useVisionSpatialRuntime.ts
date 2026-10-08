@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { neutralAffect } from '../intelligence/affect/mood-engine';
 import { micProsodySnapshot } from '../core/audio-level';
 import { normalizeVisionPerception } from './vision-perception-normalizer';
@@ -10,7 +10,7 @@ import { handleSpatialObjectManipulation } from './spatial-object-manipulation';
 import { handleSpatialWindowControl } from './spatial-window-control';
 import { updateSpatialWindowBimanual } from './spatial-window-bimanual';
 import { updateSpatialObjectBimanual } from './spatial-object-bimanual';
-import { selectStableBimanualHands } from './spatial-two-hand';
+import { StableBimanualPairRuntime } from './spatial-two-hand';
 
 export function useVisionSpatialRuntime(options: any) {
   const {
@@ -74,9 +74,33 @@ export function useVisionSpatialRuntime(options: any) {
     updateFaceHeadControl,
     setFaceTelemetry,
   } = options;
+  const bimanualPairRef = useRef(new StableBimanualPairRuntime());
+
+  useEffect(() => {
+    if (!visionOn) bimanualPairRef.current.reset();
+  }, [visionOn]);
+
+  useEffect(() => {
+    // Hidden tabs may keep stale MediaPipe snapshots. Never issue gestures
+    // or keep a pinch session armed while Mira is not visible.
+    const onVisibility = () => {
+      if (document.visibilityState !== 'hidden') return;
+      bimanualPairRef.current.reset();
+      spatialUiRef.current?.reset();
+      spatialGrabSessionRef.current = null;
+      spatialDepthAnchorRef.current.reset();
+      twoHandSpatialSessionRef.current = null;
+      twoHandObjectSessionRef.current = null;
+      spatialGroupTransformRef.current = null;
+      spatialObjectDepthRef.current.reset();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   useEffect(() => {
     if (!settingsOpen) return;
+    bimanualPairRef.current.reset();
     // Opening a modal cancels in-flight spatial manipulation; unrelated React
     // effect rerenders must not release an active pinch/drag mid-frame.
     spatialUiRef.current?.reset();
@@ -94,6 +118,7 @@ export function useVisionSpatialRuntime(options: any) {
     if (!visionOn) return;
 
     const timer = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
       const current = visionModulesRef.current;
       const snapshot = current?.visionSnapshot();
 
@@ -247,7 +272,8 @@ export function useVisionSpatialRuntime(options: any) {
         showSpatialFeedback(selectionGesture.feedback);
       }
 
-      const pinchedHands = settingsOpen ? [] : selectStableBimanualHands(rawHands);
+      const pinchedHands = settingsOpen
+        ? [] : bimanualPairRef.current.update(snapshot?.handSeen ? rawHands : [], now);
       const twoHandsActive = pinchedHands.length >= 2;
 
       for (const event of spatialFrameNext.events) {
