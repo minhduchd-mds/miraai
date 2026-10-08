@@ -12,3 +12,6 @@ Do not delete application data or auto-claim legacy cloud memories; export a bac
 
 ## Local structured profile and import reliability
 SQLite facts/preferences/life events/active threads are now visible and editable in Desktop profile settings. Camera-derived emotional observations remain separate. Desktop Capsule imports propagate native errors; a partial failure cannot be silently reported as success. Data are never deleted or auto-migrated by these changes.
+
+## Legacy remote-webview compatibility
+The Desktop/native selection now requires both IPC and a local frontend origin (`tauri://localhost` on macOS, `http(s)://tauri.localhost` on Windows, or loopback during development). The old v0.1.0 remote Vercel webview will continue to use its legacy browser memory rather than attempting missing native SQLite commands. This does not transfer data automatically; export before migrating to the new bundled Desktop.

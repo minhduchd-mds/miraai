@@ -15,14 +15,20 @@ test('Tauri v2 desktop bridge supports public global and internal injected IPC',
   const bridge = await bridgeModule();
   const before = globalThis.window;
   try {
-    globalThis.window = { __TAURI_INTERNALS__: { invoke: async (name) => {
+    globalThis.window = { location: { protocol: 'tauri:', hostname: 'localhost' },
+      __TAURI_INTERNALS__: { invoke: async (name) => {
       assert.equal(name, 'desktop_memory_count'); return 7;
     } } };
     assert.equal(bridge.isDesktopRuntime(), true);
     assert.equal(await bridge.desktopInvoke('desktop_memory_count'), 7);
-    globalThis.window = { __TAURI__: { core: { invoke: async () => 9 } } };
+    globalThis.window = { location: { protocol: 'https:', hostname: 'tauri.localhost' },
+      __TAURI__: { core: { invoke: async () => 9 } } };
     assert.equal(bridge.isDesktopRuntime(), true);
     assert.equal(await bridge.desktopInvoke('desktop_memory_count'), 9);
+    globalThis.window = { location: { protocol: 'https:', hostname: 'miraai-five.vercel.app' },
+      __TAURI_INTERNALS__: { invoke: async () => { throw new Error('must not call legacy IPC'); } } };
+    assert.equal(bridge.isDesktopRuntime(), false, 'v0.1.0 remote UI must retain legacy IndexedDB runtime');
+    await assert.rejects(bridge.desktopInvoke('desktop_memory_count'), /native bridge is unavailable/);
     globalThis.window = {};
     assert.equal(bridge.isDesktopRuntime(), false);
     await assert.rejects(bridge.desktopInvoke('desktop_memory_count'), /native bridge is unavailable/);
