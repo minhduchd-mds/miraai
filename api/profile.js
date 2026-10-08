@@ -2,7 +2,7 @@ import { markPrivateResponse } from '../lib/private-response.js';
 import { requireTrustedWrite } from '../lib/request-security.js';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
-import { resolveMemoryScope } from '../lib/memory-scope.js';
+import { resolveMemoryScope, rotateMemoryScope } from '../lib/memory-scope.js';
 
 function parseBody(req) {
   let body = req.body;
@@ -65,6 +65,7 @@ export default async function handler(req, res) {
           sql`delete from user_facts where device_id = ${device}`,
           sql`delete from identity_capsules where device_id = ${device}`,
         ]);
+        rotateMemoryScope(res);
         return res.status(200).json({ ok: true, all: true });
       }
       if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id không hợp lệ' });

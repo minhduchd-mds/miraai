@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveMemoryScope, MEMORY_SESSION_POLICY } from '../lib/memory-scope.js';
+import { resolveMemoryScope, rotateMemoryScope, MEMORY_SESSION_POLICY } from '../lib/memory-scope.js';
 import { readFileSync } from 'node:fs';
 
 function res() {
@@ -63,5 +63,26 @@ test('cloud memory routes fail closed without a signing key', () => {
   ];
   for (const path of sources) {
     assert.doesNotMatch(readFileSync(path,'utf8'), /device:\s*legacyDeviceId\(\)/);
+  }
+});
+
+test('full cloud-memory wipe rekeys future data to a new signed scope', () => {
+  const old = process.env.MIRA_MEMORY_SESSION_KEY;
+  try {
+    process.env.MIRA_MEMORY_SESSION_KEY = 'test-session-key-'.repeat(5);
+    const response = res();
+    const oldScope = resolveMemoryScope(req(), response);
+    const afterWipe = res();
+    const refreshedScope = rotateMemoryScope(afterWipe);
+    assert.ok(oldScope);
+    assert.notEqual(oldScope, refreshedScope);
+    const oldCookie = response.cookies[0].split(';')[0];
+    const currentCookie = afterWipe.cookies[0].split(';')[0];
+    assert.equal(resolveMemoryScope(req(oldCookie),res()),oldScope);
+    assert.equal(resolveMemoryScope(req(currentCookie),res()),refreshedScope);
+    assert.match(readFileSync('api/profile.js','utf8'), /rotateMemoryScope\(res\)/);
+  } finally {
+    if (old === undefined) delete process.env.MIRA_MEMORY_SESSION_KEY;
+    else process.env.MIRA_MEMORY_SESSION_KEY = old;
   }
 });
