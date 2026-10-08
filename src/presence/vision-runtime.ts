@@ -11,6 +11,7 @@ import {
   stopGestureTracking,
 } from '../core/face/gesture-tracker';
 import { getVisionCameraStream } from '../core/vision/camera-manager';
+import { MiraSenseBus } from '../core/vision/sense-bus';
 import { estimateRealPresencePose } from '../core/vision/real-presence';
 import { postureData, postureTrackerError, startPostureTracking, stopPostureTracking } from '../core/vision/posture-tracker';
 import { rppgData, startRppgMonitoring, stopRppgMonitoring } from '../core/vision/rppg-monitor';
@@ -35,6 +36,7 @@ let activeEngine: 'holistic' | 'legacy' = 'legacy';
 let visionSession = 0;
 let faceRecoveryTimer: number | null = null;
 const handKinematicsTracker = new SpatialHandKinematicsTracker();
+const senseBus = new MiraSenseBus();
 
 function clearFaceRecoveryTimer(): void {
   if (faceRecoveryTimer != null && typeof window !== 'undefined') window.clearTimeout(faceRecoveryTimer);
@@ -116,6 +118,7 @@ export function stopVision(): void {
   stopRppgMonitoring();
   stopObjectAwareness();
   handKinematicsTracker.reset();
+  senseBus.reset();
   activeEngine = 'legacy';
 }
 
@@ -152,7 +155,23 @@ export function visionSnapshot() {
     };
   });
 
+  // Temporal metadata only: do not store landmarks or camera frames in SenseBus.
+  if (faceData.active && faceData.present) {
+    senseBus.ingest({ source: 'face', kind: 'presence', confidence: 0.85, atMs: now }, now);
+  }
+  for (const hand of hands) {
+    if (hand.score > 0) {
+      senseBus.ingest({ source: 'hand', kind: 'tracked', trackId: hand.handedness || 'unknown',
+        confidence: hand.score, atMs: now }, now);
+    }
+  }
+  if (postureData.active && postureData.present) {
+    senseBus.ingest({ source: 'posture', kind: 'presence',
+      confidence: postureData.confidence, atMs: now }, now);
+  }
+  const sense = senseBus.snapshot(now);
   return {
+    sense,
     faceSeen: Boolean(faceData.active && faceData.present),
     face: {
       present: Boolean(faceData.active && faceData.present),

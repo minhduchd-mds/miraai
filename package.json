@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "node scripts/restore-photoreal-assets.mjs && vite build && node scripts/prune-runtime-assets.mjs",
     "preview": "vite preview",
-    "test": "node --test scripts/runtime.test.mjs scripts/runtime-safety.test.mjs scripts/capability-policy.test.mjs scripts/host-action-policy.test.mjs scripts/perception-v15.test.mjs scripts/product-v15-2.test.mjs scripts/accelerator-v15-3.test.mjs scripts/presence-ui-v16.test.mjs scripts/vercel-tts.test.mjs scripts/release-gates.test.mjs scripts/service-worker.test.mjs scripts/privacy-regression.test.mjs scripts/tts-session.test.mjs scripts/ai-quota.test.mjs scripts/signed-memory-session.test.mjs scripts/api-error-safety.test.mjs",
+    "test": "node --test scripts/runtime.test.mjs scripts/runtime-safety.test.mjs scripts/capability-policy.test.mjs scripts/host-action-policy.test.mjs scripts/perception-v15.test.mjs scripts/product-v15-2.test.mjs scripts/accelerator-v15-3.test.mjs scripts/presence-ui-v16.test.mjs scripts/vercel-tts.test.mjs scripts/release-gates.test.mjs scripts/service-worker.test.mjs scripts/privacy-regression.test.mjs scripts/tts-session.test.mjs scripts/ai-quota.test.mjs scripts/signed-memory-session.test.mjs scripts/api-error-safety.test.mjs scripts/sense-bus.test.mjs",
     "benchmark:functional": "node scripts/functional-benchmark.mjs",
     "benchmark": "npm run benchmark:functional && npm run benchmark:camera",
     "check:architecture": "node scripts/check-architecture.mjs",
