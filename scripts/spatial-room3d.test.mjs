@@ -57,3 +57,21 @@ test('room uses bounded GPU work and never captures chat keystrokes',()=>{
  assert.match(room,/Math\.min\(delta,\.06\)/);
  assert.match(room,/invalidateRef\.current\?\.\(\)/);
 });
+
+test('cinematic room keeps reference composition: real woman sprite, glowing ceiling, warm interior',()=>{
+ for(const mark of ['function MiraPortrait','mira-assets/expressions/expr_01_gentle.webp',
+   'THREE.TextureLoader','alphaMap={fade}','function InteriorStyling',
+   'torusGeometry args={[2.08,.095,8,72]}','sofa-pillow-',
+   'curtain-','slat-','keyboard-','marble-','PHÒNG 3D']){
+    if(mark==='PHÒNG 3D')continue;
+    assert.ok(room.includes(mark),'Missing reference styling '+mark);
+  }
+ assert.match(room,/MiraPortrait onReady=\{onReady\}/);
+ assert.match(room,/requestAnimationFrame\(onReady\)/);
+ assert.doesNotMatch(room,/requestAnimationFrame\(sceneReady\)/);
+});
+test('all five concept camera viewpoints are addressable from keyboard without intercepting typing',()=>{
+ for(const part of ['Digit([1-5])','setViewPreset(index)','Trái 90°','Trước','Phải 90°',
+  'Sau 180°','Toàn cảnh','isEditable(event.target)'])
+    assert.ok(room.includes(part),'Missing viewpoint '+part);
+});

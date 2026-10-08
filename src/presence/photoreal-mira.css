@@ -2339,3 +2339,27 @@
 @media(prefers-reduced-motion:reduce) {
   .bedroom-presence .pm-room3d-stage { display:none!important; }
 }
+
+/* Spatial Room v33 art-direction: cinematically styled interior and 5-view guide.
+   The reference image is visual inspiration; current geometry is not the exact photogrammetric room. */
+.bedroom-presence .pm-room3d-gallery{
+  position:absolute;left:50%;bottom:clamp(8px,3vh,26px);
+  width:min(660px,86%);transform:translateX(-50%);
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;
+  pointer-events:none;
+}
+.bedroom-presence .pm-room3d-gallery span{
+  font:500 10px/1.3 system-ui,sans-serif;letter-spacing:.015em;
+  color:#f6e8de;text-align:center;padding:9px 5px;
+  border-radius:8px;border:1px solid rgba(255,238,210,.24);
+  background:rgba(17,20,35,.58);
+  backdrop-filter:blur(6px);
+}
+.bedroom-presence .pm-room3d-gallery span.is-selected{
+  background:rgba(178,115,133,.33);
+  border-color:rgba(255,226,208,.72);
+}
+@media(max-width:640px){
+  .bedroom-presence .pm-room3d-gallery{width:96%;gap:3px}
+  .bedroom-presence .pm-room3d-gallery span{font-size:9px;padding:7px 2px}
+}
