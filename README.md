@@ -1,9 +1,5 @@
 # Mira — Local-first AI Companion
 
-<p align="center">
-  <img src="public/avatars/mira.webp" width="220" alt="Mira avatar" />
-</p>
-
 <p align="center"><strong>Voice-first · Emotion-aware · Long-term memory · Desktop local · Skills · Vision</strong></p>
 
 <p align="center">
