@@ -937,10 +937,28 @@ pub(crate) fn desktop_memory_import_structured(
     tx.commit().map_err(|e| format!("commit structured memory import: {e}"))
 }
 
+/**
+ * Remove private content and usage traces atomically, but preserve explicit
+ * permissions, preferences and the user's locally indexed music library.
+ */
+fn clear_memory_data(connection: &mut Connection) -> Result<(), String> {
+    let tx = connection.transaction().map_err(|e| format!("begin memory wipe: {e}"))?;
+    tx.execute_batch(
+      "DELETE FROM music_context_history;
+       DELETE FROM action_history;
+       DELETE FROM memory_links;
+       DELETE FROM turns;
+       DELETE FROM episodes;
+       DELETE FROM structured_memories;
+       DELETE FROM affect;
+       UPDATE music_tracks SET last_played_at=0, play_count=0;"
+    ).map_err(|e| format!("clear private memory: {e}"))?;
+    tx.commit().map_err(|e| format!("commit memory wipe: {e}"))
+}
+
 #[tauri::command]
 pub(crate) fn desktop_memory_clear(app: AppHandle) -> Result<(), String> {
-    open(&app)?.execute_batch("DELETE FROM turns; DELETE FROM episodes; DELETE FROM structured_memories; DELETE FROM affect;")
-      .map_err(|e| format!("clear memory: {e}"))
+    clear_memory_data(&mut open(&app)?)
 }
 
 #[tauri::command]
@@ -1026,5 +1044,84 @@ pub(crate) fn log_action(app: &AppHandle, action: &str, outcome: &str, detail: &
         "INSERT INTO action_history(action,outcome,detail,ts) VALUES (?1,?2,?3,?4)",
         params![clip(action,80),clip(outcome,40),clip(detail,800),now_ms()]
       );
+    }
+}
+
+#[cfg(test)]
+mod memory_privacy_tests {
+    use super::{clear_memory_data, clip};
+    use rusqlite::Connection;
+
+    #[test]
+    fn clip_handles_unicode_and_limits_characters() {
+        assert_eq!(clip("   🙂é中文  ", 3), "🙂é中");
+        assert_eq!(clip("   ", 100), "");
+    }
+
+    fn fixture() -> Connection {
+        let db = Connection::open_in_memory().expect("open in-memory sqlite");
+        db.execute_batch(
+          "PRAGMA foreign_keys=ON;
+           CREATE TABLE turns (value TEXT);
+           CREATE TABLE episodes (value TEXT);
+           CREATE TABLE structured_memories (id INTEGER PRIMARY KEY, value TEXT);
+           CREATE TABLE memory_links (value TEXT);
+           CREATE TABLE affect (value TEXT);
+           CREATE TABLE music_tracks (
+             id INTEGER PRIMARY KEY, path TEXT, last_played_at INTEGER, play_count INTEGER
+           );
+           CREATE TABLE music_context_history (value TEXT);
+           CREATE TABLE action_history (value TEXT);
+           CREATE TABLE permissions (value TEXT);
+           CREATE TABLE settings (value TEXT);
+           INSERT INTO turns VALUES ('private');
+           INSERT INTO episodes VALUES ('private');
+           INSERT INTO structured_memories VALUES (1, 'private');
+           INSERT INTO memory_links VALUES ('private');
+           INSERT INTO affect VALUES ('private');
+           INSERT INTO music_context_history VALUES ('private');
+           INSERT INTO action_history VALUES ('private');
+           INSERT INTO music_tracks VALUES (1, '/local/song.mp3', 123, 4);
+           INSERT INTO permissions VALUES ('permission');
+           INSERT INTO settings VALUES ('theme');"
+        ).expect("seed privacy fixture");
+        db
+    }
+
+    #[test]
+    fn full_wipe_removes_private_activity_and_keeps_user_preferences() {
+        let mut db = fixture();
+        clear_memory_data(&mut db).expect("wipe all private activity");
+        for table in ["turns", "episodes", "structured_memories", "memory_links",
+            "affect", "music_context_history", "action_history"] {
+            let count: i64 = db.query_row(
+                &format!("SELECT COUNT(*) FROM {table}"), [], |row| row.get(0)
+            ).expect("read table");
+            assert_eq!(count, 0, "private data must be cleared from {table}");
+        }
+        let (played_at, play_count): (i64,i64) = db.query_row(
+            "SELECT last_played_at,play_count FROM music_tracks WHERE id=1",
+            [], |row| Ok((row.get(0)?,row.get(1)?))
+        ).expect("read preserved local music library");
+        assert_eq!((played_at,play_count),(0,0));
+        for table in ["music_tracks","permissions","settings"] {
+            let count: i64 = db.query_row(
+                &format!("SELECT COUNT(*) FROM {table}"),[],|row| row.get(0)
+            ).expect("read preserved table");
+            assert_eq!(count, 1, "{table} must be preserved");
+        }
+    }
+
+    #[test]
+    fn clear_memory_rollback_when_schema_is_incomplete() {
+        let mut db = Connection::open_in_memory().expect("open sqlite");
+        db.execute_batch(
+          "CREATE TABLE music_context_history (value TEXT);
+           INSERT INTO music_context_history VALUES ('retain on failure');"
+        ).expect("setup incomplete schema");
+        assert!(clear_memory_data(&mut db).is_err());
+        let left: i64 = db.query_row("SELECT COUNT(*) FROM music_context_history",
+            [], |row| row.get(0)).expect("check rollback");
+        assert_eq!(left, 1);
     }
 }
