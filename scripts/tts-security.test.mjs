@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { readLimitedTtsAudio, MAX_TTS_AUDIO_BYTES } from '../server/tts-response.mjs';
 import { canonicalRequestHost } from '../lib/request-host.js';
 import { originAllowed, takeRateSlot } from '../server/tts-policy.mjs';
@@ -60,7 +61,7 @@ test('untrusted forwarded IP cannot reset server-side voice burst limit', () => 
 
 test('Mira Vercel and Node gateways use bounded audio reader, never full-array buffer', () => {
   for (const file of ['api/tts.js', 'server/tts-gateway.mjs']) {
-    const source = await import('node:fs').then(({readFileSync}) => readFileSync(file,'utf8'));
+    const source = readFileSync(file, 'utf8');
     assert.match(source, /readLimitedTtsAudio\(response\)/);
     assert.doesNotMatch(source, /response\.arrayBuffer\(\)/);
   }
