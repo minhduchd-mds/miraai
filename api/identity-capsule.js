@@ -264,6 +264,6 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: 'action không hợp lệ' });
   } catch (error) {
-    return res.status(500).json({ error: String(error?.message || error).slice(0, 240) });
+    return res.status(500).json({ error: 'internal_error' });
   }
 }

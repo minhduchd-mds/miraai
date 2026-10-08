@@ -27,7 +27,7 @@ test('signed scope is independent of attacker-controlled legacy device and unsig
     assert.equal(resolveMemoryScope(req(pair + '; mira_scope=knownvictim'), valid, 'anothervictim'), scope);
     assert.equal(valid.cookies.length, 0);
     const forged = res();
-    const signed = pair.replace(/.$/, x => x === 'a' ? 'b' : 'a');
+    const signed = pair.replace(/(m2_)([A-Za-z0-9_-])/, (_, prefix, value) => prefix + (value === 'A' ? 'B' : 'A'));
     assert.notEqual(resolveMemoryScope(req(signed), forged, scope), scope);
     assert.equal(forged.cookies.length, 1);
     const oldUnsigned = res();

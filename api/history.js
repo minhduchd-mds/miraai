@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       try {
         emb = await embed(text, 'RETRIEVAL_DOCUMENT');
       } catch (error) {
-        embErr = String(error?.message || error).slice(0, 160);
+        embErr = true;
       }
 
       if (emb) {
@@ -46,11 +46,11 @@ export default async function handler(req, res) {
         await sql`insert into chat_messages (device_id, role, text)
           values (${device}, ${role}, ${text})`;
       }
-      return res.status(200).json({ ok: true, embedded: !!emb, ...(embErr ? { embErr } : {}) });
+      return res.status(200).json({ ok: true, embedded: !!emb, ...(embErr ? { embeddingDegraded: true } : {}) });
     }
 
     return res.status(405).json({ error: 'method not allowed' });
   } catch (error) {
-    return res.status(500).json({ error: String(error?.message || error).slice(0, 200) });
+    return res.status(500).json({ error: 'internal_error' });
   }
 }

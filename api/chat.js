@@ -93,6 +93,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('[Mira Brain Gateway]', error);
-    return res.status(502).json({ error: String(error?.message || error).slice(0, 300) });
+    return res.status(502).json({ error: 'brain_gateway_failed' });
   }
 }

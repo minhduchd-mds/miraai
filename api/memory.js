@@ -52,6 +52,6 @@ export default async function handler(req, res) {
       limit 5`;
     return res.status(200).json({ memories, facts });
   } catch (error) {
-    return res.status(500).json({ error: String(error?.message || error).slice(0, 200) });
+    return res.status(500).json({ error: 'internal_error' });
   }
 }

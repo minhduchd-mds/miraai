@@ -69,7 +69,7 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(502).json({
       error: 'elevenlabs_tts_failed',
-      detail: String(error && error.message ? error.message : error).slice(0, 240),
+      detail: 'provider_unavailable',
     });
   }
 }

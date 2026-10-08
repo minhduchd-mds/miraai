@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     try {
       generated = await generateBrainJson(DISTILL_PROMPT, conversation, { maxTokens: 450 });
     } catch (error) {
-      return res.status(502).json({ error: 'brain distill lỗi: ' + String(error?.message || error).slice(0, 140) });
+      return res.status(502).json({ error: 'brain_distill_failed' });
     }
 
     const facts = Array.isArray(generated?.json?.facts)
@@ -82,6 +82,6 @@ export default async function handler(req, res) {
     }
     return res.status(200).json({ added: added.length, facts: added, provider: generated?.provider || null, model: generated?.model || null });
   } catch (error) {
-    return res.status(500).json({ error: String(error?.message || error).slice(0, 200) });
+    return res.status(500).json({ error: 'internal_error' });
   }
 }
