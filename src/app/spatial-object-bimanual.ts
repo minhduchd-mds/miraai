@@ -109,6 +109,13 @@ export function updateSpatialObjectBimanual(input: SpatialObjectBimanualInput): 
     },
   );
 
+  if (geometry.distance < 0.08) {
+    groupTransformRef.current = null;
+    objectSessionRef.current = null;
+    jointControlRef.current = null;
+    return false;
+  }
+
   const targetRoot = worldRuntime.clusterRootObjectId(focusObjectId);
   const selectedRoots = selectionRuntime.snapshot();
   const groupMode = selectedRoots.length > 1 && selectedRoots.includes(targetRoot);

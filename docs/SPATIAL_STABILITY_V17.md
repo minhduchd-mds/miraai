@@ -16,3 +16,10 @@ A webcam's gaze, z and velocity are non-metric approximations. These guards prot
 ## Gates
 
 Run `npm test`, `npm run check`, Playwright Visual QA, and real Device Lab before enabling a release. Camera and sensor data stay local.
+
+## Bimanual safety gate
+
+- Require two independent, confident, finite hands with a measurable >=0.08 viewport-width-normalized separation before scaling/rotation starts.
+- Sort stable handedness to prevent frame-order swapping.
+- Pause selection, grouping and two-hand window transforms when Settings is open.
+- Verify both normal drag and intentional two-hand scale/rotate on real devices; synthetic tests do not validate recognition accuracy.

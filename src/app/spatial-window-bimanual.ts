@@ -65,6 +65,12 @@ export function updateSpatialWindowBimanual(input: SpatialWindowBimanualInput): 
     },
   );
 
+  // Never capture a near-zero pinch baseline: it amplifies tiny hand jitter.
+  if (geometry.distance < 0.08) {
+    sessionRef.current = null;
+    return false;
+  }
+
   let session = sessionRef.current;
   if (!session || session.id !== transformTarget) {
     const base = windowsRef.current[transformTarget];

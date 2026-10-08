@@ -10,6 +10,7 @@ import { handleSpatialObjectManipulation } from './spatial-object-manipulation';
 import { handleSpatialWindowControl } from './spatial-window-control';
 import { updateSpatialWindowBimanual } from './spatial-window-bimanual';
 import { updateSpatialObjectBimanual } from './spatial-object-bimanual';
+import { selectStableBimanualHands } from './spatial-two-hand';
 
 export function useVisionSpatialRuntime(options: any) {
   const {
@@ -217,7 +218,7 @@ export function useVisionSpatialRuntime(options: any) {
       }, now);
       setSpatialFrame(spatialFrameNext);
 
-      const selectionGesture = applySpatialSelectionGesture({
+      const selectionGesture = settingsOpen ? null : applySpatialSelectionGesture({
         intent: intent.intent,
         focus: spatialFrameNext.focus,
         selectionRuntime: spatialSelectionRef.current,
@@ -231,7 +232,7 @@ export function useVisionSpatialRuntime(options: any) {
         showSpatialFeedback(selectionGesture.feedback);
       }
 
-      const pinchedHands = rawHands.filter((hand: any) => Boolean(hand?.pinching));
+      const pinchedHands = settingsOpen ? [] : selectStableBimanualHands(rawHands);
       const twoHandsActive = pinchedHands.length >= 2;
 
       for (const event of spatialFrameNext.events) {
