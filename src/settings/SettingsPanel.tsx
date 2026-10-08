@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { Theme, VoiceOption } from '../core/types';
 import { isDesktopRuntime } from '../desktop/bridge';
-import { checkMiraConnectivity, type MiraConnectivityReport } from '../runtime/connectivity-diagnostics';
+import type { MiraConnectivityReport } from '../runtime/connectivity-diagnostics';
 import {
   chooseDesktopMusicFolder,
   loadDesktopPrivacyState,
@@ -146,7 +146,10 @@ export default function SettingsPanel(props: Props) {
     if (deviceDiagnosticsBusy) return;
     setDeviceDiagnosticsBusy(true);
     try {
-      const [device, network] = await Promise.allSettled([runDeviceDiagnostics(), checkMiraConnectivity()]);
+      const [device, network] = await Promise.allSettled([
+        runDeviceDiagnostics(),
+        import('../runtime/connectivity-diagnostics').then(({ checkMiraConnectivity }) => checkMiraConnectivity()),
+      ]);
       setDeviceDiagnostics(device.status === 'fulfilled' ? device.value : null);
       setConnectivity(network.status === 'fulfilled' ? network.value : null);
     } finally { setDeviceDiagnosticsBusy(false); }
