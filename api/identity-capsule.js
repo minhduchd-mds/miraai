@@ -178,6 +178,10 @@ export default async function handler(req, res) {
   const sql = getSql();
   if (!sql) return res.status(503).json({ error: 'chưa cấu hình DATABASE_URL' });
 
+  const contentLength = Number(req.headers?.['content-length'] || 0);
+  if (!Number.isFinite(contentLength) || contentLength > 4 * 1024 * 1024) {
+    return res.status(413).json({ error: 'capsule_request_too_large' });
+  }
   const body = req.method === 'GET' ? {} : parseBody(req);
   const device = resolveMemoryScope(req, res, req.query?.device || body?.device);
   if (!device) return res.status(503).json({ error: 'memory_session_unavailable' });
@@ -219,29 +223,39 @@ export default async function handler(req, res) {
           })).filter((item) => item.text).slice(0, MAX_MESSAGES)
         : [];
 
+      const writes = [];
       if (facts.length) {
         const json = JSON.stringify(facts);
-        await sql`
+        writes.push(sql`
           insert into user_facts (device_id, fact)
-          select ${device}, x.fact
-          from jsonb_to_recordset(${json}::jsonb) as x(fact text)
+          select ${device}, input.fact
+          from (
+            select distinct on (lower(x.fact)) x.fact
+            from jsonb_to_recordset(${json}::jsonb) as x(fact text)
+            order by lower(x.fact), x.fact
+          ) as input
           where not exists (
             select 1 from user_facts u
-            where u.device_id = ${device} and lower(u.fact) = lower(x.fact)
-          )`;
+            where u.device_id = ${device} and lower(u.fact) = lower(input.fact)
+          )
+          returning id`);
       }
-
       if (history.length) {
         const json = JSON.stringify(history);
-        await sql`
+        writes.push(sql`
           insert into chat_messages (device_id, role, text, created_at)
-          select ${device}, x.role, x.text, x.created_at
-          from jsonb_to_recordset(${json}::jsonb) as x(role text, text text, created_at timestamptz)
-          where x.role in ('user', 'mira')
-            and not exists (
-              select 1 from chat_messages m
-              where m.device_id = ${device} and m.role = x.role and m.text = x.text
-            )`;
+          select ${device}, input.role, input.text, input.created_at
+          from (
+            select distinct on (x.role,x.text) x.role,x.text,x.created_at
+            from jsonb_to_recordset(${json}::jsonb) as x(role text,text text,created_at timestamptz)
+            where x.role in ('user','mira')
+            order by x.role,x.text,x.created_at
+          ) as input
+          where not exists (
+            select 1 from chat_messages m
+            where m.device_id = ${device} and m.role = input.role and m.text = input.text
+          )
+          returning id`);
       }
 
       const preferences = sanitizePreferences(capsule.preferences);
@@ -252,11 +266,23 @@ export default async function handler(req, res) {
         preferences,
         importedAt: new Date().toISOString(),
       });
-      await persistCapsule(sql, device, normalized);
+      const digest = normalized.integrity.digest;
+      writes.push(sql`
+        insert into identity_capsules (device_id, schema_version, capsule, digest, updated_at)
+        values (${device}, ${SCHEMA_VERSION}, ${JSON.stringify(normalized)}::jsonb, ${digest}, now())
+        on conflict (device_id) do update
+        set schema_version = excluded.schema_version,
+            capsule = excluded.capsule,
+            digest = excluded.digest,
+            updated_at = now()
+        returning id`);
+      const results = await sql.transaction(writes);
+      const mergedFacts = facts.length ? results[0].length : 0;
+      const mergedMessages = history.length ? results[facts.length ? 1 : 0].length : 0;
       return res.status(200).json({
         ok: true,
-        mergedFacts: facts.length,
-        mergedMessages: history.length,
+        mergedFacts,
+        mergedMessages,
         preferences,
         continuity: normalized.continuity || null,
       });
