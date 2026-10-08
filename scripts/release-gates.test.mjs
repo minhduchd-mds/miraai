@@ -84,7 +84,7 @@ test('contract-only matrix allows a clean checkout without empirical data', () =
 });
 test('desktop publisher rejects unsigned, stale, unnotarized and altered artifacts', () => {
   temp(dir => {
-    const artifact = 'Mira-v0.1.0-macOS-Intel.dmg';
+    const artifact = 'Mira-v0.2.0-macOS-Intel.dmg';
     const bytes = Buffer.from('test fixture, not a DMG');
     const hash = createHash('sha256').update(bytes).digest('hex');
     writeFileSync(join(dir, artifact), bytes);

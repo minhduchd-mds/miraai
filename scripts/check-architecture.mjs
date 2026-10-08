@@ -1471,7 +1471,7 @@ for (const token of [
   if (!desktopWorkflow.includes(token)) failures.push(`desktop DMG workflow missing: ${token}`);
 }
 
-const windowsReleaseWorkflow = readFileSync('.github/workflows/release-windows-v0.1.0.yml', 'utf8');
+const windowsReleaseWorkflow = readFileSync('.github/workflows/release-windows-v0.2.0.yml', 'utf8');
 for (const token of [
   'WINDOWS_CERTIFICATE',
   'WINDOWS_CERTIFICATE_PASSWORD',
@@ -1485,7 +1485,7 @@ for (const token of [
   if (!windowsReleaseWorkflow.includes(token)) failures.push(`Windows release signing workflow missing: ${token}`);
 }
 
-const releaseWorkflow = readFileSync('.github/workflows/release-v0.1.0.yml', 'utf8');
+const releaseWorkflow = readFileSync('.github/workflows/release-v0.2.0.yml', 'utf8');
 for (const token of [
   'Resolve latest validated macOS DMG run',
   '--workflow "macos-dmg.yml"',

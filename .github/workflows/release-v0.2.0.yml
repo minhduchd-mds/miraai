@@ -1,4 +1,4 @@
-name: Release Mira v0.1.0
+name: Release Mira v0.2.0
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: mira-release-v0.1.0
+  group: mira-release-v0.2.0
   cancel-in-progress: false
 
 jobs:
@@ -17,9 +17,9 @@ jobs:
     timeout-minutes: 10
 
     env:
-      RELEASE_TAG: v0.1.0
-      RELEASE_NAME: Mira v0.1.0
-      RELEASE_DMG: Mira-v0.1.0-macOS-Intel.dmg
+      RELEASE_TAG: v0.2.0
+      RELEASE_NAME: Mira v0.2.0
+      RELEASE_DMG: Mira-v0.2.0-macOS-Intel.dmg
 
     steps:
       - name: Checkout
@@ -46,9 +46,9 @@ jobs:
           const fs = require('fs');
           const tauri = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          if (tauri.version !== '0.1.0') throw new Error('tauri version must be 0.1.0');
-          if (pkg.version !== '0.1.0') throw new Error('package version must be 0.1.0');
-          console.log('Mira version contract: 0.1.0');
+          if (tauri.version !== '0.2.0') throw new Error('tauri version must be 0.2.0');
+          if (pkg.version !== '0.2.0') throw new Error('package version must be 0.2.0');
+          console.log('Mira version contract: 0.2.0');
           NODE
 
       - name: Resolve latest validated macOS DMG run
@@ -97,23 +97,23 @@ jobs:
           set -euo pipefail
 
           cat > /tmp/release-notes.md <<'EOF'
-          ## Mira v0.1.0
+          ## Mira v0.2.0
 
-          Bản cài đặt macOS đầu tiên của **Mira — Voice-first AI Companion**.
+          Bản nâng cấp Mira Desktop, tập trung vào voice, local-first runtime và kiểm định phát hành.
 
-          ### Có trong bản này
-          - Voice-first UI, không cần thanh chat.
+          ### Nâng cấp chính
+          - Voice-first UI và persona delivery presets, điều chỉnh ngữ điệu theo ngữ cảnh.
           - Presence scene tự động theo thời gian/ngữ cảnh.
           - Camera/vision cho face, hand, pose và interaction.
-          - Memory + contextual companion runtime.
+          - Local-first memory SQLite, desktop permissions và contextual companion runtime.
           - ElevenLabs neural voice gateway.
-          - WebP presence assets và Visual QA/device-profile regression.
-          - Desktop shell bằng Tauri, đóng gói frontend local.
+          - WebP presence assets, capability regression và visual QA đa viewport.
+          - Tauri desktop đóng gói frontend local, kiểm thử native trên macOS và Windows.
 
           ### macOS
           - **Intel x86_64**
           - **macOS Ventura 13.0+**
-          - File cài đặt: `Mira-v0.1.0-macOS-Intel.dmg`
+          - File cài đặt: `Mira-v0.2.0-macOS-Intel.dmg`
 
           ### Xác minh
           File DMG được lấy từ **latest successful `macos-dmg.yml` run** trên nhánh `main` cho đúng commit phát hành.

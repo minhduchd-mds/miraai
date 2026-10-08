@@ -34,7 +34,7 @@ Music Library chỉ index thư mục người dùng chủ động chọn, bỏ q
 npx tauri build --bundles nsis --target x86_64-pc-windows-msvc
 ```
 
-Workflow: `.github/workflows/release-windows-v0.1.0.yml`
+Workflow: `.github/workflows/release-windows-v0.2.0.yml`
 
 ### macOS Intel
 
@@ -79,10 +79,10 @@ Khi có certificate, workflow yêu cầu identity rõ ràng để không rơi v�
 ## Publication gate
 
 - `macos-dmg.yml` chỉ tạo artifact. Artifact kèm `release-validation.json` ghi commit, checksum và kết quả signing/notarization.
-- Chạy thủ công `release-v0.1.0.yml` trên commit cần phát hành. Publisher chỉ nhận run macOS thành công trên `main` tại đúng `GITHUB_SHA`; bắt buộc Developer ID, notarization/Gatekeeper và checksum khớp. Artifact cũ hoặc ad-hoc bị từ chối.
+- Chạy thủ công `release-v0.2.0.yml` trên commit cần phát hành. Publisher chỉ nhận run macOS thành công trên `main` tại đúng `GITHUB_SHA`; bắt buộc Developer ID, notarization/Gatekeeper và checksum khớp. Artifact cũ hoặc ad-hoc bị từ chối.
 - Windows mặc định chỉ build. Chạy thủ công với `publish=true` để xuất bản; app và installer đều phải có Authenticode hợp lệ.
 - Cả hai publisher yêu cầu secret `DEVICE_LAB_RESULTS` chứa ít nhất 3 kết quả PASS của đúng commit; xem [Device Lab](MIRA-DEVICE-LAB.md).
-- Tag release đã tồn tại phải trỏ tới đúng commit được xác minh. Không thay installer của commit mới dưới tag cũ. Các workflow hiện cố định `v0.1.0`; tăng version/tag trước đợt release mới khi cần.
+- Tag release đã tồn tại phải trỏ tới đúng commit được xác minh. Không thay installer của commit mới dưới tag cũ. Các workflow phát hành hiện cố định `v0.2.0`; tăng đồng bộ version/tag và workflow trước đợt release tiếp theo. Release v0.1.0 là bản lịch sử, không được ghi đè artifact của v0.2.0.
 - Native check build frontend trước Cargo và tạo Windows resource icon từ PNG gốc để clean checkout không thiếu `icon.ico`.
 
 ## Release limitations

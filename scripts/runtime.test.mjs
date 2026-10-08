@@ -6139,7 +6139,7 @@ test('AppV2 delegates presence-return learning lifecycle to a hook', () => {
 
 test('desktop release workflows are signing-ready without breaking unsigned builds', () => {
   const mac = readFileSync('.github/workflows/macos-dmg.yml', 'utf8');
-  const windows = readFileSync('.github/workflows/release-windows-v0.1.0.yml', 'utf8');
+  const windows = readFileSync('.github/workflows/release-windows-v0.2.0.yml', 'utf8');
 
   for (const token of [
     'APPLE_CERTIFICATE',
@@ -6167,7 +6167,7 @@ test('desktop release workflows are signing-ready without breaking unsigned buil
 
 
 test('release workflow selects a validated macOS artifact for the release commit', () => {
-  const source = readFileSync('.github/workflows/release-v0.1.0.yml', 'utf8');
+  const source = readFileSync('.github/workflows/release-v0.2.0.yml', 'utf8');
 
   for (const token of [
     'Resolve latest validated macOS DMG run',

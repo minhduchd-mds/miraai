@@ -1,10 +1,10 @@
-name: Release Mira Windows v0.1.0
+name: Release Mira Windows v0.2.0
 
 on:
   push:
     branches: ["main"]
     paths:
-      - ".github/workflows/release-windows-v0.1.0.yml"
+      - ".github/workflows/release-windows-v0.2.0.yml"
       - "src-tauri/**"
       - "src/desktop/**"
       - "src/intelligence/memory/**"
@@ -24,7 +24,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: mira-release-windows-v0.1.0
+  group: mira-release-windows-v0.2.0
   cancel-in-progress: false
 
 jobs:
@@ -33,8 +33,8 @@ jobs:
     timeout-minutes: 35
 
     env:
-      RELEASE_TAG: v0.1.0
-      RELEASE_EXE: Mira-v0.1.0-Windows-x64-Setup.exe
+      RELEASE_TAG: v0.2.0
+      RELEASE_EXE: Mira-v0.2.0-Windows-x64-Setup.exe
 
     steps:
       - name: Checkout
@@ -82,9 +82,9 @@ jobs:
         run: |
           $tauri = Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
           $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
-          if ($tauri.version -ne "0.1.0") { throw "tauri version must be 0.1.0" }
-          if ($pkg.version -ne "0.1.0") { throw "package version must be 0.1.0" }
-          Write-Host "Mira version contract: 0.1.0"
+          if ($tauri.version -ne "0.2.0") { throw "tauri version must be 0.2.0" }
+          if ($pkg.version -ne "0.2.0") { throw "package version must be 0.2.0" }
+          Write-Host "Mira version contract: 0.2.0"
       - name: Import Windows signing certificate
         shell: pwsh
         env:
@@ -224,7 +224,7 @@ jobs:
               "",
               "### Windows x64",
               "- Windows 10/11 x64",
-              "- Installer: Mira-v0.1.0-Windows-x64-Setup.exe",
+              "- Installer: Mira-v0.2.0-Windows-x64-Setup.exe",
               "- Tauri + NSIS",
               "- Requires Microsoft Edge WebView2 Runtime; Windows 10/11 normally includes or can install it.",
               "- Authenticode signatures and real-device evidence are required by the release workflow."
