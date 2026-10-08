@@ -137,3 +137,14 @@ test('v27: frame timestamp routed to window and object transforms',()=>{
    assert.match(src,/frameAt - .*\.since >= 240/);
  }
 });
+
+test('v27: heavy bimanual modules are lazy and outside AppV2 initial graph',()=>{
+ const hook=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
+ const vision=readFileSync('src/presence/vision-runtime.ts','utf8');
+ assert.doesNotMatch(hook,/import \{ updateSpatialWindowBimanual \} from/);
+ assert.doesNotMatch(hook,/import \{ updateSpatialObjectBimanual \} from/);
+ assert.match(hook,/current\?\.updateSpatialWindowBimanual\(/);
+ assert.match(hook,/current\?\.updateSpatialObjectBimanual\(/);
+ assert.match(vision,/export \{ updateSpatialWindowBimanual \} from/);
+ assert.match(vision,/export \{ updateSpatialObjectBimanual \} from/);
+});

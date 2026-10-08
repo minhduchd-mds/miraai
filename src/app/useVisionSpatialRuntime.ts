@@ -8,8 +8,6 @@ import { updateVisionHandInteraction } from './vision-hand-interaction';
 import { applySpatialSelectionGesture } from './spatial-selection-gesture';
 import { handleSpatialObjectManipulation } from './spatial-object-manipulation';
 import { handleSpatialWindowControl } from './spatial-window-control';
-import { updateSpatialWindowBimanual } from './spatial-window-bimanual';
-import { updateSpatialObjectBimanual } from './spatial-object-bimanual';
 import { StableBimanualPairRuntime } from './spatial-two-hand';
 
 export function useVisionSpatialRuntime(options: any) {
@@ -338,7 +336,7 @@ export function useVisionSpatialRuntime(options: any) {
         }
       }
 
-      updateSpatialWindowBimanual({
+      current?.updateSpatialWindowBimanual({
         pinchedHands,
         focus: spatialFrameNext.focus,
         lastWindowId: lastSpatialWindowRef.current,
@@ -350,7 +348,7 @@ export function useVisionSpatialRuntime(options: any) {
         showFeedback: showSpatialFeedback,
       });
 
-      updateSpatialObjectBimanual({
+      current?.updateSpatialObjectBimanual({
         pinchedHands,
         focusObjectId: spatialFrameNext.focus?.kind === 'object'
           ? spatialFrameNext.focus.id

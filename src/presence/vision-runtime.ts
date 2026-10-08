@@ -29,6 +29,9 @@ import { SpatialHandKinematicsTracker } from '../core/vision/spatial-hand-kinema
 import { SpatialHandFrameCache } from '../core/vision/spatial-hand-frame-cache';
 import { SpatialAdaptivePointer } from '../core/vision/spatial-adaptive-pointer';
 import { spatialPerformanceProfiler } from '../core/vision/spatial-performance';
+// Heavy bimanual geometry is imported only with the camera runtime.
+export { updateSpatialWindowBimanual } from '../app/spatial-window-bimanual';
+export { updateSpatialObjectBimanual } from '../app/spatial-object-bimanual';
 import {
   objectAwarenessSnapshot,
   startObjectAwareness,
