@@ -21,7 +21,7 @@ test('Catalog strictly excludes paid, unrated and non-chat model entries',()=>{
    pricing:{input:'0',output:'0',output_tiers:[{cost:'0.01'}]}})),false);
  assert.equal(isVerifiedFreeTextModel(model('fish-audio/audio-free','0',{
    type:'speech',modalities:{input:['text'],output:['audio']}})),false);
- assert.equal(isVerifiedFreeTextModel(model('evil/not-free','0')),false);
+ assert.equal(isVerifiedFreeTextModel(model('evil/paid-model','0')),false);
  assert.equal(isVerifiedFreeTextModel(model('unknown/low-context-free','0',{context_window:1000})),false);
  assert.deepEqual(rankFreeTextModels([tiny,laguna,ling],env.MIRA_BRAIN_GATEWAY_FREE_MODELS),
    [ling.id,laguna.id,tiny.id]);
