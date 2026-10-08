@@ -29,6 +29,7 @@ export function useVisionSpatialRuntime(options: any) {
     interactionTrackerRef,
     setInteractionTelemetry,
     updateVisionHandInput,
+    resetVisionHandInput,
     setHandLandmarks,
     setHandKinematics,
     spatialObjectRuntimeRef,

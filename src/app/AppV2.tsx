@@ -583,6 +583,7 @@ export default function AppV2() {
     interactionTrackerRef,
     setInteractionTelemetry,
     updateVisionHandInput,
+    resetVisionHandInput,
     setHandLandmarks,
     setHandKinematics,
     spatialObjectRuntimeRef,
