@@ -36,3 +36,10 @@ test('both web-camera two-hand transform paths require safe initial separation',
   assert.match(s,/geometry.distance < 0.08/);
  }
 });
+
+test('modal opening cancels spatial drag sessions without resetting on every render',()=>{
+ const source=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
+ assert.match(source,/if \(!settingsOpen\) return;[\s\S]*?spatialGrabSessionRef.current = null;/);
+ assert.match(source,/spatialDepthAnchorRef.current.reset\(\)/);
+ assert.match(source,/return \(\) => window.clearInterval\(timer\)/);
+});

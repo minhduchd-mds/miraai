@@ -76,6 +76,21 @@ export function useVisionSpatialRuntime(options: any) {
   } = options;
 
   useEffect(() => {
+    if (!settingsOpen) return;
+    // Opening a modal cancels in-flight spatial manipulation; unrelated React
+    // effect rerenders must not release an active pinch/drag mid-frame.
+    spatialUiRef.current?.reset();
+    spatialGrabSessionRef.current = null;
+    spatialDepthAnchorRef.current.reset();
+    twoHandSpatialSessionRef.current = null;
+    twoHandObjectSessionRef.current = null;
+    spatialGroupTransformRef.current = null;
+    spatialObjectDepthRef.current.reset();
+    spatialObjectAttachmentBeforeGrabRef.current = null;
+    placementPreviewRef.current = null;
+  }, [settingsOpen]);
+
+  useEffect(() => {
     if (!visionOn) return;
 
     const timer = window.setInterval(() => {
@@ -445,12 +460,7 @@ export function useVisionSpatialRuntime(options: any) {
       });
     }, 120);
 
-    return () => {
-      window.clearInterval(timer);
-      // A closed Settings overlay or disabled camera must not retain a
-      // previously armed gesture focus or a half-open grab session.
-      spatialUiRef.current?.reset();
-    };
+    return () => window.clearInterval(timer);
   }, [
     affectFollowing,
     mira.interrupt,

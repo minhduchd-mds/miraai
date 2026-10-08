@@ -23,3 +23,7 @@ Run `npm test`, `npm run check`, Playwright Visual QA, and real Device Lab befor
 - Sort stable handedness to prevent frame-order swapping.
 - Pause selection, grouping and two-hand window transforms when Settings is open.
 - Verify both normal drag and intentional two-hand scale/rotate on real devices; synthetic tests do not validate recognition accuracy.
+
+## Modal lifecycle
+
+Settings opening cancels the active webcam pinch session, relative-depth anchor and bimanual transforms. Ordinary state rerenders must only replace the polling timer; they must not reset gestures halfway through a valid drag. Camera shutoff still clears vision state through the existing `stopVision` routine.
