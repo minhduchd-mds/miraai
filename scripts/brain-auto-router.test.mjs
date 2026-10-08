@@ -48,6 +48,8 @@ test('Automatic router discovers a NEW free language model and switches across 3
  assert.equal(response.model,tiny.id);
  assert.equal(response.text,'Dạ, em đang nghe anh.');
  assert.equal(discoveryCount,1);
+ assert.match(await import('node:fs').then(m=>m.readFileSync('lib/vercel-ai-gateway.js','utf8')),
+   /AbortSignal\.timeout\(autoFree \? 15_000 : 24_000\)/);
  assert.equal(freeRouterSnapshot().catalogFresh,true);
 });
 test('Free rate-limited candidates are cooled down and skipped automatically',async()=>{
