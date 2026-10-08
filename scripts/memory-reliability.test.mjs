@@ -20,7 +20,9 @@ test('ordinary recall is bounded by index cursors, export still reads whole arch
   assert.match(browser, /readRecent<TurnRow>\('turns', 260\)/);
   assert.match(browser, /readRecent<EpisodeRow>\('episodes', 120\)/);
   assert.match(browser, /readRecent<AffectRow>\('affect', 1\)/);
-  assert.match(browser, /readAll<TurnRow>\('turns'\)/);
+  const portability = readFileSync('src/intelligence/memory/local-memory-portability.ts', 'utf8');
+  assert.match(browser, /import\('\.\/local-memory-portability'\)/);
+  assert.match(portability, /getAll<TurnRow>\(db, 'turns'\)/);
   assert.match(browser, /db\.onversionchange =/);
 });
 

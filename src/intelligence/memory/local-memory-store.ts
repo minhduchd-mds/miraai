@@ -130,14 +130,6 @@ function similarity(query: string[], text: string): number {
   return hits / query.length;
 }
 
-async function readAll<T>(storeName: 'turns' | 'episodes' | 'affect'): Promise<T[]> {
-  const db = await openDb();
-  const tx = db.transaction(storeName, 'readonly');
-  const rows = (await requestResult<any[]>(tx.objectStore(storeName).getAll())) as T[];
-  await transactionDone(tx);
-  return rows;
-}
-
 /**
  * Traverse the timestamp index newest-first rather than materializing the
  * entire conversation/affect store during each user turn.
@@ -178,23 +170,9 @@ export class LocalMemoryStore {
   }
 
   async exportSnapshot(): Promise<LocalMemorySnapshot> {
-    const [turns, episodes, affects] = await Promise.all([
-      readAll<TurnRow>('turns'),
-      readAll<EpisodeRow>('episodes'),
-      readAll<AffectRow>('affect'),
-    ]);
-    return {
-      exportedAt: new Date().toISOString(),
-      turns: turns
-        .sort((a, b) => a.ts - b.ts)
-        .map(({ role, text, ts }) => ({ role, text, ts })),
-      episodes: episodes
-        .sort((a, b) => a.ts - b.ts)
-        .map(({ text, ts }) => ({ text, ts })),
-      affects: affects
-        .sort((a, b) => a.ts - b.ts)
-        .map(({ id: _id, ...row }) => row),
-    };
+    const db = await openDb();
+    const { exportLocalSnapshot } = await import('./local-memory-portability');
+    return exportLocalSnapshot(db);
   }
 
   async importStructuredMemoryGraph(
@@ -207,26 +185,9 @@ export class LocalMemoryStore {
 
   async importTurns(items: Array<{ role?: unknown; text?: unknown; ts?: unknown; createdAt?: unknown }>): Promise<void> {
     if (!Array.isArray(items) || !items.length) return;
-    {
-      const db = await openDb();
-      const existing = await readAll<TurnRow>('turns');
-      const seen = new Set(existing.map((row) => row.role + ':' + row.text));
-      const tx = db.transaction('turns', 'readwrite');
-      const store = tx.objectStore('turns');
-      for (const item of items.slice(-500)) {
-        const role: BrainTurn['role'] = item?.role === 'mira' ? 'mira' : 'user';
-        const text = typeof item?.text === 'string' ? item.text.trim().slice(0, 6000) : '';
-        if (!text || seen.has(role + ':' + text)) continue;
-        seen.add(role + ':' + text);
-        const parsedDate = typeof item?.createdAt === 'string' ? Date.parse(item.createdAt) : NaN;
-        const rawTs = Number(item?.ts);
-        const ts = Number.isFinite(rawTs) && rawTs > 0
-          ? rawTs
-          : Number.isFinite(parsedDate) ? parsedDate : Date.now();
-        store.add({ role, text, ts } satisfies TurnRow);
-      }
-      await transactionDone(tx);
-    }
+    const db = await openDb();
+    const { importLocalTurns } = await import('./local-memory-portability');
+    await importLocalTurns(db, items);
   }
 
   async clearAll(): Promise<void> {
