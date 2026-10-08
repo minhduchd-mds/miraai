@@ -66,7 +66,9 @@ let video: HTMLVideoElement | null = null;
 let frameRequestId = 0;
 let frameScheduler: PerceptionFrameScheduler = 'animation-frame';
 let stopped = true;
-let busy = false;
+let startupPromise: Promise<boolean> | null = null;
+let startupGeneration = 0;
+let inFlightGeneration = 0;
 let lastError: string | null = null;
 let activeDelegate: Delegate | 'unknown' = 'unknown';
 let delegateFailoverPromise: Promise<boolean> | null = null;
@@ -548,6 +550,7 @@ function clearAllSignals(): void {
 async function fallbackHolisticToCpu(reason: unknown): Promise<boolean> {
   if (delegateFailoverPromise) return delegateFailoverPromise;
 
+  const recoveryGeneration = startupGeneration;
   delegateFailoverPromise = (async () => {
     const failedMessage = visionInferenceErrorMessage(reason);
     const previous = landmarker;
@@ -556,7 +559,7 @@ async function fallbackHolisticToCpu(reason: unknown): Promise<boolean> {
 
     try {
       const cpuLandmarker = await createLandmarker('CPU');
-      if (stopped) {
+      if (stopped || recoveryGeneration !== startupGeneration) {
         try { cpuLandmarker?.close?.(); } catch { /* noop */ }
         return false;
       }
@@ -571,6 +574,7 @@ async function fallbackHolisticToCpu(reason: unknown): Promise<boolean> {
       console.warn('[Mira Holistic] GPU inference failed; switched to CPU delegate.', failedMessage);
       return true;
     } catch (cpuError) {
+      if (recoveryGeneration !== startupGeneration) return false;
       lastError = visionInferenceErrorMessage(cpuError) || failedMessage;
       holisticRuntimeData.error = lastError;
       console.warn('[Mira Holistic] CPU fallback failed.', lastError);
@@ -742,24 +746,53 @@ export function holisticTraceSnapshot(now = performance.now()): PerceptionTraceS
   return perceptionTrace.snapshot(now);
 }
 
+/**
+ * v31: concurrent starts share one in-flight graph initialization. A stop
+ * invalidates its generation even if GPU setup/getUserMedia cannot be aborted.
+ * A later start waits for that cancelled attempt to release resources.
+ */
 export async function startHolisticTracking(): Promise<boolean> {
   if (!stopped) return true;
-  if (busy) return false;
-  busy = true;
+  if (startupPromise) {
+    const observedGeneration = inFlightGeneration;
+    const ready = await startupPromise;
+    if (ready && !stopped) return true;
+    if (observedGeneration === startupGeneration) return false;
+  }
+  if (!stopped) return true;
+  const generation = ++startupGeneration;
+  inFlightGeneration = generation;
+  const promise = startHolisticAttempt(generation);
+  startupPromise = promise;
+  try {
+    return await promise;
+  } finally {
+    if (startupPromise === promise) startupPromise = null;
+  }
+}
+
+async function startHolisticAttempt(generation: number): Promise<boolean> {
   lastError = null;
   holisticRuntimeData.error = null;
   holisticRuntimeData.providerPlan = currentPerceptionRuntimePlan('holistic', false);
+  let candidate: typeof landmarker = null;
 
   try {
     let delegate: Delegate = 'GPU';
     try {
-      landmarker = await createLandmarker('GPU');
+      candidate = await createLandmarker('GPU');
     } catch (gpuError) {
+      if (generation !== startupGeneration) return false;
       console.warn('[Mira Holistic] GPU delegate unavailable; falling back to CPU.', gpuError);
       delegate = 'CPU';
-      landmarker = await createLandmarker('CPU');
+      candidate = await createLandmarker('CPU');
+    }
+    if (generation !== startupGeneration) {
+      try { candidate?.close?.(); } catch { /* stale graph teardown */ }
+      return false;
     }
 
+    landmarker = candidate;
     activeDelegate = delegate;
     consecutiveInferenceFailures = 0;
     governor = new VisionPerformanceGovernor('holistic', delegate);
@@ -769,7 +802,12 @@ export async function startHolisticTracking(): Promise<boolean> {
     lastWorkerSeq = 0;
     firstWorkerFallbackDone = false;
     workerLastHealthyAt = performance.now();
-    video = await acquireVisionCamera('holistic');
+    const acquiredVideo = await acquireVisionCamera('holistic');
+    if (generation !== startupGeneration) {
+      releaseVisionCamera('holistic');
+      return false;
+    }
+    video = acquiredVideo;
     stopped = false;
     holisticRuntimeData.active = true;
     holisticRuntimeData.delegate = delegate;
@@ -780,17 +818,20 @@ export async function startHolisticTracking(): Promise<boolean> {
     scheduleReadFrame();
     return true;
   } catch (error) {
+    if (generation !== startupGeneration) {
+      // A manual stop has already disposed the old graph and camera lease.
+      return false;
+    }
     lastError = error instanceof Error ? error.message : String(error);
     holisticRuntimeData.error = lastError;
     console.warn('[Mira Holistic] unified tracker unavailable.', lastError);
     stopHolisticTracking();
     return false;
-  } finally {
-    busy = false;
   }
 }
 
 export function stopHolisticTracking(): void {
+  startupGeneration += 1;
   stopped = true;
   frameGate.reset();
   cancelReadFrame();

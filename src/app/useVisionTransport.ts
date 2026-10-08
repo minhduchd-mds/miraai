@@ -28,6 +28,7 @@ export function useVisionTransport() {
     visionWantedRef.current = false;
     visionGenerationRef.current += 1;
     recoveryPolicyRef.current.reset();
+    visionStartingRef.current = false;
     visionModulesRef.current?.stopVision();
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
     setVisionOn(false);
@@ -66,8 +67,10 @@ export function useVisionTransport() {
       setVisionOn(false);
       return false;
     } finally {
-      visionStartingRef.current = false;
-      if (request === visionGenerationRef.current) setVisionBooting(false);
+      if (request === visionGenerationRef.current) {
+        visionStartingRef.current = false;
+        setVisionBooting(false);
+      }
     }
   }, [loadVisionModules, visionBooting]);
 
@@ -146,8 +149,10 @@ export function useVisionTransport() {
           setVisionError(error instanceof Error ? error.message : 'Không kết nối lại được camera.');
         }
       } finally {
-        visionStartingRef.current = false;
-        if (request === visionGenerationRef.current) setVisionBooting(false);
+        if (request === visionGenerationRef.current) {
+          visionStartingRef.current = false;
+          setVisionBooting(false);
+        }
       }
     };
     const timer = window.setInterval(() => { void inspect(); }, 1_200);
@@ -157,6 +162,7 @@ export function useVisionTransport() {
   useEffect(() => () => {
     visionWantedRef.current = false;
     visionGenerationRef.current += 1;
+    visionStartingRef.current = false;
     visionModulesRef.current?.stopVision();
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
   }, []);
