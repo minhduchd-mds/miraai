@@ -68,3 +68,8 @@ test('VRM callback does not retrigger loader from normal React rerenders',()=>{
  assert.match(vrm,/\},\[invalidate\]\);/);
  assert.doesNotMatch(vrm,/\[invalidate,onReady\]/);
 });
+
+test('real 3D scene never gets covered by legacy 2D character or expression sprite',()=>{
+ assert.match(integration,/presenceVisual\.character && !room3DActive/);
+ assert.match(integration,/showExpressionReaction && !room3DActive/);
+});

@@ -618,7 +618,7 @@ export default function PhotorealMira({
 
       <span className="pm-bedroom-tint" aria-hidden="true" />
 
-      {presenceVisual.character && (
+      {presenceVisual.character && !room3DActive && (
         <span className="pm-presence-character-zone" aria-hidden="true">
           <img
             className="pm-presence-character"
@@ -630,7 +630,7 @@ export default function PhotorealMira({
         </span>
       )}
 
-      {showExpressionReaction && (
+      {showExpressionReaction && !room3DActive && (
         <img
           className="pm-expression-card"
           src={expressionAsset}
