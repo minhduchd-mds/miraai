@@ -53,32 +53,35 @@ test('invalid primary hand telemetry cannot arm a spatial action',()=>{
  assert.equal(tracker.update([left()],310).hand?.handedness,'Left');
 });
 
+const pairLeft=(x=0.3)=>left(x,true);
+const pairRight=(x=0.7)=>right(x,true);
+
 test('bimanual transforms start only after stable Left/Right dwell and survive frame ordering',()=>{
  const tracker=new StableBimanualPairRuntime();
- assert.deepEqual(tracker.update([right(),left()],100),[]);
- assert.deepEqual(tracker.update([left(),right()],240),[]);
- assert.deepEqual(tracker.update([right(),left()],300).map(x=>x.handedness),['Left','Right']);
- assert.deepEqual(tracker.update([right(0.78),left(0.26)],420).map(x=>x.handedness),['Left','Right']);
+ assert.deepEqual(tracker.update([pairRight(),pairLeft()],100),[]);
+ assert.deepEqual(tracker.update([pairLeft(),pairRight()],240),[]);
+ assert.deepEqual(tracker.update([pairRight(),pairLeft()],300).map(x=>x.handedness),['Left','Right']);
+ assert.deepEqual(tracker.update([pairRight(0.78),pairLeft(0.26)],420).map(x=>x.handedness),['Left','Right']);
 });
 
 test('bimanual jitter, disappearance and large frame gaps disarm transforms',()=>{
  const tracker=new StableBimanualPairRuntime();
- tracker.update([left(),right()],0);
- assert.equal(tracker.update([left(),right()],240).length,2);
- assert.deepEqual(tracker.update([left(0.3),right(0.9)],360),[]);
- assert.deepEqual(tracker.update([left(),right()],500),[]);
- assert.equal(tracker.update([left(),right()],710).length,2);
- assert.deepEqual(tracker.update([left()],830),[]);
- assert.deepEqual(tracker.update([left(),right()],940),[]);
- assert.equal(tracker.update([left(),right()],1140).length,2);
- assert.deepEqual(tracker.update([left(),right()],1700),[],'long frame gap must re-arm');
+ tracker.update([pairLeft(),pairRight()],0);
+ assert.equal(tracker.update([pairLeft(),pairRight()],240).length,2);
+ assert.deepEqual(tracker.update([pairLeft(0.3),pairRight(0.99)],360),[]);
+ assert.deepEqual(tracker.update([pairLeft(),pairRight()],500),[]);
+ assert.equal(tracker.update([pairLeft(),pairRight()],710).length,2);
+ assert.deepEqual(tracker.update([pairLeft()],830),[]);
+ assert.deepEqual(tracker.update([pairLeft(),pairRight()],940),[]);
+ assert.equal(tracker.update([pairLeft(),pairRight()],1140).length,2);
+ assert.deepEqual(tracker.update([pairLeft(),pairRight()],1700),[],'long frame gap must re-arm');
 });
 
 test('bimanual one-hand duplicates and low confidence never arm',()=>{
  const tracker=new StableBimanualPairRuntime();
- assert.deepEqual(tracker.update([left(),left(0.7)],100),[]);
- assert.deepEqual(tracker.update([left(),{...right(),score:0.1}],300),[]);
- assert.deepEqual(tracker.update([left(),right()],500),[]);
+ assert.deepEqual(tracker.update([pairLeft(),pairLeft(0.7)],100),[]);
+ assert.deepEqual(tracker.update([pairLeft(),{...pairRight(),score:0.1}],300),[]);
+ assert.deepEqual(tracker.update([pairLeft(),pairRight()],500),[]);
 });
 
 test('Spatial controller cannot dispatch two activates for concurrent nod and pinch',()=>{
