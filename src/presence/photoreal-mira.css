@@ -2382,3 +2382,10 @@
 .bedroom-presence .pm-room3d-stage {
   background:#342633;
 }
+
+/* Spatial Room v37.1: prioritize the native 3D composition over photographic
+   hero overlays; the voice control and readiness labels remain interactive. */
+.photo-mira[data-room3d-active="true"] .pm-hero-copy,
+.photo-mira[data-room3d-active="true"] .pm-bedroom-tint {
+  display:none;
+}

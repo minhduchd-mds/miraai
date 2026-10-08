@@ -73,3 +73,10 @@ test('real 3D scene never gets covered by legacy 2D character or expression spri
  assert.match(integration,/presenceVisual\.character && !room3DActive/);
  assert.match(integration,/showExpressionReaction && !room3DActive/);
 });
+
+test('3D hero contains a spatial upholstered chair and a close foreground seated VRM',()=>{
+ assert.match(luxury,/function MiraChairSet/);
+ assert.match(luxury,/<MiraChairSet\/>/);
+ assert.match(vrm,/position=\{\[0,\.19,2\.24\]\} scale=\{1\.47\}/);
+ assert.match(css,/\.photo-mira\[data-room3d-active="true"\] \.pm-hero-copy/);
+});

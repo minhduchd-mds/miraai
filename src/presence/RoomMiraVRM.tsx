@@ -109,7 +109,7 @@ export default function RoomMiraVRM({onReady}:Props) {
   });
 
   return <group>
-    {model ? <group position={[0,.34,1.35]} scale={1.0}>
+    {model ? <group position={[0,.19,2.24]} scale={1.47}>
       <primitive object={model.scene}/>
     </group> : <GeometricFallback />}
     {failed && <group name="vrm-fallback-geometry"/>}

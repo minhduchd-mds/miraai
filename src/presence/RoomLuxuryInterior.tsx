@@ -208,6 +208,32 @@ function marbleTexture(){
   return tex;
 }
 
+
+function MiraChairSet(){
+  // Independent curved upholstery behind the seated VRM, not a photographic cutout.
+  return <group>
+    <mesh position={[0,1.03,1.57]} castShadow scale={[.93,1.04,.40]}>
+      <sphereGeometry args={[1,30,22]}/>
+      <meshStandardMaterial color="#ddc5bc" roughness={.99}/>
+    </mesh>
+    <mesh position={[0,.57,2.09]} castShadow scale={[.88,.25,.74]}>
+      <sphereGeometry args={[1,30,18]}/>
+      <meshStandardMaterial color="#e9d8cf" roughness={1}/>
+    </mesh>
+    {[-.75,.75].map((x,i)=><mesh key={i}
+      position={[x,.75,1.98]} rotation={[0,0,x<0?-.28:.28]}
+      scale={[.29,.58,.44]} castShadow>
+      <sphereGeometry args={[1,26,18]}/>
+      <meshStandardMaterial color="#dfc6bf" roughness={1}/>
+    </mesh>)}
+    <mesh position={[.76,.86,1.85]} castShadow scale={[.31,.36,.19]}>
+      <sphereGeometry args={[1,26,18]}/>
+      <meshStandardMaterial color="#f3c2cd" roughness={1}/>
+    </mesh>
+    <Rounded at={[0,.18,1.96]} size={[1.28,.15,.78]} color="#a17b69" radius={.06}/>
+  </group>;
+}
+
 function MarbleDeskSet(){
   const map=useMemo(marbleTexture,[]);
   const top=useMemo(()=>new RoundedBoxGeometry(4.52,.16,1.78,3,.07),[]);
@@ -318,6 +344,7 @@ export default function RoomLuxuryInterior({scene}:{scene:MiraPresenceScene}){
     <CityWindow night={night}/>
     <SofaSet/>
     <WorkspaceSet/>
+    <MiraChairSet/>
     <BedSet/>
     <WardrobeSet/>
     <MarbleDeskSet/>
