@@ -145,10 +145,11 @@ export default function SettingsPanel(props: Props) {
   const runDeviceCheck = async () => {
     if (deviceDiagnosticsBusy) return;
     setDeviceDiagnosticsBusy(true);
-    const [device, network] = await Promise.allSettled([runDeviceDiagnostics(), checkMiraConnectivity()]);
-    setDeviceDiagnostics(device.status === 'fulfilled' ? device.value : null);
-    setConnectivity(network.status === 'fulfilled' ? network.value : null);
-    finally { setDeviceDiagnosticsBusy(false); }
+    try {
+      const [device, network] = await Promise.allSettled([runDeviceDiagnostics(), checkMiraConnectivity()]);
+      setDeviceDiagnostics(device.status === 'fulfilled' ? device.value : null);
+      setConnectivity(network.status === 'fulfilled' ? network.value : null);
+    } finally { setDeviceDiagnosticsBusy(false); }
   };
   const exportDeviceReport = () => {
     if (!deviceDiagnostics) return;
