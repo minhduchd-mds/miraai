@@ -2274,3 +2274,68 @@
 @media (prefers-reduced-motion:reduce) {
   .bedroom-presence .pm-spatial3d { display:none !important; }
 }
+
+/* Spatial Room v32 — actual three-dimensional furniture, walls and camera,
+   not the authored bas-relief derived from one photograph. */
+.photo-mira[data-room3d-active="true"] .pm-scene-shell {
+  z-index:1;
+}
+.bedroom-presence .pm-room3d-stage {
+  position:absolute;
+  inset:0;
+  z-index:3;
+  overflow:hidden;
+  display:block;
+  touch-action:none;
+  cursor:grab;
+  pointer-events:auto;
+}
+.bedroom-presence .pm-room3d-stage:active {
+  cursor:grabbing;
+}
+.bedroom-presence .pm-room3d-stage canvas {
+  width:100%;
+  height:100%;
+  display:block;
+  pointer-events:auto;
+}
+.bedroom-presence .pm-room3d-hud {
+  position:absolute;
+  bottom:clamp(85px,14vh,135px);
+  left:50%;
+  transform:translateX(-50%);
+  padding:8px 13px;
+  border-radius:50px;
+  color:rgba(255,249,237,.9);
+  font:600 10px/1.3 system-ui,sans-serif;
+  letter-spacing:.09em;
+  background:rgba(15,20,29,.62);
+  border:1px solid rgba(243,221,187,.25);
+  box-shadow:0 8px 32px rgba(0,0,0,.22);
+  pointer-events:none;
+  white-space:nowrap;
+}
+.photo-mira[data-room3d-ready="true"] .pm-scene-fallback,
+.photo-mira[data-room3d-ready="true"] .pm-depth-mid,
+.photo-mira[data-room3d-ready="true"] .pm-depth-near,
+.photo-mira[data-room3d-ready="true"] .pm-scene-segments,
+.photo-mira[data-room3d-ready="true"] .pm-depth-atmosphere,
+.photo-mira[data-room3d-ready="true"] .pm-depth-relight,
+.photo-mira[data-room3d-ready="true"] .pm-depth-contact-shadow,
+.photo-mira[data-room3d-ready="true"] .pm-env-window-light,
+.photo-mira[data-room3d-ready="true"] .pm-env-city-bokeh,
+.photo-mira[data-room3d-ready="true"] .pm-env-light-rays,
+.photo-mira[data-room3d-ready="true"] .pm-env-practical-light,
+.photo-mira[data-room3d-ready="true"] .pm-env-bed-bounce,
+.photo-mira[data-room3d-ready="true"] .pm-env-reflection,
+.photo-mira[data-room3d-ready="true"] .pm-env-edge-occlusion,
+.photo-mira[data-room3d-ready="true"] .pm-env-dust,
+.photo-mira[data-room3d-ready="true"] .pm-env-vignette {
+  visibility:hidden;
+}
+@media(max-width:640px) {
+  .bedroom-presence .pm-room3d-hud {max-width:90vw;white-space:normal;text-align:center;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .bedroom-presence .pm-room3d-stage { display:none!important; }
+}
