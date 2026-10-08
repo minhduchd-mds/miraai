@@ -1,4 +1,29 @@
-const CACHE = 'mira-shell-v4';
+/* Mira offline shell: cache static assets only, never API or user-data fetches. */
+const CACHE = 'mira-shell-v5';
+const MAX_CACHE_ENTRIES = 128;
+const STATIC_DESTINATIONS = new Set(['script', 'style', 'image', 'font', 'manifest']);
+const STATIC_PATH = /(?:^|\/)(?:assets|mira-assets|avatars|scenes)(?:\/|$)|\.(?:js|css|png|jpg|jpeg|webp|svg|woff2?|ico|webmanifest)$/i;
+
+function sameOriginGet(request) {
+  if (request.method !== 'GET') return false;
+  const url = new URL(request.url);
+  return url.origin === self.location.origin && !/(?:^|\/)api(?:\/|$)/i.test(url.pathname);
+}
+
+function canCache(response) {
+  if (!response || !response.ok || response.type === 'opaque') return false;
+  const policy = String(response.headers.get('cache-control') || '');
+  return !/(?:^|,)\s*(?:private|no-store|no-cache)\b/i.test(policy);
+}
+
+async function cacheResponse(cache, request, response) {
+  if (!canCache(response)) return;
+  await cache.put(request, response.clone());
+  const entries = await cache.keys();
+  for (const old of entries.slice(0, Math.max(0, entries.length - MAX_CACHE_ENTRIES))) {
+    await cache.delete(old);
+  }
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -17,31 +42,35 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+  const request = event.request;
+  if (!sameOriginGet(request)) return;
 
-  if (event.request.mode === 'navigate') {
+  if (request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(event.request);
-        const cache = await caches.open(CACHE);
-        cache.put(event.request, fresh.clone());
+        const fresh = await fetch(request);
+        if (canCache(fresh)) {
+          const cache = await caches.open(CACHE);
+          await cacheResponse(cache, request, fresh);
+        }
         return fresh;
       } catch {
-        return (await caches.match(event.request)) || (await caches.match('./')) || Response.error();
+        return (await caches.match(request)) || (await caches.match('./')) || Response.error();
       }
     })());
     return;
   }
 
+  const pathname = new URL(request.url).pathname;
+  if (!STATIC_DESTINATIONS.has(request.destination) || !STATIC_PATH.test(pathname)) return;
+
   event.respondWith((async () => {
-    const cached = await caches.match(event.request);
+    const cached = await caches.match(request);
     if (cached) return cached;
-    const response = await fetch(event.request);
-    if (response.ok) {
+    const response = await fetch(request);
+    if (canCache(response)) {
       const cache = await caches.open(CACHE);
-      cache.put(event.request, response.clone());
+      await cacheResponse(cache, request, response);
     }
     return response;
   })());
@@ -49,8 +78,7 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'MIRA_HEARTBEAT') {
-    // A service worker cannot keep microphone/camera capture alive after the OS
-    // explicitly locks or suspends the browser. This preserves fast resume only.
+    // Service workers cannot maintain camera/microphone capture through OS suspend.
     event.waitUntil(Promise.resolve());
   }
 });
@@ -58,9 +86,8 @@ self.addEventListener('message', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil((async () => {
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const existing = clients[0];
-    if (existing) return existing.focus();
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (windows[0]) return windows[0].focus();
     return self.clients.openWindow('./');
   })());
 });

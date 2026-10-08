@@ -1,3 +1,4 @@
+import { markPrivateResponse } from '../lib/private-response.js';
 import { generateBrainChat } from '../lib/brain-gateway.js';
 
 const MAX_SYSTEM = 12000;
@@ -58,6 +59,7 @@ function normalizeMessages(raw) {
 }
 
 export default async function handler(req, res) {
+  markPrivateResponse(res);
   applyCors(req, res);
   if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
   if (req.method === 'OPTIONS') return res.status(204).end();

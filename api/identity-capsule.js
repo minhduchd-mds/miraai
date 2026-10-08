@@ -1,3 +1,4 @@
+import { markPrivateResponse } from '../lib/private-response.js';
 import { createHash } from 'node:crypto';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { resolveMemoryScope } from '../lib/memory-scope.js';
@@ -170,6 +171,7 @@ async function persistCapsule(sql, device, capsule) {
 }
 
 export default async function handler(req, res) {
+  markPrivateResponse(res);
   const sql = getSql();
   if (!sql) return res.status(503).json({ error: 'chưa cấu hình DATABASE_URL' });
 

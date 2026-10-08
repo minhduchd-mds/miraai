@@ -1,3 +1,4 @@
+import { markPrivateResponse } from '../lib/private-response.js';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
 import { resolveMemoryScope } from '../lib/memory-scope.js';
@@ -9,6 +10,7 @@ function parseBody(req) {
 }
 
 export default async function handler(req, res) {
+  markPrivateResponse(res);
   const sql = getSql();
   if (!sql) return res.status(503).json({ error: 'chưa cấu hình DATABASE_URL' });
 

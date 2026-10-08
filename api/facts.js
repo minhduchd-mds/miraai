@@ -1,3 +1,4 @@
+import { markPrivateResponse } from '../lib/private-response.js';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
 import { generateBrainJson } from '../lib/brain-gateway.js';
@@ -9,6 +10,7 @@ BỎ QUA chuyện vặt/nhất thời. Nếu không có gì đáng nhớ → m�
 Mỗi fact: 1 câu NGẮN, ngôi thứ ba. Trả JSON đúng dạng: {"facts": ["...", "..."]}`;
 
 export default async function handler(req, res) {
+  markPrivateResponse(res);
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
   const sql = getSql();
   if (!sql) return res.status(503).json({ error: 'chưa cấu hình DATABASE_URL' });
