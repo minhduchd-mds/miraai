@@ -24,6 +24,7 @@ export class ServerTTS implements TTSAdapter {
   private fetching = false;
   private lastError: string | null = null;
   private cancelled = false;
+  private utteranceId = 0;
   private voices: VoiceOption[];
   private failureThreshold: number;
   private cooldownMs: number;
@@ -127,6 +128,7 @@ export class ServerTTS implements TTSAdapter {
   speak(opts: TTSSpeakOptions): void {
     this.cancel();
     this.cancelled = false;
+    const utteranceId = this.utteranceId;
 
     const now = Date.now();
     if (this.healthState === 'unhealthy') {
@@ -156,6 +158,7 @@ export class ServerTTS implements TTSAdapter {
       signal: controller.signal,
     })
       .then(async (response) => {
+        if (this.utteranceId !== utteranceId || controller.signal.aborted) return null;
         if (!response.ok) {
           let detail = '';
           try { detail = JSON.stringify(await response.json()).slice(0, 160); }
@@ -165,8 +168,10 @@ export class ServerTTS implements TTSAdapter {
         return response.blob();
       })
       .then((blob) => {
+        if (this.utteranceId !== utteranceId || controller.signal.aborted) return;
         this.fetching = false;
-        if (this.cancelled) return;
+        if (this.abortCtl === controller) this.abortCtl = null;
+        if (this.cancelled || !blob) return;
         if (!blob.size) throw new Error('empty_audio');
 
         this.consecutiveFailures = 0;
@@ -182,19 +187,23 @@ export class ServerTTS implements TTSAdapter {
         audio.playbackRate = opts.rate ?? 1;
         audio.preservesPitch = true;
         this.detach = attachAnalyser(audio);
-        audio.onplaying = () => opts.onStart?.();
+        audio.onplaying = () => { if (this.utteranceId === utteranceId) opts.onStart?.(); };
         audio.onended = () => {
+          if (this.utteranceId !== utteranceId || this.audio !== audio) return;
           this.cleanupAudio();
           opts.onEnd?.();
         };
         audio.onerror = () => {
+          if (this.utteranceId !== utteranceId || this.audio !== audio) return;
           this.cleanupAudio();
           this.fail(opts, 'audio_playback_failed');
         };
         return audio.play();
       })
       .catch((error: unknown) => {
+        if (this.utteranceId !== utteranceId || controller.signal.aborted) return;
         this.fetching = false;
+        if (this.abortCtl === controller) this.abortCtl = null;
         if (this.cancelled || (error instanceof DOMException && error.name === 'AbortError')) return;
 
         this.consecutiveFailures += 1;
@@ -208,6 +217,7 @@ export class ServerTTS implements TTSAdapter {
   }
 
   cancel(): void {
+    this.utteranceId += 1;
     this.cancelled = true;
     try { this.abortCtl?.abort(); } catch { /* noop */ }
     this.abortCtl = null;

@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { requireTrustedWrite } from '../lib/request-security.js';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
 import { generateBrainJson } from '../lib/brain-gateway.js';
@@ -11,6 +12,7 @@ Mỗi fact: 1 câu NGẮN, ngôi thứ ba. Trả JSON đúng dạng: {"facts": [
 
 export default async function handler(req, res) {
   markPrivateResponse(res);
+  if (!requireTrustedWrite(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
   const sql = getSql();
   if (!sql) return res.status(503).json({ error: 'chưa cấu hình DATABASE_URL' });

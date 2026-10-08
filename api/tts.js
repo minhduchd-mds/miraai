@@ -1,3 +1,4 @@
+import { markPrivateResponse } from '../lib/private-response.js';
 import {
   applyCors,
   MIRA_TTS_MAX_TEXT_LENGTH,
@@ -18,6 +19,7 @@ function parseBody(req) {
 
 export default async function handler(req, res) {
   applyCors(req, res, 'POST,OPTIONS');
+  markPrivateResponse(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });

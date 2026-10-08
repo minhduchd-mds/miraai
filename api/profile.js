@@ -1,4 +1,5 @@
 import { markPrivateResponse } from '../lib/private-response.js';
+import { requireTrustedWrite } from '../lib/request-security.js';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
 import { resolveMemoryScope } from '../lib/memory-scope.js';
@@ -11,6 +12,7 @@ function parseBody(req) {
 
 export default async function handler(req, res) {
   markPrivateResponse(res);
+  if (!requireTrustedWrite(req, res)) return;
   const sql = getSql();
   if (!sql) return res.status(503).json({ error: 'chưa cấu hình DATABASE_URL' });
 
@@ -56,8 +58,12 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const id = Number(body?.id);
       if (body?.all === true) {
-        await sql`delete from chat_messages where device_id = ${device}`;
-        await sql`delete from user_facts where device_id = ${device}`;
+        // One atomic commit: a partial failure cannot leave an old Identity Capsule behind.
+        await sql.transaction([
+          sql`delete from chat_messages where device_id = ${device}`,
+          sql`delete from user_facts where device_id = ${device}`,
+          sql`delete from identity_capsules where device_id = ${device}`,
+        ]);
         return res.status(200).json({ ok: true, all: true });
       }
       if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'id không hợp lệ' });
