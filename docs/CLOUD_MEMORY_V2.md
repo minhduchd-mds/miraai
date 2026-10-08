@@ -11,3 +11,7 @@ Required: `MIRA_MEMORY_SESSION_KEY` of at least 32 bytes, held only in the serve
 **Compatibility:** Mira Desktop and GitHub Pages remain local-only for memory. Browser clients no longer send `device` IDs in URLs or JSON bodies; the server's signed cookie is sole anonymous-scope authority.
 
 **Deployment QA:** Confirm session key present in each target environment. Test first visit, refresh, two isolated browsers, forged cookie, cross-origin POST, export, delete-all, and capsule import. Keep an explicit data migration sign-off prior to rollout if previously stored server-side memories are in active use.
+
+## Delete-all behavior
+
+Successful DELETE /api/profile with all:true atomically removes the three cloud memory tables and issues a fresh signed anonymous cookie for subsequent new data. Old signed cookies can still authenticate their former now-empty scope until expiry; complete immediate server-side revocation requires a durable session store and account authentication. Any concurrent writes need further race-condition validation on a connected Neon database.
