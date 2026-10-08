@@ -16,10 +16,10 @@ const geometry=[{id:'voice',label:'Voice',kind:'action',left:0.35,top:0.35,right
 {id:'panel',label:'Panel',kind:'window',left:0.35,top:0.35,right:0.65,bottom:0.65}];
 const noFace={present:false,confidence:0,gazeX:0,gazeY:0,yaw:0,pitch:0,calibrationProgress:0};
 function frame({now,hand=true,pinching=false,intent='none',confidence=0.8,kind='action',direct=true,
- face=noFace,gestureConfidence=0.82,headGesture='none'}){
+ face=noFace,gestureConfidence=0.82,headGesture='none',eventId=1}){
  return {now,input:{
   face,hand:{present:hand,confidence:hand?confidence:0,x:0.5,y:0.5,z:0,pinching,direct},
-  gestureIntent:{intent,confidence:gestureConfidence,eventId:1,gesture:'None',stableMs:100,at:now},
+  gestureIntent:{intent,confidence:gestureConfidence,eventId,gesture:'None',stableMs:100,at:now},
   targets:geometry.filter(t=>t.kind===kind),headGesture,rayHit:null,
  }};
 }
@@ -30,7 +30,7 @@ test('pinch activation requires a present confident hand and completed focus dwe
  assert.equal(advance(ctrl,{now:100}).events.length,0);
  assert.equal(advance(ctrl,{now:250,hand:false,pinching:true,intent:'pinch_down'}).events.length,0);
  advance(ctrl,{now:300});
- assert.deepEqual(advance(ctrl,{now:450,pinching:true,intent:'pinch_down'}).events.map(x=>x.type),['activate']);
+ assert.deepEqual(advance(ctrl,{now:450,pinching:true,intent:'pinch_down',eventId:2}).events.map(x=>x.type),['activate']);
  assert.equal(advance(ctrl,{now:900,hand:false,pinching:true,intent:'pinch_down'}).events.length,0);
 });
 
@@ -69,7 +69,7 @@ test('face to hand source change restarts focus dwell and prevents stale activat
  advance(ctrl,{now:100,face,direct:false,hand:false});
  advance(ctrl,{now:460,face,direct:false,hand:false});
  assert.equal(advance(ctrl,{now:480,face,hand:true,direct:true,pinching:true,intent:'pinch_down'}).events.length,0);
- assert.deepEqual(advance(ctrl,{now:650,face,hand:true,direct:true,pinching:true,intent:'pinch_down'}).events.map(e=>e.type),['activate']);
+ assert.deepEqual(advance(ctrl,{now:650,face,hand:true,direct:true,pinching:true,intent:'pinch_down',eventId:2}).events.map(e=>e.type),['activate']);
 });
 
 test('ray source rejects malformed landmarks and non-finite ray/target coordinates',()=>{
