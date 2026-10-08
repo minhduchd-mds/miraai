@@ -27,6 +27,7 @@ import { EMPTY_VISION_PERFORMANCE } from '../core/vision/vision-performance';
 import { handRayFromLandmarks } from '../core/vision/spatial-ray';
 import { SpatialHandKinematicsTracker } from '../core/vision/spatial-hand-kinematics';
 import { SpatialHandFrameCache } from '../core/vision/spatial-hand-frame-cache';
+import { spatialPerformanceProfiler } from '../core/vision/spatial-performance';
 import {
   objectAwarenessSnapshot,
   startObjectAwareness,
@@ -149,6 +150,7 @@ export function stopVision(): void {
   stopObjectAwareness();
   handKinematicsTracker.reset();
   handFrameCache.reset();
+  spatialPerformanceProfiler.reset();
   senseBus.reset();
   activeEngine = 'legacy';
 }
@@ -242,6 +244,9 @@ export function visionSnapshot() {
       ? holisticPerformanceSnapshot()
       : { ...EMPTY_VISION_PERFORMANCE, engine: activeEngine },
     visionEngine: activeEngine,
+    spatialPerformance: spatialPerformanceProfiler.snapshot(
+      (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize,
+    ),
     handSeen: Boolean(handFresh && handData.active && handData.present),
     handFrameAt: handFresh ? handData.lastFrameAt : 0,
     handCount: hands.length,

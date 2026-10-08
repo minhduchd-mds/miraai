@@ -54,33 +54,41 @@ export class StableBimanualPairRuntime {
   private since = 0;
   private lastAt = -Infinity;
   private previous: Array<{ x: number; y: number }> = [];
+  private lastFrameAt = -Infinity;
+  private authorizedPair: BimanualCandidate[] = [];
 
-  update(candidates: unknown, now: number): BimanualCandidate[] {
+  update(candidates: unknown, now: number, frameAt = now): BimanualCandidate[] {
     const pair = selectStableBimanualHands(candidates);
-    const validLabels = pair.map((hand) => String(hand.handedness || 'Unknown'));
-    if (!Number.isFinite(now) || pair.length !== 2 ||
-        validLabels.some((name) => name !== 'Left' && name !== 'Right')) {
+    const labels = pair.map((hand) => String(hand.handedness || 'Unknown'));
+    if (!Number.isFinite(now) || !Number.isFinite(frameAt) || now < frameAt ||
+        now - frameAt > 350 || pair.length !== 2 ||
+        labels.some((name) => name !== 'Left' && name !== 'Right')) {
       this.reset();
       return [];
     }
+    // A repeated snapshot is not fresh evidence of a continuous 180ms hold.
+    if (frameAt === this.lastFrameAt) return this.authorizedPair;
+    if (frameAt < this.lastFrameAt) { this.reset(); return []; }
+    this.lastFrameAt = frameAt;
 
-    const key = validLabels.join('|');
+    const key = labels.join('|');
     const positions = pair.map(point);
     const movedTooFar = this.previous.length === 2 &&
       positions.some((position, index) => Math.hypot(
         position.x - this.previous[index].x,
         position.y - this.previous[index].y,
       ) > 0.24);
-    const frameGap = this.lastAt !== -Infinity &&
-      (now < this.lastAt || now - this.lastAt > 360);
+    const frameGap = this.lastAt !== -Infinity && frameAt - this.lastAt > 360;
 
     if (key !== this.pairKey || movedTooFar || frameGap) {
       this.pairKey = key;
-      this.since = now;
+      this.since = frameAt;
+      this.authorizedPair = [];
     }
-    this.lastAt = now;
+    this.lastAt = frameAt;
     this.previous = positions;
-    return now - this.since >= 180 ? pair : [];
+    this.authorizedPair = frameAt - this.since >= 180 ? pair : [];
+    return this.authorizedPair;
   }
 
   reset(): void {
@@ -88,5 +96,7 @@ export class StableBimanualPairRuntime {
     this.since = 0;
     this.lastAt = -Infinity;
     this.previous = [];
+    this.lastFrameAt = -Infinity;
+    this.authorizedPair = [];
   }
 }
