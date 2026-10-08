@@ -4,6 +4,7 @@ import { requireTrustedWrite } from '../lib/request-security.js';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
 import { generateBrainJson } from '../lib/brain-gateway.js';
+import { requestGatewayOidcToken } from '../lib/vercel-ai-gateway.js';
 import { resolveMemoryScope } from '../lib/memory-scope.js';
 
 const DISTILL_PROMPT = `Bạn trích "sự thật BỀN VỮNG" về NGƯỜI DÙNG từ đoạn hội thoại (tiếng Việt) với trợ lý Mira.
@@ -30,7 +31,9 @@ export default async function handler(req, res) {
     await ensureSchema(sql);
     let generated = null;
     try {
-      generated = await generateBrainJson(DISTILL_PROMPT, conversation, { maxTokens: 450 });
+      generated = await generateBrainJson(DISTILL_PROMPT, conversation, {
+        maxTokens: 450, runtimeOidcToken: requestGatewayOidcToken(req),
+      });
     } catch (error) {
       return res.status(502).json({ error: 'brain_distill_failed' });
     }

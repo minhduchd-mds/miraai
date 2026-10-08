@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { getSql, ensureSchema } from '../lib/db.js';
 import { resolveMemoryScope } from '../lib/memory-scope.js';
 import { generateBrainJson } from '../lib/brain-gateway.js';
+import { requestGatewayOidcToken } from '../lib/vercel-ai-gateway.js';
 
 const FORMAT = 'mira.identity-capsule';
 const SCHEMA_VERSION = 1;
@@ -89,7 +90,7 @@ function verifyCapsule(capsule) {
   return payloadDigest(payload) === integrity.digest;
 }
 
-async function buildCapsule(sql, device, preferences) {
+async function buildCapsule(sql, device, preferences, runtimeOidcToken = '') {
   const facts = await sql`
     select fact, updated_at from user_facts
     where device_id = ${device}
@@ -124,7 +125,9 @@ async function buildCapsule(sql, device, preferences) {
   });
 
   try {
-    const generated = await generateBrainJson(CONTINUITY_PROMPT, modelInput, { maxTokens: 800 });
+    const generated = await generateBrainJson(CONTINUITY_PROMPT, modelInput, {
+      maxTokens: 800, runtimeOidcToken,
+    });
     if (generated?.json) {
       continuity = {
         summary: shortString(generated.json.summary, 2200),
@@ -203,7 +206,7 @@ export default async function handler(req, res) {
     if (action === 'snapshot') {
       if (!await enforceAiQuota(req, res, 'capsule', sql)) return;
       const preferences = sanitizePreferences(body.preferences);
-      const capsule = await buildCapsule(sql, device, preferences);
+      const capsule = await buildCapsule(sql, device, preferences, requestGatewayOidcToken(req));
       await persistCapsule(sql, device, capsule);
       return res.status(200).json({ capsule });
     }

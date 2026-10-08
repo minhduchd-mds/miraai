@@ -12,3 +12,7 @@ The server router supports `gateway` using `https://ai-gateway.vercel.sh/v1/chat
 - Requests use the Vercel team's AI Gateway credit, not ChatGPT Plus usage. Confirm credit/billing settings in Vercel. Model output consumes credits.
 
 `GET /api/brain-health` reports only readiness by configured credentials; it does not test inference. `POST /api/chat` with one minimal private prompt is the real smoke check. This gateway only handles text Brain generation. Native macOS SQLite is independent, and semantic embeddings still need a separate embedding-provider integration.
+
+## Vercel Functions OIDC runtime
+
+Per Vercel OIDC runtime documentation, `VERCEL_OIDC_TOKEN` is available in builds and local development, but **Functions receive the short-lived token in `x-vercel-oidc-token`**. Mira forwards that credential per request exclusively server-side through `requestGatewayOidcToken(req)`; no shared cache, browser-visible credentials, or stored tokens. Chat, distillation, Identity Capsule snapshot and read-only Brain readiness all follow the same contract. The `VERCEL` environment marker gates reading the injected header. An explicit provider selection still controls billable calls. Models and quotas remain unchanged.

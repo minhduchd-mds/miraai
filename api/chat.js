@@ -2,6 +2,7 @@ import { markPrivateResponse } from '../lib/private-response.js';
 import { canonicalRequestHost } from '../lib/request-host.js';
 import { enforceAiQuota } from '../lib/ai-quota.js';
 import { generateBrainChat } from '../lib/brain-gateway.js';
+import { requestGatewayOidcToken } from '../lib/vercel-ai-gateway.js';
 
 const MAX_SYSTEM = 12000;
 const MAX_MESSAGE = 6000;
@@ -78,11 +79,14 @@ export default async function handler(req, res) {
   if (!await enforceAiQuota(req, res, 'brain')) return;
 
   try {
-    const result = await generateBrainChat(system, messages, { maxTokens: RESPONSE_BUDGETS[responseLength] });
+    const result = await generateBrainChat(system, messages, {
+      maxTokens: RESPONSE_BUDGETS[responseLength],
+      runtimeOidcToken: requestGatewayOidcToken(req),
+    });
     if (!result) {
       return res.status(503).json({
         error: 'server chưa cấu hình Mira Brain provider',
-        hint: 'Set GEMINI_API_KEY or OPENAI_API_KEY+OPENAI_MODEL or ANTHROPIC_API_KEY+ANTHROPIC_MODEL',
+        hint: 'Configure MIRA_BRAIN_PROVIDER=gateway on Vercel with OIDC, or a supported server-side provider key',
       });
     }
     return res.status(200).json({
