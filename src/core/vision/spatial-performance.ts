@@ -26,6 +26,7 @@ export class SpatialPerformanceProfiler {
   private noHandPolls = 0;
   private readonly firstUi = new RollingLatency();
   private readonly actionUi = new RollingLatency();
+  private readonly prepaintUi = new RollingLatency();
   private readonly uiWork = new RollingLatency();
   notePoll(frameAt: number, now: number, handSeen: boolean) {
     if (!handSeen || !Number.isFinite(frameAt) || frameAt<=0 || !Number.isFinite(now) ||
@@ -39,18 +40,25 @@ export class SpatialPerformanceProfiler {
     const elapsed=now-frameAt;if (elapsed>=0 && elapsed<=350)this.actionUi.add(elapsed);
   }
   noteUiWork(ms: number) {this.uiWork.add(ms);}
+  // Boundary immediately before a browser paint opportunity, not photon timing.
+  notePrepaint(frameAt: number, now: number) {
+    if (!Number.isFinite(frameAt) || frameAt <= 0 || !Number.isFinite(now)) return;
+    const elapsed = now - frameAt;
+    if (elapsed >= 0 && elapsed <= 350) this.prepaintUi.add(elapsed);
+  }
   snapshot(heapBytes?: number) {
     return {schema:'mira.spatial-performance.v21' as const,
       uniqueHandFrames:this.uniqueHandFrames, repeatedUiPolls:this.repeatedUiPolls,
       noHandPolls:this.noHandPolls,
       inferenceToUi:this.firstUi.summary(), inferenceToHandAction:this.actionUi.summary(),
+      inferenceToPrepaint:this.prepaintUi.summary(),
       uiHandlerDuration:this.uiWork.summary(),
       jsHeapMiB:typeof heapBytes==='number' && Number.isFinite(heapBytes) && heapBytes>=0
         ? Math.round(heapBytes/1048576*10)/10 : null};
   }
   reset() {
     this.lastFrameAt=0;this.uniqueHandFrames=0;this.repeatedUiPolls=0;this.noHandPolls=0;
-    this.firstUi.reset();this.actionUi.reset();this.uiWork.reset();
+    this.firstUi.reset();this.actionUi.reset();this.prepaintUi.reset();this.uiWork.reset();
   }
 }
 export const spatialPerformanceProfiler = new SpatialPerformanceProfiler();

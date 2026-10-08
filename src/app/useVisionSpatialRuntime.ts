@@ -117,6 +117,8 @@ export function useVisionSpatialRuntime(options: any) {
 
   useEffect(() => {
     if (!visionOn) return;
+    let pendingPrepaint = 0;
+    let lastPrepaintFrame = 0;
 
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
@@ -494,9 +496,24 @@ export function useVisionSpatialRuntime(options: any) {
         },
       });
       current?.noteSpatialUiWork(performance.now() - uiStart);
+      // At most one callback per genuine camera frame, after this UI turn.
+      // rAF begins before paint; this is NOT a sensor-to-photon benchmark.
+      if (handFrameAt > 0 && handFrameAt !== lastPrepaintFrame) {
+        lastPrepaintFrame = handFrameAt;
+        if (pendingPrepaint) window.cancelAnimationFrame(pendingPrepaint);
+        pendingPrepaint = window.requestAnimationFrame(() => {
+          pendingPrepaint = 0;
+          if (document.visibilityState !== 'hidden') {
+            current?.noteSpatialPrepaint(handFrameAt, performance.now());
+          }
+        });
+      }
     }, 120);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      if (pendingPrepaint) window.cancelAnimationFrame(pendingPrepaint);
+    };
   }, [
     affectFollowing,
     mira.interrupt,

@@ -283,6 +283,9 @@ export function noteSpatialUiPoll(frameAt: number, now: number, handSeen: boolea
 export function noteSpatialHandAction(frameAt: number, now: number): void {
   spatialPerformanceProfiler.noteHandAction(frameAt, now);
 }
+export function noteSpatialPrepaint(frameAt: number, now: number): void {
+  spatialPerformanceProfiler.notePrepaint(frameAt, now);
+}
 export function noteSpatialUiWork(durationMs: number): void {
   spatialPerformanceProfiler.noteUiWork(durationMs);
 }
