@@ -127,3 +127,12 @@ test('Realistic avatar is the default and stylized VRM is explicitly debug-only'
  assert.match(loader,/source.mode==='realistic'&&allowPreview/);
  assert.match(loader,/realistic-human-not-yet-approved/);
 });
+
+test('3D input ignores editable fields and modifiers, clears held keys on tab hiding, and releases pointer capture',()=>{
+ assert.match(room,/closest\('input,textarea,select,\[contenteditable\]/);
+ assert.match(room,/\[role="textbox"\],\[role="combobox"\]/);
+ assert.match(room,/event\.altKey\|\|event\.ctrlKey\|\|event\.metaKey/);
+ assert.match(room,/document\.addEventListener\('visibilitychange',visibility\)/);
+ assert.match(room,/document\.removeEventListener\('visibilitychange',visibility\)/);
+ assert.match(room,/releasePointerCapture\(event\.pointerId\)/);
+});
