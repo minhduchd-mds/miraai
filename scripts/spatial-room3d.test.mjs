@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {isRoomWalkable,moveRoomCamera,ROOM_OBSTACLES} from '../src/presence/room-navigation.ts';
 
 const room=readFileSync('src/presence/PhotorealRoom3D.tsx','utf8');
 const vrm=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
@@ -51,7 +52,7 @@ test('camera supports 360 orbit and genuine translation without stealing chat ke
  for(const token of ['onPointerDown={pointerDown}','onPointerMove={pointerMove}',
     'setPointerCapture','controls.current.yaw','controls.current.pitch','KeyW','KeyA','KeyS','KeyD',
     'camera.position.set(v.x,1.77,v.z)','camera.rotation.set(v.pitch,v.yaw,0',
-    'CLAMP(v.x','CLAMP(v.z','isContentEditable','Digit([1-5])',
+    'moveRoomCamera({x:v.x,z:v.z}','closest(\'input,textarea,select','Digit([1-5])',
     'window.removeEventListener(\'keydown\',keydown)']) {
     assert.ok(room.includes(token),'Missing camera part '+token);
  }
@@ -135,4 +136,46 @@ test('3D input ignores editable fields and modifiers, clears held keys on tab hi
  assert.match(room,/document\.addEventListener\('visibilitychange',visibility\)/);
  assert.match(room,/document\.removeEventListener\('visibilitychange',visibility\)/);
  assert.match(room,/releasePointerCapture\(event\.pointerId\)/);
+});
+
+test('room navigation footprints block existing furniture without closing the usable aisle',()=>{
+ assert.ok(ROOM_OBSTACLES.length>=6);
+ for(const [x,z] of [
+   [0,-3],[-3,1],[-2.5,-3],[4.3,-3],[0,1.5],[0,3.1]
+ ])assert.equal(isRoomWalkable(x,z),false,'Furniture footprint should block '+x+','+z);
+ for(const [x,z] of [
+   [0,4.79],[-2.9,4.1],[2.9,4.1],[0,0],[0,5.48]
+ ])assert.equal(isRoomWalkable(x,z),true,'Walkable preset/aisle '+x+','+z);
+ for(const [x,z] of [[NaN,0],[Infinity,0],[0,-6],[5.1,0]])
+   assert.equal(isRoomWalkable(x,z),false);
+});
+
+test('room camera collision prevents walking through the marble desk',()=>{
+ let position={x:0,z:4.79};
+ for(let i=0;i<100;i++){
+   position=moveRoomCamera(position,0,1,0,.06);
+   assert.equal(isRoomWalkable(position.x,position.z),true);
+ }
+ assert.ok(position.z>3.9&&position.z<4.79,'Walk should stop in front of desk: '+position.z);
+});
+
+test('room movement normalizes diagonals, caps frame stalls and rejects corrupt inputs',()=>{
+ const at={x:3.2,z:4.7};
+ const straight=moveRoomCamera(at,0,1,0,.06);
+ const diagonal=moveRoomCamera(at,0,1,1,.06);
+ const length=(p)=>Math.hypot(p.x-at.x,p.z-at.z);
+ assert.ok(Math.abs(length(straight)-length(diagonal))<1e-8);
+ assert.deepEqual(moveRoomCamera(at,0,1,0,100),straight);
+ assert.deepEqual(moveRoomCamera(at,NaN,1,0,.06),at);
+ assert.deepEqual(moveRoomCamera(at,0,1,0,Infinity),at);
+ assert.deepEqual(moveRoomCamera({x:0,z:3},0,1,0,.06),{x:0,z:3});
+});
+
+test('camera keyboard handling requires a focused 3D region with cleanup',()=>{
+ assert.match(room,/document\.activeElement===stageRef\.current/);
+ assert.match(room,/tabIndex=\{0\}/);
+ assert.match(room,/stageRef\.current\?\.focus\(\{preventScroll:true\}\)/);
+ assert.match(room,/document\.addEventListener\('pointerdown',outsidePointer,true\)/);
+ assert.match(room,/document\.removeEventListener\('pointerdown',outsidePointer,true\)/);
+ assert.match(room,/onLostPointerCapture=\{pointerEnd\}/);
 });
