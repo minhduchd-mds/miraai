@@ -5,6 +5,8 @@ export interface RealisticAvatarManifest {
   status: 'pending' | 'approved';
   asset: string;
   license: string;
+  // "vrm" is a 1.0 humanoid package; GLB can preserve high fidelity PBR/Mixamo rigs.
+  format?: 'vrm' | 'glb';
   sourceUrl: string;
   visualApproval: string;
   scale: number;
@@ -12,7 +14,7 @@ export interface RealisticAvatarManifest {
   rotationY: number;
 }
 export type AvatarAssetSource =
-  | {mode:'realistic';path:string;scale:number;position:[number,number,number];rotationY:number}
+  | {mode:'realistic';path:string;format:'vrm'|'glb';scale:number;position:[number,number,number];rotationY:number}
   | {mode:'preview';path:string;scale:number;position:[number,number,number];rotationY:number};
 export const PREVIEW_ASSET:AvatarAssetSource = {
   mode:'preview',
@@ -21,7 +23,7 @@ export const PREVIEW_ASSET:AvatarAssetSource = {
   position:[0,.17,2.28],
   rotationY:Math.PI,
 };
-const fileNamePattern=/^[a-z0-9][a-z0-9_-]{1,70}\.vrm$/;
+const fileNamePattern=/^[a-z0-9][a-z0-9_-]{1,70}\.(?:vrm|glb)$/;
 
 export function chooseRealisticAvatar(manifest: unknown): AvatarAssetSource {
   if (!manifest || typeof manifest!=='object')return PREVIEW_ASSET;
@@ -44,7 +46,17 @@ export function chooseRealisticAvatar(manifest: unknown): AvatarAssetSource {
   return {
     mode:'realistic',
     path:'avatars/realistic/'+m.asset,
+    format:m.asset.endsWith('.vrm')?'vrm':'glb',
     scale,position:m.position as [number,number,number],
     rotationY:m.rotationY,
   };
+}
+
+/**
+ * An unapproved anime VRM is never the default Mira embodiment.
+ * ?avatarPreview=1 is a developer-only opt-in for legacy stylized test assets.
+ */
+export function chooseRoomAvatar(manifest: unknown,{allowStylizedPreview=false}={}):AvatarAssetSource|null {
+  const result=chooseRealisticAvatar(manifest);
+  return result.mode==='realistic' ? result : allowStylizedPreview ? PREVIEW_ASSET : null;
 }

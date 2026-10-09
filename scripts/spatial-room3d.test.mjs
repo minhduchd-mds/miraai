@@ -115,3 +115,15 @@ test('VRM reference styling only touches named garment or hair material slots',(
  assert.match(vrm,/cardigan\|sweater\|knit/);
  assert.match(luxury,/position=\{\[\.32,2\.51,3\.56\]\}/);
 });
+
+test('Realistic avatar is the default and stylized VRM is explicitly debug-only',()=>{
+ const source=readFileSync('src/presence/realistic-avatar-source.ts','utf8');
+ const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ assert.match(source,/chooseRoomAvatar/);
+ assert.match(source,/allowStylizedPreview=false/);
+ assert.match(loader,/get\('avatarPreview'\)==='1'/);
+ assert.match(loader,/chooseRoomAvatar\(manifest,\{allowStylizedPreview:allowPreview\}\)/);
+ assert.match(loader,/acceptedPBRGLB/);
+ assert.match(loader,/source.mode==='realistic'&&allowPreview/);
+ assert.match(loader,/realistic-human-not-yet-approved/);
+});

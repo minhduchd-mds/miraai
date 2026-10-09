@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
-import {chooseRealisticAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic-avatar-source';
+import {chooseRoomAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic-avatar-source';
 
 /**
  * A real rigged VRM avatar inside the same 3D room, never an alpha-masked photo.
@@ -87,9 +87,12 @@ function GeometricFallback() {
 
 export default function RoomMiraVRM({onReady}:Props) {
   const [model,setModel] = useState<VRM | null>(null);
+  const [humanGLB,setHumanGLB] = useState<THREE.Group | null>(null);
+  const allowPreview = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('avatarPreview')==='1';
   const [avatar,setAvatar] = useState<AvatarAssetSource>(PREVIEW_ASSET);
   const [failed,setFailed] = useState(false);
   const ref = useRef<VRM | null>(null);
+  const glbRef = useRef<THREE.Group | null>(null);
   const callback = useRef(onReady);
   callback.current=onReady;
   const invalidate = useThree(s=>s.invalidate);
@@ -97,17 +100,56 @@ export default function RoomMiraVRM({onReady}:Props) {
 
   useEffect(()=>{
     let cancelled=false;
+    const acceptedPBRGLB=(scene:THREE.Group):boolean=>{
+      let skinned=0, baseMaps=0, normals=0;
+      scene.traverse(node=>{
+        const mesh=node as THREE.SkinnedMesh;
+        if(mesh.isSkinnedMesh)skinned++;
+        if(!(node instanceof THREE.Mesh))return;
+        const mats=Array.isArray(node.material)?node.material:[node.material];
+        for(const mat of mats){
+          if(!(mat instanceof THREE.MeshStandardMaterial))continue;
+          if(mat.map)baseMaps++;
+          if(mat.normalMap)normals++;
+        }
+      });
+      // Prevent labeling a flat-colour mannequin or unrigged static figure
+      // as approved photographic human just because its filename is *.glb.
+      return skinned>=1&&baseMaps>=3&&normals>=1;
+    };
+    const disposeGLB=(scene:THREE.Group)=>{
+      scene.traverse(node=>{
+        if(!(node instanceof THREE.Mesh))return;
+        node.geometry?.dispose();
+        const materials=Array.isArray(node.material)?node.material:[node.material];
+        for(const mat of materials){
+          if(!mat)continue;
+          const pbr=mat as THREE.MeshStandardMaterial;
+          pbr.map?.dispose();pbr.normalMap?.dispose();mat.dispose();
+        }
+      });
+    };
     const loader=new GLTFLoader();
     loader.register(parser=>new VRMLoaderPlugin(parser));
     const load=(source:AvatarAssetSource):void=>{
       if(cancelled)return;
       const failure=()=>{
         if(cancelled)return;
-        if(source.mode==='realistic'){load(PREVIEW_ASSET);return;}
-        setFailed(true);callback.current();invalidate();
+        // A missing/broken reviewed model NEVER silently becomes an anime avatar.
+        if(source.mode==='realistic'&&allowPreview){load(PREVIEW_ASSET);return;}
+        setModel(null);setHumanGLB(null);setFailed(true);
+        callback.current();invalidate();
       };
       loader.load(`${import.meta.env.BASE_URL}${source.path}`,gltf=>{
         const vrm=gltf.userData.vrm as VRM | undefined;
+        if(!vrm && source.mode==='realistic'&&source.format==='glb'){
+          if(cancelled){disposeGLB(gltf.scene);return;}
+          if(!acceptedPBRGLB(gltf.scene)){disposeGLB(gltf.scene);failure();return;}
+          glbRef.current=gltf.scene;
+          setModel(null);setHumanGLB(gltf.scene);setAvatar(source);setFailed(false);
+          callback.current();invalidate();
+          return;
+        }
         if(!vrm){failure();return;}
         if(cancelled){VRMUtils.deepDispose(vrm.scene);return;}
         try{
@@ -122,7 +164,7 @@ export default function RoomMiraVRM({onReady}:Props) {
             if('receiveShadow' in node)(node as {receiveShadow:boolean}).receiveShadow=true;
           });
           ref.current=vrm;
-          setModel(vrm);setAvatar(source);setFailed(false);
+          setModel(vrm);setHumanGLB(null);setAvatar(source);setFailed(false);
           callback.current();invalidate();
         }catch{
           VRMUtils.deepDispose(vrm.scene);
@@ -130,18 +172,30 @@ export default function RoomMiraVRM({onReady}:Props) {
         }
       },undefined,failure);
     };
-    // Only reviewed, same-origin VRM files can override the current preview.
+    // Only a same-origin, licensed and manually reviewed 3D human can be Mira.
+    // Legacy VRoid preview requires the explicit developer flag ?avatarPreview=1.
+    const applyManifest=(manifest:unknown)=>{
+      if(cancelled)return;
+      const source=chooseRoomAvatar(manifest,{allowStylizedPreview:allowPreview});
+      if(source)load(source);
+      else{
+        setModel(null);setHumanGLB(null);setFailed(true);
+        callback.current();invalidate();
+      }
+    };
     void fetch(`${import.meta.env.BASE_URL}avatars/realistic/manifest.json`,{
       credentials:'same-origin',cache:'no-cache'
     }).then(r=>r.ok?r.json():null)
-      .then(m=>{if(!cancelled)load(chooseRealisticAvatar(m));})
-      .catch(()=>{if(!cancelled)load(PREVIEW_ASSET);});
+      .then(applyManifest)
+      .catch(()=>applyManifest(null));
     return ()=>{
       cancelled=true;
       const old=ref.current;ref.current=null;
       if(old)VRMUtils.deepDispose(old.scene);
+      const scene=glbRef.current;glbRef.current=null;
+      if(scene)disposeGLB(scene);
     };
-  },[invalidate]);
+  },[invalidate,allowPreview]);
 
   useFrame((_,delta)=>{
     const vrm=ref.current;
@@ -158,7 +212,10 @@ export default function RoomMiraVRM({onReady}:Props) {
       <primitive object={model.scene}/>
     </group> : <group position={[0,.17,2.28]} scale={1.55}>
       <primitive object={model.scene}/>
-    </group> : <GeometricFallback />}
-    {failed && <group name="vrm-fallback-geometry"/>}
+    </group> : humanGLB && avatar.mode==='realistic' ? <group
+      position={avatar.position} scale={avatar.scale} rotation={[0,avatar.rotationY,0]}>
+      <primitive object={humanGLB}/>
+    </group> : allowPreview ? <GeometricFallback/> : null}
+    {failed && <group name="realistic-human-not-yet-approved"/>}
   </group>;
 }
