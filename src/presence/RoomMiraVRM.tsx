@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
 import {chooseRoomAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic-avatar-source';
 import {poseMixamoHumanSeated} from './rigged-human-pose';
+import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
+import type { MiraState } from '../core/types';
 import {validateRealisticHumanScene} from './realistic-human-quality';
 
 /**
@@ -14,7 +16,7 @@ import {validateRealisticHumanScene} from './realistic-human-quality';
  */
 // Closer warm wardrobe palette. This is still a stylized VRM, not a photo-exact model.
 const MODEL = 'avatars/female/mira_female_04_soft_rose.vrm';
-type Props = { onReady: () => void };
+type Props = { onReady: () => void; state: MiraState };
 type Bone = 'leftUpperArm' | 'rightUpperArm' | 'leftLowerArm' | 'rightLowerArm'
   | 'leftUpperLeg' | 'rightUpperLeg' | 'leftLowerLeg' | 'rightLowerLeg'
   | 'head' | 'chest' | 'leftHand' | 'rightHand';
@@ -87,7 +89,7 @@ function GeometricFallback() {
   </group>;
 }
 
-export default function RoomMiraVRM({onReady}:Props) {
+export default function RoomMiraVRM({onReady,state}:Props) {
   const [model,setModel] = useState<VRM | null>(null);
   const [humanGLB,setHumanGLB] = useState<THREE.Group | null>(null);
   const allowPreview = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('avatarPreview')==='1';
@@ -96,6 +98,8 @@ export default function RoomMiraVRM({onReady}:Props) {
   const [failed,setFailed] = useState(false);
   const ref = useRef<VRM | null>(null);
   const glbRef = useRef<THREE.Group | null>(null);
+  const restRotations = useRef(new WeakMap<THREE.Object3D,THREE.Euler>());
+  const morphSlots = useRef<Array<{mesh:THREE.Mesh; names:Map<string,number>; base:number[]}>>([]);
   const callback = useRef(onReady);
   callback.current=onReady;
   const invalidate = useThree(s=>s.invalidate);
@@ -144,6 +148,16 @@ export default function RoomMiraVRM({onReady}:Props) {
             if(node instanceof THREE.Mesh){node.castShadow=true;node.receiveShadow=true;}
           });
           glbRef.current=gltf.scene;
+          // Cache facial morph slots once. Preserve authored neutral weights.
+          const facial:Array<{mesh:THREE.Mesh;names:Map<string,number>;base:number[]}>=[];
+          gltf.scene.traverse(node=>{
+            if(!(node instanceof THREE.Mesh)||!node.morphTargetDictionary||!node.morphTargetInfluences)return;
+            facial.push({mesh:node,
+              names:new Map(Object.entries(node.morphTargetDictionary).map(([name,index])=>
+                [name.toLowerCase().replace(/[^a-z0-9]/g,''),index])),
+              base:[...node.morphTargetInfluences]});
+          });
+          morphSlots.current=facial;
           setModel(null);setHumanGLB(gltf.scene);setAvatar(source);setFailed(false);
           callback.current();invalidate();
           return;
@@ -188,6 +202,7 @@ export default function RoomMiraVRM({onReady}:Props) {
       .catch(()=>applyManifest(null));
     return ()=>{
       cancelled=true;
+      morphSlots.current=[];
       const old=ref.current;ref.current=null;
       if(old)VRMUtils.deepDispose(old.scene);
       const scene=glbRef.current;glbRef.current=null;
@@ -195,13 +210,69 @@ export default function RoomMiraVRM({onReady}:Props) {
     };
   },[invalidate,allowPreview,allowReview]);
 
+  // Demand-rendered cinematic idle: 8 fps at rest, 20 fps when speaking.
+  // Never run an interval for a model that has not passed manual approval.
+  useEffect(()=>{
+    if(!model&&!humanGLB)return;
+    const id=window.setInterval(()=>{
+      if(!document.hidden)invalidate();
+    },humanMotionCadence(state));
+    return ()=>window.clearInterval(id);
+  },[model,humanGLB,state,invalidate]);
+
   useFrame((_,delta)=>{
     const vrm=ref.current;
-    if(!vrm)return;
-    // Only update springs/IK during requested renders; zero idle animation GPU loop.
-    vrm.update(Math.min(delta,.05));
-    const lookAt=vrm.lookAt;
-    if(lookAt)lookAt.target=camera;
+    const root=vrm?.scene||glbRef.current;
+    if(!root)return;
+    const motion=humanMotionFrame(performance.now()*.001,state);
+    const head=vrm?.humanoid?.getNormalizedBoneNode('head')||
+      root.getObjectByName('mixamorigHead')||root.getObjectByName('Head')||null;
+    if(head){
+      let original=restRotations.current.get(head);
+      if(!original){
+        original=head.rotation.clone();
+        restRotations.current.set(head,original);
+      }
+      head.rotation.set(original.x+motion.headPitch,
+        original.y+motion.headYaw,original.z);
+    }
+    const torso=vrm?.humanoid?.getNormalizedBoneNode('chest')||
+      root.getObjectByName('mixamorigSpine2')||null;
+    if(torso){
+      let original=restRotations.current.get(torso);
+      if(!original){
+        original=torso.rotation.clone();
+        restRotations.current.set(torso,original);
+      }
+      torso.rotation.x=original.x+motion.breathing;
+    }
+
+    if(vrm){
+      // Drive only expressions the approved VRM actually exports.
+      const expressions=vrm.expressionManager;
+      if(expressions){
+        if(expressions.getExpression('blink')) expressions.setValue('blink',motion.blink);
+        if(expressions.getExpression('aa')) expressions.setValue('aa',motion.mouthOpen);
+        if(expressions.getExpression('happy')) expressions.setValue('happy',motion.smile);
+      }
+      vrm.update(Math.min(delta,.06));
+      if(vrm.lookAt)vrm.lookAt.target=camera;
+      return;
+    }
+    // GLB morph names vary by author: use only present, named facial channels.
+    for(const {mesh,names,base} of morphSlots.current){
+      const dst=mesh.morphTargetInfluences;
+      if(!dst)continue;
+      for(const [name,index] of names){
+        if(index<0||index>=dst.length)continue;
+        let weight:number|undefined;
+        if(/blink|eyeclose|eyesclosed/.test(name))weight=motion.blink;
+        else if(/jawopen|mouthopen|visemeaa|moutha|mouthopen/.test(name))
+          weight=motion.mouthOpen;
+        else if(/smile|mouthhappy/.test(name))weight=motion.smile;
+        if(weight!==undefined)dst[index]=Math.min(1,Math.max(base[index]||0,weight));
+      }
+    }
   });
 
   return <group>

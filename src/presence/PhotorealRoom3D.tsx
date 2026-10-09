@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { MiraPresenceScene } from './presence-scene';
+import type { MiraState } from '../core/types';
 import RoomLuxuryInterior from './RoomLuxuryInterior';
 
 // Rigged 3D human is a separate lazy chunk (VRM parser is deliberately not in AppV2).
@@ -17,7 +18,7 @@ const PRESETS=[
  {yaw:Math.PI,x:0,z:0},
  {yaw:0,x:0,z:5.48},
 ] as const;
-interface Room3DProps {scene:MiraPresenceScene;onReady:()=>void;onFailure:()=>void;}
+interface Room3DProps {scene:MiraPresenceScene;state:MiraState;onReady:()=>void;onFailure:()=>void;}
 
 class RoomBoundary extends Component<{children:ReactNode;onFailure:()=>void},{failed:boolean}>{
  state={failed:false};
@@ -55,7 +56,7 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
  * The rigged VRM is separate from the 3D architecture; if VRM fails, a fully
  * volumetric geometric avatar is retained (never an unshaded portrait plane).
  */
-export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
+export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DProps){
  const controls=useRef<Controls>({yaw:0,pitch:0,x:0,z:4.79,keys:new Set()});
  const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
  const invalidateRef=useRef<(()=>void)|null>(null);
@@ -127,7 +128,7 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
        <RoomCamera controls={controls}/>
        <RoomLuxuryInterior scene={scene}/>
        <Suspense fallback={null}>
-         <RoomMiraVRM onReady={sceneReady}/>
+         <RoomMiraVRM state={state} onReady={sceneReady}/>
        </Suspense>
      </Canvas>
    </span>

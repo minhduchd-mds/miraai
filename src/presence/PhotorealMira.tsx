@@ -552,6 +552,7 @@ export default function PhotorealMira({
           <Suspense fallback={null}>
             <PhotorealRoom3D
               scene={presenceScene}
+              state={state}
               onReady={() => setRoom3DReady(true)}
               onFailure={() => {setRoom3DFailed(true);setRoom3DReady(false);}}
             />
