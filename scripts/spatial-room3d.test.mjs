@@ -65,7 +65,7 @@ test('camera supports 360 orbit and genuine translation without stealing chat ke
 test('VRM callback does not retrigger loader from normal React rerenders',()=>{
  assert.match(vrm,/const callback = useRef\(onReady\)/);
  assert.match(vrm,/callback\.current=onReady/);
- assert.match(vrm,/\},\[invalidate\]\);/);
+ assert.match(vrm,/\},\[invalidate,allowPreview\]\);/);
  assert.doesNotMatch(vrm,/\[invalidate,onReady\]/);
 });
 
