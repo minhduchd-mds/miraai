@@ -60,7 +60,17 @@ export function chooseRealisticAvatar(manifest: unknown): AvatarAssetSource {
  * An unapproved anime VRM is never the default Mira embodiment.
  * ?avatarPreview=1 is a developer-only opt-in for legacy stylized test assets.
  */
-export function chooseRoomAvatar(manifest: unknown,{allowStylizedPreview=false}={}):AvatarAssetSource|null {
+export function chooseRoomAvatar(manifest: unknown,{allowStylizedPreview=false,allowStagedRealisticReview=false}={}):AvatarAssetSource|null {
   const result=chooseRealisticAvatar(manifest);
-  return result.mode==='realistic' ? result : allowStylizedPreview ? PREVIEW_ASSET : null;
+  if(result.mode==='realistic')return result;
+  // Preview a technically staged same-origin asset ONLY when explicitly requested.
+  // The default route keeps the artist-review gate intact.
+  if(allowStagedRealisticReview&&manifest&&typeof manifest==='object'){
+    const raw=manifest as Partial<RealisticAvatarManifest>;
+    if(raw.status==='pending'&&raw.visualApproval==='pending'){
+      const reviewed=chooseRealisticAvatar({...raw,status:'approved',visualApproval:'approved'});
+      if(reviewed.mode==='realistic')return reviewed;
+    }
+  }
+  return allowStylizedPreview ? PREVIEW_ASSET : null;
 }

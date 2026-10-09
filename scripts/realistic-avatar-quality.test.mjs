@@ -61,7 +61,7 @@ test('Production loader must avoid recoloring PBR textures of approved human ava
  const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
  assert.match(loader,/chooseRoomAvatar/);
  assert.match(loader,/allowedStyli|allowPreview/);
- assert.match(loader,/acceptedPBRGLB/);
+ assert.match(loader,/validateRealisticHumanScene\(gltf\.scene\)/);
  assert.match(loader,/realistic-human-not-yet-approved/);
  assert.match(loader,/source\.mode==='preview'\)adaptReferencePalette/);
  assert.match(loader,/VRMLoaderPlugin/);

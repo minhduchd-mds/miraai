@@ -54,13 +54,18 @@ export function collectAvatarChecks(gltf,{requireVrm=true}={}) {
     skins:gltf.skins?.length||0}};
 }
 export function qualityReport(manifest,buffer) {
-  if(manifest.status!=='approved')
+  const reviewing=manifest.status==='pending'&&Boolean(buffer);
+  if(manifest.status==='pending'&&!buffer)
     return {status:'pending',errors:[],stats:null};
+  if(manifest.status!=='approved'&&!reviewing)
+    return {status:'failed',errors:['Unsupported manifest state'],stats:null};
   const errors=[];
   if(!/^[a-z0-9][a-z0-9_-]{1,70}\.(?:vrm|glb)$/.test(manifest.asset||''))errors.push('Unsafe asset filename');
   if(!/^https:\/\//.test(manifest.sourceUrl||''))errors.push('Missing provenance source URL');
   if(!manifest.license||manifest.license.length<3)errors.push('Missing declared license');
-  if(manifest.visualApproval!=='approved')errors.push('Missing manual face/reference approval');
+  if((reviewing&&manifest.visualApproval!=='pending')||
+    (!reviewing&&manifest.visualApproval!=='approved'))
+    errors.push('Invalid visual review state for avatar lifecycle');
   if(manifest.poseMode!==undefined && !['authored','mixamo-seated'].includes(manifest.poseMode))errors.push('Unknown skeleton pose mode');
   if(manifest.poseMode==='mixamo-seated' && !String(manifest.asset).endsWith('.glb'))errors.push('Mixamo seated pose only applies to GLB');
   let stats=null;
@@ -72,7 +77,7 @@ export function qualityReport(manifest,buffer) {
       errors.push(...result.errors);stats=result.stats;
     }catch(e){errors.push(String(e.message||e));}
   }
-  return {status:errors.length?'failed':'approved',errors,stats};
+  return {status:errors.length?'failed':reviewing?'review_required':'approved',errors,stats};
 }
 function main(){
   const manifest=JSON.parse(readFileSync(manifestPath,'utf8'));

@@ -91,6 +91,7 @@ export default function RoomMiraVRM({onReady}:Props) {
   const [model,setModel] = useState<VRM | null>(null);
   const [humanGLB,setHumanGLB] = useState<THREE.Group | null>(null);
   const allowPreview = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('avatarPreview')==='1';
+  const allowReview = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('avatarReview')==='1';
   const [avatar,setAvatar] = useState<AvatarAssetSource>(PREVIEW_ASSET);
   const [failed,setFailed] = useState(false);
   const ref = useRef<VRM | null>(null);
@@ -173,7 +174,7 @@ export default function RoomMiraVRM({onReady}:Props) {
     // Legacy VRoid preview requires the explicit developer flag ?avatarPreview=1.
     const applyManifest=(manifest:unknown)=>{
       if(cancelled)return;
-      const source=chooseRoomAvatar(manifest,{allowStylizedPreview:allowPreview});
+      const source=chooseRoomAvatar(manifest,{allowStylizedPreview:allowPreview,allowStagedRealisticReview:allowReview});
       if(source)load(source);
       else{
         setModel(null);setHumanGLB(null);setFailed(true);
@@ -192,7 +193,7 @@ export default function RoomMiraVRM({onReady}:Props) {
       const scene=glbRef.current;glbRef.current=null;
       if(scene)disposeGLB(scene);
     };
-  },[invalidate,allowPreview]);
+  },[invalidate,allowPreview,allowReview]);
 
   useFrame((_,delta)=>{
     const vrm=ref.current;

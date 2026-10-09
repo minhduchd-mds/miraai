@@ -54,7 +54,7 @@ test('Avatar loading uses renderer-aware gate and keeps stylized models out of P
  const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
  const manifest=JSON.parse(readFileSync('public/avatars/realistic/manifest.json','utf8'));
  assert.match(loader,/validateRealisticHumanScene\(gltf\.scene\)/);
- assert.match(loader,/chooseRoomAvatar\(manifest,\{allowStylizedPreview:allowPreview\}\)/);
+ assert.match(loader,/chooseRoomAvatar\(manifest,\{allowStylizedPreview:allowPreview,allowStagedRealisticReview:allowReview\}\)/);
  assert.match(loader,/avatarPreview'\)==='1'/);
  assert.equal(manifest.status,'pending');
 });

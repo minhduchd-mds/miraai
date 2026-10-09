@@ -65,7 +65,7 @@ test('camera supports 360 orbit and genuine translation without stealing chat ke
 test('VRM callback does not retrigger loader from normal React rerenders',()=>{
  assert.match(vrm,/const callback = useRef\(onReady\)/);
  assert.match(vrm,/callback\.current=onReady/);
- assert.match(vrm,/\},\[invalidate,allowPreview\]\);/);
+ assert.match(vrm,/\},\[invalidate,allowPreview,allowReview\]\);/);
  assert.doesNotMatch(vrm,/\[invalidate,onReady\]/);
 });
 
@@ -122,7 +122,7 @@ test('Realistic avatar is the default and stylized VRM is explicitly debug-only'
  assert.match(source,/chooseRoomAvatar/);
  assert.match(source,/allowStylizedPreview=false/);
  assert.match(loader,/get\('avatarPreview'\)==='1'/);
- assert.match(loader,/chooseRoomAvatar\(manifest,\{allowStylizedPreview:allowPreview\}\)/);
+ assert.match(loader,/chooseRoomAvatar\(manifest,\{allowStylizedPreview:allowPreview,allowStagedRealisticReview:allowReview\}\)/);
  assert.match(loader,/validateRealisticHumanScene\(gltf\.scene\)/);
  assert.match(loader,/source.mode==='realistic'&&allowPreview/);
  assert.match(loader,/realistic-human-not-yet-approved/);
