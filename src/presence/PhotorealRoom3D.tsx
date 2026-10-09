@@ -12,7 +12,7 @@ const CLAMP=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const KEYS=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
 const PRESETS=[
  {yaw:-Math.PI/2,x:-1.8,z:3.8},
- {yaw:0,x:0,z:5.12},
+ {yaw:0,x:0,z:4.79},
  {yaw:Math.PI/2,x:1.8,z:3.8},
  {yaw:Math.PI,x:0,z:0},
  {yaw:0,x:0,z:5.48},
@@ -42,7 +42,7 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
      v.x=CLAMP(v.x+(-Math.sin(v.yaw)*forward+Math.cos(v.yaw)*strafe)*speed,-4.45,4.45);
      v.z=CLAMP(v.z+(-Math.cos(v.yaw)*forward+Math.sin(v.yaw)*strafe)*speed,-5.15,5.55);
    }
-   camera.position.set(v.x,1.68,v.z);
+   camera.position.set(v.x,1.77,v.z);
    camera.rotation.set(v.pitch,v.yaw,0,'YXZ');
    if(v.keys.size)invalidate();
  });
@@ -56,7 +56,7 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
  * volumetric geometric avatar is retained (never an unshaded portrait plane).
  */
 export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
- const controls=useRef<Controls>({yaw:0,pitch:0,x:0,z:5.12,keys:new Set()});
+ const controls=useRef<Controls>({yaw:0,pitch:0,x:0,z:4.79,keys:new Set()});
  const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
  const invalidateRef=useRef<(()=>void)|null>(null);
  const onReadyRef=useRef(onReady);
@@ -115,7 +115,7 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
      onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
      onClick={event=>event.stopPropagation()}>
      <Canvas frameloop="demand" shadows dpr={[1,1.5]}
-       camera={{fov:63,near:.08,far:75,position:[0,1.68,5.12]}}
+       camera={{fov:59,near:.08,far:75,position:[0,1.77,4.79]}}
        gl={{alpha:false,antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false}}
        onCreated={({gl,invalidate})=>{
          invalidateRef.current=invalidate;

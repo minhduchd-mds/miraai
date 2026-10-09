@@ -287,7 +287,8 @@ function MarbleDeskSet(){
 function RoomLighting({night}:{night:boolean}){
   return <group>
     {/* Soft key light at the avatar face; the room keeps independent ceiling/bed lamps. */}
-    <pointLight position={[.12,2.48,3.22]} color="#ffe2d4" intensity={3.1} distance={5.0}/>
+    <pointLight position={[.32,2.51,3.56]} color="#ffe2d4" intensity={4.6} distance={5.5}/>
+    <pointLight position={[-1.16,2.14,3.35]} color="#ded4ee" intensity={1.65} distance={4.6}/>
     <mesh position={[0,3.72,-.9]} rotation={[-Math.PI/2,0,0]}>
       <torusGeometry args={[2.15,.082,10,72]}/>
       <meshStandardMaterial color="#ffebcf" emissive="#ffc17b" emissiveIntensity={2.2}/>

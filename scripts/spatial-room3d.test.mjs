@@ -50,7 +50,7 @@ test('real room is the default for capable desktops, opt-out and motion gates re
 test('camera supports 360 orbit and genuine translation without stealing chat keystrokes',()=>{
  for(const token of ['onPointerDown={pointerDown}','onPointerMove={pointerMove}',
     'setPointerCapture','controls.current.yaw','controls.current.pitch','KeyW','KeyA','KeyS','KeyD',
-    'camera.position.set(v.x,1.68,v.z)','camera.rotation.set(v.pitch,v.yaw,0',
+    'camera.position.set(v.x,1.77,v.z)','camera.rotation.set(v.pitch,v.yaw,0',
     'CLAMP(v.x','CLAMP(v.z','isContentEditable','Digit([1-5])',
     'window.removeEventListener(\'keydown\',keydown)']) {
     assert.ok(room.includes(token),'Missing camera part '+token);
@@ -98,4 +98,20 @@ test('Mira seated pose, foreground composition and chair plush are present',()=>
  assert.match(vrm,/position=\{\[0,\.17,2\.28\]\} scale=\{1\.55\}/);
  assert.match(luxury,/Soft key light at the avatar face/);
  assert.match(luxury,/Smiling companion plush/);
+});
+
+test('active room3d does not mount duplicate 2D scene, spatial gizmos or text overlays',()=>{
+ const app=readFileSync('src/app/AppV2.tsx','utf8');
+ assert.match(app,/voice-footer state-\$\{mira\.state\}/);
+ assert.match(integration,/!room3DActive && <img[\s\S]*?pm-bedroom-scene pm-scene-fallback/);
+ assert.doesNotMatch(css,/\.pm-room3d-hud|\.pm-room3d-gallery/);
+ assert.match(integration,/!room3DActive && <span[\s\S]{0,70}pm-state-orb/);
+ assert.match(integration,/showAffectionFx && !room3DActive/);
+ assert.match(integration,/state === 'listening' && !room3DActive/);
+});
+test('VRM reference styling only touches named garment or hair material slots',()=>{
+ assert.match(vrm,/adaptReferencePalette\(vrm\)/);
+ assert.match(vrm,/hair\|fringe\|bangs/);
+ assert.match(vrm,/cardigan\|sweater\|knit/);
+ assert.match(luxury,/position=\{\[\.32,2\.51,3\.56\]\}/);
 });

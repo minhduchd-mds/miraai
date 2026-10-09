@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from 'three';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
 
 /**
@@ -33,6 +34,30 @@ function seatedPose(vrm: VRM) {
   rotate('rightLowerArm', -.56, .04, -.09);
   rotate('head', .06, -.08, -.11);
   rotate('chest', -.10, .02, .04);
+}
+
+/** Recolor only explicitly named hair/garment slots to the approved dark-hair / cream-knit palette.
+ * Never tint skin, eyes or unlabeled slots; actual fidelity still depends on the VRM asset. */
+function adaptReferencePalette(vrm: VRM) {
+  const done=new Set<THREE.Material>();
+  vrm.scene.traverse(node=>{
+    if (!(node instanceof THREE.Mesh)) return;
+    const slots=Array.isArray(node.material)?node.material:[node.material];
+    for(const raw of slots){
+      if(!raw || done.has(raw))continue;
+      done.add(raw);
+      const mat=raw as THREE.MeshStandardMaterial;
+      if(!(mat.color instanceof THREE.Color))continue;
+      const name=(node.name+' '+raw.name).toLowerCase();
+      if(/hair|fringe|bangs|hairstyle|髪|ヘア/.test(name)) {
+        mat.color.set('#34242a');
+        if('roughness' in mat)mat.roughness=.81;
+      }else if(/cardigan|sweater|knit|top|shirt|blouse|clothing|outfit|衣装|服/.test(name)) {
+        mat.color.set('#f1e8e1');
+        if('roughness' in mat)mat.roughness=.92;
+      }
+    }
+  });
 }
 
 function GeometricFallback() {
@@ -77,6 +102,7 @@ export default function RoomMiraVRM({onReady}:Props) {
       if(!vrm){if(!cancelled)setFailed(true);return;}
       if(cancelled){VRMUtils.deepDispose(vrm.scene);return;}
       seatedPose(vrm);
+      adaptReferencePalette(vrm);
       vrm.expressionManager?.setValue('happy', .22);
       // The female VRM0 facing convention is already established in VRMAvatar.
       vrm.scene.rotation.y=Math.PI;

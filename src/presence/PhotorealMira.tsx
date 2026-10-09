@@ -540,14 +540,14 @@ export default function PhotorealMira({
       aria-label={label}
     >
       <span className="pm-scene-shell" aria-hidden="true">
-        <img
+        {!room3DActive && <img
           className="pm-scene pm-bedroom-scene pm-scene-fallback"
           src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
           fetchPriority="high"
-        />
+        />}
         {room3DActive && (
           <Suspense fallback={null}>
             <PhotorealRoom3D
@@ -582,41 +582,41 @@ export default function PhotorealMira({
             />
           </Suspense>
         )}
-        <img
+        {!room3DActive && <img
           className="pm-depth-layer pm-depth-mid"
           src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
-        />
-        <img
+        />}
+        {!room3DActive && <img
           className="pm-depth-layer pm-depth-near"
           src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
-        />
+        />}
         {!spatial3DEnabled && !room3DActive && presenceScene === 'bedtime' && (visualQuality === 'high' || visualQuality === 'ultra') && (
           <Suspense fallback={null}>
             <PhotorealSceneSegments src={sceneAsset} />
           </Suspense>
         )}
-        <span className="pm-depth-atmosphere" />
-        <span className="pm-depth-relight" />
-        <span className="pm-depth-contact-shadow" />
-        <span className="pm-env-window-light" />
-        <span className="pm-env-city-bokeh" />
-        <span className="pm-env-light-rays" />
-        <span className="pm-env-practical-light" />
-        <span className="pm-env-bed-bounce" />
-        <span className="pm-env-reflection" />
-        <span className="pm-env-edge-occlusion" />
-        <span className="pm-env-dust" />
-        <span className="pm-env-vignette" />
-        <span className="pm-depth-grain" />
+        {!room3DActive && <span className="pm-depth-atmosphere" />}
+        {!room3DActive && <span className="pm-depth-relight" />}
+        {!room3DActive && <span className="pm-depth-contact-shadow" />}
+        {!room3DActive && <span className="pm-env-window-light" />}
+        {!room3DActive && <span className="pm-env-city-bokeh" />}
+        {!room3DActive && <span className="pm-env-light-rays" />}
+        {!room3DActive && <span className="pm-env-practical-light" />}
+        {!room3DActive && <span className="pm-env-bed-bounce" />}
+        {!room3DActive && <span className="pm-env-reflection" />}
+        {!room3DActive && <span className="pm-env-edge-occlusion" />}
+        {!room3DActive && <span className="pm-env-dust" />}
+        {!room3DActive && <span className="pm-env-vignette" />}
+        {!room3DActive && <span className="pm-depth-grain" />}
       </span>
 
-      <span className="pm-bedroom-tint" aria-hidden="true" />
+      {!room3DActive && <span className="pm-bedroom-tint" aria-hidden="true" />}
 
       {presenceVisual.character && !room3DActive && (
         <span className="pm-presence-character-zone" aria-hidden="true">
@@ -641,7 +641,7 @@ export default function PhotorealMira({
           loading="lazy"
         />
       )}
-      {showAffectionFx && (
+      {showAffectionFx && !room3DActive && (
         <img
           className="pm-fx pm-fx-hearts"
           src={asset('/mira-assets/effects/fx_heart_particles.png')}
@@ -650,7 +650,7 @@ export default function PhotorealMira({
           draggable={false}
         />
       )}
-      {state === 'listening' && (
+      {state === 'listening' && !room3DActive && (
         <img
           className="pm-fx pm-fx-mic-ring"
           src={asset('/mira-assets/effects/fx_mic_ring_neon.png')}
@@ -686,14 +686,14 @@ export default function PhotorealMira({
         {WAVE_BARS.map((index) => <i key={index} />)}
       </span>}
 
-      {spatialCorePreviewVisible && (
+      {!room3DActive && spatialCorePreviewVisible && (
         <span
           className="pm-state-orb pm-state-orb-preview"
           style={spatialCorePreviewStyle}
           aria-hidden="true"
         ><i /></span>
       )}
-      <span
+      {!room3DActive && <span
         className={`pm-state-orb physics-${spatialCorePhysicsMode}`}
         style={spatialCoreStyle}
         data-spatial-object="mira.core"
@@ -701,15 +701,15 @@ export default function PhotorealMira({
         data-spatial-depth={spatialCoreDepth}
         data-spatial-depth-radius="0.12"
         aria-hidden="true"
-      ><i /></span>
-      {spatialNodePreviewVisible && (
+      ><i /></span>}
+      {!room3DActive && spatialNodePreviewVisible && (
         <span
           className="pm-state-orb pm-state-node pm-state-orb-preview"
           style={spatialNodePreviewStyle}
           aria-hidden="true"
         ><i /></span>
       )}
-      <span
+      {!room3DActive && <span
         className={`pm-state-orb pm-state-node physics-${spatialNodePhysicsMode}`}
         style={spatialNodeStyle}
         data-spatial-object="mira.node"
@@ -717,8 +717,8 @@ export default function PhotorealMira({
         data-spatial-depth={spatialNodeDepth}
         data-spatial-depth-radius="0.09"
         aria-hidden="true"
-      ><i /></span>
-      <span className="pm-vignette" aria-hidden="true" />
+      ><i /></span>}
+      {!room3DActive && <span className="pm-vignette" aria-hidden="true" />}
       <span className="sr-only">{label}</span>
     </button>
   );

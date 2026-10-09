@@ -28,6 +28,8 @@ test('opt-in room3d renders 3D geometry, rotates through drag and walks with key
  await expect(page.locator('.voice-footer')).toBeVisible();
  await expect(page.locator('.voice-control-dock')).toBeVisible();
  await expect(page.locator('.pm-room3d-reference')).toHaveCount(0);
+ await expect(page.locator('.pm-room3d-hud,.pm-room3d-gallery,.photo-mira .pm-live-pill,.photo-mira .pm-hero-copy')).toHaveCount(0);
+ await expect(page.locator('.voice-footer')).toBeVisible();
  await expect(stage).toHaveAttribute('data-room3d-ready','true',{timeout:25_000});
  const canvas=page.locator('.pm-room3d-stage canvas');
  await expect(canvas).toBeVisible();
