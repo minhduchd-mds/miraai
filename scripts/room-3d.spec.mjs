@@ -23,6 +23,10 @@ test('opt-in room3d renders 3D geometry, rotates through drag and walks with key
  }
  await expect(stage).toHaveAttribute('data-room3d-active','true',{timeout:25_000});
  await expect(stage).toHaveAttribute('data-room3d-ready','true',{timeout:25_000});
+ await expect(page.locator('.pm-room3d-hud, .pm-room3d-gallery')).toHaveCount(0);
+ await expect(page.locator('.pm-hero-copy, .pm-live-pill')).toHaveCount(0);
+ await expect(page.locator('.voice-footer')).toBeVisible();
+ await expect(page.locator('.voice-control-dock')).toBeVisible();
  await expect(page.locator('.pm-room3d-reference')).toHaveCount(0);
  await expect(stage).toHaveAttribute('data-room3d-ready','true',{timeout:25_000});
  const canvas=page.locator('.pm-room3d-stage canvas');

@@ -226,10 +226,27 @@ function MiraChairSet(){
       <sphereGeometry args={[1,26,18]}/>
       <meshStandardMaterial color="#dfc6bf" roughness={1}/>
     </mesh>)}
-    <mesh position={[.76,.86,1.85]} castShadow scale={[.31,.36,.19]}>
-      <sphereGeometry args={[1,26,18]}/>
-      <meshStandardMaterial color="#f3c2cd" roughness={1}/>
-    </mesh>
+    {/* Smiling companion plush built from volumes; no photographic billboard. */}
+    <group position={[.79,.91,2.02]}>
+      <mesh castShadow scale={[.29,.33,.23]}>
+        <sphereGeometry args={[1,24,16]}/>
+        <meshStandardMaterial color="#f5cad7" roughness={1}/>
+      </mesh>
+      {[-.18,.18].map(x=><mesh key={x} position={[x,.30,-.01]}
+        scale={[.10,.15,.085]} castShadow>
+        <sphereGeometry args={[1,16,12]}/>
+        <meshStandardMaterial color="#efb7c7" roughness={1}/>
+      </mesh>)}
+      {[-.105,.105].map(x=><mesh key={x} position={[x,.055,.222]}
+        scale={[.023,.026,.015]}>
+        <sphereGeometry args={[1,12,8]}/>
+        <meshBasicMaterial color="#543b49"/>
+      </mesh>)}
+      <mesh position={[0,-.04,.223]} scale={[.048,.024,.009]}>
+        <sphereGeometry args={[1,12,8]}/>
+        <meshBasicMaterial color="#965c73"/>
+      </mesh>
+    </group>
     <Rounded at={[0,.18,1.96]} size={[1.28,.15,.78]} color="#a17b69" radius={.06}/>
   </group>;
 }
@@ -269,6 +286,8 @@ function MarbleDeskSet(){
 
 function RoomLighting({night}:{night:boolean}){
   return <group>
+    {/* Soft key light at the avatar face; the room keeps independent ceiling/bed lamps. */}
+    <pointLight position={[.12,2.48,3.22]} color="#ffe2d4" intensity={3.1} distance={5.0}/>
     <mesh position={[0,3.72,-.9]} rotation={[-Math.PI/2,0,0]}>
       <torusGeometry args={[2.15,.082,10,72]}/>
       <meshStandardMaterial color="#ffebcf" emissive="#ffc17b" emissiveIntensity={2.2}/>

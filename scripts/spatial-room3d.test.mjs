@@ -24,7 +24,7 @@ test('room contains independently modeled curved furniture instead of coarse box
 test('existing rigged 3D Mira model is loaded without an alpha-masked portrait',()=>{
  assert.match(room,/lazy\(\(\) => import\('\.\/RoomMiraVRM'\)\)/);
  assert.match(room,/<RoomMiraVRM onReady=\{sceneReady\}/);
- assert.match(vrm,/mira_female_02_lavender_lounge\.vrm/);
+ assert.match(vrm,/mira_female_04_soft_rose\.vrm/);
  assert.match(vrm,/VRMLoaderPlugin/);
  assert.match(vrm,/seatedPose\(vrm\)/);
  assert.match(vrm,/getNormalizedBoneNode/);
@@ -77,6 +77,25 @@ test('real 3D scene never gets covered by legacy 2D character or expression spri
 test('3D hero contains a spatial upholstered chair and a close foreground seated VRM',()=>{
  assert.match(luxury,/function MiraChairSet/);
  assert.match(luxury,/<MiraChairSet\/>/);
- assert.match(vrm,/position=\{\[0,\.19,2\.24\]\} scale=\{1\.47\}/);
+ assert.match(vrm,/position=\{\[0,\.17,2\.28\]\} scale=\{1\.55\}/);
  assert.match(css,/\.photo-mira\[data-room3d-active="true"\] \.pm-hero-copy/);
+});
+
+test('3D mode removes HUD, gallery and copy; AppV2 voice footer remains unchanged',()=>{
+ assert.doesNotMatch(room,/pm-room3d-hud|pm-room3d-gallery|setViewPreset/);
+ assert.match(room,/Digit\(\[1-5\]\)/);
+ assert.match(integration,/!room3DActive && <span\s+key=\{`hero-/);
+ assert.match(integration,/!room3DActive && <span className="pm-live-pill"/);
+ assert.match(integration,/!room3DActive && <span className="pm-wave"/);
+ const app=readFileSync('src/app/AppV2.tsx','utf8');
+ assert.match(app,/voice-footer state-\$\{mira\.state\}/);
+ assert.match(app,/className="voice-control-dock"/);
+ assert.match(app,/className="voice-session-caption"/);
+});
+test('Mira seated pose, foreground composition and chair plush are present',()=>{
+ assert.match(vrm,/rotate\('leftLowerArm', -\.90,/);
+ assert.match(vrm,/vrm\.expressionManager\?\.setValue\('happy', \.22\)/);
+ assert.match(vrm,/position=\{\[0,\.17,2\.28\]\} scale=\{1\.55\}/);
+ assert.match(luxury,/Soft key light at the avatar face/);
+ assert.match(luxury,/Smiling companion plush/);
 });

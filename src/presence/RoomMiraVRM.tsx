@@ -8,7 +8,8 @@ import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
  * Existing model assets are already committed to /public/avatars/female.
  * This outfit/face is an available model, NOT a reconstruction of the concept portrait.
  */
-const MODEL = 'avatars/female/mira_female_02_lavender_lounge.vrm';
+// Closer warm wardrobe palette. This is still a stylized VRM, not a photo-exact model.
+const MODEL = 'avatars/female/mira_female_04_soft_rose.vrm';
 type Props = { onReady: () => void };
 type Bone = 'leftUpperArm' | 'rightUpperArm' | 'leftLowerArm' | 'rightLowerArm'
   | 'leftUpperLeg' | 'rightUpperLeg' | 'leftLowerLeg' | 'rightLowerLeg'
@@ -25,12 +26,13 @@ function seatedPose(vrm: VRM) {
   rotate('rightUpperLeg', -1.12, 0, -.09);
   rotate('leftLowerLeg', 1.34, 0, 0);
   rotate('rightLowerLeg', 1.34, 0, 0);
-  rotate('leftUpperArm', -.19, .02, 1.06);
-  rotate('rightUpperArm', -.32, -.05, -1.08);
-  rotate('leftLowerArm', -.60, -.05, .16);
-  rotate('rightLowerArm', -.77, .06, -.13);
-  rotate('head', .04, -.06, -.07);
-  rotate('chest', -.08, .02, .04);
+  // Relaxed, asymmetric portrait: elbow toward cheek and shoulders slightly tilted.
+  rotate('leftUpperArm', -.23, .04, 1.14);
+  rotate('rightUpperArm', -.31, -.04, -.80);
+  rotate('leftLowerArm', -.90, -.07, .16);
+  rotate('rightLowerArm', -.56, .04, -.09);
+  rotate('head', .06, -.08, -.11);
+  rotate('chest', -.10, .02, .04);
 }
 
 function GeometricFallback() {
@@ -75,6 +77,7 @@ export default function RoomMiraVRM({onReady}:Props) {
       if(!vrm){if(!cancelled)setFailed(true);return;}
       if(cancelled){VRMUtils.deepDispose(vrm.scene);return;}
       seatedPose(vrm);
+      vrm.expressionManager?.setValue('happy', .22);
       // The female VRM0 facing convention is already established in VRMAvatar.
       vrm.scene.rotation.y=Math.PI;
       vrm.scene.traverse(node=>{
@@ -109,7 +112,7 @@ export default function RoomMiraVRM({onReady}:Props) {
   });
 
   return <group>
-    {model ? <group position={[0,.19,2.24]} scale={1.47}>
+    {model ? <group position={[0,.17,2.28]} scale={1.55}>
       <primitive object={model.scene}/>
     </group> : <GeometricFallback />}
     {failed && <group name="vrm-fallback-geometry"/>}

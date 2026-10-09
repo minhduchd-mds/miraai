@@ -2389,3 +2389,13 @@
 .photo-mira[data-room3d-active="true"] .pm-bedroom-tint {
   display:none;
 }
+
+/* v38: No explanatory text over the 3D room. These CSS guards complement
+   unmounting the text from React. The voice-footer in AppV2 is unaffected. */
+.photo-mira[data-room3d-active="true"] .pm-room3d-hud,
+.photo-mira[data-room3d-active="true"] .pm-room3d-gallery,
+.photo-mira[data-room3d-active="true"] .pm-live-pill,
+.photo-mira[data-room3d-active="true"] .pm-hero-copy,
+.photo-mira[data-room3d-active="true"] .pm-wave {
+  display:none !important;
+}

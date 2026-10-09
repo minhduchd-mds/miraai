@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { Component, Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -61,7 +61,6 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
  const invalidateRef=useRef<(()=>void)|null>(null);
  const onReadyRef=useRef(onReady);
  onReadyRef.current=onReady;
- const [viewPreset,setViewPreset]=useState(1);
  const sceneReady=useCallback(()=>onReadyRef.current(),[]);
 
  useEffect(()=>{
@@ -73,7 +72,6 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
      if(n){
        const index=Number(n[1])-1;
        Object.assign(controls.current,PRESETS[index],{pitch:0});
-       setViewPreset(index);
        invalidateRef.current?.();
        return;
      }
@@ -112,7 +110,7 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
    event.stopPropagation();
  };
  return <RoomBoundary onFailure={onFailure}>
-   <span className="pm-room3d-stage" aria-label="Mira Home 3D. Kéo chuột xoay 360 độ, dùng WASD để di chuyển."
+   <span className="pm-room3d-stage" aria-label="Không gian Mira 3D"
      onPointerDown={pointerDown} onPointerMove={pointerMove}
      onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
      onClick={event=>event.stopPropagation()}>
@@ -132,11 +130,6 @@ export default function PhotorealRoom3D({scene,onReady,onFailure}:Room3DProps){
          <RoomMiraVRM onReady={sceneReady}/>
        </Suspense>
      </Canvas>
-     <span className="pm-room3d-hud" aria-hidden="true">MIRA HOME · PHÒNG 3D THẬT · KÉO XOAY · WASD · 1–5 GÓC NHÌN</span>
-     <span className="pm-room3d-gallery" aria-hidden="true">
-       {['Trái 90°','Chính diện','Phải 90°','Sau 180°','Toàn cảnh'].map((label,index)=>
-         <span key={label} className={index===viewPreset?'is-selected':''}>{label}</span>)}
-     </span>
    </span>
  </RoomBoundary>;
 }

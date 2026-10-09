@@ -660,7 +660,7 @@ export default function PhotorealMira({
         />
       )}
 
-      <span
+      {!room3DActive && <span
         key={`hero-${state}`}
         className="pm-hero-copy"
         data-hero-state={state}
@@ -674,17 +674,17 @@ export default function PhotorealMira({
           <strong>{presenceCopy.title}</strong>
           <em>{presenceCopy.subtitle}</em>
         </span>
-      </span>
+      </span>}
 
-      <span className="pm-live-pill" aria-hidden="true">
+      {!room3DActive && <span className="pm-live-pill" aria-hidden="true">
         <i />
         <b>{liveLabel}</b>
         <em>{STATE_LABEL[state]}</em>
-      </span>
+      </span>}
 
-      <span className="pm-wave" aria-hidden="true">
+      {!room3DActive && <span className="pm-wave" aria-hidden="true">
         {WAVE_BARS.map((index) => <i key={index} />)}
-      </span>
+      </span>}
 
       {spatialCorePreviewVisible && (
         <span
