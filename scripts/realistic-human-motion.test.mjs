@@ -70,7 +70,57 @@ test('3D lip sync reads isolated TTS analyser and does not read microphone level
  assert.match(avatar,/import \{ttsLevel\} from '\.\.\/core\/audio-level'/);
  assert.match(avatar,/state==='speaking' && ttsLevel\.active \? ttsLevel\.value : undefined/);
  assert.match(avatar,/jawBlend\.current\+=\(motion\.mouthOpen-jawBlend\.current\)\*k/);
- assert.match(avatar,/expressions\.setValue\('aa',mouthOpen\)/);
+ assert.match(avatar,/expressions\.setValue\(name,visemes\[name\]\)/);
  assert.match(avatar,/weight=mouthOpen/);
  assert.doesNotMatch(avatar,/audioLevel\.value/);
+});
+
+const rawVisemes=readFileSync('src/presence/tts-visemes.ts','utf8');
+const visemeJs=ts.transpileModule(rawVisemes,{compilerOptions:{
+ module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022
+}}).outputText;
+const {visemesForSpeech}=await import('data:text/javascript;base64,'+
+ Buffer.from(visemeJs).toString('base64'));
+
+test('spectrum-shaped 3D speech poses stay finite, bounded and fully close on silence',()=>{
+ for(const jaw of [0,.05,.35,1,Infinity,NaN,-1,5]){
+  for(const bands of [null,{low:1,mid:0,high:0},{low:0,mid:1,high:0},
+      {low:0,mid:0,high:1},{low:NaN,mid:Infinity,high:-2}]){
+   const poses=visemesForSpeech(jaw,bands);
+   assert.deepEqual(Object.keys(poses).sort(),['aa','ee','ih','oh','ou'].sort());
+   assert.ok(Object.values(poses).every(v=>Number.isFinite(v)&&v>=0&&v<=1));
+   if(!(jaw>0&&Number.isFinite(jaw)))
+     assert.ok(Object.values(poses).every(v=>v===0));
+  }
+ }
+ assert.deepEqual(visemesForSpeech(.4,null),{aa:.4,ih:0,ou:0,ee:0,oh:0});
+});
+
+test('band ratios produce distinguishable mouth shapes without pretending to identify phonemes',()=>{
+ const low=visemesForSpeech(.7,{low:.8,mid:.1,high:.1});
+ const mid=visemesForSpeech(.7,{low:.1,mid:.8,high:.1});
+ const high=visemesForSpeech(.7,{low:.1,mid:.1,high:.8});
+ assert.ok(mid.aa>low.aa);
+ assert.ok(high.ih>mid.ih);
+ assert.ok(low.ou>high.ou);
+ assert.ok(low.oh>mid.oh);
+ assert.ok(high.ee>low.ee);
+ assert.deepEqual(visemesForSpeech(0,{low:.8,mid:.1,high:.1}),
+   {aa:0,ih:0,ou:0,ee:0,oh:0});
+});
+
+test('TTS spectral data stays ephemeral and both VRM/GLB routes use the same viseme model',()=>{
+ const audio=readFileSync('src/core/audio-level.ts','utf8');
+ const avatar=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ assert.match(audio,/an\.getByteFrequencyData\(spectrum\)/);
+ for(const band of ['low','mid','high']){
+  assert.match(audio,new RegExp('ttsLevel\\.bands\\.'+band+'=bandEnergy'));
+  assert.match(audio,new RegExp('ttsLevel\\.bands\\.'+band+'=0'));
+ }
+ assert.match(avatar,/visemesForSpeech\(mouthOpen,/);
+ assert.match(avatar,/expressions\.setValue\(name,visemes\[name\]\)/);
+ for(const pose of ['aa','ih','ou','ee','oh'])
+  assert.match(avatar,new RegExp('weight=visemes\\.'+pose));
+ assert.match(avatar,/weight=mouthOpen/);
+ assert.doesNotMatch(audio,/localStorage\.setItem\(.*ttsLevel/);
 });
