@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
+import {chooseRealisticAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic-avatar-source';
 
 /**
  * A real rigged VRM avatar inside the same 3D room, never an alpha-masked photo.
@@ -86,6 +87,7 @@ function GeometricFallback() {
 
 export default function RoomMiraVRM({onReady}:Props) {
   const [model,setModel] = useState<VRM | null>(null);
+  const [avatar,setAvatar] = useState<AvatarAssetSource>(PREVIEW_ASSET);
   const [failed,setFailed] = useState(false);
   const ref = useRef<VRM | null>(null);
   const callback = useRef(onReady);
@@ -97,33 +99,46 @@ export default function RoomMiraVRM({onReady}:Props) {
     let cancelled=false;
     const loader=new GLTFLoader();
     loader.register(parser=>new VRMLoaderPlugin(parser));
-    loader.load(`${import.meta.env.BASE_URL}${MODEL}`,gltf=>{
-      const vrm=gltf.userData.vrm as VRM | undefined;
-      if(!vrm){if(!cancelled)setFailed(true);return;}
-      if(cancelled){VRMUtils.deepDispose(vrm.scene);return;}
-      seatedPose(vrm);
-      adaptReferencePalette(vrm);
-      vrm.expressionManager?.setValue('happy', .22);
-      // The female VRM0 facing convention is already established in VRMAvatar.
-      vrm.scene.rotation.y=Math.PI;
-      vrm.scene.traverse(node=>{
-        if('castShadow' in node) (node as {castShadow:boolean}).castShadow=true;
-        if('receiveShadow' in node) (node as {receiveShadow:boolean}).receiveShadow=true;
-      });
-      ref.current=vrm;
-      setModel(vrm);
-      callback.current();
-      invalidate();
-    },undefined,()=>{
+    const load=(source:AvatarAssetSource):void=>{
       if(cancelled)return;
-      setFailed(true);
-      callback.current();
-      invalidate();
-    });
+      const failure=()=>{
+        if(cancelled)return;
+        if(source.mode==='realistic'){load(PREVIEW_ASSET);return;}
+        setFailed(true);callback.current();invalidate();
+      };
+      loader.load(`${import.meta.env.BASE_URL}${source.path}`,gltf=>{
+        const vrm=gltf.userData.vrm as VRM | undefined;
+        if(!vrm){failure();return;}
+        if(cancelled){VRMUtils.deepDispose(vrm.scene);return;}
+        try{
+          seatedPose(vrm);
+          // Preserve the PBR skin/hair/garment maps of a reviewed human model.
+          // Stylized preview recoloring is intentionally NOT applied to realistic assets.
+          if(source.mode==='preview')adaptReferencePalette(vrm);
+          vrm.expressionManager?.setValue('happy',.22);
+          vrm.scene.rotation.y=source.mode==='preview'?Math.PI:0;
+          vrm.scene.traverse(node=>{
+            if('castShadow' in node)(node as {castShadow:boolean}).castShadow=true;
+            if('receiveShadow' in node)(node as {receiveShadow:boolean}).receiveShadow=true;
+          });
+          ref.current=vrm;
+          setModel(vrm);setAvatar(source);setFailed(false);
+          callback.current();invalidate();
+        }catch{
+          VRMUtils.deepDispose(vrm.scene);
+          failure();
+        }
+      },undefined,failure);
+    };
+    // Only reviewed, same-origin VRM files can override the current preview.
+    void fetch(`${import.meta.env.BASE_URL}avatars/realistic/manifest.json`,{
+      credentials:'same-origin',cache:'no-cache'
+    }).then(r=>r.ok?r.json():null)
+      .then(m=>{if(!cancelled)load(chooseRealisticAvatar(m));})
+      .catch(()=>{if(!cancelled)load(PREVIEW_ASSET);});
     return ()=>{
       cancelled=true;
-      const old=ref.current;
-      ref.current=null;
+      const old=ref.current;ref.current=null;
       if(old)VRMUtils.deepDispose(old.scene);
     };
   },[invalidate]);
@@ -138,7 +153,10 @@ export default function RoomMiraVRM({onReady}:Props) {
   });
 
   return <group>
-    {model ? <group position={[0,.17,2.28]} scale={1.55}>
+    {model ? avatar.mode==='realistic' ? <group
+      position={avatar.position} scale={avatar.scale} rotation={[0,avatar.rotationY,0]}>
+      <primitive object={model.scene}/>
+    </group> : <group position={[0,.17,2.28]} scale={1.55}>
       <primitive object={model.scene}/>
     </group> : <GeometricFallback />}
     {failed && <group name="vrm-fallback-geometry"/>}
