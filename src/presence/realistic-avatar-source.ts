@@ -12,9 +12,11 @@ export interface RealisticAvatarManifest {
   scale: number;
   position: [number, number, number];
   rotationY: number;
+  /** Authored pose is preferred. Mixamo-standard skeletons can be seated explicitly. */
+  poseMode?: 'authored' | 'mixamo-seated';
 }
 export type AvatarAssetSource =
-  | {mode:'realistic';path:string;format:'vrm'|'glb';scale:number;position:[number,number,number];rotationY:number}
+  | {mode:'realistic';path:string;format:'vrm'|'glb';scale:number;position:[number,number,number];rotationY:number;poseMode:'authored'|'mixamo-seated'}
   | {mode:'preview';path:string;scale:number;position:[number,number,number];rotationY:number};
 export const PREVIEW_ASSET:AvatarAssetSource = {
   mode:'preview',
@@ -43,12 +45,14 @@ export function chooseRealisticAvatar(manifest: unknown): AvatarAssetSource {
     return PREVIEW_ASSET;
   if(typeof m.rotationY!=='number'||!Number.isFinite(m.rotationY)||
     Math.abs(m.rotationY)>Math.PI*2)return PREVIEW_ASSET;
+  if(m.poseMode!==undefined && m.poseMode!=='authored' && m.poseMode!=='mixamo-seated')return PREVIEW_ASSET;
+  if(m.poseMode==='mixamo-seated' && !m.asset.endsWith('.glb'))return PREVIEW_ASSET;
   return {
     mode:'realistic',
     path:'avatars/realistic/'+m.asset,
     format:m.asset.endsWith('.vrm')?'vrm':'glb',
     scale,position:m.position as [number,number,number],
-    rotationY:m.rotationY,
+    rotationY:m.rotationY,poseMode:m.poseMode||'authored',
   };
 }
 

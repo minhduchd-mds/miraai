@@ -32,7 +32,7 @@ test('Approved manifest allows ONLY local realistic VRM with verified provenance
   {asset:'../../secret.vrm'},
   {asset:'https://outside.example/avatar.vrm'},
   {asset:'x.glb'},{license:''},{sourceUrl:'http://unsafe'},
-  {visualApproval:'pending'},{scale:99},{position:[0,20,0]},{rotationY:11},
+  {visualApproval:'pending'},{poseMode:'invalid'},{poseMode:'mixamo-seated'},{scale:99},{position:[0,20,0]},{rotationY:11},
   {status:'pending'}
  ]) {
   const v=clone(approved);Object.assign(v,bad);
@@ -67,4 +67,20 @@ test('Production loader must avoid recoloring PBR textures of approved human ava
  assert.match(loader,/VRMLoaderPlugin/);
  assert.match(loader,/avatars\/realistic\/manifest\.json/);
  assert.match(loader,/callback\.current\(\)/);
+});
+
+test('Real human GLB requires a validated explicit pose mode and textured PBR layers',()=>{
+ const glbManifest={...approved,asset:'real-woman-v2.glb',poseMode:'mixamo-seated'};
+ const v=chooseRealisticAvatar(glbManifest);
+ assert.equal(v.mode,'realistic');
+ assert.equal(v.poseMode,'mixamo-seated');
+ assert.equal(v.format,'glb');
+ const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ const pose=readFileSync('src/presence/rigged-human-pose.ts','utf8');
+ assert.match(loader,/poseMixamoHumanSeated\(gltf\.scene\)/);
+ assert.match(loader,/texturedMaterials\.size>=3&&normalMaterials\.size>=1/);
+ assert.match(pose,/root\.updateMatrixWorld\(true\)/);
+ assert.match(pose,/if\(!leftThigh\|\|!rightThigh\|\|!leftShin\|\|!rightShin\)return false/);
+ const bad={...glbManifest,poseMode:'unsafe'};
+ assert.equal(chooseRealisticAvatar(bad).mode,'preview');
 });

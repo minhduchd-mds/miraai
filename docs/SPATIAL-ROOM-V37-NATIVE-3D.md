@@ -14,3 +14,11 @@ Updated 2026-10-09
 - Chromium test must verify rotation, translation, continuous canvas and no photo reveal.
 - The single concept photo cannot prove hidden surfaces, materials or exact likeness. This implementation is an editable, independently modeled 3D environment; it does **not** claim 100% visual likeness or photorealistic scans.
 - Fine-grained model likeness requires a licensed custom VRM/GLB and authored PBR interior assets. For safety, reduced-motion/Lite/data saver retains original WebP.
+
+## Approved realistic-human GLB import (v39)
+
+When an actual high-fidelity licensed asset has been authored, copy a **complete rigged PBR GLB** to `public/avatars/realistic/`; include texture maps (skin/hair/garment) and normal maps. Update `manifest.json` after manual visual review and licensing check. Set `poseMode: "authored"` if the model was posed in Blender, **preferred**. For a recognizable Mixamo skeleton only, set `poseMode: "mixamo-seated"` to opt in to the safe seated-bone adapter. Unrecognized bones reject this optional pose rather than deforming an arbitrary skeleton.
+
+The runtime now requires **three distinct textured materials**, one normal-mapped material and at least one skinned mesh for a GLB; the offline validator additionally rejects unlit shaders. These mechanical checks cannot prove facial photorealism, correct attire, or similarity to the approved image: those require an artist and human screenshot approval. **No approved human asset is currently included**, and stylized VRMs remain hidden unless `?avatarPreview=1` is supplied intentionally. The project never silently renames anime assets as 'realistic'.
+
+Potential licensed asset-production route: [MakeHuman/MPFB](https://github.com/makehumancommunity/mpfb2), whose *bundled core graphical assets* and generated exports are CC0. Separately sourced hairstyles/clothes may use different licenses; verify before redistribution. Export rig/pose/textured model as GLB, validate with `npm run check:avatar`, then visually compare in-browser at default, left/right, and full-height perspectives.

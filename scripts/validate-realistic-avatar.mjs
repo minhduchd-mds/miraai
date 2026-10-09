@@ -36,6 +36,7 @@ export function collectAvatarChecks(gltf,{requireVrm=true}={}) {
   const materials=gltf.materials||[];
   if(materials.filter(m=>m.pbrMetallicRoughness?.baseColorTexture||m.extensions?.KHR_materials_unlit).length<3)
     errors.push('Need at least 3 named textured material layers');
+  if(materials.some(m=>m.extensions?.KHR_materials_unlit))errors.push('Unlit character material is not accepted as realistic PBR');
   if(!materials.some(m=>m.normalTexture))
     errors.push('Missing surface normal detail map');
   const names=(gltf.nodes||[]).map(n=>String(n.name||'').toLowerCase());
@@ -53,6 +54,8 @@ export function qualityReport(manifest,buffer) {
   if(!/^https:\/\//.test(manifest.sourceUrl||''))errors.push('Missing provenance source URL');
   if(!manifest.license||manifest.license.length<3)errors.push('Missing declared license');
   if(manifest.visualApproval!=='approved')errors.push('Missing manual face/reference approval');
+  if(manifest.poseMode!==undefined && !['authored','mixamo-seated'].includes(manifest.poseMode))errors.push('Unknown skeleton pose mode');
+  if(manifest.poseMode==='mixamo-seated' && !String(manifest.asset).endsWith('.glb'))errors.push('Mixamo seated pose only applies to GLB');
   let stats=null;
   if(!buffer)errors.push('Approved realistic model binary missing');
   else{
