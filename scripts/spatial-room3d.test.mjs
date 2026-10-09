@@ -28,7 +28,7 @@ test('existing rigged 3D Mira model is loaded without an alpha-masked portrait',
  assert.match(vrm,/VRMLoaderPlugin/);
  assert.match(vrm,/seatedPose\(vrm\)/);
  assert.match(vrm,/getNormalizedBoneNode/);
- assert.match(vrm,/vrm\.scene\.rotation\.y=Math\.PI/);
+ assert.match(vrm,/vrm\.scene\.rotation\.y=source\.mode==='preview'\?Math\.PI:0/);
  assert.doesNotMatch(vrm,/TextureLoader|\.webp|<planeGeometry/);
  assert.match(vrm,/VRMUtils\.deepDispose/);
  assert.ok(pkg.dependencies['@pixiv/three-vrm']);
@@ -94,7 +94,7 @@ test('3D mode removes HUD, gallery and copy; AppV2 voice footer remains unchange
 });
 test('Mira seated pose, foreground composition and chair plush are present',()=>{
  assert.match(vrm,/rotate\('leftLowerArm', -\.90,/);
- assert.match(vrm,/vrm\.expressionManager\?\.setValue\('happy', \.22\)/);
+ assert.match(vrm,/vrm\.expressionManager\?\.setValue\('happy',\.22\)/);
  assert.match(vrm,/position=\{\[0,\.17,2\.28\]\} scale=\{1\.55\}/);
  assert.match(luxury,/Soft key light at the avatar face/);
  assert.match(luxury,/Smiling companion plush/);
