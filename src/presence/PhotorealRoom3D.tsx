@@ -61,6 +61,15 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
  const stageRef=useRef<HTMLSpanElement>(null);
  const invalidateRef=useRef<(()=>void)|null>(null);
+ const detachWebGLRef=useRef<()=>void>(()=>{});
+ const onFailureRef=useRef(onFailure);
+ onFailureRef.current=onFailure;
+ const contextLost=useCallback((event:Event)=>{
+   // Unmount the WebGL room and return to the existing accessible photo path.
+   event.preventDefault();
+   onFailureRef.current();
+ },[]);
+ useEffect(()=>()=>detachWebGLRef.current(),[]);
  const onReadyRef=useRef(onReady);
  onReadyRef.current=onReady;
  const [avatarStatus,setAvatarStatus]=useState<'pending'|'approved'|'review'|'preview'|'rejected'>('pending');
@@ -71,7 +80,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
    const editable=(target:EventTarget|null)=>target instanceof HTMLElement
      &&Boolean(target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="combobox"]'));
    const canControl=()=>document.visibilityState==='visible'
-     &&document.activeElement===stageRef.current;
+     &&document.activeElement===stageRef.current?.closest('button.photo-mira');
    const keydown=(event:KeyboardEvent)=>{
      if(!canControl()||editable(event.target)||event.altKey||event.ctrlKey||event.metaKey)return;
      const n=/^Digit([1-5])$/.exec(event.code);
@@ -93,7 +102,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
    const outsidePointer=(event:PointerEvent)=>{
      if(stageRef.current && !stageRef.current.contains(event.target as Node)){
        blur();
-       stageRef.current.blur();
+       stageRef.current.closest<HTMLButtonElement>('button.photo-mira')?.blur();
      }
    };
    window.addEventListener('keydown',keydown);
@@ -112,7 +121,9 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  const pointerDown=(event:ReactPointerEvent<HTMLSpanElement>)=>{
    if(event.pointerType==='mouse' && event.button!==0)return;
    event.stopPropagation();
-   stageRef.current?.focus({preventScroll:true});
+   // The parent is already a semantic button. Never nest a second tab stop.
+   stageRef.current?.closest<HTMLButtonElement>('button.photo-mira')
+     ?.focus({preventScroll:true});
    event.currentTarget.setPointerCapture(event.pointerId);
    last.current={pointerId:event.pointerId,x:event.clientX,y:event.clientY};
  };
@@ -134,9 +145,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
    event.stopPropagation();
  };
  return <RoomBoundary onFailure={onFailure}>
-   <span ref={stageRef} className="pm-room3d-stage" tabIndex={0}
-     role="region" aria-label="Không gian Mira 3D. Chạm để điều khiển, dùng WASD hoặc phím mũi tên để di chuyển."
-     data-avatar-status={avatarStatus}
+   <span ref={stageRef} className="pm-room3d-stage" data-avatar-status={avatarStatus}
      onPointerDown={pointerDown} onPointerMove={pointerMove}
      onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
      onLostPointerCapture={pointerEnd}
@@ -145,6 +154,9 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
        camera={{fov:59,near:.08,far:75,position:[0,1.77,4.79]}}
        gl={{alpha:false,antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false}}
        onCreated={({gl,invalidate})=>{
+         detachWebGLRef.current();
+         gl.domElement.addEventListener('webglcontextlost',contextLost,{passive:false});
+         detachWebGLRef.current=()=>gl.domElement.removeEventListener('webglcontextlost',contextLost);
          invalidateRef.current=invalidate;
          gl.toneMapping=THREE.ACESFilmicToneMapping;
          gl.toneMappingExposure=1.35;
