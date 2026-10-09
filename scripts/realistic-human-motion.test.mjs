@@ -42,3 +42,35 @@ test('motion scheduling works with one existing rigged human, not a 2D face cuto
   assert.match(loader,/window\.clearInterval/);
   assert.doesNotMatch(loader,/mira_concept_.*\.webp/);
 });
+
+test('approved 3D avatars use measured TTS energy, not a timer when analyser is active',()=>{
+ const times=[0,.33,1.4,3.1];
+ for(const t of times){
+   assert.equal(humanMotionFrame(t,'speaking',0).mouthOpen,0,'real silence must close jaw');
+   const quiet=humanMotionFrame(t,'speaking',.15).mouthOpen;
+   const normal=humanMotionFrame(t,'speaking',.5).mouthOpen;
+   const loud=humanMotionFrame(t,'speaking',1).mouthOpen;
+   assert.ok(quiet>0 && normal>quiet && loud>normal);
+   assert.ok(loud<=.78);
+   assert.equal(humanMotionFrame(t,'idle',1).mouthOpen,0);
+   assert.equal(humanMotionFrame(t,'listening',1).mouthOpen,0);
+   assert.ok(humanMotionFrame(t,'speaking',undefined).mouthOpen>.09);
+   assert.ok(humanMotionFrame(t,'speaking',NaN).mouthOpen>.09);
+ }
+});
+
+test('3D lip sync reads isolated TTS analyser and does not read microphone level',()=>{
+ const audio=readFileSync('src/core/audio-level.ts','utf8');
+ const avatar=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ const playback=readFileSync('src/core/tts/server-tts.ts','utf8');
+ assert.match(audio,/export const ttsLevel = \{ value: 0, active: false \}/);
+ assert.match(audio,/ttsLevel\.value = outputLevel/);
+ assert.match(audio,/ttsLevel\.active = false/);
+ assert.match(playback,/this\.detach = attachAnalyser\(audio\)/);
+ assert.match(avatar,/import \{ttsLevel\} from '\.\.\/core\/audio-level'/);
+ assert.match(avatar,/state==='speaking' && ttsLevel\.active \? ttsLevel\.value : undefined/);
+ assert.match(avatar,/jawBlend\.current\+=\(motion\.mouthOpen-jawBlend\.current\)\*k/);
+ assert.match(avatar,/expressions\.setValue\('aa',mouthOpen\)/);
+ assert.match(avatar,/weight=mouthOpen/);
+ assert.doesNotMatch(avatar,/audioLevel\.value/);
+});
