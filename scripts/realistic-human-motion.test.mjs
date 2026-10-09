@@ -63,7 +63,7 @@ test('3D lip sync reads isolated TTS analyser and does not read microphone level
  const audio=readFileSync('src/core/audio-level.ts','utf8');
  const avatar=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
  const playback=readFileSync('src/core/tts/server-tts.ts','utf8');
- assert.match(audio,/export const ttsLevel = \{ value: 0, active: false \}/);
+ assert.match(audio,/export const ttsLevel = \{ value: 0, active: false,/);
  assert.match(audio,/ttsLevel\.value = outputLevel/);
  assert.match(audio,/ttsLevel\.active = false/);
  assert.match(playback,/this\.detach = attachAnalyser\(audio\)/);
