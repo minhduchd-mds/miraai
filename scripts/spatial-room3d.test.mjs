@@ -23,7 +23,7 @@ test('room contains independently modeled curved furniture instead of coarse box
 
 test('existing rigged 3D Mira model is loaded without an alpha-masked portrait',()=>{
  assert.match(room,/lazy\(\(\) => import\('\.\/RoomMiraVRM'\)\)/);
- assert.match(room,/<RoomMiraVRM onReady=\{sceneReady\}/);
+ assert.match(room,/<RoomMiraVRM state=\{state\} onReady=\{sceneReady\}/);
  assert.match(vrm,/mira_female_04_soft_rose\.vrm/);
  assert.match(vrm,/VRMLoaderPlugin/);
  assert.match(vrm,/seatedPose\(vrm\)/);
