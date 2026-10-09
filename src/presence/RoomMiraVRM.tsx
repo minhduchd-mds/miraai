@@ -8,6 +8,8 @@ import {poseMixamoHumanSeated} from './rigged-human-pose';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {ttsLevel} from '../core/audio-level';
 import {visemesForSpeech} from './tts-visemes';
+import {companionReaction} from './companion-reaction';
+import {faceData} from '../core/face/face-tracker';
 import type { MiraState } from '../core/types';
 import {validateRealisticHumanScene} from './realistic-human-quality';
 
@@ -104,6 +106,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
   const glbRef = useRef<THREE.Group | null>(null);
   const restRotations = useRef(new WeakMap<THREE.Object3D,THREE.Euler>());
   const jawBlend=useRef(0);
+  const reactionBlend=useRef({smile:0,headTilt:0});
   const morphSlots = useRef<Array<{mesh:THREE.Mesh; names:Map<string,number>; base:number[]}>>([]);
   const callback = useRef(onReady);
   callback.current=onReady;
@@ -257,6 +260,13 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
     const mouthOpen=jawBlend.current;
     const visemes=visemesForSpeech(mouthOpen,
       state==='speaking' && ttsLevel.active ? ttsLevel.bands : null);
+    // Only consumes existing, voluntarily enabled face-tracker signals.
+    // Never opens a camera or infers a diagnosis from an expression.
+    const reaction=companionReaction(faceData);
+    const responseK=1-Math.exp(-Math.min(Math.max(delta,0),.1)*3);
+    reactionBlend.current.smile+=(reaction.smile-reactionBlend.current.smile)*responseK;
+    reactionBlend.current.headTilt+=(reaction.headTilt-reactionBlend.current.headTilt)*responseK;
+    const socialSmile=Math.min(.32,motion.smile+reactionBlend.current.smile);
     const head=vrm?.humanoid?.getNormalizedBoneNode('head')||
       root.getObjectByName('mixamorigHead')||root.getObjectByName('Head')||null;
     if(head){
@@ -266,7 +276,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         restRotations.current.set(head,original);
       }
       head.rotation.set(original.x+motion.headPitch,
-        original.y+motion.headYaw,original.z);
+        original.y+motion.headYaw,original.z+reactionBlend.current.headTilt);
     }
     const torso=vrm?.humanoid?.getNormalizedBoneNode('chest')||
       root.getObjectByName('mixamorigSpine2')||null;
@@ -287,7 +297,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         for(const name of ['aa','ih','ou','ee','oh'] as const){
           if(expressions.getExpression(name))expressions.setValue(name,visemes[name]);
         }
-        if(expressions.getExpression('happy')) expressions.setValue('happy',motion.smile);
+        if(expressions.getExpression('happy')) expressions.setValue('happy',socialSmile);
       }
       // VRM look-at is evaluated inside update(); set target first so gaze
       // follows camera motion on the same rendered frame.
@@ -309,7 +319,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         else if(/^(?:visemeou|mouthu|ou)$/.test(name))weight=visemes.ou;
         else if(/^(?:visemeee|mouthee|ee)$/.test(name))weight=visemes.ee;
         else if(/^(?:visemeoh|moutho|oh)$/.test(name))weight=visemes.oh;
-        else if(/smile|mouthhappy/.test(name))weight=motion.smile;
+        else if(/smile|mouthhappy/.test(name))weight=socialSmile;
         if(weight!==undefined){
           // Blend over authored neutral weights, without clipping small facial
           // motion just because the neutral shape was slightly nonzero.
