@@ -82,3 +82,16 @@ test('realistic avatar state stays invisible yet testable across all five views'
  // A DOM data-* attribute is allowed; visible JSX text content is not.
  assert.doesNotMatch(room,/>\s*\{avatarStatus\}\s*<\/span>/);
 });
+
+test('artist-authored realistic VRM pose and PBR palette are preserved',()=>{
+ const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ assert.match(loader,/if\(source\.mode==='preview'\)seatedPose\(vrm\)/);
+ assert.match(loader,/if\(source\.mode==='preview'\)adaptReferencePalette\(vrm\)/);
+ assert.match(loader,/if\(source\.mode==='preview'\)vrm\.expressionManager\?\.setValue\('happy',\.22\)/);
+ assert.doesNotMatch(loader,/^\s*seatedPose\(vrm\);/m);
+ const target=loader.indexOf('if(vrm.lookAt&&vrm.lookAt.target!==camera)');
+ const update=loader.indexOf('vrm.update(Math.min(delta,.06))');
+ assert.ok(target>0&&update>target,'VRM must receive camera gaze target before its frame update');
+ assert.match(loader,/const neutral=Math\.min\(1,Math\.max\(0,base\[index\]\|\|0\)\)/);
+ assert.match(loader,/dst\[index\]=neutral\+\(1-neutral\)\*Math\.min/);
+});
