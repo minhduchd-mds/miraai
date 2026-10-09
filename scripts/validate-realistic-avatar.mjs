@@ -31,6 +31,13 @@ export function collectAvatarChecks(gltf,{requireVrm=true}={}) {
     return sum+(Number(gltf.accessors?.[idx]?.count)||0);
   },0);
   if(vertices<30000)errors.push('Character must have at least 30K vertices (geometry only)');
+  const triangles=primitives.reduce((sum,prim)=>{
+    const index=prim.indices;
+    const indices=index!==undefined?Number(gltf.accessors?.[index]?.count)||0:
+      Number(gltf.accessors?.[prim.attributes?.POSITION]?.count)||0;
+    return sum+Math.floor(indices/3);
+  },0);
+  if(triangles>1_250_000)errors.push('Avatar exceeds 1.25M triangle GPU budget');
   if(!(gltf.skins||[]).length)errors.push('Skinned avatar skeleton is missing');
   if((gltf.images||[]).length<3)errors.push('Need face/skin/hair/garment texture assets');
   const materials=gltf.materials||[];
@@ -42,7 +49,7 @@ export function collectAvatarChecks(gltf,{requireVrm=true}={}) {
   const names=(gltf.nodes||[]).map(n=>String(n.name||'').toLowerCase());
   if(!names.some(n=>/head|face|neck|頭/.test(n)))
     errors.push('Head / face rig not identifiable');
-  return {errors,stats:{vertices,meshes:gltf.meshes?.length||0,
+  return {errors,stats:{vertices,triangles,meshes:gltf.meshes?.length||0,
     materials:materials.length,images:gltf.images?.length||0,
     skins:gltf.skins?.length||0}};
 }

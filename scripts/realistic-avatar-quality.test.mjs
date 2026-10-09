@@ -78,7 +78,7 @@ test('Real human GLB requires a validated explicit pose mode and textured PBR la
  const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
  const pose=readFileSync('src/presence/rigged-human-pose.ts','utf8');
  assert.match(loader,/poseMixamoHumanSeated\(gltf\.scene\)/);
- assert.match(loader,/texturedMaterials\.size>=3&&normalMaterials\.size>=1/);
+ assert.match(loader,/validateRealisticHumanScene\(gltf\.scene\)/);
  assert.match(pose,/root\.updateMatrixWorld\(true\)/);
  assert.match(pose,/if\(!leftThigh\|\|!rightThigh\|\|!leftShin\|\|!rightShin\)return false/);
  const bad={...glbManifest,poseMode:'unsafe'};

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
 import {chooseRoomAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic-avatar-source';
 import {poseMixamoHumanSeated} from './rigged-human-pose';
+import {validateRealisticHumanScene} from './realistic-human-quality';
 
 /**
  * A real rigged VRM avatar inside the same 3D room, never an alpha-masked photo.
@@ -101,25 +102,6 @@ export default function RoomMiraVRM({onReady}:Props) {
 
   useEffect(()=>{
     let cancelled=false;
-    const acceptedPBRGLB=(scene:THREE.Group):boolean=>{
-      let skinned=0;
-      const texturedMaterials=new Set<THREE.Material>();
-      const normalMaterials=new Set<THREE.Material>();
-      scene.traverse(node=>{
-        const mesh=node as THREE.SkinnedMesh;
-        if(mesh.isSkinnedMesh)skinned++;
-        if(!(node instanceof THREE.Mesh))return;
-        const mats=Array.isArray(node.material)?node.material:[node.material];
-        for(const mat of mats){
-          if(!(mat instanceof THREE.MeshStandardMaterial))continue;
-          if(mat.map)texturedMaterials.add(mat);
-          if(mat.normalMap)normalMaterials.add(mat);
-        }
-      });
-      // Prevent labeling a flat-colour mannequin or unrigged static figure
-      // as approved photographic human just because its filename is *.glb.
-      return skinned>=1&&texturedMaterials.size>=3&&normalMaterials.size>=1;
-    };
     const disposeGLB=(scene:THREE.Group)=>{
       scene.traverse(node=>{
         if(!(node instanceof THREE.Mesh))return;
@@ -147,7 +129,13 @@ export default function RoomMiraVRM({onReady}:Props) {
         const vrm=gltf.userData.vrm as VRM | undefined;
         if(!vrm && source.mode==='realistic'&&source.format==='glb'){
           if(cancelled){disposeGLB(gltf.scene);return;}
-          if(!acceptedPBRGLB(gltf.scene)){disposeGLB(gltf.scene);failure();return;}
+          const quality=validateRealisticHumanScene(gltf.scene);
+          if(!quality.accepted){
+            // Never present an unrigged / low detail / untextured human as Mira.
+            // No user data, URLs or asset bytes are emitted in error telemetry.
+            disposeGLB(gltf.scene);
+            failure();return;
+          }
           if(source.poseMode==='mixamo-seated' && !poseMixamoHumanSeated(gltf.scene)){
             disposeGLB(gltf.scene);failure();return;
           }
