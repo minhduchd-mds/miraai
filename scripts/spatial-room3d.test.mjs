@@ -172,10 +172,27 @@ test('room movement normalizes diagonals, caps frame stalls and rejects corrupt 
 });
 
 test('camera keyboard handling requires a focused 3D region with cleanup',()=>{
- assert.match(room,/document\.activeElement===stageRef\.current/);
- assert.match(room,/tabIndex=\{0\}/);
- assert.match(room,/stageRef\.current\?\.focus\(\{preventScroll:true\}\)/);
+ assert.match(room,/document\.activeElement===stageRef\.current\?\.closest\('button\.photo-mira'\)/);
+ assert.doesNotMatch(room,/className="pm-room3d-stage" tabIndex=\{0\}/);
+ assert.match(room,/closest<HTMLButtonElement>\('button\.photo-mira'\)/);
+ assert.match(room,/\.focus\(\{preventScroll:true\}\)/);
  assert.match(room,/document\.addEventListener\('pointerdown',outsidePointer,true\)/);
  assert.match(room,/document\.removeEventListener\('pointerdown',outsidePointer,true\)/);
  assert.match(room,/onLostPointerCapture=\{pointerEnd\}/);
+});
+
+test('WebGL loss restores the existing accessible scene instead of leaving a blank frame',()=>{
+ assert.match(room,/gl\.domElement\.addEventListener\('webglcontextlost',contextLost/);
+ assert.match(room,/gl\.domElement\.removeEventListener\('webglcontextlost',contextLost\)/);
+ assert.match(room,/event\.preventDefault\(\);\s*onFailureRef\.current\(\)/);
+ assert.match(room,/useEffect\(\(\)=>\(\)=>detachWebGLRef\.current\(\),\[\]\)/);
+ assert.match(integration,/onFailure=\{\(\) => \{setRoom3DFailed\(true\);setRoom3DReady\(false\);\}\}/);
+});
+
+test('3D stage reuses its parent button focus and cannot create nested tab stops',()=>{
+ assert.match(integration,/<button\s+ref=\{rootRef\}/);
+ assert.match(room,/className="pm-room3d-stage" data-avatar-status/);
+ assert.doesNotMatch(room,/className="pm-room3d-stage" tabIndex/);
+ assert.doesNotMatch(room,/role="region"/);
+ assert.match(room,/closest<HTMLButtonElement>\('button\.photo-mira'\)/);
 });
