@@ -6,6 +6,7 @@ import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
 import {chooseRoomAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic-avatar-source';
 import {poseMixamoHumanSeated} from './rigged-human-pose';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
+import {ttsLevel} from '../core/audio-level';
 import type { MiraState } from '../core/types';
 import {validateRealisticHumanScene} from './realistic-human-quality';
 
@@ -101,6 +102,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
   const ref = useRef<VRM | null>(null);
   const glbRef = useRef<THREE.Group | null>(null);
   const restRotations = useRef(new WeakMap<THREE.Object3D,THREE.Euler>());
+  const jawBlend=useRef(0);
   const morphSlots = useRef<Array<{mesh:THREE.Mesh; names:Map<string,number>; base:number[]}>>([]);
   const callback = useRef(onReady);
   callback.current=onReady;
@@ -244,7 +246,12 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
     const vrm=ref.current;
     const root=vrm?.scene||glbRef.current;
     if(!root)return;
-    const motion=humanMotionFrame(performance.now()*.001,state);
+    const motion=humanMotionFrame(performance.now()*.001,state,
+      state==='speaking' && ttsLevel.active ? ttsLevel.value : undefined);
+    // Smooth fast RMS fluctuations without forcing a mouth-open pose in silence.
+    const k=1-Math.exp(-Math.min(Math.max(delta,0),.1)*15);
+    jawBlend.current+=(motion.mouthOpen-jawBlend.current)*k;
+    const mouthOpen=jawBlend.current;
     const head=vrm?.humanoid?.getNormalizedBoneNode('head')||
       root.getObjectByName('mixamorigHead')||root.getObjectByName('Head')||null;
     if(head){
@@ -272,7 +279,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
       const expressions=vrm.expressionManager;
       if(expressions){
         if(expressions.getExpression('blink')) expressions.setValue('blink',motion.blink);
-        if(expressions.getExpression('aa')) expressions.setValue('aa',motion.mouthOpen);
+        if(expressions.getExpression('aa')) expressions.setValue('aa',mouthOpen);
         if(expressions.getExpression('happy')) expressions.setValue('happy',motion.smile);
       }
       vrm.update(Math.min(delta,.06));
@@ -288,7 +295,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         let weight:number|undefined;
         if(/blink|eyeclose|eyesclosed/.test(name))weight=motion.blink;
         else if(/jawopen|mouthopen|visemeaa|moutha|mouthopen/.test(name))
-          weight=motion.mouthOpen;
+          weight=mouthOpen;
         else if(/smile|mouthhappy/.test(name))weight=motion.smile;
         if(weight!==undefined)dst[index]=Math.min(1,Math.max(base[index]||0,weight));
       }
