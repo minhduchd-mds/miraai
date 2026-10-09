@@ -3,6 +3,10 @@
 // VRMAvatar đọc audioLevel mỗi frame: active=true → dùng amp thật, false → envelope hình ảnh dự phòng.
 export const audioLevel = { value: 0, active: false };
 
+// Dedicated output level for 3D avatar articulation. Microphone level must
+// never drive Mira's mouth while she is speaking. Ephemeral, local-only RMS.
+export const ttsLevel = { value: 0, active: false };
+
 export interface MicProsodySnapshot {
   energy: number;
   activity: number;
@@ -70,6 +74,8 @@ export function attachAnalyser(el: HTMLAudioElement): () => void {
     const buf = new Uint8Array(an.fftSize);
 
     audioLevel.active = true;
+    ttsLevel.value = 0;
+    ttsLevel.active = true;
     let raf = 0;
     let stopped = false;
     const loop = () => {
@@ -81,7 +87,9 @@ export function attachAnalyser(el: HTMLAudioElement): () => void {
         sum += d * d;
       }
       const rms = Math.sqrt(sum / buf.length);
-      audioLevel.value = Math.min(1, rms * 3.2); // RMS giọng nói ~0.05–0.3 → scale lên 0..1
+      const outputLevel = Math.min(1, rms * 3.2);
+      audioLevel.value = outputLevel; // existing orb/lip-sync listeners
+      ttsLevel.value = outputLevel; // TTS only, never microphone
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -91,6 +99,8 @@ export function attachAnalyser(el: HTMLAudioElement): () => void {
       cancelAnimationFrame(raf);
       audioLevel.value = 0;
       audioLevel.active = false;
+      ttsLevel.value = 0;
+      ttsLevel.active = false;
       try {
         src.disconnect();
         an.disconnect();
