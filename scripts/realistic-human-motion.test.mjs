@@ -124,3 +124,44 @@ test('TTS spectral data stays ephemeral and both VRM/GLB routes use the same vis
  assert.match(avatar,/weight=mouthOpen/);
  assert.doesNotMatch(audio,/localStorage\.setItem\(.*ttsLevel/);
 });
+
+const reactionSource=readFileSync('src/presence/companion-reaction.ts','utf8');
+const reactionJs=ts.transpileModule(reactionSource,{compilerOptions:{
+ module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022
+}}).outputText;
+const {companionReaction}=await import('data:text/javascript;base64,'+
+ Buffer.from(reactionJs).toString('base64'));
+const observed={active:true,present:true,emotion:'happy',emotionConfidence:.9,smile:.8};
+
+test('3D companion reacts only to existing, visible and sufficiently reliable face signals',()=>{
+ const neutral={smile:0,headTilt:0};
+ assert.deepEqual(companionReaction(null),neutral);
+ assert.deepEqual(companionReaction({...observed,active:false}),neutral);
+ assert.deepEqual(companionReaction({...observed,present:false}),neutral);
+ assert.deepEqual(companionReaction({...observed,emotionConfidence:.49}),neutral);
+ assert.deepEqual(companionReaction({...observed,emotion:'neutral'}),neutral);
+ assert.deepEqual(companionReaction({...observed,emotion:'angry'}),neutral);
+ const happy=companionReaction(observed);
+ assert.ok(happy.smile>0 && happy.smile<=.22);
+ assert.ok(Math.abs(happy.headTilt)<=.035);
+ for(const emotion of ['sad','tired','surprised']){
+  const response=companionReaction({...observed,emotion});
+  assert.ok(response.headTilt>=0 && response.headTilt<=.035);
+  assert.ok(response.smile>=0 && response.smile<=.035);
+ }
+ for(const value of [NaN,Infinity,-100,100]){
+  const response=companionReaction({...observed,smile:value});
+  assert.ok(Object.values(response).every(Number.isFinite));
+ }
+});
+
+test('3D character never requests a new camera and smooths existing expression observations',()=>{
+ const room=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ assert.match(room,/import \{faceData\} from '\.\.\/core\/face\/face-tracker'/);
+ assert.match(room,/companionReaction\(faceData\)/);
+ assert.match(room,/reactionBlend\.current\.smile\+=/);
+ assert.match(room,/reactionBlend\.current\.headTilt\+=/);
+ assert.match(room,/expressions\.setValue\('happy',socialSmile\)/);
+ assert.match(room,/weight=socialSmile/);
+ assert.doesNotMatch(room,/startFaceTracking\(|getUserMedia\(/);
+});
