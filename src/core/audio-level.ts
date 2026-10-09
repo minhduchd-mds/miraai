@@ -5,7 +5,8 @@ export const audioLevel = { value: 0, active: false };
 
 // Dedicated output level for 3D avatar articulation. Microphone level must
 // never drive Mira's mouth while she is speaking. Ephemeral, local-only RMS.
-export const ttsLevel = { value: 0, active: false };
+export const ttsLevel = { value: 0, active: false,
+  bands: {low:0,mid:0,high:0} };
 
 export interface MicProsodySnapshot {
   energy: number;
@@ -72,9 +73,20 @@ export function attachAnalyser(el: HTMLAudioElement): () => void {
     src.connect(an);
     an.connect(ctx.destination); // analyser nằm giữa → vẫn nghe được tiếng
     const buf = new Uint8Array(an.fftSize);
+    const spectrum = new Uint8Array(an.frequencyBinCount);
+    const binHz = ctx.sampleRate / an.fftSize;
+    const bandEnergy = (fromHz:number,toHz:number) => {
+      const start = Math.max(1,Math.floor(fromHz/binHz));
+      const end = Math.min(spectrum.length,Math.ceil(toHz/binHz));
+      if(start>=end)return 0;
+      let sum=0;
+      for(let i=start;i<end;i++)sum+=spectrum[i];
+      return sum/((end-start)*255);
+    };
 
     audioLevel.active = true;
     ttsLevel.value = 0;
+    ttsLevel.bands.low=0;ttsLevel.bands.mid=0;ttsLevel.bands.high=0;
     ttsLevel.active = true;
     let raf = 0;
     let stopped = false;
@@ -88,6 +100,10 @@ export function attachAnalyser(el: HTMLAudioElement): () => void {
       }
       const rms = Math.sqrt(sum / buf.length);
       const outputLevel = Math.min(1, rms * 3.2);
+      an.getByteFrequencyData(spectrum);
+      ttsLevel.bands.low=bandEnergy(120,450);
+      ttsLevel.bands.mid=bandEnergy(450,1600);
+      ttsLevel.bands.high=bandEnergy(1600,4000);
       audioLevel.value = outputLevel; // existing orb/lip-sync listeners
       ttsLevel.value = outputLevel; // TTS only, never microphone
       raf = requestAnimationFrame(loop);
@@ -100,6 +116,7 @@ export function attachAnalyser(el: HTMLAudioElement): () => void {
       audioLevel.value = 0;
       audioLevel.active = false;
       ttsLevel.value = 0;
+      ttsLevel.bands.low=0;ttsLevel.bands.mid=0;ttsLevel.bands.high=0;
       ttsLevel.active = false;
       try {
         src.disconnect();
