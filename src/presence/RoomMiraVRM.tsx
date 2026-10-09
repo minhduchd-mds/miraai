@@ -186,11 +186,13 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
           }
         }
         try{
-          seatedPose(vrm);
+          // Realistic VRMs arrive with an artist-authored seated pose. Never
+          // overwrite their bind pose with the stylized preview's joint angles.
+          if(source.mode==='preview')seatedPose(vrm);
           // Preserve the PBR skin/hair/garment maps of a reviewed human model.
           // Stylized preview recoloring is intentionally NOT applied to realistic assets.
           if(source.mode==='preview')adaptReferencePalette(vrm);
-          vrm.expressionManager?.setValue('happy',.22);
+          if(source.mode==='preview')vrm.expressionManager?.setValue('happy',.22);
           vrm.scene.rotation.y=source.mode==='preview'?Math.PI:0;
           vrm.scene.traverse(node=>{
             if('castShadow' in node)(node as {castShadow:boolean}).castShadow=true;
@@ -287,8 +289,10 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         }
         if(expressions.getExpression('happy')) expressions.setValue('happy',motion.smile);
       }
+      // VRM look-at is evaluated inside update(); set target first so gaze
+      // follows camera motion on the same rendered frame.
+      if(vrm.lookAt&&vrm.lookAt.target!==camera)vrm.lookAt.target=camera;
       vrm.update(Math.min(delta,.06));
-      if(vrm.lookAt)vrm.lookAt.target=camera;
       return;
     }
     // GLB morph names vary by author: use only present, named facial channels.
@@ -306,7 +310,12 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         else if(/^(?:visemeee|mouthee|ee)$/.test(name))weight=visemes.ee;
         else if(/^(?:visemeoh|moutho|oh)$/.test(name))weight=visemes.oh;
         else if(/smile|mouthhappy/.test(name))weight=motion.smile;
-        if(weight!==undefined)dst[index]=Math.min(1,Math.max(base[index]||0,weight));
+        if(weight!==undefined){
+          // Blend over authored neutral weights, without clipping small facial
+          // motion just because the neutral shape was slightly nonzero.
+          const neutral=Math.min(1,Math.max(0,base[index]||0));
+          dst[index]=neutral+(1-neutral)*Math.min(1,Math.max(0,weight));
+        }
       }
     }
   });
