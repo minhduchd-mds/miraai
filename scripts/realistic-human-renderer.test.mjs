@@ -70,3 +70,14 @@ test('Every approved realistic human format is runtime-validated; VRM does not b
  assert.match(loader,/if\(!quality\.accepted\)\{\s*VRMUtils\.deepDispose\(vrm\.scene\);\s*failure\(\);/);
  assert.match(loader,/source\.mode==='preview'\)adaptReferencePalette\(vrm\)/);
 });
+
+test('realistic avatar state stays invisible yet testable across all five views',()=>{
+ const room=readFileSync('src/presence/PhotorealRoom3D.tsx','utf8');
+ const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ assert.match(room,/data-avatar-status=\{avatarStatus\}/);
+ assert.match(room,/onAssetStatus=\{recordAvatarStatus\}/);
+ assert.match(loader,/statusCallback\.current\?\.\('rejected'\)/);
+ assert.match(loader,/statusCallback\.current\?\.\('pending'\)/);
+ assert.match(loader,/statusCallback\.current\?\.\(allowReview\?'review':'approved'\)/);
+ assert.doesNotMatch(room,/<span[^>]*avatarStatus/);
+});

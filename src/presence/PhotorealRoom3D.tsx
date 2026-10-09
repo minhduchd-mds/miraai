@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useCallback, useEffect, useRef } from 'react';
+import { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -62,6 +62,8 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  const invalidateRef=useRef<(()=>void)|null>(null);
  const onReadyRef=useRef(onReady);
  onReadyRef.current=onReady;
+ const [avatarStatus,setAvatarStatus]=useState<'pending'|'approved'|'review'|'preview'|'rejected'>('pending');
+ const recordAvatarStatus=useCallback((next:typeof avatarStatus)=>setAvatarStatus(next),[]);
  const sceneReady=useCallback(()=>onReadyRef.current(),[]);
 
  useEffect(()=>{
@@ -112,6 +114,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  };
  return <RoomBoundary onFailure={onFailure}>
    <span className="pm-room3d-stage" aria-label="Không gian Mira 3D"
+     data-avatar-status={avatarStatus}
      onPointerDown={pointerDown} onPointerMove={pointerMove}
      onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
      onClick={event=>event.stopPropagation()}>
@@ -128,7 +131,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
        <RoomCamera controls={controls}/>
        <RoomLuxuryInterior scene={scene}/>
        <Suspense fallback={null}>
-         <RoomMiraVRM state={state} onReady={sceneReady}/>
+         <RoomMiraVRM state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
        </Suspense>
      </Canvas>
    </span>

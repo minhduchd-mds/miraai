@@ -16,7 +16,9 @@ import {validateRealisticHumanScene} from './realistic-human-quality';
  */
 // Closer warm wardrobe palette. This is still a stylized VRM, not a photo-exact model.
 const MODEL = 'avatars/female/mira_female_04_soft_rose.vrm';
-type Props = { onReady: () => void; state: MiraState };
+export type AvatarPresentationStatus = 'pending' | 'approved' | 'review' | 'preview' | 'rejected';
+type Props = { onReady: () => void; state: MiraState;
+  onAssetStatus?: (status: AvatarPresentationStatus) => void };
 type Bone = 'leftUpperArm' | 'rightUpperArm' | 'leftLowerArm' | 'rightLowerArm'
   | 'leftUpperLeg' | 'rightUpperLeg' | 'leftLowerLeg' | 'rightLowerLeg'
   | 'head' | 'chest' | 'leftHand' | 'rightHand';
@@ -89,7 +91,7 @@ function GeometricFallback() {
   </group>;
 }
 
-export default function RoomMiraVRM({onReady,state}:Props) {
+export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
   const [model,setModel] = useState<VRM | null>(null);
   const [humanGLB,setHumanGLB] = useState<THREE.Group | null>(null);
   const allowPreview = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('avatarPreview')==='1';
@@ -102,6 +104,8 @@ export default function RoomMiraVRM({onReady,state}:Props) {
   const morphSlots = useRef<Array<{mesh:THREE.Mesh; names:Map<string,number>; base:number[]}>>([]);
   const callback = useRef(onReady);
   callback.current=onReady;
+  const statusCallback=useRef(onAssetStatus);
+  statusCallback.current=onAssetStatus;
   const invalidate = useThree(s=>s.invalidate);
   const camera = useThree(s=>s.camera);
 
@@ -128,6 +132,7 @@ export default function RoomMiraVRM({onReady,state}:Props) {
         // A missing/broken reviewed model NEVER silently becomes an anime avatar.
         if(source.mode==='realistic'&&allowPreview){load(PREVIEW_ASSET);return;}
         setModel(null);setHumanGLB(null);setFailed(true);
+        statusCallback.current?.('rejected');
         callback.current();invalidate();
       };
       loader.load(`${import.meta.env.BASE_URL}${source.path}`,gltf=>{
@@ -159,6 +164,7 @@ export default function RoomMiraVRM({onReady,state}:Props) {
           });
           morphSlots.current=facial;
           setModel(null);setHumanGLB(gltf.scene);setAvatar(source);setFailed(false);
+          statusCallback.current?.(allowReview?'review':'approved');
           callback.current();invalidate();
           return;
         }
@@ -189,6 +195,7 @@ export default function RoomMiraVRM({onReady,state}:Props) {
           });
           ref.current=vrm;
           setModel(vrm);setHumanGLB(null);setAvatar(source);setFailed(false);
+          statusCallback.current?.(source.mode==='preview'?'preview':allowReview?'review':'approved');
           callback.current();invalidate();
         }catch{
           VRMUtils.deepDispose(vrm.scene);
@@ -204,6 +211,7 @@ export default function RoomMiraVRM({onReady,state}:Props) {
       if(source)load(source);
       else{
         setModel(null);setHumanGLB(null);setFailed(true);
+        statusCallback.current?.('pending');
         callback.current();invalidate();
       }
     };
