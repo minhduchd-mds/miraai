@@ -7,6 +7,7 @@ import {chooseRoomAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic
 import {poseMixamoHumanSeated} from './rigged-human-pose';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {ttsLevel} from '../core/audio-level';
+import {visemesForSpeech} from './tts-visemes';
 import type { MiraState } from '../core/types';
 import {validateRealisticHumanScene} from './realistic-human-quality';
 
@@ -252,6 +253,8 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
     const k=1-Math.exp(-Math.min(Math.max(delta,0),.1)*15);
     jawBlend.current+=(motion.mouthOpen-jawBlend.current)*k;
     const mouthOpen=jawBlend.current;
+    const visemes=visemesForSpeech(mouthOpen,
+      state==='speaking' && ttsLevel.active ? ttsLevel.bands : null);
     const head=vrm?.humanoid?.getNormalizedBoneNode('head')||
       root.getObjectByName('mixamorigHead')||root.getObjectByName('Head')||null;
     if(head){
@@ -279,7 +282,9 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
       const expressions=vrm.expressionManager;
       if(expressions){
         if(expressions.getExpression('blink')) expressions.setValue('blink',motion.blink);
-        if(expressions.getExpression('aa')) expressions.setValue('aa',mouthOpen);
+        for(const name of ['aa','ih','ou','ee','oh'] as const){
+          if(expressions.getExpression(name))expressions.setValue(name,visemes[name]);
+        }
         if(expressions.getExpression('happy')) expressions.setValue('happy',motion.smile);
       }
       vrm.update(Math.min(delta,.06));
@@ -294,8 +299,12 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         if(index<0||index>=dst.length)continue;
         let weight:number|undefined;
         if(/blink|eyeclose|eyesclosed/.test(name))weight=motion.blink;
-        else if(/jawopen|mouthopen|visemeaa|moutha|mouthopen/.test(name))
-          weight=mouthOpen;
+        else if(/jawopen|mouthopen/.test(name))weight=mouthOpen;
+        else if(/^(?:visemeaa|moutha|aa)$/.test(name))weight=visemes.aa;
+        else if(/^(?:visemeih|mouthi|ih)$/.test(name))weight=visemes.ih;
+        else if(/^(?:visemeou|mouthu|ou)$/.test(name))weight=visemes.ou;
+        else if(/^(?:visemeee|mouthee|ee)$/.test(name))weight=visemes.ee;
+        else if(/^(?:visemeoh|moutho|oh)$/.test(name))weight=visemes.oh;
         else if(/smile|mouthhappy/.test(name))weight=motion.smile;
         if(weight!==undefined)dst[index]=Math.min(1,Math.max(base[index]||0,weight));
       }
