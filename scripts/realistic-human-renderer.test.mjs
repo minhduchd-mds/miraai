@@ -58,3 +58,15 @@ test('Avatar loading uses renderer-aware gate and keeps stylized models out of P
  assert.match(loader,/avatarPreview'\)==='1'/);
  assert.equal(manifest.status,'pending');
 });
+
+test('Every approved realistic human format is runtime-validated; VRM does not bypass GLB quality',()=>{
+ const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
+ const branches=loader.match(/validateRealisticHumanScene\((?:gltf|vrm)\.scene\)/g)||[];
+ assert.deepEqual(branches.sort(),[
+   'validateRealisticHumanScene(gltf.scene)',
+   'validateRealisticHumanScene(vrm.scene)',
+ ]);
+ assert.match(loader,/if\(source\.mode==='realistic'\)\{/);
+ assert.match(loader,/if\(!quality\.accepted\)\{\s*VRMUtils\.deepDispose\(vrm\.scene\);\s*failure\(\);/);
+ assert.match(loader,/source\.mode==='preview'\)adaptReferencePalette\(vrm\)/);
+});

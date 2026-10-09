@@ -164,6 +164,18 @@ export default function RoomMiraVRM({onReady,state}:Props) {
         }
         if(!vrm){failure();return;}
         if(cancelled){VRMUtils.deepDispose(vrm.scene);return;}
+        // A VRM extension does not guarantee human realism. Enforce the SAME
+        // geometry, rig and independently textured PBR quality gate as GLB.
+        // This is technical screening; explicit manual visual approval remains
+        // mandatory and cannot be inferred from a high vertex count.
+        if(source.mode==='realistic'){
+          const quality=validateRealisticHumanScene(vrm.scene);
+          if(!quality.accepted){
+            VRMUtils.deepDispose(vrm.scene);
+            failure();
+            return;
+          }
+        }
         try{
           seatedPose(vrm);
           // Preserve the PBR skin/hair/garment maps of a reviewed human model.
