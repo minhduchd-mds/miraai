@@ -79,5 +79,6 @@ test('realistic avatar state stays invisible yet testable across all five views'
  assert.match(loader,/statusCallback\.current\?\.\('rejected'\)/);
  assert.match(loader,/statusCallback\.current\?\.\('pending'\)/);
  assert.match(loader,/statusCallback\.current\?\.\(allowReview\?'review':'approved'\)/);
- assert.doesNotMatch(room,/<span[^>]*avatarStatus/);
+ // A DOM data-* attribute is allowed; visible JSX text content is not.
+ assert.doesNotMatch(room,/>\s*\{avatarStatus\}\s*<\/span>/);
 });
