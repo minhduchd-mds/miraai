@@ -68,9 +68,11 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
 
  useEffect(()=>{
    const editable=(target:EventTarget|null)=>target instanceof HTMLElement
-     &&(target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(target.tagName));
+     &&Boolean(target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="combobox"]'));
+   const canControl=()=>document.visibilityState==='visible'
+     &&document.querySelector('.pm-room3d-stage')!==null;
    const keydown=(event:KeyboardEvent)=>{
-     if(editable(event.target))return;
+     if(!canControl()||editable(event.target)||event.altKey||event.ctrlKey||event.metaKey)return;
      const n=/^Digit([1-5])$/.exec(event.code);
      if(n){
        const index=Number(n[1])-1;
@@ -85,13 +87,16 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
    };
    const keyup=(event:KeyboardEvent)=>controls.current.keys.delete(event.code);
    const blur=()=>controls.current.keys.clear();
+   const visibility=()=>{if(document.hidden)blur();};
    window.addEventListener('keydown',keydown);
+   document.addEventListener('visibilitychange',visibility);
    window.addEventListener('keyup',keyup);
    window.addEventListener('blur',blur);
    return ()=>{
      window.removeEventListener('keydown',keydown);
      window.removeEventListener('keyup',keyup);
      window.removeEventListener('blur',blur);
+     document.removeEventListener('visibilitychange',visibility);
    };
  },[]);
  const pointerDown=(event:ReactPointerEvent<HTMLSpanElement>)=>{
@@ -109,7 +114,11 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
    invalidateRef.current?.();
  };
  const pointerEnd=(event:ReactPointerEvent<HTMLSpanElement>)=>{
-   if(last.current?.pointerId===event.pointerId)last.current=null;
+   if(last.current?.pointerId===event.pointerId){
+     last.current=null;
+     if(event.currentTarget.hasPointerCapture(event.pointerId))
+       event.currentTarget.releasePointerCapture(event.pointerId);
+   }
    event.stopPropagation();
  };
  return <RoomBoundary onFailure={onFailure}>
