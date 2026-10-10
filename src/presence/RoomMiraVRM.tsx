@@ -71,7 +71,15 @@ function adaptReferencePalette(vrm: VRM) {
       const mat=raw as THREE.MeshStandardMaterial;
       if(!(mat.color instanceof THREE.Color))continue;
       const name=(node.name+' '+raw.name).toLowerCase();
-      if(/hair|fringe|bangs|hairstyle|髪|ヘア/.test(name)) {
+      // Only the known VRoid preview: neutral authored white base factors
+      // blow out under multiple room lights. A restrained warm skin tone
+      // preserves facial contrast without touching eyes, lips, or approved PBR.
+      if(/^F00_000_00_(?:Face|Body)_00_SKIN$/i.test(raw.name)){
+        if(new URLSearchParams(window.location.search).get('skin')!=='original'){
+          mat.color.set('#f6e0d6');
+          if('roughness' in mat)mat.roughness=.93;
+        }
+      }else if(/hair|fringe|bangs|hairstyle|髪|ヘア/.test(name)) {
         // Without this conservative tint the preview's MToon hair blooms
         // into bright ribbon-like spikes under the room key lights.
         mat.color.set('#34242a');
