@@ -170,7 +170,7 @@ function MiraChairSet(){
       <sphereGeometry args={[1,40,26]}/>
       <meshPhysicalMaterial color="#f5e8e3" roughness={.98} sheen={.52} sheenRoughness={.9}/>
     </mesh>
-    <mesh position={[0,.32,1.89]} castShadow receiveShadow scale={[1.28,.23,.70]}>
+    <mesh position={[0,.19,1.37]} castShadow receiveShadow scale={[1.18,.15,.46]}>
       <sphereGeometry args={[1,40,24]}/>
       <meshPhysicalMaterial color="#f8eeea" roughness={.98} sheen={.45} sheenRoughness={.9}/>
     </mesh>
