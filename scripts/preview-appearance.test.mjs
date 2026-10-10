@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
 const room=readFileSync('src/presence/RoomLuxuryInterior.tsx','utf8');
 
-test('preview retains authored purple hair texture rather than multiplying it by dark-brown dye',()=>{
+test('preview keeps tested muted hair tint instead of overbright MToon highlights',()=>{
  const blob=readFileSync('public/avatars/female/mira_female_04_soft_rose.vrm');
  assert.equal(blob.toString('ascii',0,4),'glTF');
  const len=blob.readUInt32LE(12);
@@ -16,8 +16,8 @@ test('preview retains authored purple hair texture rather than multiplying it by
   assert.deepEqual(hair.pbrMetallicRoughness.baseColorFactor,[1,1,1,1]);
   assert.ok(hair.pbrMetallicRoughness.baseColorTexture,'author texture missing');
  }
- assert.doesNotMatch(loader,/mat\.color\.set\(['"]#34242a['"]\)/);
- assert.match(loader,/if\('roughness' in mat\)mat\.roughness=\.82/);
+ assert.match(loader,/mat\.color\.set\(['"]#34242a['"]\)/);
+ assert.match(loader,/if\('roughness' in mat\)mat\.roughness=\.81/);
  assert.match(loader,/source\.mode==='preview'\)adaptReferencePalette\(vrm\)/);
 });
 
