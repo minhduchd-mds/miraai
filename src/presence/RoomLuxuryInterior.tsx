@@ -206,10 +206,13 @@ function MiraChairSet(){
 }
 
 function RoomLighting({night}:{night:boolean}){
+  // Let QA compare the original brighter key light without modifying the scene.
+  const original=typeof window!=='undefined' &&
+    new URLSearchParams(window.location.search).get('lighting')==='original';
   return <group>
     {/* Soft key light at the avatar face; the room keeps independent ceiling/bed lamps. */}
-    <pointLight position={[.32,2.51,3.56]} color="#ffe2d4" intensity={4.6} distance={5.5}/>
-    <pointLight position={[-1.16,2.14,3.35]} color="#ded4ee" intensity={1.65} distance={4.6}/>
+    <pointLight position={[.32,2.51,3.56]} color="#ffe2d4" intensity={original?4.6:3.1} distance={5.5}/>
+    <pointLight position={[-1.16,2.14,3.35]} color="#ded4ee" intensity={original?1.65:1.35} distance={4.6}/>
     <mesh position={[0,3.72,-.9]} rotation={[-Math.PI/2,0,0]}>
       <torusGeometry args={[2.15,.082,10,72]}/>
       <meshStandardMaterial color="#ffebcf" emissive="#ffc17b" emissiveIntensity={2.2}/>
@@ -218,11 +221,11 @@ function RoomLighting({night}:{night:boolean}){
       <torusGeometry args={[2.34,.02,8,72]}/>
       <meshStandardMaterial color="#b28b66" metalness={.81} roughness={.25}/>
     </mesh>
-    <pointLight position={[0,3.40,-1.05]} color="#ffd1a5" intensity={night?15:11} distance={11}/>
-    <spotLight position={[.7,3.47,2.34]} intensity={night?31:23}
+    <pointLight position={[0,3.40,-1.05]} color="#ffd1a5" intensity={original?(night?15:11):(night?11:8)} distance={11}/>
+    <spotLight position={[.7,3.47,2.34]} intensity={original?(night?31:23):(night?15:12)}
       color="#ffe3c6" angle={.97} penumbra={.87} distance={11}
       castShadow shadow-bias={-.00035} shadow-mapSize={[1024,1024]}/>
-    <pointLight position={[-3.45,2.73,-2]} intensity={night?8:5}
+    <pointLight position={[-3.45,2.73,-2]} intensity={original?(night?8:5):(night?6.5:3.8)}
       distance={7} color="#ffc78d"/>
     <mesh position={[2.55,2.28,-5.63]} rotation={[0,0,Math.PI/4]}>
       <torusGeometry args={[.19,.026,6,48,Math.PI*1.15]}/>
@@ -249,10 +252,12 @@ function Plant({x,z}:{x:number;z:number}){
 /** Distinct objects with real volume and light interaction, designed for walk-around. */
 export default function RoomLuxuryInterior({scene}:{scene:MiraPresenceScene}){
   const night=scene==='home-evening'||scene==='bedtime';
+  const original=typeof window!=='undefined' &&
+    new URLSearchParams(window.location.search).get('lighting')==='original';
   return <>
     <color attach="background" args={[night?'#13243b':'#8da9b8']}/>
-    <ambientLight intensity={night?.83:1.06} color="#e9dcda"/>
-    <hemisphereLight intensity={.66} color="#bed9ff" groundColor="#654c42"/>
+    <ambientLight intensity={original?(night?.83:1.06):(night?.75:.86)} color="#e9dcda"/>
+    <hemisphereLight intensity={original?.66:.54} color="#bed9ff" groundColor="#654c42"/>
     <mesh position={[0,-.022,0]} rotation={[-Math.PI/2,0,0]} receiveShadow>
       <planeGeometry args={[10.1,12.1]}/>
       <meshStandardMaterial color="#94745d" roughness={.75} side={THREE.DoubleSide}/>
