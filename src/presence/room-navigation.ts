@@ -16,10 +16,9 @@ export const CAMERA_CLEARANCE = 0.24;
 export const ROOM_OBSTACLES: readonly Footprint[] = [
   {id:'bed',minX:-0.42,maxX:3.15,minZ:-5.39,maxZ:-1.49},
   {id:'sofa',minX:-4.58,maxX:-1.7,minZ:0.20,maxZ:1.82},
-  {id:'workspace',minX:-3.88,maxX:-1.15,minZ:-3.65,maxZ:-2.36},
   {id:'wardrobe',minX:4.03,maxX:4.98,minZ:-4.89,maxZ:-1.60},
-  {id:'mira-chair',minX:-1.08,maxX:1.08,minZ:1.10,maxZ:2.85},
-  {id:'marble-desk',minX:-2.28,maxX:2.28,minZ:1.90,maxZ:3.73},
+  // Expanded soft beanbag occupies the center; no foreground marble desk.
+  {id:'mira-chair',minX:-1.56,maxX:1.56,minZ:0.80,maxZ:3.18},
   {id:'plant-left',minX:-4.07,maxX:-3.17,minZ:-4.93,maxZ:-4.05},
   {id:'plant-window',minX:-4.7,maxX:-3.83,minZ:2.42,maxZ:3.32},
   {id:'plant-right',minX:3.41,maxX:4.29,minZ:-1.85,maxZ:-0.97},
