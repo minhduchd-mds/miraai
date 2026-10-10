@@ -691,10 +691,23 @@ export default function AppV2() {
           <span className="v2-mark" aria-hidden="true"><i /></span>
           <span className="v2-wordmark"><b>Mira</b><small>Voice Companion</small></span>
         </div>
-        <div className="v2-status compact" role="status" aria-live="polite" aria-atomic="true" title={STATE_COPY[mira.state]}>
-          <span className={`v2-status-dot ${mira.state}`} aria-hidden="true" />
-          <span className="sr-only">{STATE_COPY[mira.state]}</span>
-        </div>
+        <details className="v2-status v2-session-details">
+          <summary title="Xem trạng thái kết nối Mira">
+            <span className={`v2-status-dot ${mira.state}`} aria-hidden="true" />
+            <span>{STATE_COPY[mira.state]}</span>
+            <span className="sr-only">— mở chi tiết kết nối</span>
+          </summary>
+          <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{STATE_COPY[mira.state]}</span>
+          <div className="v2-session-panel" aria-label="Trạng thái kết nối Mira">
+            <strong>Trạng thái phiên</strong>
+            <dl>
+              <div><dt>Giọng nói</dt><dd>{voiceBooting ? 'Đang khởi tạo' : mira.live ? STATE_COPY[mira.state] : 'Chưa bắt đầu'}</dd></div>
+              <div><dt>Camera</dt><dd>{visionError ? 'Cần kiểm tra' : visionBooting ? 'Đang mở' : visionOn ? (faceSeen || handSeen ? 'Đang nhận diện' : 'Đang quan sát') : 'Đang tắt'}</dd></div>
+              <div><dt>Không gian XR</dt><dd>{webXRSnapshot.active ? 'Đang hoạt động' : 'Chưa bật'}</dd></div>
+            </dl>
+            <p>Camera và XR chỉ hoạt động khi được bật từ thanh điều khiển.</p>
+          </div>
+        </details>
         <nav className="v2-actions" aria-label="Điều khiển Mira">
           <button
             type="button"
