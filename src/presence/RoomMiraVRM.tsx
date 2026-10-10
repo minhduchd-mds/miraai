@@ -6,6 +6,7 @@ import { VRMLoaderPlugin, VRMUtils, type VRM } from '@pixiv/three-vrm';
 import {chooseRoomAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic-avatar-source';
 import {poseMixamoHumanSeated} from './rigged-human-pose';
 import {trimPreviewOuterwear} from './preview-indoor-outfit';
+import {dressPreviewForIndoors} from './preview-indoor-wardrobe';
 import {hidePreviewHairTufts} from './preview-hair-trim';
 import {stabilizePreviewHairPhysics} from './preview-hair-dynamics';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
@@ -220,9 +221,12 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
           // Indoor presentation: preserve the inner black top while trimming
           // the separable sleeve/hem triangles of the known VRoid preview.
           // Debug query ?outfit=original restores the source garment intact.
-          if(source.mode==='preview' &&
-            new URLSearchParams(window.location.search).get('outfit')!=='original')
-            trimPreviewOuterwear(vrm);
+          if(source.mode==='preview'){
+            const outfit=new URLSearchParams(window.location.search).get('outfit');
+            if(outfit==='legacy')trimPreviewOuterwear(vrm);
+            else if(outfit!=='original' && !dressPreviewForIndoors(vrm))
+              trimPreviewOuterwear(vrm);
+          }
           // Preserve the PBR skin/hair/garment maps of a reviewed human model.
           // Stylized preview recoloring is intentionally NOT applied to realistic assets.
           if(source.mode==='preview')adaptReferencePalette(vrm);
