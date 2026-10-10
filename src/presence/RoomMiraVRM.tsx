@@ -49,12 +49,15 @@ function seatedPose(vrm: VRM) {
   rotate('rightUpperArm', -.18, -.03, -1.28);
   rotate('leftLowerArm', -.90, -.07, .16);
   rotate('rightLowerArm', -.56, .04, -.09);
-  rotate('head', .06, -.08, -.11);
+  // Resting gaze should face the viewer; micro-yaw and emotional tilt run per frame.
+  rotate('head', .018, 0, -.018);
   rotate('chest', -.10, .02, .04);
 }
 
-/** Recolor only explicitly named hair/garment slots to the approved dark-hair / cream-knit palette.
- * Never tint skin, eyes or unlabeled slots; actual fidelity still depends on the VRM asset. */
+/** Preserve the VRoid author's already-textured purple hair and dark indoor top.
+ * A previous blanket dark-brown tint multiplied every hair texture and
+ * destroyed its color/lightness. Only polish the roughness of named slots.
+ * Never tint skin, eyes or unlabelled materials. */
 function adaptReferencePalette(vrm: VRM) {
   const done=new Set<THREE.Material>();
   vrm.scene.traverse(node=>{
@@ -67,8 +70,10 @@ function adaptReferencePalette(vrm: VRM) {
       if(!(mat.color instanceof THREE.Color))continue;
       const name=(node.name+' '+raw.name).toLowerCase();
       if(/hair|fringe|bangs|hairstyle|髪|ヘア/.test(name)) {
-        mat.color.set('#34242a');
-        if('roughness' in mat)mat.roughness=.81;
+        // The authored hair baseColor is white and the actual purple tint
+        // lives in the texture. Multiplying by #34242a darkens it unnaturally.
+        // Preserve author-supplied base color so all hair sections match.
+        if('roughness' in mat)mat.roughness=.82;
       }else if(/cardigan|sweater|knit|top|shirt|blouse|clothing|outfit|衣装|服/.test(name)) {
         // Preserve the authored diffuse clothing texture and darker crop top.
         // A single baked Tops mesh contains both jacket and inner garment;
