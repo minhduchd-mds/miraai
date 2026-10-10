@@ -39,8 +39,9 @@ function seatedPose(vrm: VRM) {
   rotate('leftLowerLeg', 1.34, 0, 0);
   rotate('rightLowerLeg', 1.34, 0, 0);
   // Relaxed, asymmetric portrait: elbow toward cheek and shoulders slightly tilted.
-  rotate('leftUpperArm', -.23, .04, 1.14);
-  rotate('rightUpperArm', -.31, -.04, -.80);
+  // Lower both arms toward the lap rather than leaving them spread in a T pose.
+  rotate('leftUpperArm', -.23, .04, -.94);
+  rotate('rightUpperArm', -.31, -.04, .94);
   rotate('leftLowerArm', -.90, -.07, .16);
   rotate('rightLowerArm', -.56, .04, -.09);
   rotate('head', .06, -.08, -.11);
