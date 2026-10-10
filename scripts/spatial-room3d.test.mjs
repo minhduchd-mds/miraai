@@ -211,3 +211,13 @@ test('full-room composition has no foreground or background computer desks',()=>
  assert.ok(!ROOM_OBSTACLES.some(o=>o.id==='marble-desk'||o.id==='workspace'));
  assert.ok(ROOM_OBSTACLES.find(o=>o.id==='mira-chair').maxZ>=3.18);
 });
+
+test('preview human seated pose bends knees toward the viewer instead of inside the chair',()=>{
+ for(const side of ['left','right']){
+  assert.ok(vrm.includes("rotate('"+side+"UpperLeg', 1.12, 0,"),
+    side+' thigh must extend forward after room-facing PI rotation');
+  assert.ok(vrm.includes("rotate('"+side+"LowerLeg', -1.34, 0, 0)"),
+    side+' shin must drop beneath the knee');
+ }
+ assert.match(vrm,/vrm\.scene\.rotation\.y=source\.mode==='preview'\?Math\.PI:0/);
+});
