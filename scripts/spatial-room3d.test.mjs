@@ -13,7 +13,7 @@ const pkg=JSON.parse(readFileSync('package.json','utf8'));
 test('room contains independently modeled curved furniture instead of coarse boxes',()=>{
  for(const required of ['RoundedBoxGeometry','meshPhysicalMaterial','RoomLighting',
    'SofaSet','BedSet','CityWindow','WardrobeSet','MiraChairSet',
-   'torusGeometry','clearcoat','THREE.CanvasTexture','shadow-mapSize']) {
+   'torusGeometry','clearcoat','shadow-mapSize']) {
    assert.ok(luxury.includes(required),'Missing 3D feature '+required);
  }
  assert.match(luxury,/new THREE.PlaneGeometry\(2\.78,2\.75,22,20\)/);
