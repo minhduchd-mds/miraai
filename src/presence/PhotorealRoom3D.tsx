@@ -14,7 +14,7 @@ const CLAMP=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const KEYS=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
 const PRESETS=[
  {yaw:-Math.PI/2,x:-2.9,z:4.1},
- {yaw:0,x:0,z:4.79},
+ {yaw:0,x:0,z:5.28},
  {yaw:Math.PI/2,x:2.9,z:4.1},
  {yaw:Math.PI,x:0,z:0},
  {yaw:0,x:0,z:5.48},
@@ -57,7 +57,7 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
  * volumetric geometric avatar is retained (never an unshaded portrait plane).
  */
 export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DProps){
- const controls=useRef<Controls>({yaw:0,pitch:0,x:0,z:4.79,keys:new Set()});
+ const controls=useRef<Controls>({yaw:0,pitch:-.085,x:0,z:5.28,keys:new Set()});
  const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
  const stageRef=useRef<HTMLSpanElement>(null);
  const invalidateRef=useRef<(()=>void)|null>(null);
@@ -87,7 +87,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      if(n){
        event.preventDefault();
        const index=Number(n[1])-1;
-       Object.assign(controls.current,PRESETS[index],{pitch:0});
+       Object.assign(controls.current,PRESETS[index],{pitch:-.085});
        invalidateRef.current?.();
        return;
      }
@@ -151,7 +151,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      onLostPointerCapture={pointerEnd}
      onClick={event=>event.stopPropagation()}>
      <Canvas frameloop="demand" shadows dpr={[1,1.5]}
-       camera={{fov:59,near:.08,far:75,position:[0,1.77,4.79]}}
+       camera={{fov:59,near:.08,far:75,position:[0,1.77,5.28]}}
        gl={{alpha:false,antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false}}
        onCreated={({gl,invalidate})=>{
          detachWebGLRef.current();
