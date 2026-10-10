@@ -166,27 +166,27 @@ function MiraChairSet(){
       <circleGeometry args={[2.1,64]}/>
       <meshStandardMaterial color="#f0cdd7" roughness={1}/>
     </mesh>
-    <mesh position={[0,1.00,1.28]} castShadow receiveShadow scale={[1.25,.86,.32]}>
+    <mesh position={[0,.94,1.28]} castShadow receiveShadow scale={[1.12,.73,.29]}>
       <sphereGeometry args={[1,40,26]}/>
       <meshPhysicalMaterial color="#f5e8e3" roughness={.98} sheen={.52} sheenRoughness={.9}/>
     </mesh>
-    <mesh position={[0,.19,1.37]} castShadow receiveShadow scale={[1.18,.15,.46]}>
+    <mesh position={[0,.19,1.42]} castShadow receiveShadow scale={[1.11,.15,.46]}>
       <sphereGeometry args={[1,40,24]}/>
       <meshPhysicalMaterial color="#f8eeea" roughness={.98} sheen={.45} sheenRoughness={.9}/>
     </mesh>
     {[-1,1].map((side)=><mesh key={side}
-      position={[side*1.20,.61,1.86]} rotation={[0,0,-side*.14]}
-      castShadow receiveShadow scale={[.26,.46,.56]}>
+      position={[side*1.09,.59,1.86]} rotation={[0,0,-side*.14]}
+      castShadow receiveShadow scale={[.23,.40,.49]}>
       <sphereGeometry args={[1,28,18]}/>
       <meshStandardMaterial color="#f4dcdf" roughness={1}/>
     </mesh>)}
-    <mesh position={[-1.0,.76,1.98]} rotation={[.10,0,-.20]}
+    <mesh position={[-.93,.72,1.97]} rotation={[.10,0,-.20]}
       scale={[.35,.30,.17]} castShadow>
       <sphereGeometry args={[1,24,16]}/>
       <meshStandardMaterial color="#eebfcf" roughness={1}/>
     </mesh>
     {/* Smiling companion plush placed outside Mira's silhouette. */}
-    <group position={[1.15,.73,1.79]}>
+    <group position={[1.05,.72,1.79]}>
       <mesh castShadow scale={[.17,.19,.15]}>
         <sphereGeometry args={[1,20,14]}/>
         <meshStandardMaterial color="#f5cad7" roughness={1}/>
