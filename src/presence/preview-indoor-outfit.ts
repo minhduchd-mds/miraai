@@ -39,7 +39,9 @@ export function trimPreviewOuterwear(vrm:VRM):number {
         if([a,b,c].some(n=>n<0||n>=pos.count))return;
         if(trimming){
           const lowHem=[a,b,c].some(n=>pos.getY(n)<.90);
-          const sleeve=[a,b,c].some(n=>Math.abs(pos.getX(n))>.36);
+          // The baked top has very wide sleeve shoulders; .36 leaves visible
+          // coat panels near the upper arm. Keep the central fitted top only.
+          const sleeve=[a,b,c].some(n=>Math.abs(pos.getX(n))>.255);
           if(lowHem||sleeve){removed++;continue;}
           remainingTop+=3;
         }
