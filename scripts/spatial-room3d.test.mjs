@@ -206,8 +206,8 @@ test('full-room composition has no foreground or background computer desks',()=>
  const source=readFileSync('src/presence/realistic-avatar-source.ts','utf8');
  assert.match(source,/position:\[0,-\.48,1\.92\]/);
  assert.match(vrm,/position=\{avatar\.position\} scale=\{avatar\.scale\}/);
- assert.match(room,/pitch:-\.085,x:0,z:5\.28/);
- assert.match(room,/position:\[0,1\.77,5\.28\]/);
+ assert.match(room,/pitch:-\.05,x:0,z:4\.30/);
+ assert.match(room,/position:\[0,1\.77,4\.30\]/);
  assert.ok(!ROOM_OBSTACLES.some(o=>o.id==='marble-desk'||o.id==='workspace'));
  assert.ok(ROOM_OBSTACLES.find(o=>o.id==='mira-chair').maxZ>=3.18);
 });
