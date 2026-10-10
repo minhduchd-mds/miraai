@@ -7,6 +7,7 @@ import {chooseRoomAvatar,PREVIEW_ASSET,type AvatarAssetSource} from './realistic
 import {poseMixamoHumanSeated} from './rigged-human-pose';
 import {trimPreviewOuterwear} from './preview-indoor-outfit';
 import {hidePreviewHairTufts} from './preview-hair-trim';
+import {stabilizePreviewHairPhysics} from './preview-hair-dynamics';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {ttsLevel} from '../core/audio-level';
 import {visemesForSpeech} from './tts-visemes';
@@ -205,6 +206,12 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
           // Realistic VRMs arrive with an artist-authored seated pose. Never
           // overwrite their bind pose with the stylized preview's joint angles.
           if(source.mode==='preview')seatedPose(vrm);
+          // The known VRM0 preview has unstable hair springs after turn-around.
+          // Keep its authored hairstyle at rest while eyes/mouth/head still move.
+          // Debug ?hairPhysics=original restores original secondary motion.
+          if(source.mode==='preview' &&
+            new URLSearchParams(window.location.search).get('hairPhysics')!=='original')
+            stabilizePreviewHairPhysics(vrm);
           // Only the known VRoid preview contains these four HAIR_06 spikes.
           // ?hair=original reverses the effect without altering the asset.
           if(source.mode==='preview' &&
