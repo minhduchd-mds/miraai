@@ -65,8 +65,10 @@ function adaptReferencePalette(vrm: VRM) {
         mat.color.set('#34242a');
         if('roughness' in mat)mat.roughness=.81;
       }else if(/cardigan|sweater|knit|top|shirt|blouse|clothing|outfit|衣装|服/.test(name)) {
-        mat.color.set('#f1e8e1');
-        if('roughness' in mat)mat.roughness=.92;
+        // Preserve the authored diffuse clothing texture and darker crop top.
+        // A single baked Tops mesh contains both jacket and inner garment;
+        // forcing cream tint made the jacket look much brighter indoors.
+        if('roughness' in mat)mat.roughness=.86;
       }
     }
   });
