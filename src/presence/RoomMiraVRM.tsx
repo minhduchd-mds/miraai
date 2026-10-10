@@ -34,11 +34,13 @@ function seatedPose(vrm: VRM) {
     const node = bone(name);
     if (node) node.rotation.set(x, y, z);
   };
-  // Seated legs, relaxing shoulder/forearm joints; the source VRM remains rigged.
-  rotate('leftUpperLeg', -1.12, 0, .09);
-  rotate('rightUpperLeg', -1.12, 0, -.09);
-  rotate('leftLowerLeg', 1.34, 0, 0);
-  rotate('rightLowerLeg', 1.34, 0, 0);
+  // Face is rotated by PI in this room: positive thigh X points the knees
+  // toward the camera, while negative shin X lets calves drop beneath the lap.
+  // Reversed signs bury the entire lower body inside the chair upholstery.
+  rotate('leftUpperLeg', 1.12, 0, .09);
+  rotate('rightUpperLeg', 1.12, 0, -.09);
+  rotate('leftLowerLeg', -1.34, 0, 0);
+  rotate('rightLowerLeg', -1.34, 0, 0);
   // Relaxed, asymmetric portrait: elbow toward cheek and shoulders slightly tilted.
   // VRM normalized arm joints require positive left / negative right Z to lower.
   // The reversed signs previously lifted both arms into an unwanted V pose.
