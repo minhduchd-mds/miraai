@@ -12,7 +12,7 @@ const pkg=JSON.parse(readFileSync('package.json','utf8'));
 
 test('room contains independently modeled curved furniture instead of coarse boxes',()=>{
  for(const required of ['RoundedBoxGeometry','meshPhysicalMaterial','RoomLighting',
-   'SofaSet','BedSet','CityWindow','WorkspaceSet','WardrobeSet','MarbleDeskSet',
+   'SofaSet','BedSet','CityWindow','WardrobeSet','MiraChairSet',
    'torusGeometry','clearcoat','THREE.CanvasTexture','shadow-mapSize']) {
    assert.ok(luxury.includes(required),'Missing 3D feature '+required);
  }
@@ -78,7 +78,7 @@ test('real 3D scene never gets covered by legacy 2D character or expression spri
 test('3D hero contains a spatial upholstered chair and a close foreground seated VRM',()=>{
  assert.match(luxury,/function MiraChairSet/);
  assert.match(luxury,/<MiraChairSet\/>/);
- assert.match(vrm,/position=\{\[0,\.17,2\.28\]\} scale=\{1\.55\}/);
+ assert.match(vrm,/position=\{avatar\.position\} scale=\{avatar\.scale\}/);
  assert.match(css,/\.photo-mira\[data-room3d-active="true"\] \.pm-hero-copy/);
 });
 
@@ -96,7 +96,7 @@ test('3D mode removes HUD, gallery and copy; AppV2 voice footer remains unchange
 test('Mira seated pose, foreground composition and chair plush are present',()=>{
  assert.match(vrm,/rotate\('leftLowerArm', -\.90,/);
  assert.match(vrm,/vrm\.expressionManager\?\.setValue\('happy',\.22\)/);
- assert.match(vrm,/position=\{\[0,\.17,2\.28\]\} scale=\{1\.55\}/);
+ assert.match(vrm,/position=\{avatar\.position\} scale=\{avatar\.scale\}/);
  assert.match(luxury,/Soft key light at the avatar face/);
  assert.match(luxury,/Smiling companion plush/);
 });
@@ -141,7 +141,7 @@ test('3D input ignores editable fields and modifiers, clears held keys on tab hi
 test('room navigation footprints block existing furniture without closing the usable aisle',()=>{
  assert.ok(ROOM_OBSTACLES.length>=6);
  for(const [x,z] of [
-   [0,-3],[-3,1],[-2.5,-3],[4.3,-3],[0,1.5],[0,3.1]
+   [0,-3],[-3,1],[1.4,-3],[4.3,-3],[0,1.5],[0,3.1]
  ])assert.equal(isRoomWalkable(x,z),false,'Furniture footprint should block '+x+','+z);
  for(const [x,z] of [
    [0,4.79],[-2.9,4.1],[2.9,4.1],[0,0],[0,5.48]
@@ -150,13 +150,13 @@ test('room navigation footprints block existing furniture without closing the us
    assert.equal(isRoomWalkable(x,z),false);
 });
 
-test('room camera collision prevents walking through the marble desk',()=>{
+test('room camera collision prevents walking through the enlarged lounge beanbag',()=>{
  let position={x:0,z:4.79};
  for(let i=0;i<100;i++){
    position=moveRoomCamera(position,0,1,0,.06);
    assert.equal(isRoomWalkable(position.x,position.z),true);
  }
- assert.ok(position.z>3.9&&position.z<4.79,'Walk should stop in front of desk: '+position.z);
+ assert.ok(position.z>=3.4&&position.z<4.79,'Walk should stop in front of lounge chair: '+position.z);
 });
 
 test('room movement normalizes diagonals, caps frame stalls and rejects corrupt inputs',()=>{
@@ -195,4 +195,19 @@ test('3D stage reuses its parent button focus and cannot create nested tab stops
  assert.doesNotMatch(room,/className="pm-room3d-stage" tabIndex/);
  assert.doesNotMatch(room,/role="region"/);
  assert.match(room,/closest<HTMLButtonElement>\('button\.photo-mira'\)/);
+});
+
+test('full-room composition has no foreground or background computer desks',()=>{
+ assert.doesNotMatch(luxury,/<MarbleDeskSet\/>|<WorkspaceSet\/>/);
+ assert.doesNotMatch(luxury,/function MarbleDeskSet\(|function WorkspaceSet\(/);
+ assert.match(luxury,/name="mira-indoor-lounge"/);
+ assert.match(luxury,/circleGeometry args=\{\[2\.36,64\]\}/);
+ assert.match(luxury,/mira-indoor-lounge[\s\S]*?sphereGeometry/);
+ const source=readFileSync('src/presence/realistic-avatar-source.ts','utf8');
+ assert.match(source,/position:\[0,-\.48,1\.92\]/);
+ assert.match(vrm,/position=\{avatar\.position\} scale=\{avatar\.scale\}/);
+ assert.match(room,/pitch:-\.085,x:0,z:5\.28/);
+ assert.match(room,/position:\[0,1\.77,5\.28\]/);
+ assert.ok(!ROOM_OBSTACLES.some(o=>o.id==='marble-desk'||o.id==='workspace'));
+ assert.ok(ROOM_OBSTACLES.find(o=>o.id==='mira-chair').maxZ>=3.18);
 });
