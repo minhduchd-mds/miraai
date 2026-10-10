@@ -57,7 +57,8 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
  * volumetric geometric avatar is retained (never an unshaded portrait plane).
  */
 export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DProps){
- const controls=useRef<Controls>({yaw:0,pitch:-.05,x:0,z:4.30,keys:new Set()});
+ // Frame the seated companion from slightly above: hands, lap and legs remain visible.
+ const controls=useRef<Controls>({yaw:0,pitch:-.26,x:0,z:4.30,keys:new Set()});
  const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
  const stageRef=useRef<HTMLSpanElement>(null);
  const invalidateRef=useRef<(()=>void)|null>(null);
@@ -87,7 +88,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      if(n){
        event.preventDefault();
        const index=Number(n[1])-1;
-       Object.assign(controls.current,PRESETS[index],{pitch:-.085});
+       Object.assign(controls.current,PRESETS[index],{pitch:-.26});
        invalidateRef.current?.();
        return;
      }
