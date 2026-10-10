@@ -206,7 +206,7 @@ test('full-room composition has no foreground or background computer desks',()=>
  const source=readFileSync('src/presence/realistic-avatar-source.ts','utf8');
  assert.match(source,/position:\[0,-\.48,1\.92\]/);
  assert.match(vrm,/position=\{avatar\.position\} scale=\{avatar\.scale\}/);
- assert.match(room,/pitch:-\.05,x:0,z:4\.30/);
+ assert.match(room,/pitch:-\.26,x:0,z:4\.30/);
  assert.match(room,/position:\[0,1\.77,4\.30\]/);
  assert.ok(!ROOM_OBSTACLES.some(o=>o.id==='marble-desk'||o.id==='workspace'));
  assert.ok(ROOM_OBSTACLES.find(o=>o.id==='mira-chair').maxZ>=3.18);
@@ -220,4 +220,10 @@ test('preview human seated pose bends knees toward the viewer instead of inside 
     side+' shin must drop beneath the knee');
  }
  assert.match(vrm,/vrm\.scene\.rotation\.y=source\.mode==='preview'\?Math\.PI:0/);
+});
+
+test('3D preview opens on an elevated seated framing and preserves preset angle',()=>{
+ assert.match(room,/pitch:-\.26,x:0,z:4\.30/);
+ assert.match(room,/Object\.assign\(controls\.current,PRESETS\[index\],\{pitch:-\.26\}\)/);
+ assert.match(room,/camera=\{\{fov:52,near:\.08,far:75,position:\[0,1\.77,4\.30\]\}\}/);
 });
