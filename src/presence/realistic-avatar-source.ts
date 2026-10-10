@@ -22,7 +22,8 @@ export const PREVIEW_ASSET:AvatarAssetSource = {
   mode:'preview',
   path:'avatars/female/mira_female_04_soft_rose.vrm',
   scale:1.55,
-  position:[0,.17,2.28],
+  // Align preview pelvis to the lounge seat; preserve artist-authored realistic placements.
+  position:[0,-.48,1.92],
   rotationY:Math.PI,
 };
 const fileNamePattern=/^[a-z0-9][a-z0-9_-]{1,70}\.(?:vrm|glb)$/;
