@@ -159,43 +159,45 @@ function WardrobeSet(){
 }
 
 function MiraChairSet(){
-  // An actual deep, rounded lounge beanbag. The character sits IN this seat,
-  // not in front of a floating desk; upholstery is dimensional in every view.
+  // Seat geometry stays BELOW the avatar's lap; the back is behind the torso.
+  // This avoids the previous giant foreground beanbag occluding the character.
   return <group name="mira-indoor-lounge">
-    <mesh position={[0,.032,1.95]} rotation={[-Math.PI/2,0,0]} receiveShadow>
-      <circleGeometry args={[2.36,64]}/>
+    <mesh position={[0,.025,1.95]} rotation={[-Math.PI/2,0,0]} receiveShadow>
+      <circleGeometry args={[2.1,64]}/>
       <meshStandardMaterial color="#f0cdd7" roughness={1}/>
     </mesh>
-    <mesh position={[0,.70,1.42]} castShadow receiveShadow scale={[1.45,1.18,.59]}>
-      <sphereGeometry args={[1,48,32]}/>
-      <meshPhysicalMaterial color="#f5e8e3" roughness={.97} sheen={.65} sheenRoughness={.9}/>
+    <mesh position={[0,1.00,1.28]} castShadow receiveShadow scale={[1.25,.86,.32]}>
+      <sphereGeometry args={[1,40,26]}/>
+      <meshPhysicalMaterial color="#f5e8e3" roughness={.98} sheen={.52} sheenRoughness={.9}/>
     </mesh>
-    <mesh position={[0,.48,2.04]} castShadow receiveShadow scale={[1.44,.48,1.10]}>
-      <sphereGeometry args={[1,48,28]}/>
-      <meshPhysicalMaterial color="#f8eeea" roughness={.98} sheen={.62} sheenRoughness={.9}/>
+    <mesh position={[0,.32,1.89]} castShadow receiveShadow scale={[1.28,.23,.70]}>
+      <sphereGeometry args={[1,40,24]}/>
+      <meshPhysicalMaterial color="#f8eeea" roughness={.98} sheen={.45} sheenRoughness={.9}/>
     </mesh>
-    {[-1,1].map((side)=> <mesh key={side} position={[side*1.27,.67,2.02]}
-        rotation={[0,0,-side*.18]} castShadow receiveShadow scale={[.34,.70,.78]}>
-      <sphereGeometry args={[1,32,20]}/>
-      <meshStandardMaterial color="#f3dede" roughness={1}/>
+    {[-1,1].map((side)=><mesh key={side}
+      position={[side*1.20,.61,1.86]} rotation={[0,0,-side*.14]}
+      castShadow receiveShadow scale={[.26,.46,.56]}>
+      <sphereGeometry args={[1,28,18]}/>
+      <meshStandardMaterial color="#f4dcdf" roughness={1}/>
     </mesh>)}
-    <mesh position={[-1.02,.88,2.32]} rotation={[.1,0,-.25]}
-      scale={[.47,.38,.22]} castShadow>
-      <sphereGeometry args={[1,24,18]}/>
-      <meshStandardMaterial color="#eebfcf" roughness={.97}/>
+    <mesh position={[-1.0,.76,1.98]} rotation={[.10,0,-.20]}
+      scale={[.35,.30,.17]} castShadow>
+      <sphereGeometry args={[1,24,16]}/>
+      <meshStandardMaterial color="#eebfcf" roughness={1}/>
     </mesh>
-    {/* Smiling companion plush sits beside her, never covers the lap. */}
-    <group position={[1.13,.89,1.93]}>
-      <mesh castShadow scale={[.22,.24,.19]}>
-        <sphereGeometry args={[1,22,16]}/>
+    {/* Smiling companion plush placed outside Mira's silhouette. */}
+    <group position={[1.15,.73,1.79]}>
+      <mesh castShadow scale={[.17,.19,.15]}>
+        <sphereGeometry args={[1,20,14]}/>
         <meshStandardMaterial color="#f5cad7" roughness={1}/>
       </mesh>
-      {[-.14,.14].map(x=><mesh key={x} position={[x,.24,-.03]}
-        scale={[.065,.12,.07]} castShadow>
-        <sphereGeometry args={[1,16,12]}/>
+      {[-.11,.11].map(x=><mesh key={x}
+        position={[x,.20,-.02]} scale={[.05,.09,.055]} castShadow>
+        <sphereGeometry args={[1,12,10]}/>
         <meshStandardMaterial color="#efb7c7" roughness={1}/>
       </mesh>)}
-      {[-.075,.075].map(x=><mesh key={x} position={[x,.038,.18]} scale={[.014,.018,.008]}>
+      {[-.06,.06].map(x=><mesh key={x}
+        position={[x,.033,.15]} scale={[.012,.014,.007]}>
         <sphereGeometry args={[1,10,8]}/>
         <meshBasicMaterial color="#543b49"/>
       </mesh>)}
