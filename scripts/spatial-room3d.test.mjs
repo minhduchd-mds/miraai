@@ -201,7 +201,7 @@ test('full-room composition has no foreground or background computer desks',()=>
  assert.doesNotMatch(luxury,/<MarbleDeskSet\/>|<WorkspaceSet\/>/);
  assert.doesNotMatch(luxury,/function MarbleDeskSet\(|function WorkspaceSet\(/);
  assert.match(luxury,/name="mira-indoor-lounge"/);
- assert.match(luxury,/circleGeometry args=\{\[2\.36,64\]\}/);
+ assert.match(luxury,/circleGeometry args=\{\[2\.1,64\]\}/);
  assert.match(luxury,/mira-indoor-lounge[\s\S]*?sphereGeometry/);
  const source=readFileSync('src/presence/realistic-avatar-source.ts','utf8');
  assert.match(source,/position:\[0,-\.48,1\.92\]/);
