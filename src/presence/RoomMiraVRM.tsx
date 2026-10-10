@@ -337,7 +337,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
     {model ? avatar.mode==='realistic' ? <group
       position={avatar.position} scale={avatar.scale} rotation={[0,avatar.rotationY,0]}>
       <primitive object={model.scene}/>
-    </group> : <group position={[0,.17,2.28]} scale={1.55}>
+    </group> : <group position={avatar.position} scale={avatar.scale}>
       <primitive object={model.scene}/>
     </group> : humanGLB && avatar.mode==='realistic' ? <group
       position={avatar.position} scale={avatar.scale} rotation={[0,avatar.rotationY,0]}>
