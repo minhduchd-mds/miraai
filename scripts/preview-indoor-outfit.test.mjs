@@ -44,9 +44,9 @@ test('indoor trim refuses other outfits and irregular/unrelated geometry',()=>{
 });
 test('VRM indoor crop is preview-only and reversible via query flag',()=>{
  const loader=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
- assert.match(loader,/if\(source\.mode==='preview' &&/);
- assert.match(loader,/trimPreviewOuterwear\(vrm\)/);
- assert.match(loader,/get\('outfit'\)!=='original'/);
+ assert.match(loader,/if\(source\.mode==='preview'\)\{/);
+ assert.match(loader,/if\(outfit==='legacy'\)trimPreviewOuterwear\(vrm\)/);
+ assert.match(loader,/else if\(outfit!=='original' && !dressPreviewForIndoors\(vrm\)\)/);
  assert.doesNotMatch(loader,/if\(source\.mode==='realistic'\)trimPreviewOuterwear/);
 });
 
