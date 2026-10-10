@@ -54,10 +54,10 @@ function seatedPose(vrm: VRM) {
   rotate('chest', -.10, .02, .04);
 }
 
-/** Preserve the VRoid author's already-textured purple hair and dark indoor top.
- * A previous blanket dark-brown tint multiplied every hair texture and
- * destroyed its color/lightness. Only polish the roughness of named slots.
- * Never tint skin, eyes or unlabelled materials. */
+/** Conservative preview palette for the baked VRoid hair texture.
+ * The authored hair shader produces blown highlights in Production without
+ * a darkening baseColor; keep the tested muted tint until a replacement
+ * PBR hair asset is available. Never tint skin, eyes or unlabelled slots. */
 function adaptReferencePalette(vrm: VRM) {
   const done=new Set<THREE.Material>();
   vrm.scene.traverse(node=>{
@@ -70,10 +70,10 @@ function adaptReferencePalette(vrm: VRM) {
       if(!(mat.color instanceof THREE.Color))continue;
       const name=(node.name+' '+raw.name).toLowerCase();
       if(/hair|fringe|bangs|hairstyle|髪|ヘア/.test(name)) {
-        // The authored hair baseColor is white and the actual purple tint
-        // lives in the texture. Multiplying by #34242a darkens it unnaturally.
-        // Preserve author-supplied base color so all hair sections match.
-        if('roughness' in mat)mat.roughness=.82;
+        // Without this conservative tint the preview's MToon hair blooms
+        // into bright ribbon-like spikes under the room key lights.
+        mat.color.set('#34242a');
+        if('roughness' in mat)mat.roughness=.81;
       }else if(/cardigan|sweater|knit|top|shirt|blouse|clothing|outfit|衣装|服/.test(name)) {
         // Preserve the authored diffuse clothing texture and darker crop top.
         // A single baked Tops mesh contains both jacket and inner garment;
