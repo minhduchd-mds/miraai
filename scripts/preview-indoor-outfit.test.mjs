@@ -49,3 +49,22 @@ test('VRM indoor crop is preview-only and reversible via query flag',()=>{
  assert.match(loader,/get\('outfit'\)!=='original'/);
  assert.doesNotMatch(loader,/if\(source\.mode==='realistic'\)trimPreviewOuterwear/);
 });
+
+test('baked body with a material array clips only clothing-group triangles',()=>{
+ const {root,skin,geometry}=fixture();
+ const original=geometry.getIndex().count;
+ skin.material=[
+  new THREE.MeshStandardMaterial({name:'F00_000_00_Body_00_SKIN'}),
+  new THREE.MeshStandardMaterial({name:'F00_008_01_Tops_01_CLOTH'}),
+ ];
+ geometry.clearGroups();
+ geometry.addGroup(0,90,0);
+ geometry.addGroup(90,original-90,1);
+ assert.equal(trimPreviewOuterwear({scene:root}),1);
+ assert.ok(skin.geometry.getIndex().count<original);
+ assert.equal(skin.geometry.groups[0].materialIndex,0);
+ assert.equal(skin.geometry.groups[0].count,90);
+ assert.equal(skin.geometry.groups[1].materialIndex,1);
+ assert.ok(skin.geometry.groups[1].count<original-90);
+ assert.equal(geometry.getIndex().count,original);
+});
