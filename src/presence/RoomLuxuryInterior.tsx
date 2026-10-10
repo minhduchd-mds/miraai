@@ -139,32 +139,6 @@ function SofaSet(){
   </group>;
 }
 
-function WorkspaceSet(){
-  return <group>
-    <Rounded at={[-2.5,.81,-3.02]} size={[2.6,.13,1.12]} color="#a47855" radius={.06}/>
-    {[-3.6,-1.4].map(x=><Rounded key={x} at={[x,.43,-3.32]}
-      size={[.10,.80,.13]} color="#5b3f33" radius={.016}/>)}
-    {[-3.05,-2.00].map((x,i)=><group key={x}>
-      <Rounded at={[x,1.33,-3.51]} size={[.96,.66,.055]} color="#2c2931" radius={.06} roughness={.29}/>
-      <mesh position={[x,1.33,-3.474]}>
-        <planeGeometry args={[.84,.54]}/>
-        <meshBasicMaterial color={i?'#7a729f':'#345a7f'} side={THREE.DoubleSide}/>
-      </mesh>
-      <Rounded at={[x,.94,-3.51]} size={[.05,.16,.04]} color="#8f8c90" metalness={.9} radius={.01}/>
-      <Rounded at={[x,.86,-3.50]} size={[.36,.018,.20]} color="#7c8189" radius={.008} metalness={.83}/>
-    </group>)}
-    <Rounded at={[-2.48,.86,-2.88]} size={[.84,.03,.27]} color="#d6b7ac" radius={.025}/>
-    <Rounded at={[-3.0,.88,-2.66]} size={[.23,.028,.36]} color="#efe2d9" radius={.03}/>
-    <Rounded at={[-2.46,2.08,-5.25]} size={[2.63,.075,.34]} color="#ae8865" radius={.025}/>
-    <Rounded at={[-2.46,2.58,-5.25]} size={[2.63,.075,.34]} color="#ae8865" radius={.025}/>
-    {[-3.35,-2.45,-1.55].map((x,i)=><mesh key={x} position={[x,2.19,-5.2]}>
-      <cylinderGeometry args={[.12,.09,.21,11]}/>
-      <meshStandardMaterial color={i===1?'#d7b8a6':'#7c7468'} roughness={.83}/>
-    </mesh>)}
-    <pointLight position={[-2.5,2.3,-4.95]} color="#ffc78c" intensity={5} distance={3.4}/>
-  </group>;
-}
-
 function WardrobeSet(){
   return <group>
     <Rounded at={[4.67,1.87,-3.24]} size={[.60,3.56,3.23]} color="#674638" radius={.045}/>
@@ -184,103 +158,48 @@ function WardrobeSet(){
   </group>;
 }
 
-function marbleTexture(){
-  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=256;
-  const ctx=canvas.getContext('2d');
-  if(ctx){
-    ctx.fillStyle='#e9e1d9';ctx.fillRect(0,0,512,256);
-    for(let i=0;i<31;i++){
-      const offset=(i*191.3)%512,amp=(i%5+1)*2.6;
-      ctx.beginPath();
-      ctx.moveTo(offset-80,-8);
-      for(let t=0;t<=16;t++){
-        const y=t*18,xx=offset+t*7.5+Math.sin(t*.7+i)*amp;
-        ctx.lineTo(xx,y);
-      }
-      ctx.lineWidth=i%5===0?2.0:.75;
-      ctx.strokeStyle=i%4===0?'rgba(155,123,125,.22)':'rgba(123,111,111,.095)';
-      ctx.stroke();
-    }
-  }
-  const tex=new THREE.CanvasTexture(canvas);
-  tex.colorSpace=THREE.SRGBColorSpace;
-  tex.anisotropy=2;
-  return tex;
-}
-
-
 function MiraChairSet(){
-  // Independent curved upholstery behind the seated VRM, not a photographic cutout.
-  return <group>
-    <mesh position={[0,1.03,1.57]} castShadow scale={[.93,1.04,.40]}>
-      <sphereGeometry args={[1,30,22]}/>
-      <meshStandardMaterial color="#ddc5bc" roughness={.99}/>
+  // An actual deep, rounded lounge beanbag. The character sits IN this seat,
+  // not in front of a floating desk; upholstery is dimensional in every view.
+  return <group name="mira-indoor-lounge">
+    <mesh position={[0,.032,1.95]} rotation={[-Math.PI/2,0,0]} receiveShadow>
+      <circleGeometry args={[2.36,64]}/>
+      <meshStandardMaterial color="#f0cdd7" roughness={1}/>
     </mesh>
-    <mesh position={[0,.57,2.09]} castShadow scale={[.88,.25,.74]}>
-      <sphereGeometry args={[1,30,18]}/>
-      <meshStandardMaterial color="#e9d8cf" roughness={1}/>
+    <mesh position={[0,.70,1.42]} castShadow receiveShadow scale={[1.45,1.18,.59]}>
+      <sphereGeometry args={[1,48,32]}/>
+      <meshPhysicalMaterial color="#f5e8e3" roughness={.97} sheen={.65} sheenRoughness={.9}/>
     </mesh>
-    {[-.75,.75].map((x,i)=><mesh key={i}
-      position={[x,.75,1.98]} rotation={[0,0,x<0?-.28:.28]}
-      scale={[.29,.58,.44]} castShadow>
-      <sphereGeometry args={[1,26,18]}/>
-      <meshStandardMaterial color="#dfc6bf" roughness={1}/>
+    <mesh position={[0,.48,2.04]} castShadow receiveShadow scale={[1.44,.48,1.10]}>
+      <sphereGeometry args={[1,48,28]}/>
+      <meshPhysicalMaterial color="#f8eeea" roughness={.98} sheen={.62} sheenRoughness={.9}/>
+    </mesh>
+    {[-1,1].map((side)=> <mesh key={side} position={[side*1.27,.67,2.02]}
+        rotation={[0,0,-side*.18]} castShadow receiveShadow scale={[.34,.70,.78]}>
+      <sphereGeometry args={[1,32,20]}/>
+      <meshStandardMaterial color="#f3dede" roughness={1}/>
     </mesh>)}
-    {/* Smiling companion plush built from volumes; no photographic billboard. */}
-    <group position={[.79,.91,2.02]}>
-      <mesh castShadow scale={[.29,.33,.23]}>
-        <sphereGeometry args={[1,24,16]}/>
+    <mesh position={[-1.02,.88,2.32]} rotation={[.1,0,-.25]}
+      scale={[.47,.38,.22]} castShadow>
+      <sphereGeometry args={[1,24,18]}/>
+      <meshStandardMaterial color="#eebfcf" roughness={.97}/>
+    </mesh>
+    {/* Smiling companion plush sits beside her, never covers the lap. */}
+    <group position={[1.13,.89,1.93]}>
+      <mesh castShadow scale={[.22,.24,.19]}>
+        <sphereGeometry args={[1,22,16]}/>
         <meshStandardMaterial color="#f5cad7" roughness={1}/>
       </mesh>
-      {[-.18,.18].map(x=><mesh key={x} position={[x,.30,-.01]}
-        scale={[.10,.15,.085]} castShadow>
+      {[-.14,.14].map(x=><mesh key={x} position={[x,.24,-.03]}
+        scale={[.065,.12,.07]} castShadow>
         <sphereGeometry args={[1,16,12]}/>
         <meshStandardMaterial color="#efb7c7" roughness={1}/>
       </mesh>)}
-      {[-.105,.105].map(x=><mesh key={x} position={[x,.055,.222]}
-        scale={[.023,.026,.015]}>
-        <sphereGeometry args={[1,12,8]}/>
+      {[-.075,.075].map(x=><mesh key={x} position={[x,.038,.18]} scale={[.014,.018,.008]}>
+        <sphereGeometry args={[1,10,8]}/>
         <meshBasicMaterial color="#543b49"/>
       </mesh>)}
-      <mesh position={[0,-.04,.223]} scale={[.048,.024,.009]}>
-        <sphereGeometry args={[1,12,8]}/>
-        <meshBasicMaterial color="#965c73"/>
-      </mesh>
     </group>
-    <Rounded at={[0,.18,1.96]} size={[1.28,.15,.78]} color="#a17b69" radius={.06}/>
-  </group>;
-}
-
-function MarbleDeskSet(){
-  const map=useMemo(marbleTexture,[]);
-  const top=useMemo(()=>new RoundedBoxGeometry(4.52,.16,1.78,3,.07),[]);
-  useEffect(()=>()=>{map.dispose();top.dispose();},[map,top]);
-  return <group>
-    <mesh geometry={top} position={[0,.84,2.82]} castShadow receiveShadow>
-      <meshPhysicalMaterial map={map} roughness={.19} clearcoat={.9}
-        clearcoatRoughness={.15} metalness={.03}/>
-    </mesh>
-    {[-1.9,1.9].map(x=><Rounded key={x} at={[x,.40,2.82]}
-      size={[.12,.79,1.46]} color="#6a4b40" roughness={.56} radius={.025}/>)}
-    <Rounded at={[-.3,.943,2.97]} size={[1.34,.046,.53]} color="#dcbcc9" roughness={.48} radius={.025}/>
-    {Array.from({length:13},(_,i)=><Rounded key={i}
-      at={[-.89+i*.098,.975,2.99]} size={[.070,.011,.19]}
-      color={i%3===0?'#f4dfec':'#f6edf0'} radius={.007}/>)}
-    <Rounded at={[1.07,.946,2.58]} size={[.74,.036,.98]} color="#3f3c43"
-      roughness={.32} radius={.035}/>
-    <Rounded at={[1.07,1.26,2.09]} size={[.73,.60,.045]} color="#534e5a"
-      roughness={.37} radius={.025}/>
-    <Rounded at={[-1.46,.946,2.58]} size={[.44,.036,.47]} color="#f6e4da" radius={.025}/>
-    <mesh position={[-1.46,1.08,2.58]} castShadow>
-      <cylinderGeometry args={[.16,.135,.27,24]}/>
-      <meshPhysicalMaterial color="#f8d5d5" roughness={.34} clearcoat={.76}/>
-    </mesh>
-    <mesh position={[-1.46,1.29,2.58]}>
-      <sphereGeometry args={[.057,14,10]}/>
-      <meshBasicMaterial color="#ffd092"/>
-    </mesh>
-    <Rounded at={[.49,.94,3.4]} size={[.77,.04,.43]} color="#f5e5d7" radius={.03}/>
-    <Rounded at={[.91,.972,3.4]} size={[.018,.018,.36]} color="#43343b" radius={.007}/>
   </group>;
 }
 
@@ -363,11 +282,9 @@ export default function RoomLuxuryInterior({scene}:{scene:MiraPresenceScene}){
     </mesh>
     <CityWindow night={night}/>
     <SofaSet/>
-    <WorkspaceSet/>
     <MiraChairSet/>
     <BedSet/>
     <WardrobeSet/>
-    <MarbleDeskSet/>
     <RoomLighting night={night}/>
     <Plant x={-3.63} z={-4.49}/>
     <Plant x={3.85} z={-1.41}/>
