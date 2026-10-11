@@ -1,7 +1,8 @@
 import {readFileSync,writeFileSync,copyFileSync,existsSync,statSync} from 'node:fs';
 import {basename,resolve,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {qualityReport} from './validate-realistic-avatar.mjs';
+import {qualityReport,readGlbJson} from './validate-realistic-avatar.mjs';
+import {auditHumanAssetRig} from './audit-realistic-motion.mjs';
 
 const FILE_PATTERN=/^[a-z0-9][a-z0-9_-]{1,70}\.(vrm|glb)$/;
 const LICENSES=new Set(['CC0-1.0','CC-BY-4.0']);
@@ -40,10 +41,12 @@ export function stageRealisticAsset(opts,{root=process.cwd()}={}){
   const binary=readFileSync(src);
   const qa=qualityReport(manifest,binary);
   if(qa.status!=='review_required')throw Error('Avatar technical QA failed: '+qa.errors.join('; '));
+  const motion=auditHumanAssetRig(readGlbJson(binary));
+  if(!motion.ready)throw Error('Avatar facial PBR / motion QA failed: '+motion.errors.join('; '));
   // Only after all checks pass is the asset copied, still PENDING manual visual approval.
   copyFileSync(src,dst);
   writeFileSync(manifestFile,JSON.stringify(manifest,null,2)+'\n');
-  return {manifest,report:qa,assetPath:dst};
+  return {manifest,report:qa,motionReport:motion,assetPath:dst};
 }
 function main(args=process.argv.slice(2)){
   const input={};
