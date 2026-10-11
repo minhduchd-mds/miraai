@@ -12,6 +12,7 @@ on:
       - "src/app/vision-hand-interaction.ts"
       - "public/mira-assets/**"
       - "scripts/visual-qa.spec.mjs"
+      - "scripts/vitruvian-lab-visual.spec.mjs"
       - "scripts/capability-smoke.spec.mjs"
       - "playwright.config.mjs"
       - ".github/workflows/visual-qa.yml"
