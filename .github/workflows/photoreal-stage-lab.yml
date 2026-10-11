@@ -1,0 +1,92 @@
+name: Stage licensed photoreal candidate (lab only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/prepare-vitruvian-lab.mjs
+      - .github/workflows/photoreal-stage-lab.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Fetch source from immutable vendor commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/vitruvian
+          BASE="https://raw.githubusercontent.com/ibrews/VitruvianGodot/bdecdcd537b4031fdd0fb299b7e4f93f084fffa0/godot_project"
+          for name in vitruvian_head.glb vitruvian_body.glb hairtool_cards.glb \
+            vit_face_bc.png vit_face_n.png vit_face_rough.png \
+            vit_body_bc.png vit_body_n.png vit_body_rough.png \
+            vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png \
+            vit_iris.png vit_sclera.png vit_mouth.png; do
+            curl -fLSs --retry 3 --connect-timeout 20 --max-time 180 \
+              "$BASE/$name" -o "/tmp/vitruvian/$name"
+          done
+          test "$(git hash-object /tmp/vitruvian/vitruvian_head.glb)" = "0c810e209f09fc079086746f0813de9531d0f7fb"
+          test "$(git hash-object /tmp/vitruvian/vitruvian_body.glb)" = "09bcade1092e5a89b474e91e6013209d4c68c127"
+          test "$(git hash-object /tmp/vitruvian/hairtool_cards.glb)" = "04799adc868ba72e0fa1c1ab60c0442e12d5987e"
+      - name: Install tooling (reproducible, not a runtime dependency)
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false @gltf-transform/core@4.2.1
+          python3 -m pip install --user --disable-pip-version-check pillow==11.3.0
+      - name: Prepare glTF with no third-party animation clips
+        run: node scripts/prepare-vitruvian-lab.mjs
+      - name: Export browser-friendly PBR textures
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          src=Path('/tmp/vitruvian')
+          dst=Path('public/avatars/realistic/vitruvian-lab')
+          for path in sorted(src.glob('vit_*.png')):
+              with Image.open(path) as im:
+                  im.load()
+                  im.thumbnail((1536,1536) if path.name.startswith('vit_face') else (1024,1024),Image.Resampling.LANCZOS)
+                  if im.mode not in ('RGB','RGBA'):
+                      im=im.convert('RGBA' if 'transparency' in im.info else 'RGB')
+                  lossless=path.stem.endswith(('_n','_opacity'))
+                  im.save(dst/(path.stem+'.webp'),format='WEBP',quality=91,method=6,lossless=lossless)
+          PY
+      - name: Verify staged source has humanoid body, morph head and compact maps
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {readGlbJson} from './scripts/validate-realistic-avatar.mjs';
+          const dir='public/avatars/realistic/vitruvian-lab/';
+          const h=readGlbJson(readFileSync(dir+'head.glb'));
+          const b=readGlbJson(readFileSync(dir+'body.glb'));
+          if(!b.skins?.length||!h.meshes?.some(x=>x.extras?.targetNames?.includes('Eyes_Closed_Max')))throw Error('Required model missing');
+          if(b.animations?.length)throw Error('Non-CC0 animation data retained');
+          console.log('Verified unapproved CC0 model LAB ONLY');
+          JS
+          du -sh public/avatars/realistic/vitruvian-lab
+      - name: Commit lab asset to main; keep production avatar pending
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f public/avatars/realistic/vitruvian-lab
+          if git diff --cached --quiet; then
+            echo "No source asset changes"
+            exit 0
+          fi
+          git commit -m "assets(mira3d): stage licensed human PBR lab candidate (not approved)"
+          git pull --rebase origin main
+          git push origin HEAD:main
