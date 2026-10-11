@@ -1,0 +1,38 @@
+{
+  "status": "lab_only",
+  "approved": false,
+  "owner": "ibrews/VitruvianGodot",
+  "sourceCommit": "bdecdcd537b4031fdd0fb299b7e4f93f084fffa0",
+  "license": "CC0-1.0",
+  "sourceUrl": "https://github.com/ibrews/VitruvianGodot",
+  "rawParts": [
+    "head.glb",
+    "body.glb",
+    "hair.glb"
+  ],
+  "textures": {
+    "face": [
+      "vit_face_bc.webp",
+      "vit_face_n.webp",
+      "vit_face_rough.webp"
+    ],
+    "body": [
+      "vit_body_bc.webp",
+      "vit_body_n.webp",
+      "vit_body_rough.webp"
+    ],
+    "hair": [
+      "vit_hair_diffuse.webp",
+      "vit_hair_normal.webp",
+      "vit_hair_opacity.webp"
+    ],
+    "eyes": [
+      "vit_iris.webp",
+      "vit_sclera.webp"
+    ],
+    "mouth": [
+      "vit_mouth.webp"
+    ]
+  },
+  "visualApproval": "pending"
+}
