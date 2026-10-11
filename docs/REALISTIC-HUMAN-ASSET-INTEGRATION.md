@@ -25,3 +25,26 @@ Supported introductory redistributable licenses: CC0-1.0 and CC-BY-4.0 only (CC 
 4. After a human has positively reviewed likeness and confirmed rights, manually change both `status` and `visualApproval` to `approved` in `public/avatars/realistic/manifest.json`. Run `npm run check:avatar` and the browser QA before pushing. Never auto-approve solely from the number of triangles.
 5. If no suitable realistic human is owned, keep the pending manifest: showing an unoccupied chair is preferable to misrepresenting an anime avatar as a photoreal Mira.
 
+
+
+## Facial PBR + animation readiness gate (October 2026)
+
+**No realistic human asset is staged yet.** Do not advertise the existing preview anime as a photoreal human.
+
+npm run check:avatar now runs two complementary checks: the existing binary/provenance/geometry validation and the candidate-specific facial/motion check in scripts/audit-realistic-motion.mjs.
+
+The audit checks **material slots actively used by a mesh** for independently textured PBR face/skin, eyes and hair; requires skin normal map detail; refuses unlit eyes; and verifies a skin rig with head, torso, arms, upper and lower legs. For speech it checks exported VRM expression presets or GLB morph names for blink, mouth and smile. Give facial materials names such as Mira_Face_Skin, Mira_Eye_Iris, Mira_Hair_Strands, or explicitly set material.extras.miraRegion to skin, eyes, hair. Export recognizable morph target names such as jawOpen, eyeBlinkLeft, mouthSmile. GLB gaze currently needs its own driver and is reported as a warning, not certified as eye tracking.
+
+**Render validation required after an actual licensed asset exists:**
+
+| Pose and quality | Front | Left 45° | Side | Right 45° | Back |
+| --- | --- | --- | --- | --- | --- |
+| Neutral idle + breathing | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Speech with TTS loud and quiet | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Blink / smile / listening | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Seated arms, legs and torso | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Hair silhouette, eyes and skin highlights | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+Acceptance criteria: no intersections with the chair, flickering or tearing hair/eyes, consistent skin under warm and neutral lighting, eyelids fully closed at blink peak, mouth closing at actual TTS silence, no jaw flapping at idle, and no new camera/microphone request from the renderer. Save actual frame screenshots and frame-time metrics from desktop Chromium and mobile-class GPU testing.
+
+**Scope limitation:** a JSON structural check is not a renderer and cannot prove a person looks realistic or that a motion looks natural. Do not set the manifest to approved before a human reviewer examines the staged model from all five views and confirms use rights.
