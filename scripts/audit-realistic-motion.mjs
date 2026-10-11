@@ -45,8 +45,8 @@ export function auditHumanAssetRig(gltf){
     torso:has(/spine|chest|upperbody/),
     leftArm:has(/left(upper)?arm|leftshoulder/),
     rightArm:has(/right(upper)?arm|rightshoulder/),
-    leftLeg:has(/left(up|upper)?leg|leftthigh/),
-    rightLeg:has(/right(up|upper)?leg|rightthigh/),
+    leftLeg:has(/left(?:up|upper)leg|leftthigh/),
+    rightLeg:has(/right(?:up|upper)leg|rightthigh/),
     leftKnee:has(/left(lower)?leg|leftshin|leftknee/),
     rightKnee:has(/right(lower)?leg|rightshin|rightknee/),
   };
