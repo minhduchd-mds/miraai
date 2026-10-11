@@ -133,7 +133,10 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     runtime.current={scene:root,headBone,headRest:headBone.rotation.clone(),morphs,textures:maps};
     setScene(root);status.current?.('review');
     callback.current();invalidate();
-   }catch{
+   }catch(error){
+    // Developer-only lab diagnostics; never emit user conversation or sensor data.
+    const reason=error instanceof Error?error.message:'unknown_asset_error';
+    console.error('[Mira Human LAB]',String(reason).slice(0,240));
     dispose();if(cancelled)return;
     runtime.current=null;setScene(null);status.current?.('rejected');
     callback.current();invalidate();
