@@ -25,15 +25,22 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
   await expect(room).toHaveAttribute('data-avatar-status','review',{timeout:90000});
   await expect(room.locator('canvas')).toBeVisible();
   await mkdir(join(process.cwd(),'artifacts','visual-qa'),{recursive:true});
+  // Keyboard camera presets are active only while the room's host button is focused.
+  await room.locator('canvas').click({position:{x:240,y:240}});
+  await expect(room).toHaveAttribute('data-avatar-status','review');
   // A real screenshot is required: metadata alone does not certify likeness.
+  const viewCaptures=[];
   for(let preset=1;preset<=5;preset++){
    await page.keyboard.press(String(preset));
    await page.waitForTimeout(350);
    await expect(room).toHaveAttribute('data-avatar-status','review');
    const path=join(process.cwd(),'artifacts','visual-qa',`vitruvian-human-lab-view-${preset}.png`);
-   await page.screenshot({path,fullPage:false,animations:'disabled'});
+   const png=await page.screenshot({path,fullPage:false,animations:'disabled'});
+   viewCaptures.push(png);
    await info.attach('vitruvian-human-view-'+preset,{path,contentType:'image/png'});
   }
+  // Guard against five cosmetically renamed identical screenshots.
+  expect(new Set(viewCaptures.map(x=>x.toString('base64'))).size).toBeGreaterThanOrEqual(3);
   const metrics=await page.evaluate(()=>{
    const items=performance.getEntriesByType('resource').filter(x=>x.name.includes('/vitruvian-lab/'));
    return {count:items.length,bytes:items.reduce((a,x)=>a+Number(x.transferSize||0),0)};
