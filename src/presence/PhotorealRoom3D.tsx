@@ -9,6 +9,7 @@ import {moveRoomCamera} from './room-navigation';
 
 // Rigged 3D human is a separate lazy chunk (VRM parser is deliberately not in AppV2).
 const RoomMiraVRM = lazy(() => import('./RoomMiraVRM'));
+const VitruvianLabAvatar = lazy(() => import('./VitruvianLabAvatar'));
 type Controls={yaw:number;pitch:number;x:number;z:number;keys:Set<string>};
 const CLAMP=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const KEYS=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
@@ -71,6 +72,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
    onFailureRef.current();
  },[]);
  useEffect(()=>()=>detachWebGLRef.current(),[]);
+ const humanLab = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('humanLab')==='1';
  const onReadyRef=useRef(onReady);
  onReadyRef.current=onReady;
  const [avatarStatus,setAvatarStatus]=useState<'pending'|'approved'|'review'|'preview'|'rejected'>('pending');
@@ -167,7 +169,9 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
        <RoomCamera controls={controls}/>
        <RoomLuxuryInterior scene={scene}/>
        <Suspense fallback={null}>
-         <RoomMiraVRM state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
+         {humanLab
+           ? <VitruvianLabAvatar state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
+           : <RoomMiraVRM state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>}
        </Suspense>
      </Canvas>
    </span>
