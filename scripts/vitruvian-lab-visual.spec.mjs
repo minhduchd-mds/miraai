@@ -9,6 +9,7 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
   const page=await ctx.newPage();
   const consoleErrors=[];
   page.on('pageerror',e=>consoleErrors.push(String(e.message).slice(0,160)));
+  page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text().slice(0,240))});
   const responses=await Promise.all(['head.glb','body.glb','hair.glb','vit_face_bc.webp','manifest.json']
     .map(x=>page.request.get('/avatars/realistic/vitruvian-lab/'+x)));
   expect(responses.every(x=>x.ok())).toBe(true);
@@ -22,7 +23,11 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
   });
   if(!supported)test.skip(true,'WebGL not available on this CI runner');
   const room=page.locator('.pm-room3d-stage');
-  await expect(room).toHaveAttribute('data-avatar-status','review',{timeout:90000});
+  await expect.poll(async()=>{
+    const current=await room.getAttribute('data-avatar-status');
+    if(current==='rejected')throw new Error('Human LAB rejected: '+consoleErrors.join(' | '));
+    return current;
+  },{timeout:90000}).toBe('review');
   await expect(room.locator('canvas')).toBeVisible();
   await mkdir(join(process.cwd(),'artifacts','visual-qa'),{recursive:true});
   // Keyboard camera presets are active only while the room's host button is focused.
