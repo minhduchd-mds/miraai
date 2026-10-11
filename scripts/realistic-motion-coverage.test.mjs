@@ -59,6 +59,17 @@ test('reject missing facial skin normals, unlit irises, expressions and seated p
     'rig_rightArm_missing','rig_leftLeg_missing','rig_rightKnee_missing'])
     assert.ok(report.errors.includes(code),code);
 });
+test('Mixamo LeftLeg shins cannot impersonate missing LeftUpLeg thighs',()=>{
+ const sample=model();
+ sample.skins[0].joints=[0,1,2,3,6,7];
+ const report=auditHumanAssetRig(sample);
+ assert.equal(report.ready,false);
+ assert.ok(report.errors.includes('rig_leftLeg_missing'));
+ assert.ok(report.errors.includes('rig_rightLeg_missing'));
+ assert.equal(report.rig.leftKnee,true);
+ assert.equal(report.rig.rightKnee,true);
+});
+
 test('VRM1 expression presets and humanoid bone maps are understood',()=>{
   const sample=model();
   sample.meshes[0].extras.targetNames=[];
