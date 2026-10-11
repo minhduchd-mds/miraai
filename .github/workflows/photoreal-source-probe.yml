@@ -1,0 +1,37 @@
+name: Probe licensed photoreal human source
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/probe-photoreal-vendor.mjs
+      - .github/workflows/photoreal-source-probe.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Download pinned CC0 face, body and hair candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/vitruvian
+          for part in head body hair_rigged; do
+            curl -fLSs --retry 3 --connect-timeout 20 --max-time 180 \
+              "https://raw.githubusercontent.com/ibrews/VitruvianGodot/bdecdcd537b4031fdd0fb299b7e4f93f084fffa0/godot_project/vitruvian_${part}.glb" \
+              -o "/tmp/vitruvian/vitruvian_${part}.glb"
+          done
+      - name: Verify each original Git blob SHA
+        run: |
+          cd /tmp/vitruvian
+          test "$(git hash-object vitruvian_head.glb)" = "0c810e209f09fc079086746f0813de9531d0f7fb"
+          test "$(git hash-object vitruvian_body.glb)" = "09bcade1092e5a89b474e91e6013209d4c68c127"
+          test "$(git hash-object vitruvian_hair_rigged.glb)" = "8edfccbf29e072b60b21a47dba9bbc992f00ac2e"
+      - name: Inspect rig materials expression morphs external textures
+        run: node scripts/probe-photoreal-vendor.mjs
