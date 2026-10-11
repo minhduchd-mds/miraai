@@ -6,13 +6,20 @@ import {tmpdir} from 'node:os';
 import ts from 'typescript';
 import {buildStageManifest,stageRealisticAsset} from './stage-realistic-avatar.mjs';
 import {qualityReport} from './validate-realistic-avatar.mjs';
-function glb(){
+function glb({withoutExpressions=false}={}){
  const doc={asset:{version:'2.0'},extensionsUsed:['VRMC_vrm'],
- meshes:[{primitives:[{attributes:{POSITION:0}}]}],accessors:[{count:41000}],
- skins:[{}],images:[{},{},{}],
- materials:[{pbrMetallicRoughness:{baseColorTexture:{index:0}},normalTexture:{index:0}},
- {pbrMetallicRoughness:{baseColorTexture:{index:1}}},
- {pbrMetallicRoughness:{baseColorTexture:{index:2}}}],nodes:[{name:'Head'}]};
+ meshes:[{primitives:[{attributes:{POSITION:0},material:0},
+   {attributes:{POSITION:0},material:1},{attributes:{POSITION:0},material:2}],
+   extras:{targetNames:withoutExpressions?[]:['eyeBlinkLeft','jawOpen','mouthSmile']}}],
+ accessors:[{count:41000}],skins:[{joints:[0,1,2,3,4,5,6,7]}],
+ images:[{},{},{}],
+ materials:[
+   {name:'Mira_Face_Skin',pbrMetallicRoughness:{baseColorTexture:{index:0}},normalTexture:{index:0}},
+   {name:'Mira_Eye_Iris',pbrMetallicRoughness:{baseColorTexture:{index:1}}},
+   {name:'Mira_Hair_Strands',pbrMetallicRoughness:{baseColorTexture:{index:2}}}],
+ nodes:['Head','Spine','LeftArm','RightArm','LeftUpLeg','RightUpLeg','LeftLeg','RightLeg'].map(name=>({name})),
+ extensions:{VRMC_vrm:{humanoid:{humanBones:{}},expressions:{preset:{}}}}
+ };
  const raw=Buffer.from(JSON.stringify(doc)),chunk=Buffer.concat([raw,Buffer.alloc((4-raw.length%4)%4,32)]);
  const b=Buffer.alloc(20+chunk.length);b.write('glTF',0);
  b.writeUInt32LE(2,4);b.writeUInt32LE(b.length,8);b.writeUInt32LE(chunk.length,12);
@@ -34,11 +41,24 @@ test('stage command copies only locally validated GLB/VRM and refuses overwrite'
   const src=join(tmp,'source.vrm');writeFileSync(src,glb());
   const out=stageRealisticAsset({...args,file:src},{root});
   assert.equal(out.report.status,'review_required');
+  assert.equal(out.motionReport.ready,true);
   assert.ok(existsSync(join(folder,'mira-human-v1.vrm')));
   assert.equal(JSON.parse(readFileSync(join(folder,'manifest.json'))).status,'pending');
   assert.throws(()=>stageRealisticAsset({...args,file:src},{root}),/already staged/);
  }finally{rmSync(tmp,{recursive:true,force:true});}
 });
+test('asset staging fails closed when lip-sync, blink or smile target channels are absent',()=>{
+ const tmp=mkdtempSync(join(tmpdir(),'mira-expressions-'));
+ try{
+  const root=join(tmp,'project'),folder=join(root,'public','avatars','realistic');
+  mkdirSync(folder,{recursive:true});
+  writeFileSync(join(folder,'manifest.json'),JSON.stringify({status:'pending'}));
+  const src=join(tmp,'missing-morph.vrm');writeFileSync(src,glb({withoutExpressions:true}));
+  assert.throws(()=>stageRealisticAsset({...args,file:src},{root}),/facial PBR \/ motion QA failed/);
+  assert.ok(!existsSync(join(folder,'mira-human-v1.vrm')),'rejected file must not be copied');
+ }finally{rmSync(tmp,{recursive:true,force:true});}
+});
+
 test('stage rejects non-commercial license and unsafe filenames',()=>{
  for(const wrong of [{license:'CC-BY-NC-4.0'},{sourceUrl:'http://example.org'},
   {asset:'../../bad.vrm'},{asset:'avatar.fbx'},{poseMode:'mixamo-seated'}]){
