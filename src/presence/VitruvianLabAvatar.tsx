@@ -106,10 +106,18 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     }
     for(const o of owned)materialize(o);
     body.scene.updateMatrixWorld(true);
-    const headBone=body.scene.getObjectByName('mixamorig:Head')||
-      body.scene.getObjectByName('mixamorig_Head')||
-      body.scene.getObjectByName('Head');
-    if(!headBone)throw Error('Human head bone missing');
+    // GLTFLoader sanitizes ':' in Mixamo names and may add suffixes for
+    // duplicates. Resolve from actual THREE.Bone instances, not raw glTF names.
+    const headCandidates:THREE.Bone[]=[];
+    body.scene.traverse(node=>{
+      if(node instanceof THREE.Bone && /head/i.test(node.name))
+        headCandidates.push(node);
+    });
+    const normalize=(name:string)=>name.toLowerCase().replace(/[^a-z0-9]/g,'');
+    const headBone=headCandidates.find(b=>/^mixamorighead(?:\\d+)?$/.test(normalize(b.name)))||
+      headCandidates.find(b=>/^head(?:\\d+)?$/.test(normalize(b.name)))||
+      headCandidates.find(b=>normalize(b.name).endsWith('head'));
+    if(!headBone)throw Error('Human head bone missing: imported rig lacks Head bone');
     const restInverse=headBone.matrixWorld.clone().invert();
     const authored=new THREE.Group();
     // Applying the REST inverse prevents the head model double-translating
