@@ -1,0 +1,190 @@
+import {useEffect,useRef,useState} from 'react';
+import {useFrame,useThree} from '@react-three/fiber';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from 'three';
+import type {MiraState} from '../core/types';
+import {ttsLevel} from '../core/audio-level';
+import {faceData} from '../core/face/face-tracker';
+import {visemesForSpeech} from './tts-visemes';
+import {companionReaction} from './companion-reaction';
+import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
+import {poseMixamoHumanSeated} from './rigged-human-pose';
+
+const LAB = 'avatars/realistic/vitruvian-lab/';
+type Morph={mesh:THREE.Mesh;targets:Map<string,number>};
+type Props={state:MiraState;onReady:()=>void;
+  onAssetStatus?:(s:'review'|'rejected'|'pending')=>void};
+
+/** CC0 LAB CANDIDATE. Never used as production identity or fallback.
+ * Head, body, hair share original CharMorph world-space coordinates.
+ * A rest-transform inverse keeps world-authored head/hair aligned under the rig head.
+ * PBR maps are locally packaged, never fetched from arbitrary user-supplied URLs. */
+export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
+ const [scene,setScene]=useState<THREE.Group|null>(null);
+ const runtime=useRef<{scene:THREE.Group;headBone:THREE.Object3D;
+    headRest:THREE.Euler;morphs:Morph[];textures:THREE.Texture[]}|null>(null);
+ const invalidate=useThree(s=>s.invalidate);
+ const callback=useRef(onReady);callback.current=onReady;
+ const status=useRef(onAssetStatus);status.current=onAssetStatus;
+ const jaw=useRef(0),smile=useRef(0);
+ useEffect(()=>{
+  let cancelled=false;
+  const owned:THREE.Object3D[]=[];
+  const maps:THREE.Texture[]=[];
+  const root=new THREE.Group();
+  const dispose=()=>{
+   const visited=new Set<THREE.Material>();
+   const geom=new Set<THREE.BufferGeometry>();
+   root.traverse(o=>{
+    if(!(o instanceof THREE.Mesh))return;
+    if(o.geometry)geom.add(o.geometry);
+    for(const mat of (Array.isArray(o.material)?o.material:[o.material]))
+     if(mat)visited.add(mat);
+   });
+   geom.forEach(x=>x.dispose());
+   visited.forEach(x=>x.dispose());
+   maps.forEach(x=>x.dispose());
+  };
+  async function load(){
+   const prefix=import.meta.env.BASE_URL+LAB;
+   const loader=new GLTFLoader(),texLoader=new THREE.TextureLoader();
+   try{
+    // A pending researcher-provided file cannot silently become production Mira.
+    const [manifestResponse,head,body,hair]=await Promise.all([
+     fetch(prefix+'manifest.json',{credentials:'same-origin'}),
+     loader.loadAsync(prefix+'head.glb'),loader.loadAsync(prefix+'body.glb'),
+     loader.loadAsync(prefix+'hair.glb')]);
+    owned.push(head.scene,body.scene,hair.scene);
+    if(!manifestResponse.ok)throw Error('Human lab manifest missing');
+    const manifest=await manifestResponse.json() as {status?:string;approved?:boolean;license?:string};
+    if(manifest.status!=='lab_only'||manifest.approved!==false||
+       manifest.license!=='CC0-1.0')throw Error('Unreviewed human asset blocked');
+    const textures=await Promise.all([
+     'vit_face_bc','vit_face_n','vit_face_rough','vit_body_bc','vit_body_n','vit_body_rough',
+     'vit_hair_diffuse','vit_hair_normal','vit_hair_opacity','vit_iris','vit_sclera','vit_mouth'
+    ].map(async key=>{
+      const tex=await texLoader.loadAsync(prefix+key+'.webp');
+      tex.flipY=false;tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
+      if(/_(bc|diffuse)$|vit_iris|vit_sclera|vit_mouth/.test(key))
+        tex.colorSpace=THREE.SRGBColorSpace;
+      maps.push(tex);
+      return [key,tex] as const;
+    }));
+    const tex=new Map<string,THREE.Texture>(textures);
+    if(cancelled){dispose();return;}
+    // Change only explicit author-named material slots. Never globally tint skin.
+    function materialize(group:THREE.Object3D){
+     group.traverse(obj=>{
+      if(!(obj instanceof THREE.Mesh))return;
+      obj.castShadow=true;obj.receiveShadow=true;
+      const update=(m:THREE.Material):THREE.Material=>{
+       const n=m.name.split('.')[0].toLowerCase();
+       if(!(m instanceof THREE.MeshStandardMaterial))return m;
+       const out=m.clone();
+       if(n==='vitskin'){
+        out.map=tex.get('vit_face_bc')||null;out.normalMap=tex.get('vit_face_n')||null;
+        out.roughnessMap=tex.get('vit_face_rough')||null;out.roughness=.88;
+       }else if(n==='vitbody'){
+        out.map=tex.get('vit_body_bc')||null;out.normalMap=tex.get('vit_body_n')||null;
+        out.roughnessMap=tex.get('vit_body_rough')||null;out.roughness=.9;
+       }else if(n==='vithair'){
+        out.map=tex.get('vit_hair_diffuse')||null;out.normalMap=tex.get('vit_hair_normal')||null;
+        out.alphaMap=tex.get('vit_hair_opacity')||null;
+        out.side=THREE.DoubleSide;out.alphaTest=.38;out.transparent=false;out.depthWrite=true;
+        out.roughness=.77;
+       }else if(n.startsWith('vitiris')){
+        out.map=tex.get('vit_iris')||null;out.roughness=.26;
+       }else if(n.startsWith('vitsclera')){
+        out.map=tex.get('vit_sclera')||null;out.roughness=.48;
+       }else if(n==='vitmouth'){
+        out.map=tex.get('vit_mouth')||null;out.roughness=.72;
+       }else return m;
+       out.needsUpdate=true;return out;
+      };
+      obj.material=Array.isArray(obj.material)?obj.material.map(update):update(obj.material);
+     });
+    }
+    for(const o of owned)materialize(o);
+    body.scene.updateMatrixWorld(true);
+    const headBone=body.scene.getObjectByName('mixamorig:Head')||
+      body.scene.getObjectByName('mixamorig_Head')||
+      body.scene.getObjectByName('Head');
+    if(!headBone)throw Error('Human head bone missing');
+    const restInverse=headBone.matrixWorld.clone().invert();
+    const authored=new THREE.Group();
+    // Applying the REST inverse prevents the head model double-translating
+    // by its world-space height when mounted to the animated head joint.
+    authored.matrixAutoUpdate=false;
+    authored.matrix.copy(restInverse);
+    authored.add(head.scene);authored.add(hair.scene);
+    headBone.add(authored);
+    if(!poseMixamoHumanSeated(body.scene))
+     throw Error('Human seated rig incompatible');
+    root.add(body.scene);
+    const morphs:Morph[]=[];
+    head.scene.traverse(o=>{
+     if(!(o instanceof THREE.Mesh)||!o.morphTargetDictionary||!o.morphTargetInfluences)return;
+     morphs.push({mesh:o,targets:new Map(Object.entries(o.morphTargetDictionary))});
+    });
+    const all=new Set(morphs.flatMap(m=>[...m.targets.keys()]));
+    if(!all.has('Eyes_Closed_Max')||!all.has('Mouth_Large_Opened')||
+       !all.has('Happy'))throw Error('FACS channels missing');
+    if(cancelled){dispose();return;}
+    runtime.current={scene:root,headBone,headRest:headBone.rotation.clone(),morphs,textures:maps};
+    setScene(root);status.current?.('review');
+    callback.current();invalidate();
+   }catch{
+    dispose();if(cancelled)return;
+    runtime.current=null;setScene(null);status.current?.('rejected');
+    callback.current();invalidate();
+   }
+  }
+  void load();
+  return ()=>{
+   cancelled=true;runtime.current=null;
+   // Cleanup only on unmount / lab exit, never mid-render.
+   dispose();
+  };
+ },[invalidate]);
+ useEffect(()=>{
+  if(!scene)return;
+  const id=window.setInterval(()=>{if(!document.hidden)invalidate()},humanMotionCadence(state));
+  return ()=>window.clearInterval(id);
+ },[scene,state,invalidate]);
+ useFrame((_,delta)=>{
+  const r=runtime.current;if(!r)return;
+  const t=performance.now()*.001;
+  const motion=humanMotionFrame(t,state,
+    state==='speaking'&&ttsLevel.active?ttsLevel.value:undefined);
+  const easing=1-Math.exp(-Math.min(delta,.1)*13);
+  jaw.current+=(motion.mouthOpen-jaw.current)*easing;
+  const reaction=companionReaction(faceData);
+  smile.current+=(Math.min(.32,motion.smile+reaction.smile)-smile.current)*easing;
+  const visemes=visemesForSpeech(jaw.current,
+    state==='speaking'&&ttsLevel.active?ttsLevel.bands:null);
+  r.headBone.rotation.set(r.headRest.x+motion.headPitch,
+   r.headRest.y+motion.headYaw,r.headRest.z+reaction.headTilt);
+  const poses:Record<string,number>={
+   Eyes_Closed_Max:motion.blink,
+   Mouth_Large_Opened:jaw.current,
+   Jaw_Lower:jaw.current*.22,
+   Happy:smile.current,
+   Smile_Lips_Closed:smile.current*.35,
+   aa_02:visemes.aa,
+   ow_08:visemes.oh,
+   ey_eh_uh_04:visemes.ee,
+   p_b_m_21:visemes.ou*.5,
+  };
+  for(const entry of r.morphs){
+   const dst=entry.mesh.morphTargetInfluences;if(!dst)continue;
+   for(const [name,value] of Object.entries(poses)){
+    const idx=entry.targets.get(name);
+    if(idx!==undefined&&idx<dst.length)dst[idx]=THREE.MathUtils.clamp(value,0,1);
+   }
+  }
+ });
+ // Place verified 1.7m human into the existing hero lounge chair.
+ return scene?<group position={[0,-.08,2.28]} rotation={[0,Math.PI,0]} scale={.98}>
+  <primitive object={scene}/>
+ </group>:null;
+}
