@@ -28,6 +28,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Verify visual test syntax before installing heavy tools
+        run: node --check scripts/vitruvian-lab-visual.spec.mjs
       - name: Install project and pinned research CLI
         run: |
           npm ci
