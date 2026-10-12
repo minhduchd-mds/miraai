@@ -27,10 +27,14 @@ function workerFixture() {
       keys: async () => ['mira-shell-v5'],
       delete: async () => true,
     },
-    fetch: async () => {
+    fetch: async (request) => {
       calls += 1;
       if (failNetwork) throw new Error('offline');
-      return new Response('network response', { headers: { 'cache-control': cacheControl } });
+      const isGLB=/\\.glb(?:\\?|$)/i.test(String(request.url));
+      return new Response('network response', { headers: {
+        'cache-control': cacheControl,
+        'content-type': isGLB?'model/gltf-binary':'text/plain',
+      } });
     },
     self: {
       location: { origin },
@@ -94,4 +98,32 @@ test('sensitive API responses explicitly prohibit caching', () => {
     const source = readFileSync(`api/${name}.js`, 'utf8');
     assert.match(source, /markPrivateResponse\(res\)/, name);
   }
+});
+
+
+test('CC0 Human Lab GLBs use a separate on-demand CacheStorage instead of being refetched',async()=>{
+ const env=workerFixture();
+ const name='/avatars/realistic/vitruvian-lab/head.glb';
+ const a=await env.request(name);
+ assert.equal(a.status,200);
+ assert.equal(env.calls,1);
+ assert.equal(env.storage.size,1);
+ const b=await env.request(name);
+ assert.equal(b.status,200);
+ assert.equal(env.calls,1,'The second GLB load must come from CacheStorage');
+ env.offline=true;
+ assert.equal((await env.request(name)).status,200,'Previously viewed public GLB works offline');
+ assert.equal(await env.request('/uploads/private.glb'),null);
+ assert.equal(await env.request('/avatars/realistic/private.glb'),null);
+});
+test('3D binary cache refuses private/no-store and never receives API responses',async()=>{
+ for(const directive of ['private, max-age=60','no-store','no-cache']){
+  const env=workerFixture();
+  env.cacheControl=directive;
+  await env.request('/avatars/realistic/vitruvian-lab/hair.glb');
+  assert.equal(env.storage.size,0,directive);
+ }
+ const env=workerFixture();
+ assert.equal(await env.request('/api/avatars/realistic/vitruvian-lab/body.glb'),null);
+ assert.equal(env.storage.size,0);
 });
