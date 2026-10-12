@@ -128,7 +128,8 @@ test('hair shoulder presentation shader remains alpha-tested and never changes s
 });
 test('human lab cloth uses PBR fabric sheen and separately preserves skin texture',()=>{
  const src=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
- assert.ok(src.includes('new THREE.MeshPhysicalMaterial().copy(m)'));
+ assert.ok(src.includes('new THREE.MeshPhysicalMaterial({'));
+ assert.ok(!src.includes('MeshPhysicalMaterial().copy(m)'));
  assert.ok(src.includes('out.sheen=.44'));
  assert.ok(src.includes('applyHumanHairPresentation(out)'));
  assert.ok(src.includes('out.map=tex.get(\'vit_face_bc\')'));
