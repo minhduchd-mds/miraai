@@ -85,7 +85,18 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
       const update=(m:THREE.Material):THREE.Material=>{
        const n=m.name.split('.')[0].toLowerCase();
        if(!(m instanceof THREE.MeshStandardMaterial))return m;
-       const out=n==='vitshirt'?new THREE.MeshPhysicalMaterial().copy(m):m.clone();
+       // A PhysicalMaterial.copy(StandardMaterial) is invalid: the source
+       // lacks clearcoatNormalScale and other Physical-only vectors.
+       // Rebuild from supported standard parameters instead of copying.
+       const out=n==='vitshirt'?new THREE.MeshPhysicalMaterial({
+        name:m.name,color:m.color.clone(),map:m.map,
+        normalMap:m.normalMap,normalScale:m.normalScale.clone(),
+        roughness:m.roughness,roughnessMap:m.roughnessMap,
+        metalness:m.metalness,metalnessMap:m.metalnessMap,
+        side:m.side,transparent:m.transparent,opacity:m.opacity,
+        alphaTest:m.alphaTest,depthWrite:m.depthWrite,
+        emissive:m.emissive.clone(),emissiveIntensity:m.emissiveIntensity,
+       }):m.clone();
        if(n==='vitskin'){
         out.map=tex.get('vit_face_bc')||null;out.normalMap=tex.get('vit_face_n')||null;
         // Remove the source roughness map's near-zero gloss patches that
