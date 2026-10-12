@@ -138,3 +138,16 @@ test('human lab cloth uses PBR fabric sheen and separately preserves skin textur
  assert.ok(src.includes('out.map=tex.get(\'vit_face_bc\')'));
  assert.ok(!src.includes('hair.geometry.scale('));
 });
+
+
+test('Human Lab requests only PBR textures actually sampled by current material slots',()=>{
+ const code=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
+ const section=code.match(/const textures=await Promise\.all\(\[([\s\S]*?)\]\.map\(async key/);
+ assert.ok(section,'Texture load list is explicit and auditable');
+ for(const unused of ['vit_face_rough','vit_hair_diffuse','vit_sclera']){
+   assert.ok(!section[1].includes("'"+unused+"'"),'Avoid redundant decode/GPU upload: '+unused);
+ }
+ const keys=[...section[1].matchAll(/'vit_[a-z0-9_]+'/g)].map(x=>x[0]);
+ assert.equal(keys.length,9,'Only nine sampled PBR maps are needed');
+ assert.equal(new Set(keys).size,9);
+});
