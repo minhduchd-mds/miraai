@@ -15,6 +15,7 @@ import type { PhotorealEnvironmentController } from './photoreal-environment';
 import type { PhotorealSceneCanvasHandle } from './PhotorealSceneCanvas';
 import type { PhotorealPerformanceTier } from './photoreal-depth-warp';
 import { resolveSpatial3DOverride, shouldUseSpatial3D } from './spatial-scene-policy';
+import { chooseRoomAvatar } from './realistic-avatar-source';
 import {
   PRESENCE_IMAGE,
   PRESENCE_SCENE_COPY,
@@ -162,6 +163,19 @@ export default function PhotorealMira({
   const [spatial3DFailed, setSpatial3DFailed] = useState(false);
   const [room3DFailed,setRoom3DFailed] = useState(false);
   const [room3DReady,setRoom3DReady] = useState(false);
+  // Do not replace the companion portrait with an empty room while the 3D
+  // human is still waiting for manual visual approval.
+  const [approvedRoomAvatar,setApprovedRoomAvatar] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    void fetch(asset('/avatars/realistic/manifest.json'), {credentials:'same-origin',cache:'no-cache'})
+      .then(response => response.ok ? response.json() : null)
+      .then((manifest: unknown) => {
+        if(mounted)setApprovedRoomAvatar(chooseRoomAvatar(manifest)?.mode === 'realistic');
+      })
+      .catch(() => { if(mounted)setApprovedRoomAvatar(false); });
+    return () => { mounted = false; };
+  }, []);
   const [spatial3DReadyScene, setSpatial3DReadyScene] = useState<MiraPresenceScene | null>(null);
   const spatial3DViewRef = useRef({x:0,y:0,headYaw:0,headPitch:0});
   const spatial3DInvalidatorRef = useRef<(() => void) | null>(null);
@@ -176,10 +190,12 @@ export default function PhotorealMira({
   // Real geometric room opt-in. Do not confuse photo parallax with 3D geometry.
   const room3DPreference = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('room3d') : null;
-  // Start in REAL 3D on capable desktops; ?room3d=0 opts out and ?room3d=1
-  // requests the same renderer on narrower devices subject to safety gates.
+  // Automatic desktop 3D requires an actually approved, licensed and reviewed
+  // rig. ?room3d=1 remains an explicit developer walkthrough for empty rooms,
+  // staged human tests and camera orbit QA; ?room3d=0 always opts out.
   const room3DRequested = room3DPreference === '1'
-    || (room3DPreference !== '0' && typeof window !== 'undefined' && window.innerWidth >= 1024);
+    || (room3DPreference !== '0' && approvedRoomAvatar
+      && typeof window !== 'undefined' && window.innerWidth >= 1024);
   // An explicitly opened 3D walkthrough must not unmount midway through
   // pointer-drag / WASD when the independent frame governor briefly changes.
   // WebGL errors, reduced-motion, Lite devices and Data Saver still fail back safely.

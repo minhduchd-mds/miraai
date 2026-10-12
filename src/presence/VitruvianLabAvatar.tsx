@@ -174,11 +174,13 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.alphaMap=tex.get('vit_hair_opacity')||null;
         // Keep authored strands warm and legible; multiplying by near-black
         // destroyed the source albedo and made solid black hair curtains.
-        out.color.set('#947567');out.normalScale.set(.15,.15);
+        out.color.set('#68524b');out.normalScale.set(.12,.12);
         // High alpha cutoff made the crown translucent/speckled under light.
         // MSAA coverage smooths hair-card edges without extra hair geometry.
-        out.side=THREE.DoubleSide;out.alphaTest=.16;
-        out.alphaToCoverage=true;out.transparent=false;out.depthWrite=true;
+        out.side=THREE.DoubleSide;out.alphaTest=.29;
+        // Software WebGL can dither alpha-to-coverage into black scalp dots.
+        // Use deterministic cutout edges while retaining true hair cards.
+        out.alphaToCoverage=false;out.transparent=false;out.depthWrite=true;
         out.roughness=.9;
         // Developer-only A/B: ?hairStyle=long restores full authored cards.
         if(new URLSearchParams(window.location.search).get('hairStyle')!=='long')
@@ -194,7 +196,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        }else if(n.startsWith('viteyeshadow')){
         // The vendor left eyelid overlay untextured WHITE: under the room
         // spot it reads as fluorescent closed eyelids, not natural makeup.
-        out.map=null;out.normalMap=null;out.color.set('#76544e');
+        out.map=null;out.normalMap=null;out.color.set('#a28079');
         out.roughness=1;out.metalness=0;
        }else if(n.startsWith('vittearline')){
         out.map=null;out.color.set('#987268');out.roughness=1;out.metalness=0;
@@ -203,9 +205,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        }else if(n.startsWith('vitiris')){
         // Prevent washed-out texture from producing glowing white irises.
         out.map=tex.get('vit_iris')||null;
-        out.color.set('#e0c7b2');out.roughness=.75;out.metalness=0;
+        out.color.set('#d6bda8');out.roughness=.86;out.metalness=0;
        }else if(n.startsWith('vitsclera')){
-        out.map=null;out.color.set('#b5a093');out.roughness=1;out.metalness=0;
+        out.map=null;out.color.set('#e6dbd2');out.roughness=.97;out.metalness=0;
        }else if(n==='vitmouth'){
         out.map=tex.get('vit_mouth')||null;out.roughness=.72;
        }else return m;
@@ -227,7 +229,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
       if(!(obj instanceof THREE.Mesh))return;
       const slots=Array.isArray(obj.material)?obj.material:[obj.material];
       if(slots.length!==1 || !String(slots[0]?.name||'').toLowerCase().startsWith('vitiris'))return;
-      obj.position.z+=.0059;
+      // Original local iris surface was occluded by the sclera on five-view QA.
+      // Expose the irises, without moving the skull or the complete eyeballs.
+      obj.position.z+=.0107;
       irisesAdjusted++;
     });
     if(irisesAdjusted!==2)throw Error('Expected two independently positioned iris meshes');
@@ -321,8 +325,8 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    Eyes_Closed_Max:motion.blink,
    // Modest resting eye opening only after local iris depth correction.
    // Full blink fades the correction to zero, avoiding double deformation.
-   Eyes_Opened_Max_Left:.27*(1-motion.blink),
-   Eyes_Opened_Max_Right:.27*(1-motion.blink),
+   Eyes_Opened_Max_Left:.42*(1-motion.blink),
+   Eyes_Opened_Max_Right:.42*(1-motion.blink),
    Mouth_Large_Opened:jaw.current,
    Jaw_Lower:jaw.current*.22,
    Happy:smile.current,
@@ -344,5 +348,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
  // Pose / position are computed from the real pelvis bone above.
  return scene?<group rotation={[0,0,0]} scale={FIGURE_SCALE}>
   <primitive object={scene}/>
+  {/* Gentle, local fill keeps facial features readable without changing room mood. */}
+  <pointLight position={[0,1.8,2.55]} color="#ffe9dc" intensity={.72} distance={2.2}/>
  </group>:null;
 }

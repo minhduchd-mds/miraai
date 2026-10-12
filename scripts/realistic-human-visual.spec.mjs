@@ -37,3 +37,18 @@ test('approved photoreal Mira renders five 3D viewpoints without photographic ov
     }
   }finally{await context.close();}
 });
+
+
+test('pending realistic human does not replace default desktop presence with an empty 3D room',async({page})=>{
+  await page.setViewportSize({width:1366,height:768});
+  const response=await page.request.get('/avatars/realistic/manifest.json');
+  if(!response.ok())test.skip(true,'Avatar manifest is unavailable');
+  const manifest=await response.json();
+  if(manifest.status==='approved'&&manifest.visualApproval==='approved')
+    test.skip(true,'An approved production 3D avatar is installed');
+  await page.goto('/?visual-test=1&scene=home-evening',{waitUntil:'domcontentloaded'});
+  const stage=page.locator('.photo-mira');
+  await expect(stage).toHaveAttribute('data-room3d-active','false',{timeout:10000});
+  await expect(stage.locator('.pm-scene-fallback')).toBeVisible();
+  await expect(page.locator('.pm-room3d-stage canvas')).toHaveCount(0);
+});

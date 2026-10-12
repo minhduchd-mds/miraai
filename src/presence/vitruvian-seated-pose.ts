@@ -47,10 +47,11 @@ export function poseVitruvianSeated(root:THREE.Object3D):boolean {
  const armSets=[
   {upper:get('leftarm','leftupperarm'),lower:get('leftforearm','leftlowerarm'),
    hand:get('lefthand'),upperDirection:[-.08,-1,.30] as [number,number,number],
-   lowerDirection:[.50,-.22,.72] as [number,number,number]},
+   // Bring the resting hand toward the thigh rather than past the chair arm.
+   lowerDirection:[.17,-.34,.37] as [number,number,number]},
   {upper:get('rightarm','rightupperarm'),lower:get('rightforearm','rightlowerarm'),
    hand:get('righthand'),upperDirection:[.08,-1,.30] as [number,number,number],
-   lowerDirection:[-.50,-.22,.72] as [number,number,number]}
+   lowerDirection:[-.17,-.34,.37] as [number,number,number]}
  ];
  for(const a of armSets){
   if(!a.upper||!a.lower||!a.hand)return false;
