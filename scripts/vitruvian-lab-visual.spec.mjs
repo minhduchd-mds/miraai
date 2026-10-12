@@ -14,8 +14,14 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
   const responses=await Promise.all(['head.glb','body.glb','hair.glb','vit_face_bc.webp','manifest.json']
     .map(x=>page.request.get('/avatars/realistic/vitruvian-lab/'+x)));
   expect(responses.every(x=>x.ok())).toBe(true);
-  await page.goto('/?room3d=1&humanLab=1&visual-test=1&scene=home-evening',{
-    waitUntil:'domcontentloaded'});
+  const meshoptCandidate=process.env.MIRA_MESHOPT_CANDIDATE==='1';
+  if(meshoptCandidate){
+    const compressed=await Promise.all(['head.glb','body.glb','hair.glb']
+      .map(x=>page.request.get('/avatars/realistic/vitruvian-lab/meshopt/'+x)));
+    expect(compressed.every(x=>x.ok())).toBe(true);
+  }
+  await page.goto('/?room3d=1&humanLab=1&visual-test=1&scene=home-evening'+
+    (meshoptCandidate?'&meshopt=1':''),{waitUntil:'domcontentloaded'});
   const stage=page.locator('.photo-mira');
   await expect(stage).toHaveAttribute('data-room3d-active','true',{timeout:30000});
   const supported=await page.evaluate(()=>{
@@ -51,7 +57,14 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
    const items=performance.getEntriesByType('resource').filter(x=>x.name.includes('/vitruvian-lab/'));
    return {count:items.length,bytes:items.reduce((a,x)=>a+Number(x.transferSize||0),0)};
   });
-  expect(metrics.count).toBeGreaterThanOrEqual(15);
+  // 9 active PBR maps + three GLBs + manifest. Old threshold 15 assumed
+  // three unused maps were still downloaded; fail when any real asset fails.
+  expect(metrics.count).toBeGreaterThanOrEqual(13);
+  if(meshoptCandidate){
+    const names=await page.evaluate(()=>performance.getEntriesByType('resource')
+      .map(x=>x.name).filter(x=>/\\/vitruvian-lab\\/meshopt\\/(?:head|body|hair)\\.glb$/.test(x)));
+    expect(names).toHaveLength(3);
+  }
   expect(consoleErrors).toEqual([]);
  }finally{await ctx.close();}
 });
