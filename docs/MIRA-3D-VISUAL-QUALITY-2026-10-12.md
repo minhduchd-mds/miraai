@@ -9,7 +9,7 @@ Visual QA artifact `mira-visual-qa-ee91a398...` contained a Vitruvian human LAB 
 - Existing original photo/voice/vision paths are left intact and a Playwright test checks pending-manifest fallback.
 
 ## Experimental Vitruvian refinements
-- Local warm fill for face readability; reduced eyelid overlay severity and improved iris-surface separation.
+- Local warm fill for face readability and reduced eyelid overlay severity; retained the dequantized, measured iris/sclera clearance.
 - Rebalanced off-white sclera and natural roughness.
 - Removed software rasterizer alpha-to-coverage stippling from hair, warmed/darkened strands.
 - Relaxed seated forearms toward thighs rather than stretching wrists off the chair.

@@ -229,9 +229,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
       if(!(obj instanceof THREE.Mesh))return;
       const slots=Array.isArray(obj.material)?obj.material:[obj.material];
       if(slots.length!==1 || !String(slots[0]?.name||'').toLowerCase().startsWith('vitiris'))return;
-      // Original local iris surface was occluded by the sclera on five-view QA.
-      // Expose the irises, without moving the skull or the complete eyeballs.
-      obj.position.z+=.0107;
+      // Dequantized vendor geometry validates a 0.8–3 mm iris/sclera margin.
+      // Do not move eyeballs or enlarge the offset beyond its safe clearance.
+      obj.position.z+=.0059;
       irisesAdjusted++;
     });
     if(irisesAdjusted!==2)throw Error('Expected two independently positioned iris meshes');
@@ -325,8 +325,8 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    Eyes_Closed_Max:motion.blink,
    // Modest resting eye opening only after local iris depth correction.
    // Full blink fades the correction to zero, avoiding double deformation.
-   Eyes_Opened_Max_Left:.42*(1-motion.blink),
-   Eyes_Opened_Max_Right:.42*(1-motion.blink),
+   Eyes_Opened_Max_Left:.27*(1-motion.blink),
+   Eyes_Opened_Max_Right:.27*(1-motion.blink),
    Mouth_Large_Opened:jaw.current,
    Jaw_Lower:jaw.current*.22,
    Happy:smile.current,

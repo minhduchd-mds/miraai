@@ -243,8 +243,8 @@ test('human lab uses physically seated pelvis, non-black satin garment, and clea
  assert.match(source,/rotation=\{\[0,0,0\]\}/);
  assert.match(source,/n==='vitshirt'/);
  assert.match(source,/out\.color\.set\('#b7838b'\)/);
- assert.match(source,/out\.alphaTest=\.16/);
- assert.match(source,/out\.alphaToCoverage=true/);
+ assert.match(source,/out\.alphaTest=\.29/);
+ assert.match(source,/out\.alphaToCoverage=false/);
  assert.match(source,/poseVitruvianSeated\(body\.scene\)/);
  assert.match(readFileSync('src/presence/vitruvian-seated-pose.ts','utf8'),/orient\(leftKnee,leftFoot/);
 });
