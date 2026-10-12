@@ -13,12 +13,20 @@ const VitruvianLabAvatar = lazy(() => import('./VitruvianLabAvatar'));
 type Controls={yaw:number;pitch:number;x:number;z:number;keys:Set<string>};
 const CLAMP=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const KEYS=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
+// Portrait orbit is centred on the seated subject, not the room origin.
+// The previous presets looked away from Mira, producing empty walls / giant chair crops.
+const PORTRAIT_TARGET={x:0,y:1.08,z:1.74} as const;
+const makePortraitPreset=(x:number,z:number)=>{
+ const dx=PORTRAIT_TARGET.x-x,dz=PORTRAIT_TARGET.z-z;
+ const planar=Math.hypot(dx,dz);
+ return {x,z,yaw:Math.atan2(-dx,-dz),pitch:Math.atan2(PORTRAIT_TARGET.y-1.77,planar)};
+};
 const PRESETS=[
- {yaw:-Math.PI/2,x:-2.9,z:4.1},
- {yaw:0,x:0,z:4.30},
- {yaw:Math.PI/2,x:2.9,z:4.1},
- {yaw:Math.PI,x:0,z:0},
- {yaw:0,x:0,z:5.48},
+ makePortraitPreset(0,4.85),    // face and full seated figure
+ makePortraitPreset(-2.45,4.05), // left three-quarter
+ makePortraitPreset(-3.0,1.74),  // left profile
+ makePortraitPreset(2.45,4.05),  // right three-quarter
+ makePortraitPreset(0,-1.25),   // rear silhouette and hair
 ] as const;
 interface Room3DProps {scene:MiraPresenceScene;state:MiraState;onReady:()=>void;onFailure:()=>void;}
 
@@ -59,7 +67,7 @@ function RoomCamera({controls}:{controls:React.RefObject<Controls>}){
  */
 export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DProps){
  // Frame the seated companion from slightly above: hands, lap and legs remain visible.
- const controls=useRef<Controls>({yaw:0,pitch:-.26,x:0,z:4.30,keys:new Set()});
+ const controls=useRef<Controls>({...PRESETS[0],keys:new Set()});
  const last=useRef<{pointerId:number;x:number;y:number}|null>(null);
  const stageRef=useRef<HTMLSpanElement>(null);
  const invalidateRef=useRef<(()=>void)|null>(null);
@@ -90,7 +98,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      if(n){
        event.preventDefault();
        const index=Number(n[1])-1;
-       Object.assign(controls.current,PRESETS[index],{pitch:-.26});
+       Object.assign(controls.current,PRESETS[index]);
        invalidateRef.current?.();
        return;
      }
@@ -154,7 +162,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      onLostPointerCapture={pointerEnd}
      onClick={event=>event.stopPropagation()}>
      <Canvas frameloop="demand" shadows dpr={[1,1.5]}
-       camera={{fov:52,near:.08,far:75,position:[0,1.77,4.30]}}
+       camera={{fov:46,near:.08,far:75,position:[PRESETS[0].x,1.77,PRESETS[0].z]}}
        gl={{alpha:false,antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false}}
        onCreated={({gl,invalidate})=>{
          detachWebGLRef.current();
