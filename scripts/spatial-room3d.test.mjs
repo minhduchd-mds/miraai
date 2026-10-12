@@ -246,3 +246,25 @@ test('human lab uses physically seated pelvis, non-black satin garment, and clea
  assert.match(source,/poseVitruvianSeated\(body\.scene\)/);
  assert.match(readFileSync('src/presence/vitruvian-seated-pose.ts','utf8'),/orient\(leftKnee,leftFoot/);
 });
+
+
+test('static room render budget batches the wood slats and floor seams',()=>{
+ assert.match(luxury,/function RoundedInstances/);
+ assert.match(luxury,/length:25/);
+ assert.match(luxury,/length:18/);
+ assert.match(luxury,/<RoundedInstances items=\{repeatedSlats\}/);
+ assert.match(luxury,/<RoundedInstances items=\{floorSeams\}/);
+ assert.match(luxury,/new THREE\.RoundedBoxGeometry|new RoundedBoxGeometry/);
+ assert.match(luxury,/mesh\.setMatrixAt\(i,transform\.matrix\)/);
+ assert.match(luxury,/mesh\.setColorAt\(i,color\.set\(items\[i\]\.color\)\)/);
+ assert.match(luxury,/mesh\.instanceMatrix\.needsUpdate=true/);
+ assert.match(luxury,/mesh\.instanceColor\.needsUpdate=true/);
+ assert.match(luxury,/mesh\.computeBoundingSphere\(\)/);
+ assert.doesNotMatch(luxury,/length:25\},\(_,i\)=><Rounded/);
+ assert.doesNotMatch(luxury,/length:18\},\(_,i\)=><Rounded/);
+});
+test('non-clearcoated room furniture uses standard PBR to avoid physical shader overhead',()=>{
+ assert.match(luxury,/clearcoat>0[\s\S]*?<meshPhysicalMaterial/);
+ assert.match(luxury,/: <meshStandardMaterial color=\{color\}/);
+ assert.match(luxury,/useEffect\(\(\)=>\(\)=>geometry\.dispose\(\),\[geometry\]\)/);
+});
