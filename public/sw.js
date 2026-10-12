@@ -1,5 +1,10 @@
 /* Mira offline shell: cache static assets only, never API or user-data fetches. */
 const CACHE = 'mira-shell-v5';
+/* Large model assets live in an isolated, on-demand, versioned browser cache.
+ * Do not preload them on startup, and never put user data in this cache. */
+const ROOM_3D_CACHE = 'mira-room-glb-v1';
+const ROOM_GLB_PATH = /(?:^|\\/)avatars\\/realistic\\/vitruvian-lab\\/(?:head|body|hair)\\.glb$/i;
+const ROOM_GLB_MAX_BYTES = 18 * 1024 * 1024;
 const MAX_CACHE_ENTRIES = 128;
 const STATIC_DESTINATIONS = new Set(['script', 'style', 'image', 'font', 'manifest']);
 const STATIC_PATH = /(?:^|\/)(?:assets|mira-assets|avatars|scenes)(?:\/|$)|\.(?:js|css|png|jpg|jpeg|webp|svg|woff2?|ico|webmanifest)$/i;
@@ -36,7 +41,8 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
+    await Promise.all(keys.filter((key) => key !== CACHE && key !== ROOM_3D_CACHE)
+      .map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
 });
@@ -62,6 +68,29 @@ self.addEventListener('fetch', (event) => {
   }
 
   const pathname = new URL(request.url).pathname;
+
+  // WebGL loaders request GLBs with request.destination === ''. The standard
+  // image/script allowlist therefore never cached these ~30 MiB of models.
+  // Cache ONLY the three public CC0 lab GLBs, after an explicit 3D request.
+  // Do not cache arbitrary binary downloads, APIs, user uploads or responses
+  // with private/no-store policies.
+  if (ROOM_GLB_PATH.test(pathname) && (request.destination === '' ||
+       request.destination === 'fetch')) {
+    event.respondWith((async () => {
+      const cache = await caches.open(ROOM_3D_CACHE);
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      const length = Number(response.headers.get('content-length') || 0);
+      if (canCache(response) && (length === 0 || length <= ROOM_GLB_MAX_BYTES)) {
+        // A quota error must never block the first WebGL load.
+        const store = cache.put(request, response.clone()).catch(() => {});
+        if (typeof event.waitUntil === 'function') event.waitUntil(store);
+      }
+      return response;
+    })());
+    return;
+  }
   if (!STATIC_DESTINATIONS.has(request.destination) || !STATIC_PATH.test(pathname)) return;
 
   event.respondWith((async () => {
