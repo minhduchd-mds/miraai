@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { MiraPresenceScene } from './presence-scene';
@@ -23,12 +23,49 @@ function Rounded({at,size,color,radius=.11,roughness=.83,metalness=0,
   </mesh>;
 }
 
+type RoundedInstance = { at: V3; color: string };
+
+/** One draw call for repeated identical upholstery/trim geometry.
+ * Per-instance colors preserve the original authored wood and floor palette.
+ * The instance geometry exists only while its room group is mounted.
+ */
+function RoundedInstances({items,size,radius,roughness=.8}:{
+ items:ReadonlyArray<RoundedInstance>;size:V3;radius:number;roughness?:number;
+}){
+ const ref=useRef<THREE.InstancedMesh>(null);
+ const geometry=useMemo(()=>new RoundedBoxGeometry(
+   size[0],size[1],size[2],3,Math.min(radius,...size.map(v=>v*.48))
+ ),[size[0],size[1],size[2],radius]);
+ useEffect(()=>()=>geometry.dispose(),[geometry]);
+ useLayoutEffect(()=>{
+   const mesh=ref.current;if(!mesh)return;
+   const transform=new THREE.Object3D();
+   const color=new THREE.Color();
+   for(let i=0;i<items.length;i++){
+     transform.position.set(...items[i].at);
+     transform.updateMatrix();
+     mesh.setMatrixAt(i,transform.matrix);
+     mesh.setColorAt(i,color.set(items[i].color));
+   }
+   mesh.instanceMatrix.needsUpdate=true;
+   if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+   mesh.computeBoundingSphere();
+ },[items,geometry]);
+ return <instancedMesh ref={ref} args={[undefined,undefined,items.length]}
+    geometry={geometry} castShadow receiveShadow frustumCulled>
+   <meshStandardMaterial color="#ffffff" roughness={roughness}/>
+ </instancedMesh>;
+}
+
 function WoodSlats() {
+  const repeatedSlats=useMemo(()=>Array.from({length:25},(_,i)=>({
+    at:[-1.0+i*.19,1.82,-5.76] as V3,
+    color:i%4===0?'#b98c66':'#80543d',
+  })),[]);
   return <group>
     <Rounded at={[1.3,1.86,-5.89]} size={[5.0,2.72,.13]} color="#6a4436" roughness={.78} radius={.02}/>
-    {Array.from({length:25},(_,i)=><Rounded key={i}
-      at={[-1.0+i*.19,1.82,-5.76]} size={[.052,2.54,.052]}
-      color={i%4===0?'#b98c66':'#80543d'} roughness={.58} radius={.012}/>)}
+    <RoundedInstances items={repeatedSlats} size={[.052,2.54,.052]}
+      roughness={.58} radius={.012}/>
     <Rounded at={[1.24,3.22,-5.69]} size={[4.7,.034,.08]}
       color="#ffe5b1" emissive="#ffbb71" emissiveIntensity={2} radius={.012}/>
   </group>;
@@ -240,6 +277,10 @@ function Plant({x,z}:{x:number;z:number}){
 
 /** Distinct objects with real volume and light interaction, designed for walk-around. */
 export default function RoomLuxuryInterior({scene}:{scene:MiraPresenceScene}){
+  const floorSeams=useMemo(()=>Array.from({length:18},(_,i)=>({
+    at:[-4.8+i*.57,.002,0] as V3,
+    color:i%2===0?'#6f513f':'#c49a77',
+  })),[]);
   const night=scene==='home-evening'||scene==='bedtime';
   const original=typeof window!=='undefined' && (()=>{
     const query=new URLSearchParams(window.location.search);
@@ -256,9 +297,8 @@ export default function RoomLuxuryInterior({scene}:{scene:MiraPresenceScene}){
       <planeGeometry args={[10.1,12.1]}/>
       <meshStandardMaterial color="#94745d" roughness={.75} side={THREE.DoubleSide}/>
     </mesh>
-    {Array.from({length:18},(_,i)=><Rounded key={i}
-      at={[-4.8+i*.57,.002,0]} size={[.014,.014,12]} radius={.003}
-      color={i%2===0?'#6f513f':'#c49a77'}/>)}
+    <RoundedInstances items={floorSeams} size={[.014,.014,12]}
+      roughness={.83} radius={.003}/>
     {/* Wall toward camera stays behind camera. Large left window has a true opening. */}
     <mesh position={[0,1.90,-6.02]} receiveShadow>
       <planeGeometry args={[10,3.8]}/><meshStandardMaterial color="#725c58" roughness={.96}/>
