@@ -202,7 +202,7 @@ test('full-room composition has no foreground or background computer desks',()=>
  assert.doesNotMatch(luxury,/<MarbleDeskSet\/>|<WorkspaceSet\/>/);
  assert.doesNotMatch(luxury,/function MarbleDeskSet\(|function WorkspaceSet\(/);
  assert.match(luxury,/name="mira-indoor-lounge"/);
- assert.match(luxury,/circleGeometry args=\{\[1\.94,64\]\}/);
+ assert.match(luxury,/circleGeometry args=\{\[1\.63,64\]\}/);
  assert.match(luxury,/Low upholstered seat/);
  assert.match(luxury,/A slim backrest/);
  assert.doesNotMatch(luxury,/position=\{\[0,\.94,1\.28\]\} castShadow receiveShadow scale=\{\[1\.12,\.73,\.29\]\}/);
@@ -237,11 +237,11 @@ test('3D preview uses subject-centred camera framing for all five viewpoints',()
 test('human lab uses physically seated pelvis, non-black satin garment, and clean hair',()=>{
  const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
  const pose=readFileSync('src/presence/rigged-human-pose.ts','utf8');
- assert.match(source,/root\.position\.set\(-pelvisWorld\.x,\.58-pelvisWorld\.y,1\.70-pelvisWorld\.z\)/);
+ assert.match(source,/root\.position\.set\(-pelvisWorld\.x,\.58\/FIGURE_SCALE-pelvisWorld\.y,1\.70\/FIGURE_SCALE-pelvisWorld\.z\)/);
  assert.match(source,/rotation=\{\[0,0,0\]\}/);
  assert.match(source,/n==='vitshirt'/);
  assert.match(source,/out\.color\.set\('#743244'\)/);
- assert.match(source,/out\.alphaTest=\.59/);
- assert.match(pose,/rotateZ\(1\.22\)/);
- assert.match(pose,/rotateZ\(-1\.22\)/);
+ assert.match(source,/out\.alphaTest=\.68/);
+ assert.match(source,/poseVitruvianSeated\(body\.scene\)/);
+ assert.match(readFileSync('src/presence/vitruvian-seated-pose.ts','utf8'),/orient\(leftKnee,leftFoot/);
 });
