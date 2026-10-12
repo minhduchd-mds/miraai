@@ -129,6 +129,36 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      document.removeEventListener('pointerdown',outsidePointer,true);
    };
  },[]);
+ // The vision hook emits visual-only pose deltas after a fresh 240ms hold.
+ // Never trigger voice activation, OS actions or camera permission here.
+ useEffect(()=>{
+   const onGesture=(event:Event)=>{
+     if(document.visibilityState!=='visible'||!stageRef.current)return;
+     const d=(event as CustomEvent<{
+       mode?:string;yawDelta?:number;pitchDelta?:number;zoomFactor?:number;
+     }>).detail;
+     if(!d || (d.mode!=='rotate' && d.mode!=='zoom'))return;
+     const c=controls.current;
+     if(d.mode==='rotate'){
+       if(!Number.isFinite(d.yawDelta)||!Number.isFinite(d.pitchDelta))return;
+       c.yaw-=CLAMP(d.yawDelta!,-.07,.07);
+       c.pitch=CLAMP(c.pitch-CLAMP(d.pitchDelta!,-.055,.055),-.91,.91);
+     }else{
+       const ratio=Number(d.zoomFactor);
+       if(!Number.isFinite(ratio)||ratio<.92||ratio>1.08)return;
+       const movement=Math.log(ratio);
+       if(Math.abs(movement)<.007)return;
+       const next=moveRoomCamera({x:c.x,z:c.z},c.yaw,
+         movement>0?1:-1,0,Math.min(.06,Math.abs(movement)*.75));
+       c.x=next.x;c.z=next.z;
+     }
+     stageRef.current.dataset.gestureMode=d.mode;
+     invalidateRef.current?.();
+   };
+   window.addEventListener('mira:room-gesture',onGesture);
+   return ()=>window.removeEventListener('mira:room-gesture',onGesture);
+ },[]);
+
  const pointerDown=(event:ReactPointerEvent<HTMLSpanElement>)=>{
    if(event.pointerType==='mouse' && event.button!==0)return;
    event.stopPropagation();
