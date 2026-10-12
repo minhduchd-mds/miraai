@@ -7,6 +7,7 @@ on:
       - "scripts/compress-vitruvian-meshopt.mjs"
       - "scripts/verify-vitruvian-meshopt.mjs"
       - "scripts/vitruvian-lab-visual.spec.mjs"
+      - "scripts/vitruvian-lab.test.mjs"
       - ".github/workflows/research-human-meshopt.yml"
   workflow_dispatch:
 
