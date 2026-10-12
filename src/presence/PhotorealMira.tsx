@@ -596,7 +596,7 @@ export default function PhotorealMira({
             </Suspense>
           </span>
         )}
-        {visualProfile.sharpness > 0 && !cinematicPortrait && !spatial3DEnabled && !room3DActive && (
+        {visualProfile.sharpness > 0 && !spatial3DEnabled && !cinematicPortrait && !room3DActive && (
           <Suspense fallback={null}>
             <PhotorealSceneCanvas
               ref={sceneCanvasRef}
