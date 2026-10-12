@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync,existsSync,statSync} from 'node:fs';
 import {join} from 'node:path';
 import {readGlbJson} from './validate-realistic-avatar.mjs';
+import * as THREE from 'three';
+import {applyHumanHairPresentation,HUMAN_HAIR_PRESENTATION} from '../src/presence/human-hair-presentation.ts';
 
 const base='public/avatars/realistic/vitruvian-lab';
 const manifest=JSON.parse(readFileSync(join(base,'manifest.json'),'utf8'));
@@ -107,4 +109,28 @@ test('head-shadow acne regression: fine hair cards cannot cast dot shadows over 
  assert.ok(source.includes("obj.receiveShadow=kind!=='hair'"));
  assert.ok(source.includes("Eyes_Opened_Max_Left:.27*(1-motion.blink)"));
  assert.ok(source.includes("Eyes_Opened_Max_Right:.27*(1-motion.blink)"));
+});
+
+test('hair shoulder presentation shader remains alpha-tested and never changes source mesh',()=>{
+ const mat=new THREE.MeshStandardMaterial();
+ applyHumanHairPresentation(mat);
+ assert.equal(mat.customProgramCacheKey(),HUMAN_HAIR_PRESENTATION.revision);
+ const shader={
+  vertexShader:'#include <common>\n#include <project_vertex>',
+  fragmentShader:'#include <common>\n#include <alphatest_fragment>'
+ };
+ mat.onBeforeCompile(shader,{});
+ assert.match(shader.vertexShader,/varying float miraHairWorldY/);
+ assert.match(shader.vertexShader,/modelMatrix\*vec4\(transformed,1\.0\)/);
+ assert.match(shader.fragmentShader,/smoothstep\(1\.090,1\.250,miraHairWorldY\)/);
+ assert.ok(shader.fragmentShader.indexOf('smoothstep')<shader.fragmentShader.indexOf('#include <alphatest_fragment>'));
+ mat.dispose();
+});
+test('human lab cloth uses PBR fabric sheen and separately preserves skin texture',()=>{
+ const src=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
+ assert.ok(src.includes('new THREE.MeshPhysicalMaterial().copy(m)'));
+ assert.ok(src.includes('out.sheen=.44'));
+ assert.ok(src.includes('applyHumanHairPresentation(out)'));
+ assert.ok(src.includes('out.map=tex.get(\'vit_face_bc\')'));
+ assert.ok(!src.includes('hair.geometry.scale('));
 });
