@@ -174,10 +174,10 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.alphaMap=tex.get('vit_hair_opacity')||null;
         // Keep authored strands warm and legible; multiplying by near-black
         // destroyed the source albedo and made solid black hair curtains.
-        out.color.set('#68524b');out.normalScale.set(.12,.12);
+        out.color.set('#624a41');out.normalScale.set(.09,.09);
         // High alpha cutoff made the crown translucent/speckled under light.
         // MSAA coverage smooths hair-card edges without extra hair geometry.
-        out.side=THREE.DoubleSide;out.alphaTest=.29;
+        out.side=THREE.DoubleSide;out.alphaTest=.07;
         // Software WebGL can dither alpha-to-coverage into black scalp dots.
         // Use deterministic cutout edges while retaining true hair cards.
         out.alphaToCoverage=false;out.transparent=false;out.depthWrite=true;
@@ -192,7 +192,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.metalness=0;out.transparent=true;out.opacity=0;
         out.depthWrite=false;out.visible=false;
        }else if(n.startsWith('viteyeback')){
-        out.map=null;out.color.set('#362c29');out.roughness=.64;
+        // Rear eye disc supplies the warm off-white underlay. The vendor's
+        // opaque sclera covers its own iris even after calibrated offset.
+        out.map=null;out.color.set('#decfc5');out.roughness=.94;
        }else if(n.startsWith('viteyeshadow')){
         // The vendor left eyelid overlay untextured WHITE: under the room
         // spot it reads as fluorescent closed eyelids, not natural makeup.
@@ -205,9 +207,14 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        }else if(n.startsWith('vitiris')){
         // Prevent washed-out texture from producing glowing white irises.
         out.map=tex.get('vit_iris')||null;
-        out.color.set('#d6bda8');out.roughness=.86;out.metalness=0;
+        // Keep the iris visibly darker than the eye underlay without a glow.
+        out.color.set('#654637');out.roughness=.91;out.metalness=0;
        }else if(n.startsWith('vitsclera')){
-        out.map=null;out.color.set('#e6dbd2');out.roughness=.97;out.metalness=0;
+        // This vendor primitive is a closed, opaque globe whose front hemisphere
+        // occludes both iris and pupil. The separate authored rear disc
+        // above provides the eye white instead. Retain mesh and UVs for QA.
+        out.map=null;out.visible=false;out.depthWrite=false;
+        out.color.set('#e6dbd2');out.roughness=.97;out.metalness=0;
        }else if(n==='vitmouth'){
         out.map=tex.get('vit_mouth')||null;out.roughness=.72;
        }else return m;

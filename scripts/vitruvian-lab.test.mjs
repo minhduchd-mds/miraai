@@ -58,6 +58,11 @@ test('experimental hair GLB and skin eye hair PBR maps are real, not fake poster
  assert.doesNotMatch(source,/getUserMedia\(/);
  assert.doesNotMatch(source,/Eyes_Opened_Max_Left:\.64/);
  assert.match(source,/out\.alphaToCoverage=false/);
+ assert.match(source,/out\.alphaTest=\.07/);
+ // Never allow opaque sclera to paint over the physically modelled iris.
+ assert.match(source,/out\.visible=false;out\.depthWrite=false/);
+ assert.match(source,/out\.color\.set\('#decfc5'\)/);
+ assert.match(source,/out\.color\.set\('#654637'\)/);
  assert.match(source,/out\.roughnessMap=null;out\.metalness=0/);
 });
 

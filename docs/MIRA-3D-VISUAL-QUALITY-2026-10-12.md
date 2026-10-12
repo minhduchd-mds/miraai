@@ -16,3 +16,6 @@ Visual QA artifact `mira-visual-qa-ee91a398...` contained a Vitruvian human LAB 
 
 ## Acceptance remaining
 Manual specialist review of actual 3D model quality across five views, healthy eyes, skin normals, eyelid contact, hair opacity and hairline, physical body proportions, chair and arm intersection, and lower-end GPU framerate. Visual QA success is only technical evidence, not photorealistic approval. An appropriately authored/licensed asset or Blender corrective edit may still be necessary; no automatic flag will turn the LAB into production.
+
+## 12 Oct follow-up — experimental eye-visibility repair
+The five-view 3D screenshot still showed featureless bright white eyes at the original calibrated iris offset, implying the full opaque sclera primitive masks the iris in rendered space. In the Lab-only renderer, preserve the original eye geometry but disable the front sclera material; use the source rear eye disc as a warm eye-white underlay and reduce the iris diffuse multiplier so a real pupil/iris can be seen. This is an **unreviewed hypothesis** pending fresh visual QA. Denser hair cutout uses a lower alpha test threshold (0.07), still without software-unfriendly alpha-to-coverage. Production manifest stays pending.
