@@ -2355,54 +2355,36 @@
 }
 
 
-/* Female Presence v1: lightweight cinematic portrait, NOT a 3D/deepfake claim.
-   Source is the same authored local scene image; no network provider, face-swap,
-   microphone or camera permission is used by this visual component. */
-.bedroom-presence .pm-live-female-portrait {
-  position:absolute;inset:0;z-index:2;display:block;overflow:hidden;
-  pointer-events:none;isolation:isolate;
-}
-.bedroom-presence .pm-live-female-portrait img {
-  display:block;width:100%;height:100%;position:absolute;inset:0;
-  object-fit:cover;object-position:center center;user-select:none;
-  transform:translate3d(var(--female-gaze-x,0px),var(--female-gaze-y,0px),0) scale(1.042);
-  filter:saturate(1.025) contrast(.992) brightness(1.035);
+/* Female Presence v2 — one authored scene image; no duplicative second photo.
+   All GPU/depth layers stay unmounted by the React renderer in portrait mode.
+   This is a restrained single-image camera crop, not facial reenactment or 3D. */
+.photo-mira[data-female-presentation="portrait"] .pm-scene-fallback {
+  transform:translate3d(var(--pm-depth-back-x,0px),var(--pm-depth-back-y,0px),0) scale(1.075);
+  transform-origin:57% 43%;
+  filter:saturate(1.055) contrast(1.015) brightness(1.025);
   will-change:transform;
 }
-.bedroom-presence .pm-live-female-portrait::after {
-  content:'';position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(90deg,rgba(13,10,21,.15),transparent 45%,rgba(16,8,20,.02));
+.photo-mira[data-female-presentation="portrait"].state-speaking .pm-scene-fallback {
+  animation:mira-portrait-speaking 5.6s ease-in-out infinite;
 }
-.bedroom-presence .pm-live-female-portrait.is-speaking img {
-  animation:mira-female-speech-breath 3.6s ease-in-out infinite;
+.photo-mira[data-female-presentation="portrait"].state-listening .pm-scene-fallback {
+  animation:mira-portrait-listening 8s ease-in-out infinite;
 }
-.bedroom-presence .pm-live-female-portrait.is-listening img {
-  animation:mira-female-listen-breath 7.4s ease-in-out infinite;
+@keyframes mira-portrait-speaking {
+  0%,100% {transform:translate3d(0,0,0) scale(1.075)}
+  50% {transform:translate3d(0,-1px,0) scale(1.079)}
 }
-@keyframes mira-female-speech-breath {
-  0%,100% {transform:translate3d(var(--female-gaze-x,0px),var(--female-gaze-y,0px),0) scale(1.042)}
-  50% {transform:translate3d(var(--female-gaze-x,0px),calc(var(--female-gaze-y,0px) - 1px),0) scale(1.048)}
+@keyframes mira-portrait-listening {
+  0%,100% {transform:translate3d(0,0,0) scale(1.075)}
+  50% {transform:translate3d(0,1px,0) scale(1.077)}
 }
-@keyframes mira-female-listen-breath {
-  0%,100% {transform:translate3d(var(--female-gaze-x,0px),var(--female-gaze-y,0px),0) scale(1.042)}
-  50% {transform:translate3d(var(--female-gaze-x,0px),calc(var(--female-gaze-y,0px) + 1px),0) scale(1.045)}
-}
-.photo-mira[data-female-presentation="portrait"] .pm-scene-shell {filter:none;}
-.v2-female-mode-icon {
-  display:block;position:relative;width:17px;height:19px;margin:auto;
-}
-.v2-female-mode-icon::before {
-  content:'';position:absolute;left:5px;top:1px;width:8px;height:8px;
-  border:1.6px solid currentColor;border-radius:50%;
-}
-.v2-female-mode-icon::after {
-  content:'';position:absolute;left:2px;bottom:0;width:14px;height:7px;
-  border:1.6px solid currentColor;border-radius:12px 12px 4px 4px;
-}
+.v2-female-mode-icon {display:block;position:relative;width:17px;height:19px;margin:auto;}
+.v2-female-mode-icon::before {content:'';position:absolute;left:5px;top:1px;width:8px;height:8px;border:1.6px solid currentColor;border-radius:50%;}
+.v2-female-mode-icon::after {content:'';position:absolute;left:2px;bottom:0;width:14px;height:7px;border:1.6px solid currentColor;border-radius:12px 12px 4px 4px;}
 .v2-actions .v2-female-mode.active {color:#ffc6cb;}
-@media(prefers-reduced-motion:reduce){
-  .bedroom-presence .pm-live-female-portrait img{animation:none!important;will-change:auto;}
+@media(prefers-reduced-motion:reduce) {
+  .photo-mira[data-female-presentation="portrait"] .pm-scene-fallback {animation:none!important;transform:scale(1.035);will-change:auto;}
 }
 @media(max-width:760px){
-  .bedroom-presence .pm-live-female-portrait img{transform:scale(1.02);}
+  .photo-mira[data-female-presentation="portrait"] .pm-scene-fallback {transform-origin:52% 42%;transform:scale(1.045);}
 }

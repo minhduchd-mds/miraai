@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { MiraState } from '../core/types';
 import type { FemalePresentation } from '../app/app-preferences';
-import LiveFemalePortrait from './LiveFemalePortrait';
 import type { ObservedMood } from '../intelligence/affect/mood-engine';
 import type { EnvironmentLabel } from '../core/vision/environment-model';
 import { audioLevel } from '../core/audio-level';
@@ -205,7 +204,11 @@ export default function PhotorealMira({
   // WebGL errors, reduced-motion, Lite devices and Data Saver still fail back safely.
   const room3DActive = room3DRequested && !room3DFailed && !reducedMotion
     && visualQuality !== 'lite' && !Boolean(connection?.saveData);
-  const spatial3DEnabled = !room3DActive && !spatial3DFailed && shouldUseSpatial3D({
+  // Cinematic portrait uses only the existing scene photograph: never mount
+  // a second copy, GPU canvas or perspective layers behind it. The genuine
+  // 3D room is unaffected when explicitly requested or approved.
+  const cinematicPortrait = femalePresentation === 'portrait' && !room3DActive;
+  const spatial3DEnabled = !cinematicPortrait && !room3DActive && !spatial3DFailed && shouldUseSpatial3D({
     quality:visualQuality, performance:performanceTier, reducedMotion,
     saveData:Boolean(connection?.saveData),viewportWidth:typeof window !== 'undefined' ? window.innerWidth : 0,
     override:spatial3DOverride,
@@ -593,7 +596,7 @@ export default function PhotorealMira({
             </Suspense>
           </span>
         )}
-        {visualProfile.sharpness > 0 && !spatial3DEnabled && !room3DActive && (
+        {visualProfile.sharpness > 0 && !cinematicPortrait && !spatial3DEnabled && !room3DActive && (
           <Suspense fallback={null}>
             <PhotorealSceneCanvas
               ref={sceneCanvasRef}
@@ -604,21 +607,21 @@ export default function PhotorealMira({
             />
           </Suspense>
         )}
-        {!room3DActive && <img
+        {!room3DActive && !cinematicPortrait && <img
           className="pm-depth-layer pm-depth-mid"
           src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
         />}
-        {!room3DActive && <img
+        {!room3DActive && !cinematicPortrait && <img
           className="pm-depth-layer pm-depth-near"
           src={sceneAsset}
           alt=""
           draggable={false}
           decoding="async"
         />}
-        {!spatial3DEnabled && !room3DActive && presenceScene === 'bedtime' && (visualQuality === 'high' || visualQuality === 'ultra') && (
+        {!spatial3DEnabled && !room3DActive && !cinematicPortrait && presenceScene === 'bedtime' && (visualQuality === 'high' || visualQuality === 'ultra') && (
           <Suspense fallback={null}>
             <PhotorealSceneSegments src={sceneAsset} />
           </Suspense>
@@ -638,10 +641,6 @@ export default function PhotorealMira({
         {!room3DActive && <span className="pm-depth-grain" />}
       </span>
 
-      {!room3DActive && femalePresentation==='portrait' && (
-        <LiveFemalePortrait src={sceneAsset} state={state} reducedMotion={reducedMotion}
-          gazeX={gazeX} gazeY={gazeY} quality={visualQuality}/>
-      )}
       {!room3DActive && <span className="pm-bedroom-tint" aria-hidden="true" />}
 
       {presenceVisual.character && !room3DActive && (

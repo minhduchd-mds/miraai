@@ -60,21 +60,25 @@ test('female live portrait uses the existing local authored photo and switches w
   const root=page.locator('.photo-mira');
   await expect(root).toHaveAttribute('data-room3d-active','false',{timeout:10000});
   await expect(root).toHaveAttribute('data-female-presentation','portrait');
-  const portrait=root.locator('.pm-live-female-portrait');
-  await expect(portrait).toBeVisible();
-  const media=portrait.locator('img');
-  await expect.poll(()=>media.evaluate(img=>img instanceof HTMLImageElement?img.naturalWidth:0)).toBeGreaterThan(0);
-  const asset=await media.getAttribute('src');
+  const scene=root.locator('.pm-scene-fallback');
+  await expect(scene).toBeVisible();
+  await expect.poll(()=>scene.evaluate(img=>img instanceof HTMLImageElement?img.naturalWidth:0)).toBeGreaterThan(0);
+  // Default mode must not load the same image twice or allocate a WebGL
+  // compositor that has nothing to do with the visible woman.
+  await expect(root.locator('.pm-scene-shell img')).toHaveCount(1);
+  await expect(root.locator('.pm-scene-canvas,.pm-depth-layer,.pm-live-female-portrait')).toHaveCount(0);
+  const asset=await scene.getAttribute('src');
   expect(asset).toContain('/mira-assets/scenes/');
   const button=page.locator('.v2-female-mode');
   await expect(button).toHaveAttribute('aria-pressed','true');
   await button.click();
   await expect(root).toHaveAttribute('data-female-presentation','scene');
-  await expect(portrait).toHaveCount(0);
+  await expect(root.locator('.pm-live-female-portrait')).toHaveCount(0);
   await expect(button).toHaveAttribute('aria-pressed','false');
   await expect(page.locator('.pm-scene-fallback')).toBeVisible();
   await expect(page.locator('.v2-camera-preview')).toHaveCount(0);
   await button.click();
-  await expect(portrait).toBeVisible();
+  await expect(root.locator('.pm-scene-shell img')).toHaveCount(1);
+  await expect(root.locator('.pm-scene-canvas,.pm-depth-layer,.pm-live-female-portrait')).toHaveCount(0);
   await expect(page.locator('.voice-primary')).toBeVisible();
 });
