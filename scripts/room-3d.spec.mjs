@@ -55,6 +55,20 @@ test('opt-in room3d renders 3D geometry, rotates through drag and walks with key
  await expect(page.locator('.pm-room3d-reference')).toHaveCount(0);
  await expect(stage).toHaveAttribute('data-room3d-active','true');
  expect(Buffer.compare(rotated,moved)).not.toBe(0);
+ // Test the real Three camera listener; no fabricated MediaPipe authorization.
+ // Gesture safety and dwell are covered in spatial-bimanual-safety.test.mjs.
+ const preGesture=await canvas.screenshot({timeout:12_000});
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('mira:room-gesture',{
+   detail:{mode:'rotate',yawDelta:.05,pitchDelta:-.03,zoomFactor:1},
+ })));
+ await expect(page.locator('.pm-room3d-stage')).toHaveAttribute('data-gesture-mode','rotate');
+ const postGesture=await canvas.screenshot({timeout:12_000});
+ expect(Buffer.compare(preGesture,postGesture)).not.toBe(0);
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('mira:room-gesture',{
+   detail:{mode:'zoom',yawDelta:0,pitchDelta:0,zoomFactor:1.08},
+ })));
+ await expect(page.locator('.pm-room3d-stage')).toHaveAttribute('data-gesture-mode','zoom');
+ await expect(stage).toHaveAttribute('data-room3d-ready','true');
  const img=join(process.cwd(),'artifacts','visual-qa','room3d-1366x768.png');
  await mkdir(join(process.cwd(),'artifacts','visual-qa'),{recursive:true});
  await page.screenshot({path:img,fullPage:false});
