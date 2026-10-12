@@ -85,7 +85,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        if(n==='vitskin'){
         out.map=tex.get('vit_face_bc')||null;out.normalMap=tex.get('vit_face_n')||null;
         out.roughnessMap=tex.get('vit_face_rough')||null;
-        out.normalScale.set(.23,.23);out.roughness=.94;
+        out.normalScale.set(.18,.18);out.roughness=.9;
        }else if(n==='vitbody'){
         out.map=tex.get('vit_body_bc')||null;out.normalMap=tex.get('vit_body_n')||null;
         out.roughnessMap=tex.get('vit_body_rough')||null;
@@ -93,21 +93,31 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        }else if(n==='vitshirt'){
         // Wine-coloured satin tailoring replaces the flat black/white T-shirt
         // look without changing any scene or supplying a fake 2D overlay.
-        out.map=null;out.color.set('#743244');out.roughness=.43;out.metalness=.08;
+        out.map=null;out.color.set('#b37c87');out.roughness=.57;out.metalness=.025;
        }else if(n==='vitpants'){
-        out.map=null;out.color.set('#28252e');out.roughness=.77;out.metalness=.02;
+        out.map=null;out.color.set('#65575f');out.roughness=.85;out.metalness=.012;
        }else if(n==='vitshoes'){
-        out.map=null;out.color.set('#35242d');out.roughness=.37;out.metalness=.08;
+        out.map=null;out.color.set('#554448');out.roughness=.42;out.metalness=.04;
        }else if(kind==='hair'||n==='vithair'){
         out.map=tex.get('vit_hair_diffuse')||null;out.normalMap=tex.get('vit_hair_normal')||null;
         out.alphaMap=tex.get('vit_hair_opacity')||null;
-        out.color.set('#281a24');out.normalScale.set(.23,.23);
-        out.side=THREE.DoubleSide;out.alphaTest=.68;out.transparent=false;out.depthWrite=true;
+        // Keep authored strands warm and legible; multiplying by near-black
+        // destroyed the source albedo and made solid black hair curtains.
+        out.color.set('#fff0e4');out.normalScale.set(.20,.20);
+        out.side=THREE.DoubleSide;out.alphaTest=.63;out.transparent=false;out.depthWrite=true;
         out.roughness=.85;
+       }else if(n.startsWith('vitcornea')){
+        // Source cornea imported as an opaque white shell. It previously
+        // obscured the iris and made both eyes look fluorescent white.
+        out.map=null;out.color.set('#ffffff');out.roughness=.08;
+        out.metalness=0;out.transparent=true;out.opacity=.09;
+        out.depthWrite=false;out.side=THREE.FrontSide;
+       }else if(n.startsWith('viteyeback')){
+        out.map=null;out.color.set('#362c29');out.roughness=.64;
        }else if(n.startsWith('vitiris')){
-        out.map=tex.get('vit_iris')||null;out.roughness=.26;
+        out.map=tex.get('vit_iris')||null;out.color.set('#f8f1e9');out.roughness=.36;
        }else if(n.startsWith('vitsclera')){
-        out.map=tex.get('vit_sclera')||null;out.roughness=.48;
+        out.map=tex.get('vit_sclera')||null;out.color.set('#e7d8cc');out.roughness=.56;
        }else if(n==='vitmouth'){
         out.map=tex.get('vit_mouth')||null;out.roughness=.72;
        }else return m;
