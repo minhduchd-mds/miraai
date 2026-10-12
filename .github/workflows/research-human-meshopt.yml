@@ -19,7 +19,7 @@ concurrency:
 jobs:
   candidates:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Use Node.js
@@ -35,11 +35,27 @@ jobs:
         run: node scripts/compress-vitruvian-meshopt.mjs
       - name: Validate source rig/morphs and compare Brotli sizes
         run: node scripts/verify-vitruvian-meshopt.mjs
+      - name: Stage compressed GLBs for isolated WebGL QA
+        run: |
+          mkdir -p public/avatars/realistic/vitruvian-lab/meshopt
+          cp artifacts/meshopt-research/{head,body,hair}.glb public/avatars/realistic/vitruvian-lab/meshopt/
+      - name: Install Playwright visual test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build temporary asset variant
+        run: npm run build
+      - name: Render five views using actual Meshopt decoder
+        run: MIRA_MESHOPT_CANDIDATE=1 npx playwright test --config=playwright.config.mjs scripts/vitruvian-lab-visual.spec.mjs
       - name: Upload unapproved candidates and measurements
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mira-meshopt-research-${{ github.sha }}
-          path: artifacts/meshopt-research/
+          path: |
+            artifacts/meshopt-research/
+            artifacts/visual-qa/vitruvian-human-lab-view-*.png
+            visual-report/
+            test-results/
           if-no-files-found: warn
           retention-days: 14
