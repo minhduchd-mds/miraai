@@ -133,7 +133,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.side=THREE.DoubleSide;out.alphaTest=.16;
         out.alphaToCoverage=true;out.transparent=false;out.depthWrite=true;
         out.roughness=.9;
-        applyHumanHairPresentation(out);
+        // Developer-only A/B: ?hairStyle=long restores full authored cards.
+        if(new URLSearchParams(window.location.search).get('hairStyle')!=='long')
+         applyHumanHairPresentation(out);
        }else if(n.startsWith('vitcornea')){
         // Source cornea imported as an opaque white shell. It previously
         // obscured the iris and made both eyes look fluorescent white.
