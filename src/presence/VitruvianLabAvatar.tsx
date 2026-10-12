@@ -84,8 +84,10 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        const out=m.clone();
        if(n==='vitskin'){
         out.map=tex.get('vit_face_bc')||null;out.normalMap=tex.get('vit_face_n')||null;
-        out.roughnessMap=tex.get('vit_face_rough')||null;
-        out.normalScale.set(.18,.18);out.roughness=.9;
+        // Remove the source roughness map's near-zero gloss patches that
+        // reflect the key as a white spot on the forehead.
+        out.roughnessMap=null;out.metalness=0;
+        out.normalScale.set(.13,.13);out.roughness=.96;
        }else if(n==='vitbody'){
         out.map=tex.get('vit_body_bc')||null;out.normalMap=tex.get('vit_body_n')||null;
         out.roughnessMap=tex.get('vit_body_rough')||null;
@@ -107,8 +109,11 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         // Keep authored strands warm and legible; multiplying by near-black
         // destroyed the source albedo and made solid black hair curtains.
         out.color.set('#947567');out.normalScale.set(.15,.15);
-        out.side=THREE.DoubleSide;out.alphaTest=.63;out.transparent=false;out.depthWrite=true;
-        out.roughness=.85;
+        // High alpha cutoff made the crown translucent/speckled under light.
+        // MSAA coverage smooths hair-card edges without extra hair geometry.
+        out.side=THREE.DoubleSide;out.alphaTest=.24;
+        out.alphaToCoverage=true;out.transparent=false;out.depthWrite=true;
+        out.roughness=.9;
        }else if(n.startsWith('vitcornea')){
         // Source cornea imported as an opaque white shell. It previously
         // obscured the iris and made both eyes look fluorescent white.
@@ -230,6 +235,10 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    r.headRest.y+motion.headYaw,r.headRest.z+reaction.headTilt);
   const poses:Record<string,number>={
    Eyes_Closed_Max:motion.blink,
+   // Source head is sculpted nearly squinting in its neutral pose.
+   // Keep an open-eyed attentive baseline and fade it out during blinks.
+   Eyes_Opened_Max_Left:.64*(1-motion.blink),
+   Eyes_Opened_Max_Right:.64*(1-motion.blink),
    Mouth_Large_Opened:jaw.current,
    Jaw_Lower:jaw.current*.22,
    Happy:smile.current,
