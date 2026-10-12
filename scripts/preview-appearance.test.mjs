@@ -31,7 +31,7 @@ test('natural head rest starts nearly centered and does not override 3D eye trac
 
 test('3D chair is compact enough not to dwarf seated avatar',()=>{
  assert.match(room,/name="mira-indoor-lounge"/);
- assert.match(room,/position=\{\[0,\.94,1\.28\]\} castShadow receiveShadow scale=\{\[1\.12,\.73,\.29\]\}/);
- assert.match(room,/position=\{\[side\*1\.09,\.59,1\.86\]\}/);
+ assert.match(room,/<Rounded at=\{\[0,1\.00,1\.08\]\} size=\{\[1\.72,1\.24,\.19\]\}/);
+ assert.match(room,/<Rounded at=\{\[side\*\.87,\.65,1\.68\]\} size=\{\[\.16,\.20,\.73\]\}/);
  assert.doesNotMatch(room,/<MarbleDeskSet\/>|<WorkspaceSet\/>/);
 });
