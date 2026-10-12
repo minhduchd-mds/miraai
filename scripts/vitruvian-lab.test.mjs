@@ -87,15 +87,25 @@ test('vendor eye geometry inspection reports actual iris, sclera, eyelid and cor
 test('the local iris depth correction clears the source sclera instead of shifting the whole eyeball',()=>{
  const gltf=readGlbJson(readFileSync(join(base,'head.glb')));
  let checked=0;
- for(const mesh of gltf.meshes||[]){
+ for(const [meshIndex,mesh] of (gltf.meshes||[]).entries()){
   const get=(prefix)=>{
    const p=(mesh.primitives||[]).find(x=>String(gltf.materials?.[x.material]?.name||'').toLowerCase().startsWith(prefix));
    return p===undefined?null:gltf.accessors?.[p.attributes?.POSITION]||null;
   };
   const iris=get('vitiris'),sclera=get('vitsclera');
   if(!iris||!sclera)continue;
-  const margin=iris.max[2]+.0059-sclera.max[2];
-  assert.ok(margin>.0008&&margin<.003, 'Iris must clear front of opaque sclera by 0.8–3 mm');
+  const meshNode=(gltf.nodes||[]).find(node=>node.mesh===meshIndex);
+  const scaleZ=meshNode?.scale?.[2]??1;
+  const frontZ=accessor=>{
+   // EXT_meshopt_compression uses KHR_mesh_quantization: signed 16-bit
+   // normalized accessor maxima are not distances in metres.
+   const n=accessor.max[2];
+   const divisors={5120:127,5121:255,5122:32767,5123:65535};
+   return accessor.normalized?n/(divisors[accessor.componentType]||1):n;
+  };
+  const margin=(frontZ(iris)-frontZ(sclera))*scaleZ+.0059;
+  assert.ok(margin>.0008&&margin<.003,
+   'Iris must clear front of opaque sclera by 0.8–3 mm (dequantized metres)');
   checked++;
  }
  assert.equal(checked,2,'left/right eyes must be individually checked');
