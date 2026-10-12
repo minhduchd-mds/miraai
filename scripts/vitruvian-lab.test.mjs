@@ -53,8 +53,7 @@ test('experimental hair GLB and skin eye hair PBR maps are real, not fake poster
  assert.match(source,/visemesForSpeech\(/);
  assert.match(source,/materialize\(/);
  assert.doesNotMatch(source,/getUserMedia\(/);
- assert.match(source,/Eyes_Opened_Max_Left:\.64\*\(1-motion\.blink\)/);
- assert.match(source,/Eyes_Opened_Max_Right:\.64\*\(1-motion\.blink\)/);
+ assert.doesNotMatch(source,/Eyes_Opened_Max_Left:\.64/);
  assert.match(source,/out\.alphaToCoverage=true/);
  assert.match(source,/out\.roughnessMap=null;out\.metalness=0/);
 });
