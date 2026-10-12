@@ -156,7 +156,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     head.scene.traverse(obj=>{
       if(!(obj instanceof THREE.Mesh))return;
       const slots=Array.isArray(obj.material)?obj.material:[obj.material];
-      if(slots.length!==1 || !/^vitiris(?:\\.\\d+)?$/i.test(slots[0]?.name||''))return;
+      if(slots.length!==1 || !String(slots[0]?.name||'').toLowerCase().startsWith('vitiris'))return;
       obj.position.z+=.0059;
       irisesAdjusted++;
     });
