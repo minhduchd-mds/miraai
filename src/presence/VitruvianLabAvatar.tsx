@@ -133,7 +133,8 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.map=null;out.color.set('#bd867b');out.roughness=1;out.metalness=0;
        }else if(n.startsWith('vitiris')){
         // Prevent washed-out texture from producing glowing white irises.
-        out.map=null;out.color.set('#4c3429');out.roughness=.83;out.metalness=0;
+        out.map=tex.get('vit_iris')||null;
+        out.color.set('#e0c7b2');out.roughness=.75;out.metalness=0;
        }else if(n.startsWith('vitsclera')){
         out.map=null;out.color.set('#b5a093');out.roughness=1;out.metalness=0;
        }else if(n==='vitmouth'){
@@ -147,6 +148,19 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     materialize(head.scene,'head');
     materialize(body.scene,'body');
     materialize(hair.scene,'hair');
+    // Geometry audit: original VitIris surfaces are 5-6mm behind the
+    // front of the opaque sclera. Move ONLY the per-primitive iris mesh
+    // slightly forward in eyeball-local +Z; do not displace the eyeballs,
+    // eyelids, skull, or the rest of the character.
+    let irisesAdjusted=0;
+    head.scene.traverse(obj=>{
+      if(!(obj instanceof THREE.Mesh))return;
+      const slots=Array.isArray(obj.material)?obj.material:[obj.material];
+      if(slots.length!==1 || !/^vitiris(?:\\.\\d+)?$/i.test(slots[0]?.name||''))return;
+      obj.position.z+=.0059;
+      irisesAdjusted++;
+    });
+    if(irisesAdjusted!==2)throw Error('Expected two independently positioned iris meshes');
     body.scene.updateMatrixWorld(true);
     // GLTFLoader sanitizes ':' in Mixamo names and may add suffixes for
     // duplicates. Resolve from actual THREE.Bone instances, not raw glTF names.
@@ -235,9 +249,10 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    r.headRest.y+motion.headYaw,r.headRest.z+reaction.headTilt);
   const poses:Record<string,number>={
    Eyes_Closed_Max:motion.blink,
-   // Eye-open corrective shapes remain disabled until iris / sclera
-   // geometry is verified. The vendor asset reveals white eye surfaces
-   // at large amplitudes rather than realistic irises.
+   // Modest resting eye opening only after local iris depth correction.
+   // Full blink fades the correction to zero, avoiding double deformation.
+   Eyes_Opened_Max_Left:.38*(1-motion.blink),
+   Eyes_Opened_Max_Right:.38*(1-motion.blink),
    Mouth_Large_Opened:jaw.current,
    Jaw_Lower:jaw.current*.22,
    Happy:smile.current,
