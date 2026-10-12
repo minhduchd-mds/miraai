@@ -100,3 +100,11 @@ test('the local iris depth correction clears the source sclera instead of shifti
  assert.ok(source.includes('obj.position.z+=.0059'))
  assert.match(source,/irisesAdjusted!==2/);
 });
+
+test('head-shadow acne regression: fine hair cards cannot cast dot shadows over skin',()=>{
+ const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
+ assert.ok(source.includes("obj.castShadow=kind!=='hair'"));
+ assert.ok(source.includes("obj.receiveShadow=kind!=='hair'"));
+ assert.ok(source.includes("Eyes_Opened_Max_Left:.27*(1-motion.blink)"));
+ assert.ok(source.includes("Eyes_Opened_Max_Right:.27*(1-motion.blink)"));
+});
