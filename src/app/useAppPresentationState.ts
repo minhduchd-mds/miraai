@@ -3,6 +3,8 @@ import type { MiraState, Theme } from '../core/types';
 import {
   loadAffectFollowing,
   loadTheme,
+  loadFemalePresentation,
+  saveFemalePresentation,
   saveAffectFollowing,
   saveTheme,
 } from './app-preferences';
@@ -14,6 +16,7 @@ type AppPresentationStateOptions = {
 export function useAppPresentationState({ miraState }: AppPresentationStateOptions) {
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [affectFollowing, setAffectFollowing] = useState(loadAffectFollowing);
+  const [femalePresentation,setFemalePresentation]=useState(loadFemalePresentation);
 
   useEffect(() => {
     document.body.dataset.state = miraState;
@@ -28,10 +31,16 @@ export function useAppPresentationState({ miraState }: AppPresentationStateOptio
     saveAffectFollowing(affectFollowing);
   }, [affectFollowing]);
 
+  useEffect(()=>{
+    saveFemalePresentation(femalePresentation);
+  },[femalePresentation]);
+
   return {
     theme,
     setTheme,
     affectFollowing,
     setAffectFollowing,
+    femalePresentation,
+    setFemalePresentation,
   };
 }

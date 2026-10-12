@@ -74,7 +74,6 @@ import { usePresenceReturnLearning } from './usePresenceReturnLearning';
 import { useVoiceSessionLifecycle } from './useVoiceSessionLifecycle';
 import { useSpatialDomFeedback } from './useSpatialDomFeedback';
 import { useAppPresentationState } from './useAppPresentationState';
-import { loadFemalePresentation, saveFemalePresentation, type FemalePresentation } from './app-preferences';
 import { useVisionTransport } from './useVisionTransport';
 import { useWebXRTransport } from './useWebXRTransport';
 import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
@@ -114,6 +113,8 @@ export default function AppV2() {
     setTheme,
     affectFollowing,
     setAffectFollowing,
+    femalePresentation,
+    setFemalePresentation,
   } = useAppPresentationState({ miraState: mira.state });
   const [faceActionFeedback, setFaceActionFeedback] = useState('');
   const faceActionTimerRef = useRef<number | null>(null);
@@ -129,16 +130,9 @@ export default function AppV2() {
   } = useFaceSocialLifecycle();
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // A photoreal, consent-safe portrait presentation for the existing Mira face.
-  // This is not a synthetic video or a claimed photoreal 3D humanoid.
-  const [femalePresentation,setFemalePresentation] = useState<FemalePresentation>(loadFemalePresentation);
   const toggleFemalePresentation=useCallback(()=>{
-    setFemalePresentation(current=>{
-      const next=current==='portrait'?'scene':'portrait';
-      saveFemalePresentation(next);
-      return next;
-    });
-  },[]);
+    setFemalePresentation(current=>current==='portrait'?'scene':'portrait');
+  },[setFemalePresentation]);
   const {
     cameraPreviewRef,
     visionModulesRef,
