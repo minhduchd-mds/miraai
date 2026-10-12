@@ -191,8 +191,13 @@ function MiraChairSet(){
 
 function RoomLighting({night}:{night:boolean}){
   // Let QA compare the original brighter key light without modifying the scene.
-  const original=typeof window!=='undefined' &&
-    new URLSearchParams(window.location.search).get('lighting')==='original';
+  const original=typeof window!=='undefined' && (()=>{
+    const query=new URLSearchParams(window.location.search);
+    // Opt-in human candidate defaults to readable 11-Oct room lighting.
+    // The scene geometry, production VRM lighting and night cycle do not change.
+    return query.get('lighting')==='original' ||
+      (query.get('humanLab')==='1' && query.get('lighting')!=='moody');
+  })();
   return <group>
     {/* Soft key light at the avatar face; the room keeps independent ceiling/bed lamps. */}
     <pointLight position={[.32,2.51,3.56]} color="#ffe2d4" intensity={original?4.6:3.1} distance={5.5}/>
@@ -236,8 +241,13 @@ function Plant({x,z}:{x:number;z:number}){
 /** Distinct objects with real volume and light interaction, designed for walk-around. */
 export default function RoomLuxuryInterior({scene}:{scene:MiraPresenceScene}){
   const night=scene==='home-evening'||scene==='bedtime';
-  const original=typeof window!=='undefined' &&
-    new URLSearchParams(window.location.search).get('lighting')==='original';
+  const original=typeof window!=='undefined' && (()=>{
+    const query=new URLSearchParams(window.location.search);
+    // Opt-in human candidate defaults to readable 11-Oct room lighting.
+    // The scene geometry, production VRM lighting and night cycle do not change.
+    return query.get('lighting')==='original' ||
+      (query.get('humanLab')==='1' && query.get('lighting')!=='moody');
+  })();
   return <>
     <color attach="background" args={[night?'#13243b':'#8da9b8']}/>
     <ambientLight intensity={original?(night?.83:1.06):(night?.75:.86)} color="#e9dcda"/>
