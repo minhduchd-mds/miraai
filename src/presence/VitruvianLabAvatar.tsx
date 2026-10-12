@@ -75,10 +75,19 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
       sources.candidates(name+'.webp'),url=>texLoader.loadAsync(url));
    try{
     // A pending researcher-provided file cannot silently become production Mira.
-    const [manifestResponse,head,body,hair]=await Promise.all([
+    // Settle all downloads before handling partial failure. Promise.all()
+    // discarded already-decoded GLBs if another part rejected, leaking CPU/GPU
+    // resources and making retries progressively heavier.
+    const [manifestResult,headResult,bodyResult,hairResult]=await Promise.allSettled([
      fetch(prefix+'manifest.json',{credentials:'same-origin'}),
      loadGLB('head.glb'),loadGLB('body.glb'),loadGLB('hair.glb')]);
-    owned.push(head.scene,body.scene,hair.scene);
+    for(const part of [headResult,bodyResult,hairResult])
+     if(part.status==='fulfilled')owned.push(part.value.scene);
+    if(manifestResult.status==='rejected')throw Error('Human lab manifest unavailable');
+    if(headResult.status==='rejected'||bodyResult.status==='rejected'||
+       hairResult.status==='rejected')throw Error('Human lab GLB download failed');
+    const manifestResponse=manifestResult.value;
+    const head=headResult.value,body=bodyResult.value,hair=hairResult.value;
     if(!manifestResponse.ok)throw Error('Human lab manifest missing');
     const manifest=await manifestResponse.json() as {status?:string;approved?:boolean;license?:string};
     if(manifest.status!=='lab_only'||manifest.approved!==false||
@@ -86,7 +95,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     // Only fetch maps actually bound to live PBR materials. The authored
     // face roughness, hair diffuse and sclera maps stay in the asset archive
     // but are deliberately unused after the current LAB material corrections.
-    const textures=await Promise.all([
+    const textureResults=await Promise.allSettled([
      'vit_face_bc','vit_face_n','vit_body_bc','vit_body_n','vit_body_rough',
      'vit_hair_normal','vit_hair_opacity','vit_iris','vit_mouth'
     ].map(async key=>{
@@ -97,6 +106,12 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
       maps.push(tex);
       return [key,tex] as const;
     }));
+    // All texture requests must settle before cleanup on partial failure.
+    // Otherwise late asynchronous decodes could outlive an unmounted avatar.
+    if(textureResults.some(result=>result.status==='rejected'))
+      throw Error('Human lab PBR texture download failed');
+    const textures=textureResults.flatMap(result=>
+      result.status==='fulfilled'?[result.value]:[]);
     const tex=new Map<string,THREE.Texture>(textures);
     if(cancelled){dispose();return;}
     // Change only explicit author-named material slots. Never globally tint skin.
