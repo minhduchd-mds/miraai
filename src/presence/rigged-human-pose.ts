@@ -29,13 +29,23 @@ export function poseMixamoHumanSeated(root: THREE.Object3D): boolean {
   if(!leftThigh||!rightThigh||!leftShin||!rightShin)return false;
   // Rotations are applied on top of the author's bind pose only for this
   // recognized skeleton convention. Unknown orientation stays unchanged.
-  for(const leg of [leftThigh,rightThigh])leg.rotation.x-=1.08;
-  for(const shin of [leftShin,rightShin])shin.rotation.x+=1.16;
-  find(patterns.armLeft)?.rotateZ(.52);
-  find(patterns.armRight)?.rotateZ(-.61);
-  find(patterns.elbowLeft)?.rotateX(-.57);
-  find(patterns.elbowRight)?.rotateX(-.74);
-  find(patterns.head)?.rotateZ(-.07);
+  // Seat thighs toward the front (+Z of this source model). Hips are aligned
+  // to the cushion by the caller, so the legs don't hover in front of the chair.
+  leftThigh.rotation.x-=1.12;
+  rightThigh.rotation.x-=1.05;
+  leftThigh.rotation.z+=.055;
+  rightThigh.rotation.z-=.07;
+  leftShin.rotation.x+=1.32;
+  rightShin.rotation.x+=1.26;
+  // Mixamo rest pose keeps the arms nearly horizontal. Lower the upper arms
+  // before folding the elbows, instead of leaving Mira in a T-pose.
+  find(patterns.armLeft)?.rotateZ(1.22);
+  find(patterns.armRight)?.rotateZ(-1.22);
+  find(patterns.armLeft)?.rotateX(-.16);
+  find(patterns.armRight)?.rotateX(-.12);
+  find(patterns.elbowLeft)?.rotateX(-.67);
+  find(patterns.elbowRight)?.rotateX(-.61);
+  find(patterns.head)?.rotateZ(-.025);
   root.updateMatrixWorld(true);
   return true;
 }
