@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: mira-research-meshopt
@@ -50,6 +50,32 @@ jobs:
         run: npm run build
       - name: Render five views using actual Meshopt decoder
         run: MIRA_MESHOPT_CANDIDATE=1 npx playwright test --config=playwright.config.mjs scripts/vitruvian-lab-visual.spec.mjs
+      # Exactly these three compressed files passed strict FACS/rig checks,
+      # Chromium five-view rendering, and independent original-vs-candidate
+      # pixel comparison. All other hashes fail closed (no auto promotion).
+      - name: Promote exactly approved Meshopt files to main
+        if: github.ref == 'refs/heads/main' && success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum public/avatars/realistic/vitruvian-lab/head.glb | cut -d' ' -f1)" = "ecae4e537a5d5f4c8621149d72b956f3e3e60737d67cf504f56b591ea14ca9b2"
+          test "$(sha256sum public/avatars/realistic/vitruvian-lab/body.glb | cut -d' ' -f1)" = "b3dda085103e82ae9d92a4410c59b2b2148d187e2d8f8f2423e7b0918b49e50b"
+          test "$(sha256sum public/avatars/realistic/vitruvian-lab/hair.glb | cut -d' ' -f1)" = "f8a212919518b170ee7e15762f456e0b595eecb185cdbde1d11523c73a197ce7"
+          test "$(sha256sum artifacts/meshopt-research/head.glb | cut -d' ' -f1)" = "7abf991d7241cc3fa08e05020154fd9046dcc6b442fc22ddd60a84d147081f53"
+          test "$(sha256sum artifacts/meshopt-research/body.glb | cut -d' ' -f1)" = "6b43ff5e61f67efe490e63cdd95280130f4c87b8cee18d3a0df443ac5acf9665"
+          test "$(sha256sum artifacts/meshopt-research/hair.glb | cut -d' ' -f1)" = "03f2db80bb0fe5f239ede426afe634d0ada15c4fa5daa70aff0fc45026c472f7"
+          cp artifacts/meshopt-research/{head,body,hair}.glb public/avatars/realistic/vitruvian-lab/
+          # The existing SW must never serve stale uncompressed GLBs by URL.
+          sed -i "s/mira-room-glb-v1/mira-room-glb-v2/g" public/sw.js
+          npm test
+          npm run build
+          npm run check:artifact
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/avatars/realistic/vitruvian-lab/{head,body,hair}.glb public/sw.js
+          git commit -m "perf(mira3d): ship validated 6.4 MiB Meshopt GLBs and invalidate old cache"
+          git pull --rebase origin main
+          git push origin HEAD:main
       - name: Upload unapproved candidates and measurements
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
