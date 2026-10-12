@@ -380,23 +380,12 @@ export function useVisionSpatialRuntime(options: any) {
       const roomVisible = !settingsOpen && Boolean(document.querySelector(
         '.photo-mira[data-room3d-active="true"] .pm-room3d-stage',
       ));
-      const roomMotion = roomGestureRef.current.update({
+      const roomSteer = roomGestureRef.current.update({
         hands: snapshot?.handSeen ? rawHands : [],
         now, frameAt: handFrameAt,
         enabled: roomVisible && !spatialFrameNext.focus &&
-          !spatialFrameNext.grabbing && spatialFrameNext.events.length===0 &&
-          !twoHandsActive && !primaryPinching,
+          !spatialFrameNext.grabbing && spatialFrameNext.events.length===0,
       });
-      // The two-pinched-hands zoom lane is only allowed when NO spatial
-      // object/window is in focus. It cannot activate buttons or OS actions.
-      const twoHandRoomMotion = roomGestureRef.current.update({
-        hands: snapshot?.handSeen ? rawHands : [],
-        now, frameAt: handFrameAt,
-        enabled: roomVisible && !spatialFrameNext.focus &&
-          !spatialFrameNext.grabbing && spatialFrameNext.events.length===0 &&
-          (twoHandsActive || (rawHands.length===2 && rawHands.every((h:any)=>h.pinching))),
-      });
-      const roomSteer = roomMotion || twoHandRoomMotion;
       if(roomSteer){
         window.dispatchEvent(new CustomEvent('mira:room-gesture',{detail:roomSteer}));
         current?.noteSpatialHandAction(handFrameAt,now);
