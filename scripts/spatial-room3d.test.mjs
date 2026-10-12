@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {isRoomWalkable,moveRoomCamera,ROOM_OBSTACLES} from '../src/presence/room-navigation.ts';
+import {roomMaxPixelRatio} from '../src/presence/room-render-budget.ts';
 
 const room=readFileSync('src/presence/PhotorealRoom3D.tsx','utf8');
 const vrm=readFileSync('src/presence/RoomMiraVRM.tsx','utf8');
@@ -268,4 +269,14 @@ test('non-clearcoated room furniture uses standard PBR to avoid physical shader 
  assert.match(luxury,/clearcoat>0[\s\S]*?<meshPhysicalMaterial/);
  assert.match(luxury,/: <meshStandardMaterial color=\{color\}/);
  assert.match(luxury,/useEffect\(\(\)=>\(\)=>geometry\.dispose\(\),\[geometry\]\)/);
+});
+
+test('DPR policy protects mobile GPU without reducing approved desktop detail',()=>{
+ assert.equal(roomMaxPixelRatio({viewportWidth:1366,deviceMemoryGb:8}),1.5);
+ assert.equal(roomMaxPixelRatio({viewportWidth:1920}),1.5);
+ assert.equal(roomMaxPixelRatio({viewportWidth:900,deviceMemoryGb:8}),1.25);
+ assert.equal(roomMaxPixelRatio({viewportWidth:1366,deviceMemoryGb:4}),1.25);
+ assert.equal(roomMaxPixelRatio({viewportWidth:390,deviceMemoryGb:4}),1);
+ assert.equal(roomMaxPixelRatio({viewportWidth:1366,saveData:true}),1);
+ assert.equal(roomMaxPixelRatio({viewportWidth:NaN}),1);
 });
