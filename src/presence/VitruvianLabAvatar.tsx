@@ -8,9 +8,10 @@ import {faceData} from '../core/face/face-tracker';
 import {visemesForSpeech} from './tts-visemes';
 import {companionReaction} from './companion-reaction';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
-import {poseMixamoHumanSeated} from './rigged-human-pose';
+import {poseVitruvianSeated} from './vitruvian-seated-pose';
 
 const LAB = 'avatars/realistic/vitruvian-lab/';
+const FIGURE_SCALE = 1.30;
 type Morph={mesh:THREE.Mesh;targets:Map<string,number>};
 type Props={state:MiraState;onReady:()=>void;
   onAssetStatus?:(s:'review'|'rejected'|'pending')=>void};
@@ -73,7 +74,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     const tex=new Map<string,THREE.Texture>(textures);
     if(cancelled){dispose();return;}
     // Change only explicit author-named material slots. Never globally tint skin.
-    function materialize(group:THREE.Object3D){
+    function materialize(group:THREE.Object3D,kind:'head'|'body'|'hair'){
      group.traverse(obj=>{
       if(!(obj instanceof THREE.Mesh))return;
       obj.castShadow=true;obj.receiveShadow=true;
@@ -84,7 +85,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        if(n==='vitskin'){
         out.map=tex.get('vit_face_bc')||null;out.normalMap=tex.get('vit_face_n')||null;
         out.roughnessMap=tex.get('vit_face_rough')||null;
-        out.normalScale.set(.36,.36);out.roughness=.9;
+        out.normalScale.set(.23,.23);out.roughness=.94;
        }else if(n==='vitbody'){
         out.map=tex.get('vit_body_bc')||null;out.normalMap=tex.get('vit_body_n')||null;
         out.roughnessMap=tex.get('vit_body_rough')||null;
@@ -97,11 +98,11 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.map=null;out.color.set('#28252e');out.roughness=.77;out.metalness=.02;
        }else if(n==='vitshoes'){
         out.map=null;out.color.set('#35242d');out.roughness=.37;out.metalness=.08;
-       }else if(n==='vithair'){
+       }else if(kind==='hair'||n==='vithair'){
         out.map=tex.get('vit_hair_diffuse')||null;out.normalMap=tex.get('vit_hair_normal')||null;
         out.alphaMap=tex.get('vit_hair_opacity')||null;
-        out.color.set('#392d32');out.normalScale.set(.35,.35);
-        out.side=THREE.DoubleSide;out.alphaTest=.59;out.transparent=false;out.depthWrite=true;
+        out.color.set('#281a24');out.normalScale.set(.23,.23);
+        out.side=THREE.DoubleSide;out.alphaTest=.68;out.transparent=false;out.depthWrite=true;
         out.roughness=.85;
        }else if(n.startsWith('vitiris')){
         out.map=tex.get('vit_iris')||null;out.roughness=.26;
@@ -115,7 +116,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
       obj.material=Array.isArray(obj.material)?obj.material.map(update):update(obj.material);
      });
     }
-    for(const o of owned)materialize(o);
+    materialize(head.scene,'head');
+    materialize(body.scene,'body');
+    materialize(hair.scene,'hair');
     body.scene.updateMatrixWorld(true);
     // GLTFLoader sanitizes ':' in Mixamo names and may add suffixes for
     // duplicates. Resolve from actual THREE.Bone instances, not raw glTF names.
@@ -137,7 +140,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     authored.matrix.copy(restInverse);
     authored.add(head.scene);authored.add(hair.scene);
     headBone.add(authored);
-    if(!poseMixamoHumanSeated(body.scene))
+    if(!poseVitruvianSeated(body.scene))
      throw Error('Human seated rig incompatible');
     root.add(body.scene);
     // Place the ACTUAL pelvis in the lounge seat, rather than guessing a
@@ -154,7 +157,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     const pelvisWorld=new THREE.Vector3();
     hips[0].getWorldPosition(pelvisWorld);
     if(!Number.isFinite(pelvisWorld.y))throw Error('Human pelvis transform invalid');
-    root.position.set(-pelvisWorld.x,.58-pelvisWorld.y,1.70-pelvisWorld.z);
+    root.position.set(-pelvisWorld.x,.58/FIGURE_SCALE-pelvisWorld.y,1.70/FIGURE_SCALE-pelvisWorld.z);
     root.updateMatrixWorld(true);
     const morphs:Morph[]=[];
     head.scene.traverse(o=>{
@@ -223,7 +226,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
  });
  // The source human faces +Z. Do NOT rotate by PI or the visitor sees its back.
  // Pose / position are computed from the real pelvis bone above.
- return scene?<group rotation={[0,0,0]} scale={.98}>
+ return scene?<group rotation={[0,0,0]} scale={FIGURE_SCALE}>
   <primitive object={scene}/>
  </group>:null;
 }
