@@ -19,3 +19,6 @@ Manual specialist review of actual 3D model quality across five views, healthy e
 
 ## 12 Oct follow-up — experimental eye-visibility repair
 The five-view 3D screenshot still showed featureless bright white eyes at the original calibrated iris offset, implying the full opaque sclera primitive masks the iris in rendered space. In the Lab-only renderer, preserve the original eye geometry but disable the front sclera material; use the source rear eye disc as a warm eye-white underlay and reduce the iris diffuse multiplier so a real pupil/iris can be seen. This is an **unreviewed hypothesis** pending fresh visual QA. Denser hair cutout uses a lower alpha test threshold (0.07), still without software-unfriendly alpha-to-coverage. Production manifest stays pending.
+
+## Follow-up — physical scalp underlay and face-close QA
+A new crown-only, low-poly hemispherical underlay is parented to the original source head in the experimental Lab. It covers hair-card perforation without recoloring or flattening the source hair. A reversible `?scalp=original` switch allows source-vs-underlay comparison. The sixth keyboard camera preset (`6`) adds a close frontal head inspection to Visual QA; the default view and the five established room presets remain unchanged. None of this approves the candidate for production.

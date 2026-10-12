@@ -51,6 +51,14 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
    viewCaptures.push(png);
    await info.attach('vitruvian-human-view-'+preset,{path,contentType:'image/png'});
   }
+  // Capture a close-up too: the previous five distant shots concealed
+  // tiny glowing pupils and perforated scalp hair despite all tests passing.
+  await page.keyboard.press('6');
+  await page.waitForTimeout(350);
+  await expect(room).toHaveAttribute('data-avatar-status','review');
+  const facePath=join(process.cwd(),'artifacts','visual-qa','vitruvian-human-lab-face-close.png');
+  await page.screenshot({path:facePath,fullPage:false,animations:'disabled'});
+  await info.attach('vitruvian-human-face-close',{path:facePath,contentType:'image/png'});
   // Guard against five cosmetically renamed identical screenshots.
   expect(new Set(viewCaptures.map(x=>x.toString('base64'))).size).toBeGreaterThanOrEqual(3);
   const metrics=await page.evaluate(()=>{

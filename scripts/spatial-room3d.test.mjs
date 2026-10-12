@@ -53,7 +53,7 @@ test('camera supports 360 orbit and genuine translation without stealing chat ke
  for(const token of ['onPointerDown={pointerDown}','onPointerMove={pointerMove}',
     'setPointerCapture','controls.current.yaw','controls.current.pitch','KeyW','KeyA','KeyS','KeyD',
     'camera.position.set(v.x,1.77,v.z)','camera.rotation.set(v.pitch,v.yaw,0',
-    'moveRoomCamera({x:v.x,z:v.z}','closest(\'input,textarea,select','Digit([1-5])',
+    'moveRoomCamera({x:v.x,z:v.z}','closest(\'input,textarea,select','Digit([1-6])',
     'window.removeEventListener(\'keydown\',keydown)']) {
     assert.ok(room.includes(token),'Missing camera part '+token);
  }
@@ -279,4 +279,12 @@ test('DPR policy protects mobile GPU without reducing approved desktop detail',(
  assert.equal(roomMaxPixelRatio({viewportWidth:390,deviceMemoryGb:4}),1);
  assert.equal(roomMaxPixelRatio({viewportWidth:1366,saveData:true}),1);
  assert.equal(roomMaxPixelRatio({viewportWidth:NaN}),1);
+});
+
+
+test('developer sixth camera preset reveals face and scalp without changing default room framing',()=>{
+ assert.match(room,/const makeFaceClosePreset=/);
+ assert.match(room,/makeFaceClosePreset\(\)/);
+ assert.match(room,/Math\.atan2\(1\.62-1\.77,3\.05-PORTRAIT_TARGET\.z\)/);
+ assert.match(room,/Digit\(\[1-6\]\)/);
 });

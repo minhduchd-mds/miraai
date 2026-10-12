@@ -22,12 +22,17 @@ const makePortraitPreset=(x:number,z:number)=>{
  const planar=Math.hypot(dx,dz);
  return {x,z,yaw:Math.atan2(-dx,-dz),pitch:Math.atan2(PORTRAIT_TARGET.y-1.77,planar)};
 };
+// Research-only sixth viewpoint frames eyes and scalp at usable resolution.
+// It does not change the default camera or the five established room presets.
+const makeFaceClosePreset=()=>({x:0,z:3.05,yaw:0,
+ pitch:Math.atan2(1.62-1.77,3.05-PORTRAIT_TARGET.z)});
 const PRESETS=[
  makePortraitPreset(0,4.85),    // face and full seated figure
  makePortraitPreset(-2.45,4.05), // left three-quarter
  makePortraitPreset(-3.0,1.74),  // left profile
  makePortraitPreset(2.45,4.05),  // right three-quarter
  makePortraitPreset(0,-1.25),   // rear silhouette and hair
+ makeFaceClosePreset(),         // QA close portrait, keyboard 6
 ] as const;
 interface Room3DProps {scene:MiraPresenceScene;state:MiraState;onReady:()=>void;onFailure:()=>void;}
 
@@ -108,7 +113,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      &&document.activeElement===stageRef.current?.closest('button.photo-mira');
    const keydown=(event:KeyboardEvent)=>{
      if(!canControl()||editable(event.target)||event.altKey||event.ctrlKey||event.metaKey)return;
-     const n=/^Digit([1-5])$/.exec(event.code);
+     const n=/^Digit([1-6])$/.exec(event.code);
      if(n){
        event.preventDefault();
        const index=Number(n[1])-1;

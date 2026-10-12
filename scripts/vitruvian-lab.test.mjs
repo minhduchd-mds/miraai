@@ -200,3 +200,13 @@ test('failed or cancelled Human Lab assets use settled cleanup, never leave orph
  assert.ok(source.includes("textureResults.some(result=>result.status==='rejected')"));
  assert.ok(source.includes('VITE_MIRA_3D_ASSET_BASE_URL'));
 });
+
+
+test('experimental Human Lab scalp underlay is actual tracked geometry and stays opt-out',()=>{
+ const src=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
+ assert.match(src,/new THREE\.SphereGeometry\(1,40,24,0,Math\.PI\*2,0,Math\.PI\*\.52\)/);
+ assert.match(src,/head\.scene\.add\(scalp\)/);
+ assert.match(src,/scalp\.castShadow=false;scalp\.receiveShadow=true/);
+ assert.match(src,/get\('scalp'\)!=='original'/);
+ assert.match(src,/MiraLabScalpUnderlay/);
+});
