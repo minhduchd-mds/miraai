@@ -95,29 +95,33 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         // look without changing any scene or supplying a fake 2D overlay.
         out.map=null;out.color.set('#b37c87');out.roughness=.57;out.metalness=.025;
        }else if(n==='vitpants'){
-        out.map=null;out.color.set('#65575f');out.roughness=.85;out.metalness=.012;
+        out.map=null;out.color.set('#65575f');out.roughness=.89;out.metalness=.012;
        }else if(n==='vitshoes'){
         out.map=null;out.color.set('#554448');out.roughness=.42;out.metalness=.04;
        }else if(kind==='hair'||n==='vithair'){
-        out.map=tex.get('vit_hair_diffuse')||null;out.normalMap=tex.get('vit_hair_normal')||null;
+        // Authored hair diffuse is near-black throughout; a pale tint still
+        // multiplies down to black. Use a warm PBR albedo while retaining
+        // authored card opacity, geometry and normal detail.
+        out.map=null;out.normalMap=tex.get('vit_hair_normal')||null;
         out.alphaMap=tex.get('vit_hair_opacity')||null;
         // Keep authored strands warm and legible; multiplying by near-black
         // destroyed the source albedo and made solid black hair curtains.
-        out.color.set('#fff0e4');out.normalScale.set(.20,.20);
+        out.color.set('#947567');out.normalScale.set(.15,.15);
         out.side=THREE.DoubleSide;out.alphaTest=.63;out.transparent=false;out.depthWrite=true;
         out.roughness=.85;
        }else if(n.startsWith('vitcornea')){
         // Source cornea imported as an opaque white shell. It previously
         // obscured the iris and made both eyes look fluorescent white.
         out.map=null;out.color.set('#ffffff');out.roughness=.08;
-        out.metalness=0;out.transparent=true;out.opacity=.09;
-        out.depthWrite=false;out.side=THREE.FrontSide;
+        out.metalness=0;out.transparent=true;out.opacity=0;
+        out.depthWrite=false;out.visible=false;
        }else if(n.startsWith('viteyeback')){
         out.map=null;out.color.set('#362c29');out.roughness=.64;
        }else if(n.startsWith('vitiris')){
-        out.map=tex.get('vit_iris')||null;out.color.set('#f8f1e9');out.roughness=.36;
+        // Prevent washed-out texture from producing glowing white irises.
+        out.map=null;out.color.set('#4c3429');out.roughness=.62;
        }else if(n.startsWith('vitsclera')){
-        out.map=tex.get('vit_sclera')||null;out.color.set('#e7d8cc');out.roughness=.56;
+        out.map=null;out.color.set('#d5bfb2');out.roughness=.68;
        }else if(n==='vitmouth'){
         out.map=tex.get('vit_mouth')||null;out.roughness=.72;
        }else return m;
