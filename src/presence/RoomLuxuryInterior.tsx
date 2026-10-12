@@ -159,49 +159,33 @@ function WardrobeSet(){
 }
 
 function MiraChairSet(){
-  // Seat geometry stays BELOW the avatar's lap; the back is behind the torso.
-  // This avoids the previous giant foreground beanbag occluding the character.
+  // Human-scale lounge chair. The previous sphere-backed loveseat visually
+  // swallowed the avatar in front, profile and rear views.
+  // Keep the same warm bedroom, rug and furniture placement; fix only the seat.
   return <group name="mira-indoor-lounge">
-    <mesh position={[0,.025,1.95]} rotation={[-Math.PI/2,0,0]} receiveShadow>
-      <circleGeometry args={[2.1,64]}/>
-      <meshStandardMaterial color="#f0cdd7" roughness={1}/>
+    <mesh position={[0,.025,1.90]} rotation={[-Math.PI/2,0,0]} receiveShadow>
+      <circleGeometry args={[1.94,64]}/>
+      <meshStandardMaterial color="#ebd8d5" roughness={.98}/>
     </mesh>
-    <mesh position={[0,.94,1.28]} castShadow receiveShadow scale={[1.12,.73,.29]}>
-      <sphereGeometry args={[1,40,26]}/>
-      <meshPhysicalMaterial color="#f5e8e3" roughness={.98} sheen={.52} sheenRoughness={.9}/>
-    </mesh>
-    <mesh position={[0,.19,1.42]} castShadow receiveShadow scale={[1.11,.15,.46]}>
-      <sphereGeometry args={[1,40,24]}/>
-      <meshPhysicalMaterial color="#f8eeea" roughness={.98} sheen={.45} sheenRoughness={.9}/>
-    </mesh>
-    {[-1,1].map((side)=><mesh key={side}
-      position={[side*1.09,.59,1.86]} rotation={[0,0,-side*.14]}
-      castShadow receiveShadow scale={[.23,.40,.49]}>
-      <sphereGeometry args={[1,28,18]}/>
-      <meshStandardMaterial color="#f4dcdf" roughness={1}/>
-    </mesh>)}
-    <mesh position={[-.93,.72,1.97]} rotation={[.10,0,-.20]}
-      scale={[.35,.30,.17]} castShadow>
-      <sphereGeometry args={[1,24,16]}/>
-      <meshStandardMaterial color="#eebfcf" roughness={1}/>
-    </mesh>
-    {/* Smiling companion plush placed outside Mira's silhouette. */}
-    <group position={[1.05,.72,1.79]}>
-      <mesh castShadow scale={[.17,.19,.15]}>
-        <sphereGeometry args={[1,20,14]}/>
-        <meshStandardMaterial color="#f5cad7" roughness={1}/>
-      </mesh>
-      {[-.11,.11].map(x=><mesh key={x}
-        position={[x,.20,-.02]} scale={[.05,.09,.055]} castShadow>
-        <sphereGeometry args={[1,12,10]}/>
-        <meshStandardMaterial color="#efb7c7" roughness={1}/>
-      </mesh>)}
-      {[-.06,.06].map(x=><mesh key={x}
-        position={[x,.033,.15]} scale={[.012,.014,.007]}>
-        <sphereGeometry args={[1,10,8]}/>
-        <meshBasicMaterial color="#543b49"/>
-      </mesh>)}
-    </group>
+    {/* Low upholstered seat: its top is y=.43, under the anchored pelvis. */}
+    <Rounded at={[0,.34,1.73]} size={[1.70,.18,1.25]}
+      color="#e4d7d1" radius={.085} roughness={.99}/>
+    {/* A slim backrest behind shoulders, not an occluding ellipsoid. */}
+    <Rounded at={[0,1.00,1.08]} size={[1.72,1.24,.19]}
+      color="#e7dcd6" radius={.15} roughness={.99} rotation={[-.10,0,0]}/>
+    <Rounded at={[0,.87,1.215]} size={[1.48,.54,.11]}
+      color="#d5c6c2" radius={.055} roughness={1} rotation={[-.09,0,0]}/>
+    {[-1,1].map(side=><group key={side}>
+      <Rounded at={[side*.87,.65,1.68]} size={[.16,.20,.73]}
+        color="#e1d3cf" radius={.07} roughness={.98}/>
+      <Rounded at={[side*.71,.205,1.33]} size={[.085,.36,.095]}
+        color="#625655" radius={.022} metalness={.48}/>
+      <Rounded at={[side*.71,.205,2.12]} size={[.085,.36,.095]}
+        color="#625655" radius={.022} metalness={.48}/>
+    </group>)}
+    {/* Single decorative pillow stays away from head and upper body. */}
+    <Rounded at={[-.60,.99,1.29]} size={[.29,.33,.12]}
+      color="#b58b93" radius={.055} roughness={1} rotation={[0,-.06,-.15]}/>
   </group>;
 }
 
