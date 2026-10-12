@@ -11,6 +11,26 @@ const hash=b=>createHash('sha256').update(b).digest('hex');
 const names=g=>(g.nodes||[]).map(n=>n.name||'').filter(Boolean);
 const targets=g=>(g.meshes||[]).flatMap(m=>m.extras?.targetNames||[]);
 const bones=g=>(g.skins||[]).map(s=>s.joints?.length||0);
+// glTF Transform may split one skin between multiple distinct skinned
+// primitives. This is safe only when every resulting skin binds the same
+// named skeleton, with complete inverse bind matrices.
+const skinSignatures=g=>(g.skins||[]).map(s=>{
+  const joints=(s.joints||[]).map(i=>String(g.nodes?.[i]?.name||''));
+  const bind=g.accessors?.[s.inverseBindMatrices];
+  return JSON.stringify({
+    joints,
+    root:String(g.nodes?.[s.skeleton]?.name||''),
+    inverseBindCount:bind?.count||0,
+  });
+});
+const identicalSkins=(before,after)=>{
+ const original=[...new Set(skinSignatures(before))].sort();
+ const compressed=[...new Set(skinSignatures(after))].sort();
+ return JSON.stringify(original)===JSON.stringify(compressed) &&
+  (after.nodes||[]).every(node=>
+    node.skin===undefined || Number.isInteger(node.skin) &&
+      node.skin>=0 && node.skin<(after.skins||[]).length);
+};
 const prims=g=>(g.meshes||[]).flatMap(m=>m.primitives||[]);
 const topology=g=>prims(g).map(p=>({
   attributes:Object.keys(p.attributes||{}).sort(),
@@ -27,8 +47,8 @@ export function verifyMeshoptCandidate(original,candidate,name){
    failure.push('EXT_meshopt_compression not required');
  if((before.animations||[]).length!==(after.animations||[]).length)
    failure.push('animation clips changed');
- if(JSON.stringify(bones(before))!==JSON.stringify(bones(after)))
-   failure.push('skin joints changed');
+ if(!identicalSkins(before,after))
+   failure.push('skin skeleton or inverse binds changed');
  if(JSON.stringify([...names(before)].sort())!==JSON.stringify([...names(after)].sort()))
    failure.push('named hierarchy changed');
  if(JSON.stringify([...targets(before)].sort())!==JSON.stringify([...targets(after)].sort()))
