@@ -178,7 +178,7 @@ test('opt-in CDN origin must be HTTPS and fallback remains same-origin',async()=
 });
 test('failed or cancelled Human Lab assets use settled cleanup, never leave orphan GLBs',()=>{
  const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
- assert.match(source,/Promise\\.allSettled\\(\\[/);
+ assert.ok(source.includes('Promise.allSettled(['));
  assert.ok(source.includes('for(const target of [root,...owned])'));
  assert.ok(source.includes('for(const part of [headResult,bodyResult,hairResult])'));
  assert.ok(source.includes("if(part.status==='fulfilled')owned.push(part.value.scene)"));
