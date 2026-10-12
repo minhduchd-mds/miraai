@@ -97,6 +97,6 @@ test('the local iris depth correction clears the source sclera instead of shifti
  }
  assert.equal(checked,2,'left/right eyes must be individually checked');
  const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
- assert.match(source,/obj\\.position\\.z\\+=\\.0059/);
+ assert.ok(source.includes('obj.position.z+=.0059'))
  assert.match(source,/irisesAdjusted!==2/);
 });
