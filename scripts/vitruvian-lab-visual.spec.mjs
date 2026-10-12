@@ -3,6 +3,7 @@ import {mkdir} from 'node:fs/promises';
 import {join} from 'node:path';
 
 test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints',async({browser},info)=>{
+ test.setTimeout(360_000); // 5 Chromium/WebGL renders exceed 180s on software GPU runners.
  const ctx=await browser.newContext({viewport:{width:1366,height:768},
    deviceScaleFactor:1,reducedMotion:'no-preference',colorScheme:'dark'});
  try{
