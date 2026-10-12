@@ -120,9 +120,11 @@ test('hair shoulder presentation shader remains alpha-tested and never changes s
   fragmentShader:'#include <common>\n#include <alphatest_fragment>'
  };
  mat.onBeforeCompile(shader,{});
- assert.match(shader.vertexShader,/varying float miraHairWorldY/);
+ assert.match(shader.vertexShader,/varying vec3 miraHairWorldPosition/);
  assert.match(shader.vertexShader,/modelMatrix\*vec4\(transformed,1\.0\)/);
- assert.match(shader.fragmentShader,/smoothstep\(1\.090,1\.250,miraHairWorldY\)/);
+ assert.match(shader.fragmentShader,/miraHairStart/);
+ assert.match(shader.fragmentShader,/smoothstep\(miraHairStart,miraHairStart \+ 0\.190,miraHairWorldPosition\.y\)/);
+ assert.ok(shader.fragmentShader.includes('0.028*sin('));
  assert.ok(shader.fragmentShader.indexOf('smoothstep')<shader.fragmentShader.indexOf('#include <alphatest_fragment>'));
  mat.dispose();
 });
@@ -132,6 +134,7 @@ test('human lab cloth uses PBR fabric sheen and separately preserves skin textur
  assert.ok(!src.includes('MeshPhysicalMaterial().copy(m)'));
  assert.ok(src.includes('out.sheen=.44'));
  assert.ok(src.includes('applyHumanHairPresentation(out)'));
+ assert.ok(src.includes("get('hairStyle')!=='long'"));
  assert.ok(src.includes('out.map=tex.get(\'vit_face_bc\')'));
  assert.ok(!src.includes('hair.geometry.scale('));
 });
