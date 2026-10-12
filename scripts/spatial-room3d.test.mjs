@@ -240,8 +240,8 @@ test('human lab uses physically seated pelvis, non-black satin garment, and clea
  assert.match(source,/root\.position\.set\(-pelvisWorld\.x,\.58\/FIGURE_SCALE-pelvisWorld\.y,1\.70\/FIGURE_SCALE-pelvisWorld\.z\)/);
  assert.match(source,/rotation=\{\[0,0,0\]\}/);
  assert.match(source,/n==='vitshirt'/);
- assert.match(source,/out\.color\.set\('#743244'\)/);
- assert.match(source,/out\.alphaTest=\.68/);
+ assert.match(source,/out\.color\.set\('#b37c87'\)/);
+ assert.match(source,/out\.alphaTest=\.63/);
  assert.match(source,/poseVitruvianSeated\(body\.scene\)/);
  assert.match(readFileSync('src/presence/vitruvian-seated-pose.ts','utf8'),/orient\(leftKnee,leftFoot/);
 });
