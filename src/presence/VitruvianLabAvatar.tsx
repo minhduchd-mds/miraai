@@ -83,15 +83,26 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        const out=m.clone();
        if(n==='vitskin'){
         out.map=tex.get('vit_face_bc')||null;out.normalMap=tex.get('vit_face_n')||null;
-        out.roughnessMap=tex.get('vit_face_rough')||null;out.roughness=.88;
+        out.roughnessMap=tex.get('vit_face_rough')||null;
+        out.normalScale.set(.36,.36);out.roughness=.9;
        }else if(n==='vitbody'){
         out.map=tex.get('vit_body_bc')||null;out.normalMap=tex.get('vit_body_n')||null;
-        out.roughnessMap=tex.get('vit_body_rough')||null;out.roughness=.9;
+        out.roughnessMap=tex.get('vit_body_rough')||null;
+        out.normalScale.set(.4,.4);out.roughness=.91;
+       }else if(n==='vitshirt'){
+        // Wine-coloured satin tailoring replaces the flat black/white T-shirt
+        // look without changing any scene or supplying a fake 2D overlay.
+        out.map=null;out.color.set('#743244');out.roughness=.43;out.metalness=.08;
+       }else if(n==='vitpants'){
+        out.map=null;out.color.set('#28252e');out.roughness=.77;out.metalness=.02;
+       }else if(n==='vitshoes'){
+        out.map=null;out.color.set('#35242d');out.roughness=.37;out.metalness=.08;
        }else if(n==='vithair'){
         out.map=tex.get('vit_hair_diffuse')||null;out.normalMap=tex.get('vit_hair_normal')||null;
         out.alphaMap=tex.get('vit_hair_opacity')||null;
-        out.side=THREE.DoubleSide;out.alphaTest=.38;out.transparent=false;out.depthWrite=true;
-        out.roughness=.77;
+        out.color.set('#392d32');out.normalScale.set(.35,.35);
+        out.side=THREE.DoubleSide;out.alphaTest=.59;out.transparent=false;out.depthWrite=true;
+        out.roughness=.85;
        }else if(n.startsWith('vitiris')){
         out.map=tex.get('vit_iris')||null;out.roughness=.26;
        }else if(n.startsWith('vitsclera')){
@@ -129,6 +140,22 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     if(!poseMixamoHumanSeated(body.scene))
      throw Error('Human seated rig incompatible');
     root.add(body.scene);
+    // Place the ACTUAL pelvis in the lounge seat, rather than guessing a
+    // whole-model offset. The old z=2.28 put hips in front of the chair
+    // and left the legs folding over the cushion instead of sitting in it.
+    const hips:THREE.Bone[]=[];
+    body.scene.traverse(node=>{
+      if(node instanceof THREE.Bone &&
+         /^(?:mixamorig)?hips(?:\\d+)?$/i.test(node.name.replace(/[^a-z0-9]/gi,'')))
+        hips.push(node);
+    });
+    if(!hips.length)throw Error('Human pelvis bone missing');
+    body.scene.updateMatrixWorld(true);
+    const pelvisWorld=new THREE.Vector3();
+    hips[0].getWorldPosition(pelvisWorld);
+    if(!Number.isFinite(pelvisWorld.y))throw Error('Human pelvis transform invalid');
+    root.position.set(-pelvisWorld.x,.58-pelvisWorld.y,1.70-pelvisWorld.z);
+    root.updateMatrixWorld(true);
     const morphs:Morph[]=[];
     head.scene.traverse(o=>{
      if(!(o instanceof THREE.Mesh)||!o.morphTargetDictionary||!o.morphTargetInfluences)return;
@@ -194,8 +221,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    }
   }
  });
- // Place verified 1.7m human into the existing hero lounge chair.
- return scene?<group position={[0,-.08,2.28]} rotation={[0,Math.PI,0]} scale={.98}>
+ // The source human faces +Z. Do NOT rotate by PI or the visitor sees its back.
+ // Pose / position are computed from the real pelvis bone above.
+ return scene?<group rotation={[0,0,0]} scale={.98}>
   <primitive object={scene}/>
  </group>:null;
 }
