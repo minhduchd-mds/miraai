@@ -7,6 +7,19 @@ import {
 const THEME_STORAGE = 'mira.theme';
 const AFFECT_FOLLOW_STORAGE = 'mira.affect.follow';
 const PRESENCE_RETURN_STORAGE = 'mira.presence.return-samples.v1';
+const FEMALE_PRESENTATION_STORAGE = 'mira.female.presentation.v1';
+export type FemalePresentation = 'portrait' | 'scene';
+export function loadFemalePresentation(): FemalePresentation {
+  try {
+    const url=new URLSearchParams(location.search).get('appearance');
+    if(url==='portrait'||url==='scene')return url;
+    return localStorage.getItem(FEMALE_PRESENTATION_STORAGE)==='scene'?'scene':'portrait';
+  }catch{return 'portrait';}
+}
+export function saveFemalePresentation(mode: FemalePresentation): void {
+  try {localStorage.setItem(FEMALE_PRESENTATION_STORAGE,mode);}catch{/* optional local-only setting */}
+}
+
 
 export function loadTheme(): Theme {
   try {

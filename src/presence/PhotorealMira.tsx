@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import type { MiraState } from '../core/types';
+import type { FemalePresentation } from '../app/app-preferences';
+import LiveFemalePortrait from './LiveFemalePortrait';
 import type { ObservedMood } from '../intelligence/affect/mood-engine';
 import type { EnvironmentLabel } from '../core/vision/environment-model';
 import { audioLevel } from '../core/audio-level';
@@ -29,6 +31,7 @@ import './photoreal-mira.css';
 
 interface Props {
   state: MiraState;
+  femalePresentation?: FemalePresentation;
   onActivate: () => void;
   contextText?: string;
   live?: boolean;
@@ -101,6 +104,7 @@ const WAVE_BARS = Array.from({ length: 31 }, (_, index) => index);
 
 export default function PhotorealMira({
   state,
+  femalePresentation = 'portrait',
   onActivate,
   live = false,
   voiceReady = false,
@@ -550,6 +554,7 @@ export default function PhotorealMira({
       data-room3d-active={room3DActive ? 'true' : 'false'}
       data-room3d-ready={room3DActive && room3DReady ? 'true' : 'false'}
       data-presence-scene={presenceScene}
+      data-female-presentation={femalePresentation}
       onClick={onActivate}
       onPointerMove={handlePointerMove}
       onPointerLeave={resetPointer}
@@ -633,6 +638,10 @@ export default function PhotorealMira({
         {!room3DActive && <span className="pm-depth-grain" />}
       </span>
 
+      {!room3DActive && femalePresentation==='portrait' && (
+        <LiveFemalePortrait src={sceneAsset} state={state} reducedMotion={reducedMotion}
+          gazeX={gazeX} gazeY={gazeY} quality={visualQuality}/>
+      )}
       {!room3DActive && <span className="pm-bedroom-tint" aria-hidden="true" />}
 
       {presenceVisual.character && !room3DActive && (

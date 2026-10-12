@@ -74,6 +74,7 @@ import { usePresenceReturnLearning } from './usePresenceReturnLearning';
 import { useVoiceSessionLifecycle } from './useVoiceSessionLifecycle';
 import { useSpatialDomFeedback } from './useSpatialDomFeedback';
 import { useAppPresentationState } from './useAppPresentationState';
+import { loadFemalePresentation, saveFemalePresentation, type FemalePresentation } from './app-preferences';
 import { useVisionTransport } from './useVisionTransport';
 import { useWebXRTransport } from './useWebXRTransport';
 import { useSpatialLayoutLifecycle } from './useSpatialLayoutLifecycle';
@@ -128,6 +129,16 @@ export default function AppV2() {
   } = useFaceSocialLifecycle();
   const [gazeTelemetry, setGazeTelemetry] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // A photoreal, consent-safe portrait presentation for the existing Mira face.
+  // This is not a synthetic video or a claimed photoreal 3D humanoid.
+  const [femalePresentation,setFemalePresentation] = useState<FemalePresentation>(loadFemalePresentation);
+  const toggleFemalePresentation=useCallback(()=>{
+    setFemalePresentation(current=>{
+      const next=current==='portrait'?'scene':'portrait';
+      saveFemalePresentation(next);
+      return next;
+    });
+  },[]);
   const {
     cameraPreviewRef,
     visionModulesRef,
@@ -735,6 +746,13 @@ export default function AppV2() {
               <span className="sr-only">{webXRSnapshot.active ? 'Thoát WebXR' : 'Mở WebXR AR'}</span>
             </button>
           )}
+          <button type="button" className={`v2-female-mode${femalePresentation==='portrait'?' active':''}`}
+            onClick={toggleFemalePresentation}
+            aria-pressed={femalePresentation==='portrait'}
+            title={femalePresentation==='portrait'?'Chuyển sang toàn cảnh':'Chuyển sang chân dung Mira'}
+            data-spatial-action="avatar.presentation.toggle"
+            data-spatial-label="Đổi chế độ nhân vật nữ"
+          ><span className="v2-female-mode-icon" aria-hidden="true"/><span className="sr-only">{femalePresentation==='portrait'?'Chế độ chân dung nữ, chuyển sang toàn cảnh':'Chế độ toàn cảnh, chuyển sang chân dung nữ'}</span></button>
           <button type="button" onClick={cycleTheme} title="Đổi màu" data-spatial-action="theme.cycle" data-spatial-label="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
           <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt" data-spatial-action="settings.open" data-spatial-label="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
         </nav>
@@ -838,6 +856,7 @@ export default function AppV2() {
           <Suspense fallback={<div className="voice-presence-loading" aria-hidden="true" />}>
           <PhotorealMira
             state={mira.state}
+            femalePresentation={femalePresentation}
             onActivate={activateVoice}
             contextText={constellationContext}
             live={mira.live}
