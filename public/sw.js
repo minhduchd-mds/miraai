@@ -3,7 +3,7 @@ const CACHE = 'mira-shell-v5';
 /* Large model assets live in an isolated, on-demand, versioned browser cache.
  * Do not preload them on startup, and never put user data in this cache. */
 const ROOM_3D_CACHE = 'mira-room-glb-v1';
-const ROOM_GLB_PATH = /(?:^|\\/)avatars\\/realistic\\/vitruvian-lab\\/(?:head|body|hair)\\.glb$/i;
+const ROOM_GLB_PATH = /(?:^|\/)avatars\/realistic\/vitruvian-lab\/(?:head|body|hair)\.glb$/i;
 const ROOM_GLB_MAX_BYTES = 18 * 1024 * 1024;
 const MAX_CACHE_ENTRIES = 128;
 const STATIC_DESTINATIONS = new Set(['script', 'style', 'image', 'font', 'manifest']);
@@ -82,7 +82,10 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
       const response = await fetch(request);
       const length = Number(response.headers.get('content-length') || 0);
-      if (canCache(response) && (length === 0 || length <= ROOM_GLB_MAX_BYTES)) {
+      const mime = String(response.headers.get('content-type') || '').toLowerCase();
+      const validBinary = /^(?:model\/gltf-binary|application\/octet-stream)(?:;|$)/.test(mime);
+      if (canCache(response) && validBinary &&
+          (length === 0 || length <= ROOM_GLB_MAX_BYTES)) {
         // A quota error must never block the first WebGL load.
         const store = cache.put(request, response.clone()).catch(() => {});
         if (typeof event.waitUntil === 'function') event.waitUntil(store);
