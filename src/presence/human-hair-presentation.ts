@@ -8,8 +8,8 @@ import * as THREE from 'three';
  */
 export const HUMAN_HAIR_PRESENTATION={
   fadeStartY:1.09,
-  fadeEndY:1.25,
-  revision:'human-hair-shoulder-cut-v1',
+  fadeEndY:1.28,
+  revision:'human-hair-layered-v2',
 } as const;
 
 export function applyHumanHairPresentation(material:THREE.MeshStandardMaterial):void{
@@ -19,16 +19,19 @@ export function applyHumanHairPresentation(material:THREE.MeshStandardMaterial):
     if(!shader.vertexShader.includes(vertexNeedle)||
        !shader.fragmentShader.includes(fragmentNeedle))return;
     shader.vertexShader=shader.vertexShader.replace('#include <common>',
-      '#include <common>\nvarying float miraHairWorldY;');
+      '#include <common>\nvarying vec3 miraHairWorldPosition;');
     shader.vertexShader=shader.vertexShader.replace(vertexNeedle,
-      vertexNeedle+'\nmiraHairWorldY=(modelMatrix*vec4(transformed,1.0)).y;');
+      vertexNeedle+'\nmiraHairWorldPosition=(modelMatrix*vec4(transformed,1.0)).xyz;');
     shader.fragmentShader=shader.fragmentShader.replace('#include <common>',
-      '#include <common>\nvarying float miraHairWorldY;');
+      '#include <common>\nvarying vec3 miraHairWorldPosition;');
     shader.fragmentShader=shader.fragmentShader.replace(fragmentNeedle,
-      'diffuseColor.a *= smoothstep('+
-       HUMAN_HAIR_PRESENTATION.fadeStartY.toFixed(3)+','+
-       HUMAN_HAIR_PRESENTATION.fadeEndY.toFixed(3)+
-       ',miraHairWorldY);\n'+fragmentNeedle);
+      'float miraHairLayer = 0.028*sin(13.0*miraHairWorldPosition.x + 21.0*miraHairWorldPosition.z)' +
+      ' + 0.018*sin(27.0*miraHairWorldPosition.z - 11.0*miraHairWorldPosition.x);\n' +
+      'float miraHairStart = '+HUMAN_HAIR_PRESENTATION.fadeStartY.toFixed(3)+
+      ' - 0.035*min(abs(miraHairWorldPosition.x),0.5) + miraHairLayer;\n' +
+      'diffuseColor.a *= smoothstep(miraHairStart,miraHairStart + '+
+       (HUMAN_HAIR_PRESENTATION.fadeEndY-HUMAN_HAIR_PRESENTATION.fadeStartY).toFixed(3)+
+       ',miraHairWorldPosition.y);\n'+fragmentNeedle);
   };
   material.customProgramCacheKey=()=>HUMAN_HAIR_PRESENTATION.revision;
   material.needsUpdate=true;
