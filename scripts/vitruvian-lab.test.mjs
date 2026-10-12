@@ -57,3 +57,25 @@ test('experimental hair GLB and skin eye hair PBR maps are real, not fake poster
  assert.match(source,/out\.alphaToCoverage=true/);
  assert.match(source,/out\.roughnessMap=null;out\.metalness=0/);
 });
+
+
+test('vendor eye geometry inspection reports actual iris, sclera, eyelid and cornea mesh slots',()=>{
+ const gltf=readGlbJson(readFileSync(join(base,'head.glb')));
+ const materials=gltf.materials||[],accessors=gltf.accessors||[];
+ const matches=[];
+ for(const [meshId,mesh] of (gltf.meshes||[]).entries()){
+  for(const [part,primitive] of (mesh.primitives||[]).entries()){
+   const name=String(materials[primitive.material]?.name||'');
+   if(!/iris|sclera|cornea|eye|tearline|caruncle/i.test(name))continue;
+   const accessor=accessors[primitive.attributes?.POSITION]||{};
+   matches.push({meshId,part,name,verts:accessor.count||0,
+     min:accessor.min||null,max:accessor.max||null,
+     nodes:(gltf.nodes||[]).filter(n=>n.mesh===meshId).map(n=>({
+      name:n.name||'',translation:n.translation||null,rotation:n.rotation||null}))});
+  }
+ }
+ assert.ok(matches.some(x=>/iris/i.test(x.name)),'PBR iris geometry must exist');
+ assert.ok(matches.some(x=>/sclera/i.test(x.name)),'Eye sclera geometry must exist');
+ // Logging bounded, public vendor mesh geometry only; no user/sensor details.
+ console.log('[Mira human-eye geometry]',JSON.stringify(matches).slice(0,6000));
+});
