@@ -18,8 +18,11 @@ function Rounded({at,size,color,radius=.11,roughness=.83,metalness=0,
   ),[size[0],size[1],size[2],radius]);
   useEffect(()=>()=>geometry.dispose(),[geometry]);
   return <mesh position={at} rotation={rotation} geometry={geometry} castShadow receiveShadow>
-    <meshPhysicalMaterial color={color} roughness={roughness} metalness={metalness}
-      clearcoat={clearcoat} emissive={emissive} emissiveIntensity={emissiveIntensity}/>
+    {clearcoat>0
+      ? <meshPhysicalMaterial color={color} roughness={roughness} metalness={metalness}
+          clearcoat={clearcoat} emissive={emissive} emissiveIntensity={emissiveIntensity}/>
+      : <meshStandardMaterial color={color} roughness={roughness} metalness={metalness}
+          emissive={emissive} emissiveIntensity={emissiveIntensity}/>}
   </mesh>;
 }
 
