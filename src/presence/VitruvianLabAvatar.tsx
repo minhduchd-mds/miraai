@@ -235,10 +235,9 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    r.headRest.y+motion.headYaw,r.headRest.z+reaction.headTilt);
   const poses:Record<string,number>={
    Eyes_Closed_Max:motion.blink,
-   // Source head is sculpted nearly squinting in its neutral pose.
-   // Keep an open-eyed attentive baseline and fade it out during blinks.
-   Eyes_Opened_Max_Left:.64*(1-motion.blink),
-   Eyes_Opened_Max_Right:.64*(1-motion.blink),
+   // Eye-open corrective shapes remain disabled until iris / sclera
+   // geometry is verified. The vendor asset reveals white eye surfaces
+   // at large amplitudes rather than realistic irises.
    Mouth_Large_Opened:jaw.current,
    Jaw_Lower:jaw.current*.22,
    Happy:smile.current,
