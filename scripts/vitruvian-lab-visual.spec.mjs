@@ -62,7 +62,8 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
   expect(metrics.count).toBeGreaterThanOrEqual(13);
   if(meshoptCandidate){
     const names=await page.evaluate(()=>performance.getEntriesByType('resource')
-      .map(x=>x.name).filter(x=>/\\/vitruvian-lab\\/meshopt\\/(?:head|body|hair)\\.glb$/.test(x)));
+      .map(x=>x.name).filter(x=>x.includes('/vitruvian-lab/meshopt/') &&
+        ['/head.glb','/body.glb','/hair.glb'].some(name=>x.endsWith(name)));
     expect(names).toHaveLength(3);
   }
   expect(consoleErrors).toEqual([]);
