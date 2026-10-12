@@ -10,6 +10,7 @@ import {companionReaction} from './companion-reaction';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {poseVitruvianSeated} from './vitruvian-seated-pose';
 import {applyHumanHairPresentation} from './human-hair-presentation';
+import {roomAssetLocation,loadRoomAsset} from './room-asset-location';
 
 const LAB = 'avatars/realistic/vitruvian-lab/';
 const FIGURE_SCALE = 1.30;
@@ -32,30 +33,51 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
  useEffect(()=>{
   let cancelled=false;
   const owned:THREE.Object3D[]=[];
+  const discardedMaterials=new Set<THREE.Material>();
   const maps:THREE.Texture[]=[];
   const root=new THREE.Group();
   const dispose=()=>{
    const visited=new Set<THREE.Material>();
    const geom=new Set<THREE.BufferGeometry>();
-   root.traverse(o=>{
-    if(!(o instanceof THREE.Mesh))return;
-    if(o.geometry)geom.add(o.geometry);
-    for(const mat of (Array.isArray(o.material)?o.material:[o.material]))
-     if(mat)visited.add(mat);
-   });
+   // A failed/cancelled load can occur BEFORE the imported head/hair have
+   // been attached to root. Reclaim every decoded GLB, not only mounted nodes.
+   for(const target of [root,...owned]){
+    target.traverse(o=>{
+     if(!(o instanceof THREE.Mesh))return;
+     if(o.geometry)geom.add(o.geometry);
+     for(const mat of (Array.isArray(o.material)?o.material:[o.material]))
+      if(mat)visited.add(mat);
+    });
+   }
    geom.forEach(x=>x.dispose());
-   visited.forEach(x=>x.dispose());
+   for(const m of discardedMaterials)visited.add(m);
+   visited.forEach(x=>{
+    const standard=x as THREE.MeshStandardMaterial;
+    // glTF may contain embedded textures independent of the nine separate
+    // authored PBR overrides. Release all owned GPU textures as well.
+    for(const key of ['map','normalMap','roughnessMap','metalnessMap','alphaMap',
+      'emissiveMap','aoMap'] as const){
+      const t=standard[key] as THREE.Texture|null|undefined;
+      if(t)t.dispose();
+    }
+    x.dispose();
+   });
    maps.forEach(x=>x.dispose());
   };
   async function load(){
    const prefix=import.meta.env.BASE_URL+LAB;
+   const sources=roomAssetLocation(import.meta.env.BASE_URL,
+      import.meta.env.VITE_MIRA_3D_ASSET_BASE_URL);
    const loader=new GLTFLoader(),texLoader=new THREE.TextureLoader();
+   const loadGLB=(name:string)=>loadRoomAsset(
+      sources.candidates(name),url=>loader.loadAsync(url));
+   const loadTexture=(name:string)=>loadRoomAsset(
+      sources.candidates(name+'.webp'),url=>texLoader.loadAsync(url));
    try{
     // A pending researcher-provided file cannot silently become production Mira.
     const [manifestResponse,head,body,hair]=await Promise.all([
      fetch(prefix+'manifest.json',{credentials:'same-origin'}),
-     loader.loadAsync(prefix+'head.glb'),loader.loadAsync(prefix+'body.glb'),
-     loader.loadAsync(prefix+'hair.glb')]);
+     loadGLB('head.glb'),loadGLB('body.glb'),loadGLB('hair.glb')]);
     owned.push(head.scene,body.scene,hair.scene);
     if(!manifestResponse.ok)throw Error('Human lab manifest missing');
     const manifest=await manifestResponse.json() as {status?:string;approved?:boolean;license?:string};
@@ -68,7 +90,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
      'vit_face_bc','vit_face_n','vit_body_bc','vit_body_n','vit_body_rough',
      'vit_hair_normal','vit_hair_opacity','vit_iris','vit_mouth'
     ].map(async key=>{
-      const tex=await texLoader.loadAsync(prefix+key+'.webp');
+      const tex=await loadTexture(key);
       tex.flipY=false;tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
       if(/_(bc|diffuse)$|vit_iris|vit_sclera|vit_mouth/.test(key))
         tex.colorSpace=THREE.SRGBColorSpace;
@@ -165,6 +187,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        }else if(n==='vitmouth'){
         out.map=tex.get('vit_mouth')||null;out.roughness=.72;
        }else return m;
+       discardedMaterials.add(m);
        out.needsUpdate=true;return out;
       };
       obj.material=Array.isArray(obj.material)?obj.material.map(update):update(obj.material);
