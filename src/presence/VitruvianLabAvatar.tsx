@@ -61,9 +61,12 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     const manifest=await manifestResponse.json() as {status?:string;approved?:boolean;license?:string};
     if(manifest.status!=='lab_only'||manifest.approved!==false||
        manifest.license!=='CC0-1.0')throw Error('Unreviewed human asset blocked');
+    // Only fetch maps actually bound to live PBR materials. The authored
+    // face roughness, hair diffuse and sclera maps stay in the asset archive
+    // but are deliberately unused after the current LAB material corrections.
     const textures=await Promise.all([
-     'vit_face_bc','vit_face_n','vit_face_rough','vit_body_bc','vit_body_n','vit_body_rough',
-     'vit_hair_diffuse','vit_hair_normal','vit_hair_opacity','vit_iris','vit_sclera','vit_mouth'
+     'vit_face_bc','vit_face_n','vit_body_bc','vit_body_n','vit_body_rough',
+     'vit_hair_normal','vit_hair_opacity','vit_iris','vit_mouth'
     ].map(async key=>{
       const tex=await texLoader.loadAsync(prefix+key+'.webp');
       tex.flipY=false;tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.RepeatWrapping;
