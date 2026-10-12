@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {useFrame,useThree} from '@react-three/fiber';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import * as THREE from 'three';
 import type {MiraState} from '../core/types';
 import {ttsLevel} from '../core/audio-level';
@@ -68,9 +69,15 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    const prefix=import.meta.env.BASE_URL+LAB;
    const sources=roomAssetLocation(import.meta.env.BASE_URL,
       import.meta.env.VITE_MIRA_3D_ASSET_BASE_URL);
-   const loader=new GLTFLoader(),texLoader=new THREE.TextureLoader();
+   // Three's bundled decoder supports both plain and Meshopt-compressed GLBs.
+   // Only explicit developer QA enables the alternative trial assets.
+   const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+   const texLoader=new THREE.TextureLoader();
+   const meshoptTrial=new URLSearchParams(window.location.search).get('meshopt')==='1';
    const loadGLB=(name:string)=>loadRoomAsset(
-      sources.candidates(name),url=>loader.loadAsync(url));
+      meshoptTrial?[prefix+'meshopt/'+name,...sources.candidates(name)]
+                  :sources.candidates(name),
+      url=>loader.loadAsync(url));
    const loadTexture=(name:string)=>loadRoomAsset(
       sources.candidates(name+'.webp'),url=>texLoader.loadAsync(url));
    try{
