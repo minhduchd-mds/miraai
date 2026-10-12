@@ -30,7 +30,7 @@ function workerFixture() {
     fetch: async (request) => {
       calls += 1;
       if (failNetwork) throw new Error('offline');
-      const isGLB=/\\.glb(?:\\?|$)/i.test(String(request.url));
+      const isGLB=String(request.url).endsWith('.glb');
       return new Response('network response', { headers: {
         'cache-control': cacheControl,
         'content-type': isGLB?'model/gltf-binary':'text/plain',
