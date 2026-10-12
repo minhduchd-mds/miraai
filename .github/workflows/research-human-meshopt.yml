@@ -6,6 +6,7 @@ on:
     paths:
       - "scripts/compress-vitruvian-meshopt.mjs"
       - "scripts/verify-vitruvian-meshopt.mjs"
+      - "scripts/vitruvian-lab-visual.spec.mjs"
       - ".github/workflows/research-human-meshopt.yml"
   workflow_dispatch:
 
