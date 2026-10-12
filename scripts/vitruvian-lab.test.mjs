@@ -49,7 +49,7 @@ test('experimental hair GLB and skin eye hair PBR maps are real, not fake poster
   assert.ok(statSync(join(base,f)).size>1000,f);
  }
  const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
- assert.match(source,/poseMixamoHumanSeated\(body\.scene\)/);
+ assert.match(source,/poseVitruvianSeated\(body\.scene\)/);
  assert.match(source,/visemesForSpeech\(/);
  assert.match(source,/materialize\(/);
  assert.doesNotMatch(source,/getUserMedia\(/);
