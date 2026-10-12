@@ -80,3 +80,36 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
   expect(consoleErrors).toEqual([]);
  }finally{await ctx.close();}
 });
+
+
+test('female fair-rose PBR material variant renders genuine 3D mesh close-up',async({browser},info)=>{
+ test.setTimeout(210_000);
+ const context=await browser.newContext({viewport:{width:1366,height:768},
+  deviceScaleFactor:1,reducedMotion:'no-preference',colorScheme:'dark'});
+ try{
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',error=>errors.push(String(error.message)));
+  const ok=await page.request.get('/avatars/realistic/vitruvian-lab/manifest.json');
+  expect(ok.ok()).toBe(true);
+  await page.goto('/?room3d=1&humanLab=1&look=fair-rose&visual-test=1&scene=home-evening',
+   {waitUntil:'domcontentloaded'});
+  const room=page.locator('.pm-room3d-stage');
+  await expect(page.locator('.photo-mira')).toHaveAttribute('data-room3d-active','true',{timeout:30000});
+  const supported=await page.evaluate(()=>{
+   const canvas=document.createElement('canvas');
+   return Boolean(canvas.getContext('webgl2')||canvas.getContext('webgl'));
+  });
+  if(!supported)test.skip(true,'WebGL is unavailable on this CI runner');
+  await expect(room).toHaveAttribute('data-avatar-status','review',{timeout:100000});
+  await room.locator('canvas').click({position:{x:210,y:210}});
+  await page.keyboard.press('6');
+  await page.waitForTimeout(400);
+  await expect(room).toHaveAttribute('data-avatar-status','review');
+  const out=join(process.cwd(),'artifacts','visual-qa','vitruvian-fair-rose-face-close.png');
+  await mkdir(join(process.cwd(),'artifacts','visual-qa'),{recursive:true});
+  await page.screenshot({path:out,fullPage:false,animations:'disabled'});
+  await info.attach('female-fair-rose-3d-close',{path:out,contentType:'image/png'});
+  expect(errors).toEqual([]);
+ }finally{await context.close();}
+});
