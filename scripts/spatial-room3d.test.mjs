@@ -240,7 +240,7 @@ test('human lab uses physically seated pelvis, non-black satin garment, and clea
  assert.match(source,/root\.position\.set\(-pelvisWorld\.x,\.58\/FIGURE_SCALE-pelvisWorld\.y,1\.70\/FIGURE_SCALE-pelvisWorld\.z\)/);
  assert.match(source,/rotation=\{\[0,0,0\]\}/);
  assert.match(source,/n==='vitshirt'/);
- assert.match(source,/out\.color\.set\('#b37c87'\)/);
+ assert.match(source,/out\.color\.set\('#b7838b'\)/);
  assert.match(source,/out\.alphaTest=\.16/);
  assert.match(source,/out\.alphaToCoverage=true/);
  assert.match(source,/poseVitruvianSeated\(body\.scene\)/);
