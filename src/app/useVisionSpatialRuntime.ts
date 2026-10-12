@@ -9,6 +9,7 @@ import { applySpatialSelectionGesture } from './spatial-selection-gesture';
 import { handleSpatialObjectManipulation } from './spatial-object-manipulation';
 import { handleSpatialWindowControl } from './spatial-window-control';
 import { StableBimanualPairRuntime } from './spatial-two-hand';
+import { RoomGestureOrbit } from '../core/vision/spatial-room-gesture';
 
 export function useVisionSpatialRuntime(options: any) {
   const {
@@ -74,9 +75,10 @@ export function useVisionSpatialRuntime(options: any) {
     setFaceTelemetry,
   } = options;
   const bimanualPairRef = useRef(new StableBimanualPairRuntime());
+  const roomGestureRef = useRef(new RoomGestureOrbit());
 
   useEffect(() => {
-    if (!visionOn) bimanualPairRef.current.reset();
+    if (!visionOn) { bimanualPairRef.current.reset(); roomGestureRef.current.reset(); }
   }, [visionOn]);
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export function useVisionSpatialRuntime(options: any) {
     const onVisibility = () => {
       if (document.visibilityState !== 'hidden') return;
       bimanualPairRef.current.reset();
+      roomGestureRef.current.reset();
       visionModulesRef.current?.resetSpatialPerformance();
       resetVisionHandInput();
       spatialUiRef.current?.reset();
@@ -102,6 +105,7 @@ export function useVisionSpatialRuntime(options: any) {
   useEffect(() => {
     if (!settingsOpen) return;
     bimanualPairRef.current.reset();
+    roomGestureRef.current.reset();
     // Opening a modal cancels in-flight spatial manipulation; unrelated React
     // effect rerenders must not release an active pinch/drag mid-frame.
     spatialUiRef.current?.reset();
@@ -369,6 +373,34 @@ export function useVisionSpatialRuntime(options: any) {
         setSpatialObjects,
         showFeedback: showSpatialFeedback,
       });
+
+      // Room gesture orbit is a visual-only lane, isolated from action/UI
+      // pinch interactions. Never steer the camera over an actionable target,
+      // while a modal is open or if tracking is stale.
+      const roomVisible = !settingsOpen && Boolean(document.querySelector(
+        '.photo-mira[data-room3d-active="true"] .pm-room3d-stage',
+      ));
+      const roomMotion = roomGestureRef.current.update({
+        hands: snapshot?.handSeen ? rawHands : [],
+        now, frameAt: handFrameAt,
+        enabled: roomVisible && !spatialFrameNext.focus &&
+          !spatialFrameNext.grabbing && spatialFrameNext.events.length===0 &&
+          !twoHandsActive && !primaryPinching,
+      });
+      // The two-pinched-hands zoom lane is only allowed when NO spatial
+      // object/window is in focus. It cannot activate buttons or OS actions.
+      const twoHandRoomMotion = roomGestureRef.current.update({
+        hands: snapshot?.handSeen ? rawHands : [],
+        now, frameAt: handFrameAt,
+        enabled: roomVisible && !spatialFrameNext.focus &&
+          !spatialFrameNext.grabbing && spatialFrameNext.events.length===0 &&
+          (twoHandsActive || (rawHands.length===2 && rawHands.every((h:any)=>h.pinching))),
+      });
+      const roomSteer = roomMotion || twoHandRoomMotion;
+      if(roomSteer){
+        window.dispatchEvent(new CustomEvent('mira:room-gesture',{detail:roomSteer}));
+        current?.noteSpatialHandAction(handFrameAt,now);
+      }
 
       const gestureScoreNow = Number(snapshot?.gestureScore || 0);
       const rawPointerX = Math.max(0, Math.min(1, Number(snapshot?.pointerX ?? 0.5)));
