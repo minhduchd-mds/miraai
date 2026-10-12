@@ -61,9 +61,12 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
   // three unused maps were still downloaded; fail when any real asset fails.
   expect(metrics.count).toBeGreaterThanOrEqual(13);
   if(meshoptCandidate){
-    const names=await page.evaluate(()=>performance.getEntriesByType('resource')
-      .map(x=>x.name).filter(x=>x.includes('/vitruvian-lab/meshopt/') &&
-        ['/head.glb','/body.glb','/hair.glb'].some(name=>x.endsWith(name)));
+    const names=await page.evaluate(()=>{
+      const resources=performance.getEntriesByType('resource');
+      return resources.map(x=>x.name).filter(name=>
+        name.includes('/vitruvian-lab/meshopt/') &&
+        ['/head.glb','/body.glb','/hair.glb'].some(part=>name.endsWith(part)));
+    });
     expect(names).toHaveLength(3);
   }
   expect(consoleErrors).toEqual([]);
