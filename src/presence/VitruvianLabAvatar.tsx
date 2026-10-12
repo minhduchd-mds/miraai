@@ -77,7 +77,10 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     function materialize(group:THREE.Object3D,kind:'head'|'body'|'hair'){
      group.traverse(obj=>{
       if(!(obj instanceof THREE.Mesh))return;
-      obj.castShadow=true;obj.receiveShadow=true;
+      // Alpha-masked hair cards were projecting hundreds of hard, dotted
+      // shadows onto the face, shoulders and seat in the software WebGL QA.
+      // Keep human body/face shadows; do not let hair cards self-shadow.
+      obj.castShadow=kind!=='hair';obj.receiveShadow=kind!=='hair';
       const update=(m:THREE.Material):THREE.Material=>{
        const n=m.name.split('.')[0].toLowerCase();
        if(!(m instanceof THREE.MeshStandardMaterial))return m;
@@ -111,7 +114,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.color.set('#947567');out.normalScale.set(.15,.15);
         // High alpha cutoff made the crown translucent/speckled under light.
         // MSAA coverage smooths hair-card edges without extra hair geometry.
-        out.side=THREE.DoubleSide;out.alphaTest=.24;
+        out.side=THREE.DoubleSide;out.alphaTest=.16;
         out.alphaToCoverage=true;out.transparent=false;out.depthWrite=true;
         out.roughness=.9;
        }else if(n.startsWith('vitcornea')){
@@ -242,7 +245,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
   const easing=1-Math.exp(-Math.min(delta,.1)*13);
   jaw.current+=(motion.mouthOpen-jaw.current)*easing;
   const reaction=companionReaction(faceData);
-  smile.current+=(Math.min(.32,motion.smile+reaction.smile)-smile.current)*easing;
+  smile.current+=(Math.min(.32,.045+motion.smile+reaction.smile)-smile.current)*easing;
   const visemes=visemesForSpeech(jaw.current,
     state==='speaking'&&ttsLevel.active?ttsLevel.bands:null);
   r.headBone.rotation.set(r.headRest.x+motion.headPitch,
@@ -251,8 +254,8 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
    Eyes_Closed_Max:motion.blink,
    // Modest resting eye opening only after local iris depth correction.
    // Full blink fades the correction to zero, avoiding double deformation.
-   Eyes_Opened_Max_Left:.38*(1-motion.blink),
-   Eyes_Opened_Max_Right:.38*(1-motion.blink),
+   Eyes_Opened_Max_Left:.27*(1-motion.blink),
+   Eyes_Opened_Max_Right:.27*(1-motion.blink),
    Mouth_Large_Opened:jaw.current,
    Jaw_Lower:jaw.current*.22,
    Happy:smile.current,
