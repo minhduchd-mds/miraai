@@ -9,6 +9,7 @@ import {visemesForSpeech} from './tts-visemes';
 import {companionReaction} from './companion-reaction';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {poseVitruvianSeated} from './vitruvian-seated-pose';
+import {applyHumanHairPresentation} from './human-hair-presentation';
 
 const LAB = 'avatars/realistic/vitruvian-lab/';
 const FIGURE_SCALE = 1.30;
@@ -84,7 +85,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
       const update=(m:THREE.Material):THREE.Material=>{
        const n=m.name.split('.')[0].toLowerCase();
        if(!(m instanceof THREE.MeshStandardMaterial))return m;
-       const out=m.clone();
+       const out=n==='vitshirt'?new THREE.MeshPhysicalMaterial().copy(m):m.clone();
        if(n==='vitskin'){
         out.map=tex.get('vit_face_bc')||null;out.normalMap=tex.get('vit_face_n')||null;
         // Remove the source roughness map's near-zero gloss patches that
@@ -98,7 +99,11 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
        }else if(n==='vitshirt'){
         // Wine-coloured satin tailoring replaces the flat black/white T-shirt
         // look without changing any scene or supplying a fake 2D overlay.
-        out.map=null;out.color.set('#b37c87');out.roughness=.57;out.metalness=.025;
+        out.map=null;out.color.set('#b7838b');out.roughness=.66;out.metalness=0;
+        if(out instanceof THREE.MeshPhysicalMaterial){
+         out.sheen=.44;out.sheenColor.set('#edb6af');out.sheenRoughness=.87;
+         out.clearcoat=.045;out.clearcoatRoughness=.85;
+        }
        }else if(n==='vitpants'){
         out.map=null;out.color.set('#65575f');out.roughness=.89;out.metalness=.012;
        }else if(n==='vitshoes'){
@@ -117,6 +122,7 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.side=THREE.DoubleSide;out.alphaTest=.16;
         out.alphaToCoverage=true;out.transparent=false;out.depthWrite=true;
         out.roughness=.9;
+        applyHumanHairPresentation(out);
        }else if(n.startsWith('vitcornea')){
         // Source cornea imported as an opaque white shell. It previously
         // obscured the iris and made both eyes look fluorescent white.
