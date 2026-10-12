@@ -6,6 +6,7 @@ import type { MiraPresenceScene } from './presence-scene';
 import type { MiraState } from '../core/types';
 import RoomLuxuryInterior from './RoomLuxuryInterior';
 import {moveRoomCamera} from './room-navigation';
+import {roomMaxPixelRatio} from './room-render-budget';
 
 // Rigged 3D human is a separate lazy chunk (VRM parser is deliberately not in AppV2).
 const RoomMiraVRM = lazy(() => import('./RoomMiraVRM'));
@@ -81,6 +82,19 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  },[]);
  useEffect(()=>()=>detachWebGLRef.current(),[]);
  const humanLab = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('humanLab')==='1';
+ // Constrained devices render fewer physical pixels; desktop remains at
+ // the exact previous [1,1.5] range to preserve the approved room look.
+ const maxDpr=useState(()=>{
+   if(typeof window==='undefined')return 1.5;
+   const device=navigator as Navigator & {
+     deviceMemory?:number;connection?:{saveData?:boolean};
+   };
+   return roomMaxPixelRatio({
+     viewportWidth:window.innerWidth,
+     deviceMemoryGb:device.deviceMemory,
+     saveData:device.connection?.saveData,
+   });
+ })[0];
  const onReadyRef=useRef(onReady);
  onReadyRef.current=onReady;
  const [avatarStatus,setAvatarStatus]=useState<'pending'|'approved'|'review'|'preview'|'rejected'>('pending');
@@ -191,7 +205,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
      onLostPointerCapture={pointerEnd}
      onClick={event=>event.stopPropagation()}>
-     <Canvas frameloop="demand" shadows dpr={[1,1.5]}
+     <Canvas frameloop="demand" shadows dpr={[1,maxDpr]}
        camera={{fov:46,near:.08,far:75,position:[PRESETS[0].x,1.77,PRESETS[0].z]}}
        gl={{alpha:false,antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false}}
        onCreated={({gl,invalidate})=>{
