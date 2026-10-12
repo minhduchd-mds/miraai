@@ -13,6 +13,8 @@ on:
       - "scripts/room-3d.spec.mjs"
       - "src/app/vision-hand-interaction.ts"
       - "public/mira-assets/**"
+      - "public/avatars/realistic/vitruvian-lab/*.glb"
+      - "public/sw.js"
       - "scripts/visual-qa.spec.mjs"
       - "scripts/vitruvian-lab-visual.spec.mjs"
       - "scripts/capability-smoke.spec.mjs"
