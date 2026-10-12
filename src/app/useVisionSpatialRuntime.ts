@@ -282,7 +282,14 @@ export function useVisionSpatialRuntime(options: any) {
         showSpatialFeedback(selectionGesture.feedback);
       }
 
-      const pinchedHands = settingsOpen
+      const roomGestureEligible = !settingsOpen && Boolean(document.querySelector(
+        '.photo-mira[data-room3d-active="true"] .pm-room3d-stage',
+      )) && !spatialFrameNext.focus && !spatialFrameNext.grabbing &&
+        spatialFrameNext.events.length===0;
+      // Exclusive gesture ownership: a room pinch may NOT simultaneously
+      // resize a previously selected window via lastWindowId.
+      if(roomGestureEligible)bimanualPairRef.current.reset();
+      const pinchedHands = settingsOpen || roomGestureEligible
         ? [] : bimanualPairRef.current.update(snapshot?.handSeen ? rawHands : [], now, handFrameAt);
       const twoHandsActive = pinchedHands.length >= 2;
 
@@ -377,14 +384,10 @@ export function useVisionSpatialRuntime(options: any) {
       // Room gesture orbit is a visual-only lane, isolated from action/UI
       // pinch interactions. Never steer the camera over an actionable target,
       // while a modal is open or if tracking is stale.
-      const roomVisible = !settingsOpen && Boolean(document.querySelector(
-        '.photo-mira[data-room3d-active="true"] .pm-room3d-stage',
-      ));
       const roomSteer = roomGestureRef.current.update({
         hands: snapshot?.handSeen ? rawHands : [],
         now, frameAt: handFrameAt,
-        enabled: roomVisible && !spatialFrameNext.focus &&
-          !spatialFrameNext.grabbing && spatialFrameNext.events.length===0,
+        enabled: roomGestureEligible,
       });
       if(roomSteer){
         window.dispatchEvent(new CustomEvent('mira:room-gesture',{detail:roomSteer}));
