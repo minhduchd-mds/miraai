@@ -79,3 +79,24 @@ test('vendor eye geometry inspection reports actual iris, sclera, eyelid and cor
  // Logging bounded, public vendor mesh geometry only; no user/sensor details.
  console.log('[Mira human-eye geometry]',JSON.stringify(matches).slice(0,6000));
 });
+
+
+test('the local iris depth correction clears the source sclera instead of shifting the whole eyeball',()=>{
+ const gltf=readGlbJson(readFileSync(join(base,'head.glb')));
+ let checked=0;
+ for(const mesh of gltf.meshes||[]){
+  const get=(prefix)=>{
+   const p=(mesh.primitives||[]).find(x=>String(gltf.materials?.[x.material]?.name||'').toLowerCase().startsWith(prefix));
+   return p===undefined?null:gltf.accessors?.[p.attributes?.POSITION]||null;
+  };
+  const iris=get('vitiris'),sclera=get('vitsclera');
+  if(!iris||!sclera)continue;
+  const margin=iris.max[2]+.0059-sclera.max[2];
+  assert.ok(margin>.0008&&margin<.003, 'Iris must clear front of opaque sclera by 0.8–3 mm');
+  checked++;
+ }
+ assert.equal(checked,2,'left/right eyes must be individually checked');
+ const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
+ assert.match(source,/obj\\.position\\.z\\+=\\.0059/);
+ assert.match(source,/irisesAdjusted!==2/);
+});
