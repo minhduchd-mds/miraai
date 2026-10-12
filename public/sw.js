@@ -2,7 +2,7 @@
 const CACHE = 'mira-shell-v5';
 /* Large model assets live in an isolated, on-demand, versioned browser cache.
  * Do not preload them on startup, and never put user data in this cache. */
-const ROOM_3D_CACHE = 'mira-room-glb-v1';
+const ROOM_3D_CACHE = 'mira-room-glb-v2';
 const ROOM_GLB_PATH = /(?:^|\/)avatars\/realistic\/vitruvian-lab\/(?:head|body|hair)\.glb$/i;
 const ROOM_GLB_MAX_BYTES = 18 * 1024 * 1024;
 const MAX_CACHE_ENTRIES = 128;
