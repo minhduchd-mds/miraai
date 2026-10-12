@@ -5,6 +5,7 @@ import {join} from 'node:path';
 import {readGlbJson} from './validate-realistic-avatar.mjs';
 import * as THREE from 'three';
 import {applyHumanHairPresentation,HUMAN_HAIR_PRESENTATION} from '../src/presence/human-hair-presentation.ts';
+import {roomAssetLocation,loadRoomAsset} from '../src/presence/room-asset-location.ts';
 
 const base='public/avatars/realistic/vitruvian-lab';
 const manifest=JSON.parse(readFileSync(join(base,'manifest.json'),'utf8'));
@@ -150,4 +151,37 @@ test('Human Lab requests only PBR textures actually sampled by current material 
  const keys=[...section[1].matchAll(/'vit_[a-z0-9_]+'/g)].map(x=>x[0]);
  assert.equal(keys.length,9,'Only nine sampled PBR maps are needed');
  assert.equal(new Set(keys).size,9);
+});
+
+test('opt-in CDN origin must be HTTPS and fallback remains same-origin',async()=>{
+ const local=roomAssetLocation('./');
+ assert.deepEqual(local.candidates('head.glb'),['./avatars/realistic/vitruvian-lab/head.glb']);
+ assert.equal(local.cdnRoot,null);
+ const cloud=roomAssetLocation('/miraai/','https://cdn.example.test/3d/v1');
+ assert.deepEqual(cloud.candidates('hair.glb'),[
+  'https://cdn.example.test/3d/v1/hair.glb',
+  '/miraai/avatars/realistic/vitruvian-lab/hair.glb',
+ ]);
+ assert.equal(roomAssetLocation('./','http://storage.example').cdnRoot,null);
+ assert.equal(roomAssetLocation('./','https://user:pass@example.test/assets').cdnRoot,null);
+ assert.equal(roomAssetLocation('./','garbage-url').cdnRoot,null);
+ assert.throws(()=>cloud.candidates('../private.json'),/Unsupported 3D asset/);
+ assert.throws(()=>cloud.candidates('other-user.glb?token=secret'),/Unsupported 3D asset/);
+ const attempts=[];
+ const asset=await loadRoomAsset(cloud.candidates('head.glb'),async url=>{
+  attempts.push(url);
+  if(url.includes('cdn.example.test'))throw Error('CDN temporarily unavailable');
+  return {ok:true};
+ });
+ assert.equal(asset.ok,true);
+ assert.equal(attempts.length,2);
+});
+test('failed or cancelled Human Lab assets use settled cleanup, never leave orphan GLBs',()=>{
+ const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
+ assert.match(source,/Promise\\.allSettled\\(\\[/);
+ assert.ok(source.includes('for(const target of [root,...owned])'));
+ assert.ok(source.includes('for(const part of [headResult,bodyResult,hairResult])'));
+ assert.ok(source.includes("if(part.status==='fulfilled')owned.push(part.value.scene)"));
+ assert.ok(source.includes("textureResults.some(result=>result.status==='rejected')"));
+ assert.ok(source.includes('VITE_MIRA_3D_ASSET_BASE_URL'));
 });
