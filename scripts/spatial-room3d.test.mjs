@@ -93,12 +93,13 @@ test('3D mode removes HUD, gallery and copy; AppV2 voice footer remains unchange
  assert.match(app,/className="voice-control-dock"/);
  assert.match(app,/className="voice-session-caption"/);
 });
-test('Mira seated pose, foreground composition and chair plush are present',()=>{
+test('Mira seated pose, foreground composition and compact human chair are present',()=>{
  assert.match(vrm,/rotate\('leftLowerArm', -\.90,/);
  assert.match(vrm,/vrm\.expressionManager\?\.setValue\('happy',\.22\)/);
  assert.match(vrm,/position=\{avatar\.position\} scale=\{avatar\.scale\}/);
  assert.match(luxury,/Soft key light at the avatar face/);
- assert.match(luxury,/Smiling companion plush/);
+ assert.match(luxury,/slim backrest/);
+ assert.doesNotMatch(luxury,/giant foreground beanbag/);
 });
 
 test('active room3d does not mount duplicate 2D scene, spatial gizmos or text overlays',()=>{
@@ -141,22 +142,22 @@ test('3D input ignores editable fields and modifiers, clears held keys on tab hi
 test('room navigation footprints block existing furniture without closing the usable aisle',()=>{
  assert.ok(ROOM_OBSTACLES.length>=6);
  for(const [x,z] of [
-   [0,-3],[-3,1],[1.4,-3],[4.3,-3],[0,1.5],[0,3.1]
+   [0,-3],[-3,1],[1.4,-3],[4.3,-3],[0,1.5],[0,2.20]
  ])assert.equal(isRoomWalkable(x,z),false,'Furniture footprint should block '+x+','+z);
  for(const [x,z] of [
-   [0,4.79],[-2.9,4.1],[2.9,4.1],[0,0],[0,5.48]
+   [0,4.79],[-2.9,4.1],[2.9,4.1],[0,0],[0,3.1],[0,5.48]
  ])assert.equal(isRoomWalkable(x,z),true,'Walkable preset/aisle '+x+','+z);
  for(const [x,z] of [[NaN,0],[Infinity,0],[0,-6],[5.1,0]])
    assert.equal(isRoomWalkable(x,z),false);
 });
 
-test('room camera collision prevents walking through the enlarged lounge beanbag',()=>{
+test('room camera collision prevents walking through the correctly sized lounge chair',()=>{
  let position={x:0,z:4.79};
  for(let i=0;i<100;i++){
    position=moveRoomCamera(position,0,1,0,.06);
    assert.equal(isRoomWalkable(position.x,position.z),true);
  }
- assert.ok(position.z>=3.4&&position.z<4.79,'Walk should stop in front of lounge chair: '+position.z);
+ assert.ok(position.z>=2.60&&position.z<4.79,'Walk should stop in front of lounge chair: '+position.z);
 });
 
 test('room movement normalizes diagonals, caps frame stalls and rejects corrupt inputs',()=>{
@@ -201,15 +202,17 @@ test('full-room composition has no foreground or background computer desks',()=>
  assert.doesNotMatch(luxury,/<MarbleDeskSet\/>|<WorkspaceSet\/>/);
  assert.doesNotMatch(luxury,/function MarbleDeskSet\(|function WorkspaceSet\(/);
  assert.match(luxury,/name="mira-indoor-lounge"/);
- assert.match(luxury,/circleGeometry args=\{\[2\.1,64\]\}/);
- assert.match(luxury,/mira-indoor-lounge[\s\S]*?sphereGeometry/);
+ assert.match(luxury,/circleGeometry args=\{\[1\.94,64\]\}/);
+ assert.match(luxury,/Low upholstered seat/);
+ assert.match(luxury,/A slim backrest/);
+ assert.doesNotMatch(luxury,/position=\{\[0,\.94,1\.28\]\} castShadow receiveShadow scale=\{\[1\.12,\.73,\.29\]\}/);
  const source=readFileSync('src/presence/realistic-avatar-source.ts','utf8');
  assert.match(source,/position:\[0,-\.48,1\.92\]/);
  assert.match(vrm,/position=\{avatar\.position\} scale=\{avatar\.scale\}/);
- assert.match(room,/pitch:-\.26,x:0,z:4\.30/);
- assert.match(room,/position:\[0,1\.77,4\.30\]/);
+ assert.match(room,/makePortraitPreset\(0,4\.85\)/);
+ assert.match(room,/PORTRAIT_TARGET=\{x:0,y:1\.08,z:1\.74\}/);
  assert.ok(!ROOM_OBSTACLES.some(o=>o.id==='marble-desk'||o.id==='workspace'));
- assert.ok(ROOM_OBSTACLES.find(o=>o.id==='mira-chair').maxZ>=3.18);
+ assert.ok(ROOM_OBSTACLES.find(o=>o.id==='mira-chair').maxZ<=2.45);
 });
 
 test('preview human seated pose bends knees toward the viewer instead of inside the chair',()=>{
@@ -222,8 +225,23 @@ test('preview human seated pose bends knees toward the viewer instead of inside 
  assert.match(vrm,/vrm\.scene\.rotation\.y=source\.mode==='preview'\?Math\.PI:0/);
 });
 
-test('3D preview opens on an elevated seated framing and preserves preset angle',()=>{
- assert.match(room,/pitch:-\.26,x:0,z:4\.30/);
- assert.match(room,/Object\.assign\(controls\.current,PRESETS\[index\],\{pitch:-\.26\}\)/);
- assert.match(room,/camera=\{\{fov:52,near:\.08,far:75,position:\[0,1\.77,4\.30\]\}\}/);
+test('3D preview uses subject-centred camera framing for all five viewpoints',()=>{
+ assert.match(room,/PORTRAIT_TARGET=\{x:0,y:1\.08,z:1\.74\}/);
+ assert.match(room,/Math\.atan2\(-dx,-dz\)/);
+ assert.match(room,/Math\.atan2\(PORTRAIT_TARGET\.y-1\.77,planar\)/);
+ assert.match(room,/Object\.assign\(controls\.current,PRESETS\[index\]\)/);
+ assert.match(room,/camera=\{\{fov:46,near:\.08,far:75,position:\[PRESETS\[0\]\.x,1\.77,PRESETS\[0\]\.z\]\}\}/);
+});
+
+
+test('human lab uses physically seated pelvis, non-black satin garment, and clean hair',()=>{
+ const source=readFileSync('src/presence/VitruvianLabAvatar.tsx','utf8');
+ const pose=readFileSync('src/presence/rigged-human-pose.ts','utf8');
+ assert.match(source,/root\.position\.set\(-pelvisWorld\.x,\.58-pelvisWorld\.y,1\.70-pelvisWorld\.z\)/);
+ assert.match(source,/rotation=\{\[0,0,0\]\}/);
+ assert.match(source,/n==='vitshirt'/);
+ assert.match(source,/out\.color\.set\('#743244'\)/);
+ assert.match(source,/out\.alphaTest=\.59/);
+ assert.match(pose,/rotateZ\(1\.22\)/);
+ assert.match(pose,/rotateZ\(-1\.22\)/);
 });
