@@ -26,7 +26,8 @@ test('two hand input rejects near-zero baseline, duplicate hand and weak confide
 
 test('disabled settings overlay cannot receive spatial transforms or selection gestures',()=>{
  const runtime=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
- assert.match(runtime,/settingsOpen[\s\S]*?: bimanualPairRef\.current\.update\(snapshot\?\.handSeen \? rawHands : \[\], now, handFrameAt\)/);
+ assert.match(runtime,/settingsOpen \|\| roomGestureEligible/);
+ assert.match(runtime,/if\(roomGestureEligible\)bimanualPairRef\.current\.reset\(\)/);
  assert.match(runtime,/settingsOpen \? null : applySpatialSelectionGesture\(/);
 });
 
@@ -109,6 +110,7 @@ test('gesture controls never consume window/object interactions or shell command
  assert.match(hooks,/!spatialFrameNext\.grabbing/);
  assert.match(hooks,/spatialFrameNext\.events\.length===0/);
  assert.match(hooks,/roomGestureRef\.current\.reset\(\)/);
+ assert.match(hooks,/Exclusive gesture ownership/);
  assert.match(hooks,/new CustomEvent\('mira:room-gesture'/);
  assert.match(room,/moveRoomCamera\(\{x:c\.x,z:c\.z\}/);
  assert.match(room,/window\.removeEventListener\('mira:room-gesture'/);
