@@ -9,6 +9,8 @@ on:
       - "src/ui/**"
       - "src/settings/**"
       - "src/core/vision/spatial-*.ts"
+      - "src/core/vision/spatial-room-gesture.ts"
+      - "scripts/room-3d.spec.mjs"
       - "src/app/vision-hand-interaction.ts"
       - "public/mira-assets/**"
       - "scripts/visual-qa.spec.mjs"
