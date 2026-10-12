@@ -86,7 +86,7 @@ test('3D hero contains a spatial upholstered chair and a close foreground seated
 
 test('3D mode removes HUD, gallery and copy; AppV2 voice footer remains unchanged',()=>{
  assert.doesNotMatch(room,/pm-room3d-hud|pm-room3d-gallery|setViewPreset/);
- assert.match(room,/Digit\(\[1-5\]\)/);
+ assert.match(room,/Digit\(\[1-6\]\)/);
  assert.match(integration,/!room3DActive && <span\s+key=\{`hero-/);
  assert.match(integration,/!room3DActive && <span className="pm-live-pill"/);
  assert.match(integration,/!room3DActive && <span className="pm-wave"/);

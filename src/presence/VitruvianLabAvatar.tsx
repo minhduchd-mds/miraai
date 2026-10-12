@@ -238,8 +238,10 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         new THREE.MeshStandardMaterial({name:'MiraLabScalp',color:'#62473d',roughness:1,metalness:0})
       );
       scalp.name='MiraLabScalpUnderlay';
-      scalp.position.set(0,1.767,-.015);
-      scalp.scale.set(.108,.11,.084);
+      // The first full hemisphere floated above the hairline on the
+      // face-close render. Fit a shallow crown insert *below* the cards.
+      scalp.position.set(0,1.741,-.015);
+      scalp.scale.set(.105,.038,.079);
       scalp.castShadow=false;scalp.receiveShadow=true;
       head.scene.add(scalp);
     }

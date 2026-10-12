@@ -209,4 +209,7 @@ test('experimental Human Lab scalp underlay is actual tracked geometry and stays
  assert.match(src,/scalp\.castShadow=false;scalp\.receiveShadow=true/);
  assert.match(src,/get\('scalp'\)!=='original'/);
  assert.match(src,/MiraLabScalpUnderlay/);
+ // A tall dome was visibly detached from the hairline in close-up QA.
+ assert.match(src,/scalp\.position\.set\(0,1\.741,-\.015\)/);
+ assert.match(src,/scalp\.scale\.set\(\.105,\.038,\.079\)/);
 });

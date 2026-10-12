@@ -22,3 +22,6 @@ The five-view 3D screenshot still showed featureless bright white eyes at the or
 
 ## Follow-up — physical scalp underlay and face-close QA
 A new crown-only, low-poly hemispherical underlay is parented to the original source head in the experimental Lab. It covers hair-card perforation without recoloring or flattening the source hair. A reversible `?scalp=original` switch allows source-vs-underlay comparison. The sixth keyboard camera preset (`6`) adds a close frontal head inspection to Visual QA; the default view and the five established room presets remain unchanged. None of this approves the candidate for production.
+
+## Close-up evidence: rejected floating scalp dome
+The first experimental underlay used vertical scale 0.11 m and visibly floated above the scalp in the 6th camera view despite WebGL tests passing. Reduced its vertical radius to 0.038 m and lowered the centre; repeat five-view and close-up QA before any visual approval. Source hair, eyes and room are otherwise unchanged.
