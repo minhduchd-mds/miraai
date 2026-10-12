@@ -169,7 +169,7 @@ test('room movement normalizes diagonals, caps frame stalls and rejects corrupt 
  assert.deepEqual(moveRoomCamera(at,0,1,0,100),straight);
  assert.deepEqual(moveRoomCamera(at,NaN,1,0,.06),at);
  assert.deepEqual(moveRoomCamera(at,0,1,0,Infinity),at);
- assert.deepEqual(moveRoomCamera({x:0,z:3},0,1,0,.06),{x:0,z:3});
+ assert.deepEqual(moveRoomCamera({x:0,z:2.5},0,1,0,.06),{x:0,z:2.5});
 });
 
 test('camera keyboard handling requires a focused 3D region with cleanup',()=>{
