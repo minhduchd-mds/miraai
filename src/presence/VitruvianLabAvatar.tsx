@@ -12,6 +12,7 @@ import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {poseVitruvianSeated} from './vitruvian-seated-pose';
 import {applyHumanHairPresentation} from './human-hair-presentation';
 import {roomAssetLocation,loadRoomAsset} from './room-asset-location';
+import {resolveFemaleLabLook} from './lab-female-look';
 
 const LAB = 'avatars/realistic/vitruvian-lab/';
 const FIGURE_SCALE = 1.30;
@@ -33,6 +34,8 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
  const jaw=useRef(0),smile=useRef(0);
  useEffect(()=>{
   let cancelled=false;
+  // Experimental only: immutable material palette, no mesh/rig changes.
+  const labLook=resolveFemaleLabLook(window.location.search);
   const owned:THREE.Object3D[]=[];
   const discardedMaterials=new Set<THREE.Material>();
   const maps:THREE.Texture[]=[];
@@ -150,22 +153,30 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         // reflect the key as a white spot on the forehead.
         out.roughnessMap=null;out.metalness=0;
         out.normalScale.set(.13,.13);out.roughness=.96;
+        if(labLook.skin){
+          out.color.set(labLook.skin);
+          out.emissive.set('#79564c');out.emissiveIntensity=labLook.skinAmbient;
+        }
        }else if(n==='vitbody'){
         out.map=tex.get('vit_body_bc')||null;out.normalMap=tex.get('vit_body_n')||null;
         out.roughnessMap=tex.get('vit_body_rough')||null;
         out.normalScale.set(.4,.4);out.roughness=.91;
+        if(labLook.skin){
+          out.color.set(labLook.skin);
+          out.emissive.set('#79564c');out.emissiveIntensity=labLook.skinAmbient;
+        }
        }else if(n==='vitshirt'){
         // Wine-coloured satin tailoring replaces the flat black/white T-shirt
         // look without changing any scene or supplying a fake 2D overlay.
-        out.map=null;out.color.set('#b7838b');out.roughness=.66;out.metalness=0;
+        out.map=null;out.color.set(labLook.shirt);out.roughness=.66;out.metalness=0;
         if(out instanceof THREE.MeshPhysicalMaterial){
          out.sheen=.44;out.sheenColor.set('#edb6af');out.sheenRoughness=.87;
          out.clearcoat=.045;out.clearcoatRoughness=.85;
         }
        }else if(n==='vitpants'){
-        out.map=null;out.color.set('#65575f');out.roughness=.89;out.metalness=.012;
+        out.map=null;out.color.set(labLook.pants);out.roughness=.89;out.metalness=.012;
        }else if(n==='vitshoes'){
-        out.map=null;out.color.set('#554448');out.roughness=.42;out.metalness=.04;
+        out.map=null;out.color.set(labLook.shoes);out.roughness=.42;out.metalness=.04;
        }else if(kind==='hair'||n==='vithair'){
         // Authored hair diffuse is near-black throughout; a pale tint still
         // multiplies down to black. Use a warm PBR albedo while retaining
