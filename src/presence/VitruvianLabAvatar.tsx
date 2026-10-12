@@ -117,11 +117,20 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
         out.depthWrite=false;out.visible=false;
        }else if(n.startsWith('viteyeback')){
         out.map=null;out.color.set('#362c29');out.roughness=.64;
+       }else if(n.startsWith('viteyeshadow')){
+        // The vendor left eyelid overlay untextured WHITE: under the room
+        // spot it reads as fluorescent closed eyelids, not natural makeup.
+        out.map=null;out.normalMap=null;out.color.set('#76544e');
+        out.roughness=1;out.metalness=0;
+       }else if(n.startsWith('vittearline')){
+        out.map=null;out.color.set('#987268');out.roughness=1;out.metalness=0;
+       }else if(n.startsWith('vitcaruncle')){
+        out.map=null;out.color.set('#bd867b');out.roughness=1;out.metalness=0;
        }else if(n.startsWith('vitiris')){
         // Prevent washed-out texture from producing glowing white irises.
-        out.map=null;out.color.set('#4c3429');out.roughness=.62;
+        out.map=null;out.color.set('#4c3429');out.roughness=.83;out.metalness=0;
        }else if(n.startsWith('vitsclera')){
-        out.map=null;out.color.set('#d5bfb2');out.roughness=.68;
+        out.map=null;out.color.set('#b5a093');out.roughness=1;out.metalness=0;
        }else if(n==='vitmouth'){
         out.map=tex.get('vit_mouth')||null;out.roughness=.72;
        }else return m;
