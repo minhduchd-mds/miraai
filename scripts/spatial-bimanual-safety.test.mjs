@@ -63,14 +63,14 @@ test('one palm requires 240ms continuous fresh tracking before rotating the room
  const c=new RoomGestureOrbit();
  assert.equal(steer(c,[palm()],100),null);
  assert.equal(steer(c,[palm(.41)],220),null);
- assert.equal(steer(c,[palm(.42)],340),null);
- const motion=steer(c,[palm(.49,.53)],460);
+ assert.equal(steer(c,[palm(.42)],330),null);
+ const motion=steer(c,[palm(.49,.53)],450);
  assert.equal(motion?.mode,'rotate');
  assert.ok(motion.yawDelta>0 && motion.yawDelta<=.07);
  assert.ok(Math.abs(motion.pitchDelta)<=.055);
  assert.equal(motion.zoomFactor,1);
  // 120ms UI polls must not replay one MediaPipe observation.
- assert.equal(steer(c,[palm(.57)],460),null);
+ assert.equal(steer(c,[palm(.57)],450),null);
 });
 
 test('two genuine pinched hands zoom only after dwell with stable handedness',()=>{
