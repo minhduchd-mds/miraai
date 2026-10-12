@@ -127,7 +127,7 @@ test('v27: window movement eases, clamps and stops on grab end',()=>{
 });
 test('v27: frame timestamp routed to window and object transforms',()=>{
  const hook=readFileSync('src/app/useVisionSpatialRuntime.ts','utf8');
- assert.equal((hook.match(/frameAt: handFrameAt/g)||[]).length,2);
+ assert.equal((hook.match(/frameAt: handFrameAt/g)||[]).length,3); // window, object and vision-room camera
  assert.match(hook,/document.visibilityState === 'hidden'/);
  assert.match(hook,/if \(!settingsOpen\) return/);
  for(const file of ['src/app/spatial-window-bimanual.ts','src/app/spatial-object-bimanual.ts']){
