@@ -57,7 +57,8 @@ test('camera supports 360 orbit and genuine translation without stealing chat ke
     assert.ok(room.includes(token),'Missing camera part '+token);
  }
  assert.match(room,/frameloop="demand"/);
- assert.match(room,/dpr=\{\[1,1\.5\]\}/);
+ assert.match(room,/dpr=\{\[1,maxDpr\]\}/);
+ assert.match(room,/roomMaxPixelRatio\(\{/);
  assert.match(room,/<Canvas frameloop="demand" shadows/);
  assert.match(room,/ACESFilmicToneMapping/);
  assert.match(room,/powerPreference:'high-performance'/);
