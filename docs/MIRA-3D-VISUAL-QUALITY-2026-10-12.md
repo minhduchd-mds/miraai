@@ -25,3 +25,6 @@ A new crown-only, low-poly hemispherical underlay is parented to the original so
 
 ## Close-up evidence: rejected floating scalp dome
 The first experimental underlay used vertical scale 0.11 m and visibly floated above the scalp in the 6th camera view despite WebGL tests passing. Reduced its vertical radius to 0.038 m and lowered the centre; repeat five-view and close-up QA before any visual approval. Source hair, eyes and room are otherwise unchanged.
+
+## QA final disposition — scalp candidate rejected
+The second close-up screenshot still showed a **floating flattened plate** above the hairline. This violates the geometry review even though the render pipeline passed. The entire ad-hoc scalp underlay has been removed from the experimental renderer and its geometry-only test deleted. Keep the actual corrected iris layering, warmer eye material and 6th close-up QA view. A proper hair mesh/UV/opacity rebake is a prerequisite for production-level photorealistic likeness; the lab is still explicitly unapproved.

@@ -227,24 +227,6 @@ export default function VitruvianLabAvatar({state,onReady,onAssetStatus}:Props){
     materialize(head.scene,'head');
     materialize(body.scene,'body');
     materialize(hair.scene,'hair');
-    // A subtle, physically modelled underlay prevents the source's sparse
-    // alpha-cutout hair cards exposing a dark, perforated crown. Place it in
-    // the same world-authored head coordinates; it follows the head rig and
-    // never replaces the licensed hair, forehead or face geometry.
-    // ?scalp=original allows a direct A/B in the experimental Human Lab.
-    if(new URLSearchParams(window.location.search).get('scalp')!=='original'){
-      const scalp=new THREE.Mesh(
-        new THREE.SphereGeometry(1,40,24,0,Math.PI*2,0,Math.PI*.52),
-        new THREE.MeshStandardMaterial({name:'MiraLabScalp',color:'#62473d',roughness:1,metalness:0})
-      );
-      scalp.name='MiraLabScalpUnderlay';
-      // The first full hemisphere floated above the hairline on the
-      // face-close render. Fit a shallow crown insert *below* the cards.
-      scalp.position.set(0,1.741,-.015);
-      scalp.scale.set(.105,.038,.079);
-      scalp.castShadow=false;scalp.receiveShadow=true;
-      head.scene.add(scalp);
-    }
     // Geometry audit: original VitIris surfaces are 5-6mm behind the
     // front of the opaque sclera. Move ONLY the per-primitive iris mesh
     // slightly forward in eyeball-local +Z; do not displace the eyeballs,
