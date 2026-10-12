@@ -172,7 +172,13 @@ export function visionSnapshot() {
     handData.lastFrameAt > 0 && now >= handData.lastFrameAt &&
     now - handData.lastFrameAt <= 350;
   const landmarks = handFresh ? handData.landmarks.map((point) => ({ ...point })) : [];
-  const spatialPose = estimateRealPresencePose(faceData.landmarks);
+  // Unlike UI polling, a genuinely inferred face frame has its own monotonic timestamp.
+  // A frozen camera must not keep granting presence, gaze or affect evidence.
+  const faceFresh = Boolean(faceData.active && faceData.present &&
+    Number.isFinite(faceData.frameAt) && faceData.frameAt > 0 &&
+    now >= faceData.frameAt && now - faceData.frameAt <= 450);
+  const faceLandmarks = faceFresh ? faceData.landmarks : [];
+  const spatialPose = estimateRealPresencePose(faceLandmarks);
   const indexTip = landmarks[8] || { x: 0.5, y: 0.5, z: 0 };
   const thumbTip = landmarks[4] || indexTip;
   const pinchDistance = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
@@ -183,7 +189,7 @@ export function visionSnapshot() {
   );
 
   // Temporal metadata only: do not store landmarks or camera frames in SenseBus.
-  if (faceData.active && faceData.present) {
+  if (faceFresh) {
     senseBus.ingest({ source: 'face', kind: 'presence', confidence: 0.85, atMs: now }, now);
   }
   for (const hand of hands) {
@@ -199,9 +205,11 @@ export function visionSnapshot() {
   const sense = senseBus.snapshot(now);
   return {
     sense,
-    faceSeen: Boolean(faceData.active && faceData.present),
+    faceSeen: faceFresh,
     face: {
-      present: Boolean(faceData.active && faceData.present),
+      present: faceFresh,
+      frameAt: faceFresh ? faceData.frameAt : 0,
+      blendshapesReady: faceFresh && faceData.blendshapesReady,
       emotion: faceData.emotion,
       confidence: faceData.emotionConfidence,
       yaw: faceData.yaw,
@@ -224,7 +232,7 @@ export function visionSnapshot() {
       faceGestureConfidence: faceData.faceGestureConfidence,
       actionUnits: { ...faceData.actionUnits },
       microExpression: { ...faceData.microExpression },
-      landmarks: faceData.landmarks.map((point) => ({ ...point })),
+      landmarks: faceLandmarks.map((point) => ({ ...point })),
       muscles: { ...faceData.muscles },
       spatialPose,
     },
@@ -245,10 +253,10 @@ export function visionSnapshot() {
     faceRuntime: holisticTrackerActive()
       ? holisticFaceHealthSnapshot()
       : {
-          status: faceData.present ? 'full' : 'scanning',
-          landmarkCount: faceData.landmarks.length,
-          blendshapesReady: Boolean(faceData.present),
-          lastSeenAt: 0,
+          status: !faceFresh ? 'scanning' : faceData.blendshapesReady ? 'full' : 'mesh_only',
+          landmarkCount: faceLandmarks.length,
+          blendshapesReady: faceFresh && faceData.blendshapesReady,
+          lastSeenAt: faceFresh ? faceData.frameAt : 0,
         },
     visionPerformance: holisticTrackerActive()
       ? holisticPerformanceSnapshot()

@@ -6197,3 +6197,48 @@ test('device release gate requires empirical evidence and keeps synthetic smoke 
   assert.ok(smoke.includes('Synthetic smoke profile: media capture disabled'));
   assert.ok(!smoke.includes('mira.device-lab-result'));
 });
+
+
+test('timestamped facial affect rejects duplicate inference and stale camera frames', () => {
+  const tracker = new affect.AffectTracker();
+  const smiling = (frameAt) => ({
+    present: true, frameAt, blendshapesReady: true,
+    smile: 1, cheekSquint: 0.75, actionUnits: { AU12: 1, AU06: 0.8 },
+  });
+  assert.equal(tracker.update(smiling(100), 110).mood, 'neutral');
+  assert.equal(tracker.update(smiling(100), 500).mood, 'neutral');
+  assert.equal(tracker.update(smiling(300), 310).mood, 'neutral');
+  assert.equal(tracker.update(smiling(560), 570).mood, 'neutral');
+  assert.equal(tracker.update(smiling(850), 860).mood, 'happy');
+  // The 850ms frame must not count as a new observation on repeated UI polls.
+  assert.equal(tracker.update(smiling(850), 960).mood, 'happy');
+  assert.equal(tracker.update(smiling(850), 1350).mood, 'neutral');
+  assert.equal(tracker.update(smiling(1350), 1360).mood, 'neutral');
+});
+
+test('facial affect is neutral for mesh-only, lost, future or invalid frames', () => {
+  const tracker = new affect.AffectTracker();
+  const smile = (frameAt, extras = {}) => ({
+    present: true, frameAt, blendshapesReady: true, smile: 1, cheekSquint: 1,
+    actionUnits: { AU12: 1, AU06: 1 }, ...extras,
+  });
+  tracker.update(smile(100), 110);
+  tracker.update(smile(400), 410);
+  assert.equal(tracker.update(smile(850), 860).mood, 'happy');
+  assert.equal(tracker.update(smile(950, { blendshapesReady: false }), 960).mood, 'neutral');
+  assert.equal(tracker.update(smile(1500, { present: false }), 1510).mood, 'neutral');
+  assert.equal(tracker.update(smile(1900), 1800).mood, 'neutral');
+  assert.equal(tracker.update(smile(NaN), 2000).mood, 'neutral');
+});
+
+test('face presence derives from fresh inference for Holistic and legacy camera paths', () => {
+  const runtime = readFileSync('src/presence/vision-runtime.ts', 'utf8');
+  const holistic = readFileSync('src/core/vision/holistic-tracker.ts', 'utf8');
+  const legacy = readFileSync('src/core/face/face-tracker.ts', 'utf8');
+  assert.match(runtime, /now - faceData\.frameAt <= 450/);
+  assert.match(runtime, /faceSeen: faceFresh/);
+  assert.match(runtime, /blendshapesReady: faceFresh && faceData\.blendshapesReady/);
+  assert.match(holistic, /faceData\.frameAt = now/);
+  assert.match(legacy, /faceData\.frameAt = now/);
+  assert.match(legacy, /faceData\.frameAt = 0/);
+});

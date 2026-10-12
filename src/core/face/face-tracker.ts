@@ -27,6 +27,10 @@ export interface FaceMuscles {
 export interface FaceData {
   active: boolean;
   present: boolean;
+  /** Monotonic timestamp of the last successfully inferred face frame. */
+  frameAt: number;
+  /** Landmarks alone do not establish an affect signal. */
+  blendshapesReady: boolean;
   yaw: number;
   pitch: number;
   roll: number;
@@ -56,6 +60,8 @@ export interface FaceData {
 export const faceData: FaceData = {
   active: false,
   present: false,
+  frameAt: 0,
+  blendshapesReady: false,
   yaw: 0,
   pitch: 0,
   roll: 0,
@@ -251,6 +257,8 @@ function readFrame(): void {
   const bs = blendshapeMap(res?.faceBlendshapes?.[0]?.categories);
   if (landmarks.length >= 100) {
     faceData.present = true;
+    faceData.frameAt = now;
+    faceData.blendshapesReady = Object.keys(bs).length > 0;
     faceData.landmarks = landmarks;
 
     if (!Object.keys(bs).length) {
@@ -338,6 +346,8 @@ function readFrame(): void {
     }
   } else {
     faceData.present = false;
+    faceData.frameAt = 0;
+    faceData.blendshapesReady = false;
     faceData.emotion = 'neutral';
     faceData.emotionConfidence = 0;
     faceData.landmarks = [];
@@ -396,6 +406,8 @@ export function stopFaceTracking(): void {
   consecutiveInferenceFailures = 0;
   faceData.active = false;
   faceData.present = false;
+  faceData.frameAt = 0;
+  faceData.blendshapesReady = false;
   faceData.landmarks = [];
   faceData.emotion = 'neutral';
   faceData.emotionConfidence = 0;

@@ -172,6 +172,8 @@ function updateFace(result: any, now: number): number {
   lastFaceSeenAt = now;
   faceData.active = true;
   faceData.present = true;
+  faceData.frameAt = now;
+  faceData.blendshapesReady = frame.blendshapesReady;
   faceData.landmarks = landmarks;
   holisticRuntimeData.face = {
     status: frame.blendshapesReady ? 'full' : 'mesh_only',
@@ -274,6 +276,8 @@ function updateFace(result: any, now: number): number {
 
 function clearFace(): void {
   faceData.present = false;
+  faceData.frameAt = 0;
+  faceData.blendshapesReady = false;
   faceData.yaw = 0;
   faceData.pitch = 0;
   faceData.roll = 0;

@@ -30,6 +30,9 @@ export interface MicroAffectSample {
 
 export interface FaceAffectSample {
   present?: boolean;
+  /** Timestamp from actual MediaPipe inference, not the UI polling clock. */
+  frameAt?: number;
+  blendshapesReady?: boolean;
   smile?: number;
   frown?: number;
   browUp?: number;
@@ -377,6 +380,7 @@ export class AffectTracker {
   private candidateSince = 0;
   private baseline = loadBaseline();
   private baselineWrites = 0;
+  private lastAcceptedFrameAt = 0;
 
   private personalize(sample: FaceAffectSample): FaceAffectSample {
     if (this.baseline.count < 90) return sample;
@@ -417,6 +421,23 @@ export class AffectTracker {
   }
 
   update(sample: FaceAffectSample, now = performance.now()): AffectState {
+    // Timestamped runtime observations are fail-closed. A duplicate frame
+    // never extends a mood dwell window or re-trains the personal baseline.
+    // Legacy direct callers without frameAt retain their existing behavior.
+    if (sample.frameAt !== undefined) {
+      const frameAt = Number(sample.frameAt);
+      const fresh = Boolean(sample.present && Number.isFinite(frameAt) && frameAt > 0 &&
+        Number.isFinite(now) && now >= frameAt && now - frameAt <= 450);
+      if (!fresh || sample.blendshapesReady === false) {
+        this.lastAcceptedFrameAt = 0;
+        this.candidate = 'neutral';
+        this.candidateSince = now;
+        this.current = neutralAffect();
+        return this.current;
+      }
+      if (frameAt <= this.lastAcceptedFrameAt) return this.current;
+      this.lastAcceptedFrameAt = frameAt;
+    }
     const raw = inferAffect(this.personalize(sample));
     this.observeBaseline(sample, raw);
     raw.channels.baselineReady = clamp01(this.baseline.count / 180);
