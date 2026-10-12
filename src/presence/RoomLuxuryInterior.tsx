@@ -164,27 +164,27 @@ function MiraChairSet(){
   // Keep the same warm bedroom, rug and furniture placement; fix only the seat.
   return <group name="mira-indoor-lounge">
     <mesh position={[0,.025,1.90]} rotation={[-Math.PI/2,0,0]} receiveShadow>
-      <circleGeometry args={[1.94,64]}/>
+      <circleGeometry args={[1.63,64]}/>
       <meshStandardMaterial color="#ebd8d5" roughness={.98}/>
     </mesh>
     {/* Low upholstered seat: its top is y=.43, under the anchored pelvis. */}
-    <Rounded at={[0,.34,1.73]} size={[1.70,.18,1.25]}
+    <Rounded at={[0,.34,1.73]} size={[1.34,.18,1.08]}
       color="#e4d7d1" radius={.085} roughness={.99}/>
     {/* A slim backrest behind shoulders, not an occluding ellipsoid. */}
-    <Rounded at={[0,1.00,1.08]} size={[1.72,1.24,.19]}
+    <Rounded at={[0,.93,1.13]} size={[1.36,1.05,.17]}
       color="#e7dcd6" radius={.15} roughness={.99} rotation={[-.10,0,0]}/>
-    <Rounded at={[0,.87,1.215]} size={[1.48,.54,.11]}
+    <Rounded at={[0,.82,1.25]} size={[1.19,.42,.09]}
       color="#d5c6c2" radius={.055} roughness={1} rotation={[-.09,0,0]}/>
     {[-1,1].map(side=><group key={side}>
-      <Rounded at={[side*.87,.65,1.68]} size={[.16,.20,.73]}
+      <Rounded at={[side*.69,.61,1.68]} size={[.13,.17,.60]}
         color="#e1d3cf" radius={.07} roughness={.98}/>
-      <Rounded at={[side*.71,.205,1.33]} size={[.085,.36,.095]}
+      <Rounded at={[side*.54,.205,1.34]} size={[.075,.36,.085]}
         color="#625655" radius={.022} metalness={.48}/>
-      <Rounded at={[side*.71,.205,2.12]} size={[.085,.36,.095]}
+      <Rounded at={[side*.54,.205,2.08]} size={[.075,.36,.085]}
         color="#625655" radius={.022} metalness={.48}/>
     </group>)}
     {/* Single decorative pillow stays away from head and upper body. */}
-    <Rounded at={[-.60,.99,1.29]} size={[.29,.33,.12]}
+    <Rounded at={[-.49,.93,1.29]} size={[.20,.27,.09]}
       color="#b58b93" radius={.055} roughness={1} rotation={[0,-.06,-.15]}/>
   </group>;
 }
