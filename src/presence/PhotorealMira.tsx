@@ -621,7 +621,7 @@ export default function PhotorealMira({
           draggable={false}
           decoding="async"
         />}
-        {!spatial3DEnabled && !room3DActive && !cinematicPortrait && presenceScene === 'bedtime' && (visualQuality === 'high' || visualQuality === 'ultra') && (
+        {!spatial3DEnabled && !room3DActive && presenceScene === 'bedtime' && !cinematicPortrait && (visualQuality === 'high' || visualQuality === 'ultra') && (
           <Suspense fallback={null}>
             <PhotorealSceneSegments src={sceneAsset} />
           </Suspense>
