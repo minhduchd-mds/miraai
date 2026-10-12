@@ -52,8 +52,16 @@ function workerFixture() {
     async request(path, { mode = 'cors', destination = '', method = 'GET' } = {}) {
       const request = { url: origin + path, mode, destination, method };
       let response;
-      handlers.get('fetch')({ request, respondWith(promise) { response = promise; } });
-      return response ? await response : null;
+      const pending=[];
+      handlers.get('fetch')({
+        request,respondWith(promise) { response = promise; },
+        waitUntil(promise){pending.push(promise);},
+      });
+      const result=response ? await response : null;
+      // In a real Service Worker, waitUntil keeps storage alive after the
+      // network response; drain it explicitly in this deterministic fixture.
+      await Promise.all(pending);
+      return result;
     },
   };
 }
