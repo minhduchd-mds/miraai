@@ -64,3 +64,68 @@ test('cancelled speech never plays a stale HTTP audio result after a newer utter
     URL.revokeObjectURL = oldRevokeObjectURL;
   }
 });
+
+
+test('look-ahead reuses exact next ElevenLabs audio, preserving voice/direction and cancellation',async()=>{
+  const oldFetch=globalThis.fetch,oldAudio=globalThis.Audio,oldWindow=globalThis.window;
+  const oldCreate=URL.createObjectURL,oldRevoke=URL.revokeObjectURL;
+  const requests=[],played=[],abortSignals=[];
+  try{
+    globalThis.window={setTimeout,clearTimeout};
+    globalThis.fetch=async(url,options={})=>{
+      if(url.endsWith('/health'))return {ok:true,json:async()=>({ok:true,configured:true})};
+      if(url.endsWith('/voices'))return {ok:true,json:async()=>({voices:[]})};
+      const data=JSON.parse(options.body);
+      requests.push(data);abortSignals.push(options.signal);
+      return {ok:true,blob:async()=>({size:4,label:data.text})};
+    };
+    URL.createObjectURL=blob=>'blob:'+blob.label;
+    URL.revokeObjectURL=()=>{};
+    globalThis.Audio=class{
+      constructor(url){this.url=url;this.paused=false;globalThis.__miraTestAudio=this;}
+      play(){played.push(this.url);this.onplaying?.();return Promise.resolve();}
+      pause(){this.paused=true;}
+    };
+    const source=readFileSync('src/core/tts/server-tts.ts','utf8')
+      .replace("import { attachAnalyser } from '../audio-level';",'const attachAnalyser=()=>()=>{};');
+    const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+    const {ServerTTS}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+    const tts=new ServerTTS({serverUrl:'https://voice.example',label:'test',fallbackVoice:{name:'v',voiceURI:'v',lang:'vi-VN'}});
+    await tick();
+    tts.speak({text:'Một',lang:'vi-VN'});
+    await tick();
+    assert.deepEqual(played,['blob:Một']);
+    const next={text:'Hai',voiceURI:'sarah',instructions:'gentle'};
+    tts.prefetch(next);
+    await tick();
+    assert.equal(requests.length,2);
+    assert.deepEqual(requests[1],{text:'Hai',voice:'sarah',instructions:'gentle'});
+    tts.speak({...next,lang:'vi-VN'});
+    await tick();
+    assert.deepEqual(played,['blob:Một','blob:Hai']);
+    assert.equal(requests.length,2,'prefetched result must avoid duplicate API requests');
+    tts.prefetch({text:'Ba',voiceURI:'sarah',instructions:'gentle'});
+    await tick();
+    assert.equal(requests.length,3);
+    tts.cancel();
+    assert.equal(abortSignals[2].aborted,true,'interruption must abort speculative audio');
+    assert.equal(tts.diagnostics().speaking,false);
+  }finally{
+    delete globalThis.__miraTestAudio;
+    globalThis.fetch=oldFetch;
+    if(oldAudio===undefined)delete globalThis.Audio;else globalThis.Audio=oldAudio;
+    if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;
+    URL.createObjectURL=oldCreate;URL.revokeObjectURL=oldRevoke;
+  }
+});
+
+test('prefetch never starts before first sound, and never plays mismatched audio',async()=>{
+  const code=readFileSync('src/core/tts/server-tts.ts','utf8');
+  const queue=readFileSync('src/runtime/speech-queue.ts','utf8');
+  assert.match(code,/if \(!this.audio \|\| this.audio.paused \|\| this.cancelled/);
+  assert.match(code,/const ready = this.prefetched\?\.key === this.speechKey\(opts\)/);
+  assert.match(code,/this.prefetched\?\.controller.abort\(\)/);
+  assert.match(queue,/onStart: \(\) => \{/);
+  assert.match(queue,/const next = plannedChunks\[index \+ 1\]/);
+  assert.match(queue,/tts.prefetch\?\.\(\{/);
+});

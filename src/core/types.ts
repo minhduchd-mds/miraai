@@ -51,6 +51,8 @@ export interface VoiceOption {
 export interface TTSAdapter {
   readonly available: boolean;
   speak(options: TTSSpeakOptions): void;
+  /** Optional bounded look-ahead: generate the next segment while current audio plays. */
+  prefetch?(options: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>): void;
   cancel(): void;
   listVoices(langPrefix?: string): VoiceOption[];
 }

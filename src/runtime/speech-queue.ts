@@ -163,6 +163,17 @@ export class SpeechQueue {
         rate: chunk.rate,
         voiceURI: options.voiceURI,
         instructions: chunk.segment.instructions,
+        onStart: () => {
+          // Preserve semantic chunking but hide next-segment network latency
+          // behind current audio. Speculation stays strictly one chunk ahead.
+          if (token !== this.sequence || !options.isActive()) return;
+          const next = plannedChunks[index + 1];
+          if (next) tts.prefetch?.({
+            text: next.text,
+            voiceURI: options.voiceURI,
+            instructions: next.segment.instructions,
+          });
+        },
         onEnd: () => {
           if (token !== this.sequence || !options.isActive()) return;
           const isLast = index >= plannedChunks.length - 1;

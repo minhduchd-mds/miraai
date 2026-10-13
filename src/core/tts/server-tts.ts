@@ -33,6 +33,13 @@ export class ServerTTS implements TTSAdapter {
   private healthState: 'unknown' | 'healthy' | 'unhealthy' = 'unknown';
   private nextHealthProbeAt = 0;
   private healthProbePromise: Promise<boolean> | null = null;
+  // One in-flight or completed next segment. No persistent audio cache, no
+  // unbounded background requests, and never more than one speculative fetch.
+  private prefetched: {
+    key: string;
+    controller: AbortController;
+    audio: Promise<Blob | null>;
+  } | null = null;
 
   constructor(opts: ServerTTSOptions) {
     this.serverUrl = (opts.serverUrl || '').replace(/\/$/, '');
@@ -125,7 +132,55 @@ export class ServerTTS implements TTSAdapter {
     opts.onError?.(message);
   }
 
+  private speechKey(opts: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>): string {
+    return JSON.stringify([opts.text, opts.voiceURI || null, opts.instructions || null]);
+  }
+
+  private async requestAudio(
+    opts: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>,
+    signal: AbortSignal,
+  ): Promise<Blob> {
+    const response = await fetch(`${this.serverUrl}/tts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: opts.text,
+        voice: opts.voiceURI || null,
+        instructions: opts.instructions || null,
+      }),
+      signal,
+    });
+    if (!response.ok) {
+      let detail = '';
+      try { detail = JSON.stringify(await response.json()).slice(0, 160); }
+      catch { detail = response.statusText; }
+      throw new Error(`${this.label} ${response.status}: ${detail}`);
+    }
+    const blob = await response.blob();
+    if (!blob.size) throw new Error('empty_audio');
+    return blob;
+  }
+
+  /** Starts only after onplaying, preserving voice/model/normalization intact. */
+  prefetch(opts: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>): void {
+    // Speculation is only allowed during active audio playback. Do not spend
+    // provider quota while waiting for the first audio chunk or on idle.
+    if (!this.audio || this.audio.paused || this.cancelled ||
+        this.healthState !== 'healthy' || Date.now() < this.circuitOpenUntil) return;
+    const key = this.speechKey(opts);
+    if (this.prefetched?.key === key) return;
+    this.prefetched?.controller.abort();
+    const controller = new AbortController();
+    const audio = this.requestAudio(opts, controller.signal)
+      .catch(() => null); // No unhandled rejection if speech ends/interruption wins.
+    this.prefetched = { key, controller, audio };
+  }
+
   speak(opts: TTSSpeakOptions): void {
+    // Keep only the exact matching speculative result across normal TTS
+    // segment transitions. cancel() still aborts everything on interruption.
+    const ready = this.prefetched?.key === this.speechKey(opts) ? this.prefetched : null;
+    if (ready) this.prefetched = null;
     this.cancel();
     this.cancelled = false;
     const utteranceId = this.utteranceId;
@@ -143,30 +198,16 @@ export class ServerTTS implements TTSAdapter {
       return;
     }
 
-    const controller = new AbortController();
+    const controller = ready?.controller ?? new AbortController();
     this.abortCtl = controller;
     this.fetching = true;
 
-    fetch(`${this.serverUrl}/tts`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        text: opts.text,
-        voice: opts.voiceURI || null,
-        instructions: opts.instructions || null,
-      }),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (this.utteranceId !== utteranceId || controller.signal.aborted) return null;
-        if (!response.ok) {
-          let detail = '';
-          try { detail = JSON.stringify(await response.json()).slice(0, 160); }
-          catch { detail = response.statusText; }
-          throw new Error(`${this.label} ${response.status}: ${detail}`);
-        }
-        return response.blob();
-      })
+    // Reuse prefetched audio only when its original text, voice and direction
+    // match exactly. If it failed, retry once through the normal validated path.
+    const request = ready
+      ? ready.audio.then(blob => blob ?? this.requestAudio(opts, controller.signal))
+      : this.requestAudio(opts, controller.signal);
+    request
       .then((blob) => {
         if (this.utteranceId !== utteranceId || controller.signal.aborted) return;
         this.fetching = false;
@@ -221,6 +262,8 @@ export class ServerTTS implements TTSAdapter {
     this.cancelled = true;
     try { this.abortCtl?.abort(); } catch { /* noop */ }
     this.abortCtl = null;
+    this.prefetched?.controller.abort();
+    this.prefetched = null;
     this.fetching = false;
     if (this.audio) {
       try { this.audio.pause(); } catch { /* noop */ }
