@@ -53,7 +53,7 @@ test('scope does not work when signing configuration is absent', () => {
   }
 });
 test('cloud memory routes fail closed without a signing key', () => {
-  for (const name of ['history','memory','facts','profile','identity-capsule']) {
+  for (const name of ['history','memory','facts','profile','identity-capsule','feedback']) {
     assert.match(readFileSync('api/'+name+'.js','utf8'), /if \(!device\) return res.status\(503\)/);
   }
   const sources = [

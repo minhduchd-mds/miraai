@@ -988,6 +988,7 @@ export default function AppV2() {
             onTestVoice={mira.testVoice}
             getVoiceDiagnostics={mira.ttsDiagnostics}
             onOpenLabs={openLabs}
+            recentHistory={mira.history}
           />
         </Suspense>
       )}

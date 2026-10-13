@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {validateFeedback} from '../api/feedback.js';
+const good={rating:'helpful',reason:'accuracy',note:'',shareExchange:false};
+test('ratings cannot smuggle transcript without explicit consent',()=>{
+ assert.equal(validateFeedback(good).userExcerpt,null);
+ assert.equal(validateFeedback({...good,userExcerpt:'private'}),null);
+ assert.equal(validateFeedback({...good,shareExchange:true,userExcerpt:'private'}),null);
+ assert.equal(validateFeedback({...good,shareExchange:true,userExcerpt:'',assistantExcerpt:'answer'}),null);
+ assert.equal(validateFeedback({...good,note:'a'.repeat(401)}),null);
+ assert.equal(validateFeedback({...good,rating:'very-good'}),null);
+ assert.equal(validateFeedback({...good,reason:'illegal'}),null);
+ const explicit=validateFeedback({...good,shareExchange:true,userExcerpt:'hi',assistantExcerpt:'hello'});
+ assert.equal(explicit.userExcerpt,'hi');assert.equal(explicit.assistantExcerpt,'hello');
+});
+test('privacy boundaries include same-origin guard, signed scope, scoped deletions and separate storage',()=>{
+ const api=readFileSync('api/feedback.js','utf8');
+ const profile=readFileSync('api/profile.js','utf8');
+ const client=readFileSync('src/intelligence/feedback/feedback-client.ts','utf8');
+ const panel=readFileSync('src/settings/FeedbackPanel.tsx','utf8');
+ assert.match(api,/if\(!requireTrustedWrite\(req,res\)\)return/);
+ assert.match(api,/markPrivateResponse\(res\)/);
+ assert.match(api,/resolveMemoryScope\(req,res\)/);
+ assert.match(api,/delete from mira_feedback where device_id=\$\{device\}/);
+ assert.match(api,/and id=\$\{id\}/);
+ assert.match(api,/expires_at>now\(\)/);
+ assert.doesNotMatch(api,/embed\(|train\(|analytics\.track/);
+ assert.match(profile,/delete from mira_feedback where device_id/);
+ assert.match(profile,/select rating, reason, note, shared_exchange/);
+ assert.match(client,/credentials:'same-origin'/);
+ assert.match(panel,/data-feedback-default="no-chat-sharing"/);
+ assert.match(panel,/onClick=\{\(\)=>void submit\(\)\}/);
+ assert.match(panel,/shareExchange&&exchange/);
+});

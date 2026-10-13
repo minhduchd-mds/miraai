@@ -38,7 +38,7 @@ test('legitimate same-origin writes and legacy server-side clients remain compat
 });
 
 test('memory endpoints enforce write guard and retain private-cache response protection', () => {
-  for (const name of ['history', 'facts', 'profile', 'identity-capsule']) {
+  for (const name of ['history', 'facts', 'profile', 'identity-capsule', 'feedback']) {
     const src = readFileSync(`api/${name}.js`, 'utf8');
     assert.match(src, /if \(!requireTrustedWrite\(req, res\)\) return;/);
     assert.match(src, /markPrivateResponse\(res\)/);
@@ -48,7 +48,7 @@ test('memory endpoints enforce write guard and retain private-cache response pro
 test('delete-all memory is atomic and includes continuity capsules', () => {
   const source = readFileSync('api/profile.js', 'utf8');
   assert.match(source, /await sql\.transaction\(\[/);
-  for (const table of ['chat_messages', 'user_facts', 'identity_capsules']) {
+  for (const table of ['chat_messages', 'user_facts', 'identity_capsules', 'mira_feedback']) {
     assert.match(source, new RegExp('delete from ' + table + ' where device_id'));
   }
 });

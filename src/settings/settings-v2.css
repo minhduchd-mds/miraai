@@ -177,3 +177,35 @@
 .v2-music-library button { min-height: 31px; padding: 0 9px; border: 1px solid var(--stroke); border-radius: 8px; background: var(--bg); color: var(--dim); cursor: pointer; font-size: 9.5px; }
 .v2-music-library button:disabled { opacity: .45; cursor: default; }
 @media (max-width: 680px) { .v2-music-library { align-items: stretch; flex-direction: column; } .v2-music-library > div:last-child { justify-content: flex-end; } }
+
+/* User-initiated quality feedback — never streams chat automatically. */
+.v2-feedback-panel {display:grid;gap:12px;min-width:0;}
+.v2-feedback-panel h3 {margin:0 0 7px;}
+.v2-feedback-panel p {margin:0 0 8px;}
+.v2-feedback-choices {display:flex;gap:9px;flex-wrap:wrap;margin:13px 0;}
+.v2-feedback-choices button,.v2-feedback-actions button,.v2-feedback-item button {
+ min-height:36px;padding:0 13px;border:1px solid var(--stroke);border-radius:10px;
+ background:var(--bg);color:var(--text);cursor:pointer;font-size:11px;
+}
+.v2-feedback-choices button {min-height:41px;}
+.v2-feedback-choices button[aria-pressed="true"] {border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,var(--bg));}
+.v2-feedback-field {display:grid;gap:7px;margin-top:12px;font-size:11px;color:var(--dim);}
+.v2-feedback-field select,.v2-feedback-field textarea {
+ width:100%;min-width:0;padding:11px;border:1px solid var(--stroke);border-radius:11px;
+ background:var(--bg);color:var(--text);font:inherit;font-size:12px;
+}
+.v2-feedback-field textarea {resize:vertical;min-height:76px;line-height:1.5;}
+.v2-feedback-check {display:flex;gap:9px;align-items:flex-start;margin:14px 0;color:var(--dim);font-size:11px;line-height:1.5;cursor:pointer;}
+.v2-feedback-check input {margin-top:3px;accent-color:var(--accent);}
+.v2-feedback-preview {padding:12px;display:grid;gap:8px;border-radius:12px;border:1px solid var(--stroke);background:var(--bg);}
+.v2-feedback-preview p {overflow-wrap:anywhere;max-height:110px;overflow-y:auto;color:var(--text);}
+.v2-feedback-preview strong {font-size:10px;color:var(--dim);}
+.v2-feedback-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+.v2-feedback-actions button.primary {border-color:var(--accent);background:color-mix(in srgb,var(--accent) 17%,var(--bg));}
+.v2-feedback-panel button:disabled {opacity:.55;cursor:default;}
+.v2-feedback-list {display:grid;gap:7px;margin-top:12px;}
+.v2-feedback-item {display:flex;gap:10px;justify-content:space-between;align-items:center;border:1px solid var(--stroke);background:var(--bg);border-radius:10px;padding:8px 10px;}
+.v2-feedback-item span {font-size:11px;line-height:1.5;}
+.v2-feedback-item small {color:var(--faint);}
+.v2-feedback-item button {color:#ff9297;}
+@media(max-width:680px){.v2-feedback-choices button,.v2-feedback-actions button{flex:1;}}

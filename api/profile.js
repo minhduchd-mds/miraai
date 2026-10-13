@@ -1,6 +1,6 @@
 import { markPrivateResponse } from '../lib/private-response.js';
 import { requireTrustedWrite } from '../lib/request-security.js';
-import { getSql, ensureSchema } from '../lib/db.js';
+import { getSql, ensureSchema, ensureFeedbackSchema } from '../lib/db.js';
 import { embed, toVectorLiteral } from '../lib/gemini.js';
 import { resolveMemoryScope, rotateMemoryScope } from '../lib/memory-scope.js';
 
@@ -31,10 +31,14 @@ export default async function handler(req, res) {
       const messageCount = Number(countRows[0]?.count || 0);
 
       if ((req.query?.export || '').toString() === '1') {
+        await ensureFeedbackSchema(sql);
+        const feedback = await sql`select rating, reason, note, shared_exchange,
+          user_excerpt, assistant_excerpt, created_at from mira_feedback
+          where device_id = ${device} and expires_at > now() order by id asc limit 1000`;
         const messages = await sql`
           select role, text, created_at from chat_messages
           where device_id = ${device} order by id asc limit 1000`;
-        return res.status(200).json({ exportedAt: new Date().toISOString(), facts, messages });
+        return res.status(200).json({ exportedAt: new Date().toISOString(), facts, messages, feedback });
       }
       return res.status(200).json({ facts, messageCount });
     }
@@ -59,11 +63,13 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const id = Number(body?.id);
       if (body?.all === true) {
+        await ensureFeedbackSchema(sql);
         // One atomic commit: a partial failure cannot leave an old Identity Capsule behind.
         await sql.transaction([
           sql`delete from chat_messages where device_id = ${device}`,
           sql`delete from user_facts where device_id = ${device}`,
           sql`delete from identity_capsules where device_id = ${device}`,
+          sql`delete from mira_feedback where device_id = ${device}`,
         ]);
         rotateMemoryScope(res);
         return res.status(200).json({ ok: true, all: true });
