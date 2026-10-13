@@ -185,9 +185,14 @@ export class TurnManager {
     // Warm/partner guidance is opt-in. Load its small lexicon asynchronously
     // alongside Memory/Host preparation, not in the default AppV2 graph.
     const persona = voicePrefs.persona;
-    const dialoguePromise = persona === 'close' || persona === 'partner'
+    // Explicit user-invited roleplay works for just this turn without silently
+    // rewriting the saved persona. Keep the companion guide lazy by default.
+    const invited = /(?:nhập vai|đóng vai|nói chuyện như|trò chuyện như)\\s+(?:một\\s+)?(?:người yêu|vợ|chồng|bạn đời)/i.test(input)
+      && !/(?:đừng|không|thôi)\\s+(?:nhập vai|đóng vai|nói chuyện như|trò chuyện như)/i.test(input);
+    const dialoguePromise = persona === 'close' || persona === 'partner' || invited
       ? import('../intelligence/social/companion-dialogue')
           .then(({ companionTurnGuidance }) => companionTurnGuidance(input, prior, persona))
+          .catch(() => '') // Persona suggestions must never block core Brain.
       : Promise.resolve('');
     const hostAt = now();
     const hostPromise = Promise.resolve(this.host.getContext()).then(host => {

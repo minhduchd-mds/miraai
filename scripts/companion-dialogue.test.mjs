@@ -74,3 +74,55 @@ test('warm companion guide stays outside default voice bundle',()=>{
  assert.match(source,/const dialoguePromise/);
  assert.match(source,/await Promise\.all\(\[/);
 });
+
+test('repair beats affection or distress keywords without ignoring the actual request',()=>{
+ for(const prompt of ['Em chưa hiểu ý anh rồi','Không phải ý anh, em trả lời sai',
+    'Em trả lời như máy và lặp đi lặp lại','Em nói nhầm rồi, chồng yêu']) {
+   assert.equal(dialogue.detectCompanionIntent(prompt),'repair',prompt);
+   const context=dialogue.companionTurnGuidance(prompt,[],'partner');
+   assert.match(context,/Thừa nhận điểm sai cụ thể một lần/);
+   assert.match(context,/Không biện hộ/);
+ }
+});
+
+test('mixed stress and specific technical work remain actionable in partner mode',()=>{
+ for(const prompt of ['Anh stress quá, sửa lỗi API giúp anh',
+    'Anh mệt mỏi vì dự án. Kiểm tra CI nhé',
+    'Thiết kế UI có chữ chồng yêu trên banner']) {
+   assert.equal(dialogue.detectCompanionIntent(prompt),'practical',prompt);
+   assert.match(dialogue.companionTurnGuidance(prompt,[],'partner'),/Ưu tiên thông tin chính xác/);
+ }
+ assert.equal(dialogue.detectCompanionIntent('Anh đang buồn quá'),'support');
+});
+
+test('opt-in romantic invitation lasts one turn without changing persona preference',()=>{
+ assert.equal(dialogue.isExplicitCompanionRoleplayRequest('Em thử đóng vai vợ anh nhé'),true);
+ assert.equal(dialogue.isExplicitCompanionRoleplayRequest('Nói chuyện như người yêu nhé'),true);
+ assert.equal(dialogue.isExplicitCompanionRoleplayRequest('Đừng đóng vai vợ anh'),false);
+ assert.equal(dialogue.isExplicitCompanionRoleplayRequest('Viết truyện về một người vợ'),false);
+ const guidance=dialogue.companionTurnGuidance('Em thử đóng vai vợ anh nhé',[],'gentle');
+ assert.match(guidance,/chủ động đề nghị nhập vai/);
+ assert.match(guidance,/không âm thầm đổi chế độ/);
+ assert.match(dialogue.companionTurnGuidance('Đừng gọi anh là chồng',[],'partner'),/không gọi thân mật/);
+ assert.equal(prefs.voicePrefs.persona,'gentle');
+});
+
+test('continuity distinguishes real user history from AI-only claims',()=>{
+ const history=[{role:'mira',text:'Chúng mình đã gặp nhau ngoài đời.'}];
+ assert.equal(dialogue.detectCompanionIntent('Kể tiếp chuyện hôm trước',history),'ordinary');
+ history.push({role:'user',text:'Hôm trước anh nói về dự án giao diện'});
+ const context=dialogue.companionTurnGuidance('Kể tiếp chuyện hôm trước',history,'partner');
+ assert.match(context,/không coi lời Mira từng tự nói là bằng chứng/);
+ assert.match(context,/không bịa ký ức/);
+});
+
+test('roleplay dispatch remains lazy, permissionless and does not block Brain if guidance fails',()=>{
+ const turn=readFileSync('src/runtime/turn-manager.ts','utf8');
+ assert.match(turn,/persona === 'close' \|\| persona === 'partner' \|\| invited/);
+ assert.match(turn,/\.catch\(\(\) => ''\)/);
+ assert.match(turn,/const dialoguePromise/);
+ assert.match(turn,/const reply = await this.getBrain\(\)\.reply/);
+ const prompt=readFileSync('src/core/brain/prompt.ts','utf8');
+ assert.match(prompt,/sửa nội dung trước/);
+ assert.match(prompt,/không tự khẳng định quan hệ đời thực/);
+});

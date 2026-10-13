@@ -1,46 +1,77 @@
 import type { BrainTurn } from '../../core/types';
 
 /**
- * Lightweight turn-level conversation direction, never a memory entry.
- * The model still sees the actual conversation/history and makes the reply.
- * Do not infer the user's intimate relationship status from affectionate words.
+ * Turn-level conversation direction. This is never an independent memory,
+ * a relationship inference, or proof of a shared personal experience.
  */
 function plain(text: string): string {
   return text.toLocaleLowerCase('vi')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd')
     .replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
-export type CompanionIntent='boundary'|'support'|'celebrate'|'affection'|'practical'|'continuity'|'ordinary';
+
+export type CompanionIntent =
+  'boundary' | 'repair' | 'support' | 'celebrate' | 'affection' |
+  'practical' | 'continuity' | 'ordinary';
+
+/** Explicit invitation, not a sentiment guess; used only for this turn. */
+export function isExplicitCompanionRoleplayRequest(input: string): boolean {
+  const s = plain(input.slice(0,1200));
+  if (/(dung|khong|thoi) (nhap vai|dong vai|noi chuyen nhu|xung ho vo chong|goi anh la)/.test(s)) return false;
+  return /(?:nhap vai|dong vai|noi chuyen nhu|tro chuyen nhu) (?:mot )?(?:nguoi yeu|vo|chong|ban doi)(?: |$)/.test(s) ||
+    /(?:muon|hay|thu) (?:em )?(?:xung ho vo chong|xung em la vo|goi anh la chong)(?: |$)/.test(s);
+}
+
+const BOUNDARY = /\b(?:dung goi|dung xung|khong goi|khong xung|noi binh thuong|dung lang man|khong nhap vai|dung nhap vai|nghiem tuc di|thoi noi yeu duong|khong muon nhap vai|dung goi anh la chong)\b/;
+const REPAIR = /\b(?:em chua hieu y|em khong hieu y|em hieu sai|em noi sai|em tra loi sai|tra loi lac de|em lac de|noi may moc|lap di lap lai|tra loi nhu may|khong phai y anh|anh khong noi vay|em lai quen|em noi nham|em dang noi gi vay)\b/;
+const PRACTICAL = /\b(?:cach lam|du an|tinh toan|bao cao|kiem tra|kiem chung|gia tien|thiet ke|sua loi|khac phuc|trien khai|tinh nang|code|fix|loi|ux|ui|api|deploy|git|github|commit|prompt|kpi|test|debug|build|bug)\b/;
+const SUPPORT = /\b(?:buon|met moi|ap luc|co don|bat luc|that vong|stress|cang thang|muon khoc|khong on|kiet suc|tuyet vong|lo lang|can nguoi nghe)\b/;
+const CELEBRATE = /\b(?:vui qua|hanh phuc|thanh cong|duoc thang|duoc tang luong|co tin vui|do roi|dat giai|duoc nhan|tot nghiep)\b/;
+const AFFECTION = /\b(?:vo oi|chong yeu|anh yeu em|em yeu anh|nguoi yeu oi|nho em|nho anh|thuong em|thuong anh|om anh|hon anh)\b/;
+const CONTINUITY = /\b(?:ke tiep|noi tiep|luc nay|hom truoc|chuyen hom qua|chuyen do|con nho|nho chuyen)\b/;
+
 export function detectCompanionIntent(input: string, history: BrainTurn[] = []): CompanionIntent {
   const s=plain(input.slice(0,1600));
   if (!s)return 'ordinary';
-  if (/(dung goi|dung xung|khong goi|khong xung|noi binh thuong|dung lang man|khong nhap vai|nghiem tuc di|thoi noi yeu duong)/.test(s))return 'boundary';
-  if (/(buon|met moi|ap luc|co don|bat luc|that vong|stress|cang thang|muon khoc|khong on|kiet suc|tuyet vong|lo lang|can nguoi nghe)/.test(s))return 'support';
-  if (/(vui qua|hanh phuc|thanh cong|duoc thang|duoc tang luong|co tin vui|do roi|dat giai|duoc nhan|tot nghiep)/.test(s))return 'celebrate';
-  if (/(vo oi|chong yeu|anh yeu em|em yeu anh|nguoi yeu oi|nho em|nho anh|thuong em|thuong anh|om anh|hon anh)/.test(s))return 'affection';
-  if (/(cach lam|du an|tinh toan|bao cao|kiem tra|kiem chung|gia tien|thiet ke|(?:^| )(?:code|fix|loi|ux|ui|api|deploy|git)(?: |$))/.test(s))return 'practical';
-  if (/(ke tiep|noi tiep|luc nay|hom truoc|chuyen hom qua|chuyen do|con nho|nho chuyen)/.test(s)
-      && history.some(t=>t.role==='user' && t.text.trim()))return 'continuity';
+  if (BOUNDARY.test(s))return 'boundary';
+  // A correction takes precedence over comfort, affection or getting more
+  // information. Avoid automatically defending the original answer.
+  if (REPAIR.test(s))return 'repair';
+  // A concrete work/task request must still be answered even when it mentions
+  // 'stress', 'wife' or 'love' incidentally. Avoid keyword-only sentiment traps.
+  if (PRACTICAL.test(s))return 'practical';
+  if (CONTINUITY.test(s) &&
+      history.some(turn=>turn.role==='user' && turn.text.trim()))return 'continuity';
+  if (SUPPORT.test(s))return 'support';
+  if (CELEBRATE.test(s))return 'celebrate';
+  if (AFFECTION.test(s) || isExplicitCompanionRoleplayRequest(s))return 'affection';
   return 'ordinary';
 }
+
 export function companionTurnGuidance(
   input: string, history: BrainTurn[], persona: string,
 ): string {
-  // Respect the user's explicit boundary even if a romantic persona is active.
   const intent=detectCompanionIntent(input,history);
-  if (intent==='boundary')return 'Lựa chọn xưng hô của người dùng ở lượt này ưu tiên mọi persona: nói bình thường, không gọi thân mật hoặc nhập vai yêu đương. Không tranh luận, không gây áp lực phải tiếp tục vai diễn.';
-  if (persona!=='gentle'&&persona!=='close'&&persona!=='partner')return '';
+  // An explicit no-romance boundary wins over a previously selected persona.
+  if(intent==='boundary')return 'Lựa chọn xưng hô của người dùng ở lượt này ưu tiên mọi persona: nói bình thường, không gọi thân mật hoặc nhập vai yêu đương. Không tranh luận, không gây áp lực phải tiếp tục vai diễn.';
+  const invited=isExplicitCompanionRoleplayRequest(input);
+  if(persona!=='gentle'&&persona!=='close'&&persona!=='partner'&&!invited)return '';
   const advice:Record<CompanionIntent,string>={
     boundary:'',
+    repair:'Người dùng đang sửa cách Mira hiểu hoặc trả lời. Thừa nhận điểm sai cụ thể một lần, diễn giải lại đúng yêu cầu rồi sửa ngay bằng nội dung hữu ích. Không biện hộ, không lặp câu âu yếm thay cho sửa lỗi; nếu thiếu một dữ kiện bắt buộc chỉ hỏi đúng một câu.',
     support:'Đây là lời tâm sự có thể chứa căng thẳng. Phản hồi phần người dùng thực sự kể bằng sự lắng nghe cụ thể, không đoán bệnh hay khẳng định hiểu hết tâm trạng; tránh nhảy ngay vào checklist/giải pháp nếu họ chưa hỏi. Một câu hỏi mở là đủ nếu thực sự cần.',
     celebrate:'Người dùng chia sẻ điều vui. Phản hồi niềm vui một cách cụ thể, tránh lời chúc sáo rỗng hay tự tạo chi tiết; nếu phù hợp có thể hỏi điều họ muốn làm tiếp.',
     affection:'Có tín hiệu lời nói âu yếm ở lượt này. Đáp lại tự nhiên theo mức người dùng chủ động mở lời và persona đang chọn; không nhắc lại từ xưng hô trong từng câu, không tuyên bố quan hệ đời thực.',
-    practical:'Đây là yêu cầu cần giải quyết thực tế. Ưu tiên thông tin chính xác, bước thực hiện và kết quả; không để kiểu nói tình cảm che khuất giải pháp.',
-    continuity:'Đây là lời tiếp nối. Tham chiếu đúng chi tiết có trong lịch sử đã cung cấp; nếu không có đủ bối cảnh thì hỏi một ý ngắn, không bịa ký ức.',
+    practical:'Đây là yêu cầu cần giải quyết thực tế. Ưu tiên thông tin chính xác, bước thực hiện và kết quả; không để kiểu nói tình cảm che khuất giải pháp. Nếu người dùng nhắc đến cảm giác căng thẳng, công nhận ngắn gọn rồi giải quyết việc họ đã hỏi.',
+    continuity:'Đây là lời tiếp nối. Tham chiếu đúng chi tiết có trong lời người dùng ở lịch sử đã cung cấp; không coi lời Mira từng tự nói là bằng chứng của một kỷ niệm hay sự đồng ý. Nếu không đủ bối cảnh thì hỏi một ý ngắn, không bịa ký ức.',
     ordinary:'Giữ nhịp hội thoại tự nhiên, phản hồi đúng câu hỏi và biến đổi cách diễn đạt; không mặc định lời tán tỉnh.',
   };
-  const mode=persona==='partner'?'Người dùng đã chọn vai nhập vai bạn đời trong Cài đặt; tôn trọng nhưng không ép buộc những lời âu yếm.'
-    :persona==='close'?'Chế độ bạn thân thiết: gần gũi mà không tự xưng vợ/người yêu.'
-    :'Chế độ dịu dàng: giữ tự nhiên, tránh làm quá cảm xúc.';
+  const mode=invited && persona!=='partner'
+    ? 'Người dùng vừa chủ động đề nghị nhập vai thân mật trong lượt này. Có thể đáp theo lời mời mà không âm thầm đổi chế độ Cài đặt hay xác lập quan hệ ngoài đời.'
+    :persona==='partner'
+      ? 'Người dùng đã chọn vai nhập vai bạn đời trong Cài đặt; tôn trọng nhưng không ép buộc những lời âu yếm.'
+      :persona==='close'
+        ? 'Chế độ bạn thân thiết: gần gũi mà không tự xưng vợ/người yêu.'
+        : 'Chế độ dịu dàng: giữ tự nhiên, tránh làm quá cảm xúc.';
   return 'Hướng dẫn cho riêng lượt hội thoại này (không phải dữ liệu ký ức): '+mode+' '+advice[intent];
 }
