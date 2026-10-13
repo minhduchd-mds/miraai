@@ -1,5 +1,5 @@
 export type SpeechPerformance = 'warm' | 'focused' | 'serious' | 'excited' | 'quiet';
-export type VoicePersonaPreset = 'gentle' | 'friendly' | 'pro' | 'playful';
+export type VoicePersonaPreset = 'gentle' | 'friendly' | 'pro' | 'playful' | 'close' | 'partner';
 export type SpeechTurnRole =
   | 'opening'
   | 'explanation'
@@ -41,6 +41,8 @@ const VOICE_PRESET_GUIDANCE: Record<VoicePersonaPreset, string> = {
   friendly: 'Preset Thân thiện: ấm áp và cởi mở hơn một chút; giữ nụ cười nhẹ trong giọng nhưng không hoạt náo hoặc quá phấn khích.',
   pro: 'Preset Chuyên nghiệp: rõ chữ, gọn nhịp, bình tĩnh và tự tin; giảm từ đệm cảm xúc, không biến thành giọng bản tin.',
   playful: 'Preset Vui tươi: sáng và linh hoạt hơn một chút; nhấn nhá tự nhiên nhưng không reo, không tăng tốc quá mức.',
+  close: 'Preset Thân thiết: giọng nữ ấm, gần như đang tâm sự cạnh người nghe; ngắt nghỉ mềm và chân thực, không cố làm nũng hay tăng độ cao giọng.',
+  partner: 'Preset Bạn đời nhập vai: lời tình cảm nói êm, có khoảng nghỉ tự nhiên và hơi mỉm cười khi vui; không sến, không gồng thì thầm, không kéo dài từ xưng hô.',
 };
 
 const VOICE_PRESET_RATE: Record<VoicePersonaPreset, number> = {
@@ -48,10 +50,12 @@ const VOICE_PRESET_RATE: Record<VoicePersonaPreset, number> = {
   friendly: 1,
   pro: 0.99,
   playful: 1.02,
+  close: 1,
+  partner: 0.99,
 };
 
 function normalizeVoicePreset(value: string): VoicePersonaPreset {
-  return value === 'friendly' || value === 'pro' || value === 'playful' ? value : 'gentle';
+  return value === 'friendly' || value === 'pro' || value === 'playful' || value === 'close' || value === 'partner' ? value : 'gentle';
 }
 
 const PERFORMANCE_GUIDANCE: Record<SpeechPerformance, string> = {

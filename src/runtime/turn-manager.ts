@@ -1,6 +1,8 @@
 import type { Brain, BrainReply, BrainTurn } from '../core/types';
 import type { HostActionDescriptor, HostActionResult, HostBridge, HostContext } from '../host';
 import { assembleBrainContext } from '../intelligence/context/context-assembler';
+import { companionTurnGuidance } from '../intelligence/social/companion-dialogue';
+import { voicePrefs } from '../core/voice-prefs';
 import { ownerIdentityReply } from '../intelligence/identity/owner-profile';
 import { deicticVisualReply } from '../intelligence/vision/deictic-vision';
 import { MemoryService } from '../intelligence/memory/memory-service';
@@ -229,7 +231,8 @@ export class TurnManager {
       this.skills.describe(),
       hostActions.map((action) => 'host:' + action.id + ' [' + action.risk + '] — ' + action.description),
     );
-    const context = [baseContext, preBrainEvidence(preBrainResult), runtimeContext.trim()].filter(Boolean).join('\n\n');
+    const dialogue = companionTurnGuidance(input, prior, voicePrefs.persona);
+    const context = [baseContext, preBrainEvidence(preBrainResult), runtimeContext.trim(), dialogue].filter(Boolean).join('\n\n');
     const brainAt = now();
     const reply = await this.getBrain().reply(input, prior, context);
     timings.brainMs = Math.round(now() - brainAt);

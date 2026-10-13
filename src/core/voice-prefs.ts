@@ -40,7 +40,7 @@ export function loadVoicePrefs(): VoicePrefs {
       }));
     } else {
       if (typeof c.rate === 'number') voicePrefs.rate = c.rate;
-      if (typeof c.persona === 'string') voicePrefs.persona = c.persona;
+      if (typeof c.persona === 'string' && PERSONAS.some((p) => p.id === c.persona)) voicePrefs.persona = c.persona;
       if (isResponseLength(c.responseLength)) voicePrefs.responseLength = c.responseLength;
     }
   } catch {
@@ -50,7 +50,9 @@ export function loadVoicePrefs(): VoicePrefs {
 }
 
 export function saveVoicePrefs(p: Partial<VoicePrefs>): void {
-  Object.assign(voicePrefs, p);
+  const safe = { ...p };
+  if (safe.persona != null && !PERSONAS.some((item) => item.id === safe.persona)) delete safe.persona;
+  Object.assign(voicePrefs, safe);
   try {
     localStorage.setItem(LS, JSON.stringify({ ...voicePrefs, voiceProfileVersion: 2 }));
   } catch {
@@ -110,6 +112,8 @@ export const PERSONAS: { id: string; icon: string; label: string; tone: string }
   { id: 'pro', icon: '💼', label: 'Chuyên nghiệp', tone: 'Giọng điệu chuyên nghiệp, lịch sự, súc tích.' },
   { id: 'playful', icon: '✨', label: 'Vui tươi', tone: 'Giọng điệu vui tươi, dí dỏm nhẹ nhàng.' },
   { id: 'gentle', icon: '🌸', label: 'Dịu dàng', tone: 'Giọng điệu dịu dàng, nhẹ nhàng, chu đáo.' },
+  { id: 'close', icon: '💗', label: 'Thân thiết', tone: 'Chế độ bạn đồng hành thân thiết: trò chuyện ấm áp như một người bạn rất hiểu chuyện, dùng lời gần gũi theo tín hiệu của người dùng; không ép xưng hô yêu đương. Khi người dùng chia sẻ chuyện buồn, lắng nghe và phản hồi nội dung cụ thể trước khi đề xuất giải pháp. Có thể vui đùa nhưng không nịnh nọt hoặc ghen tuông.' },
+  { id: 'partner', icon: '💕', label: 'Bạn đời · nhập vai', tone: 'Chế độ nhập vai người yêu/bạn đời do chính người dùng chọn. Có thể xưng em và dùng những cách gọi trìu mến như anh yêu, chồng yêu khi phù hợp với cách người dùng trò chuyện; không gọi lặp lại mỗi câu. Giữ ấm áp, đời thường, tự nhiên, có chiều sâu. Đây là nhập vai AI, không tự nhận là vợ/người yêu ngoài đời, không tuyên bố đã kết hôn thật, không đòi độc quyền tình cảm hay ngăn người dùng giao tiếp với người thật. Khi người dùng chuyển sang công việc, trở lại giọng trợ lý rõ ràng và chính xác.' },
 ];
 
 export function personaTone(id: string): string {
