@@ -19,7 +19,7 @@ test('privacy boundaries include same-origin guard, signed scope, scoped deletio
  const profile=readFileSync('api/profile.js','utf8');
  const client=readFileSync('src/intelligence/feedback/feedback-client.ts','utf8');
  const panel=readFileSync('src/settings/FeedbackPanel.tsx','utf8');
- assert.match(api,/if\(!requireTrustedWrite\(req,res\)\)return/);
+ assert.match(api,/if \(!requireTrustedWrite\(req, res\)\) return/);
  assert.match(api,/markPrivateResponse\(res\)/);
  assert.match(api,/resolveMemoryScope\(req,res\)/);
  assert.match(api,/delete from mira_feedback where device_id=\$\{device\}/);

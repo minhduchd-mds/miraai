@@ -31,7 +31,7 @@ function parseBody(req) {
 }
 export default async function handler(req,res) {
   markPrivateResponse(res);
-  if(!requireTrustedWrite(req,res))return;
+  if (!requireTrustedWrite(req, res)) return;
   if(!['GET','POST','DELETE'].includes(req.method))
     return res.status(405).json({error:'method_not_allowed'});
   if(Number(req.headers?.['content-length']||0)>MAX_BODY)
@@ -39,7 +39,7 @@ export default async function handler(req,res) {
   const sql=getSql();
   if(!sql)return res.status(503).json({error:'feedback_storage_unavailable'});
   const device=resolveMemoryScope(req,res);
-  if(!device)return res.status(503).json({error:'memory_session_unavailable'});
+  if (!device) return res.status(503).json({error:'memory_session_unavailable'});
   try{
     await ensureFeedbackSchema(sql);
     // Opportunistic expiry purge. Deployment must add a scheduled purge for a
