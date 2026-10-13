@@ -141,3 +141,39 @@ test('voice response timing counts only first actually playing answer chunk, nev
  assert.match(hook,/if \(turnSeqRef\.current !== token\) return/);
  assert.match(hook,/firstAudioLatencyMs,/);
 });
+
+test('stable final voice endpoint credits only confirmed, repeated complete Vietnamese phrases',async()=>{
+  const source=readFileSync('src/core/stt/endpointer.ts','utf8');
+  const js=ts.transpileModule(source,{compilerOptions:{
+    target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,
+  }}).outputText;
+  const mod=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+  const {ENDPOINT,computeEndpointDelay,computeStableFinalEndpointDelay:stable}=mod;
+  const phrase='Anh giúp em kiểm tra nhé';
+  assert.equal(computeEndpointDelay(phrase),ENDPOINT.complete);
+  assert.equal(stable(phrase,null,1000),ENDPOINT.complete);
+  assert.equal(stable(phrase,{transcript:phrase,atMs:900},1000),ENDPOINT.complete);
+  assert.equal(stable(phrase,{transcript:phrase,atMs:600},1000),320);
+  assert.equal(stable(phrase+'.',{transcript:phrase,atMs:600},1000),320);
+  assert.equal(stable('Anh giúp em kiểm tra tiếp nhé',{transcript:phrase,atMs:600},1000),ENDPOINT.complete);
+  assert.equal(stable(phrase,{transcript:phrase,atMs:1005},1000),ENDPOINT.complete);
+  assert.equal(stable(phrase,{transcript:phrase,atMs:-15000},1000),ENDPOINT.complete);
+  // Never trim silence on an incomplete statement or a short acknowledgement.
+  for(const statement of ['Anh cần kiểm tra cho','Anh cần kiểm tra vì','Anh cần kiểm tra phần này',
+    'Vâng ạ','Em giúp anh nhé']) {
+    const original=computeEndpointDelay(statement);
+    const prior={transcript:statement,atMs:500};
+    if(original!==ENDPOINT.complete || statement.trim().split(/\s+/).length<ENDPOINT.minWords)
+      assert.equal(stable(statement,prior,1000),original);
+  }
+  assert.equal(stable('Anh cần kiểm tra phần này',{transcript:'Anh cần kiểm tra phần này',atMs:500},1000),ENDPOINT.base);
+});
+
+test('STT final endpoint overlap never replaces continuous turn merging or trailing safeguards',()=>{
+  const runtime=readFileSync('src/core/useMira.ts','utf8');
+  assert.match(runtime,/lastInterimRef\.current = \{ transcript: result\.transcript, atMs: receivedAt \}/);
+  assert.match(runtime,/computeStableFinalEndpointDelay\(result\.transcript, lastInterimRef\.current, receivedAt\)/);
+  assert.match(runtime,/if \(result\.isFinal\) lastInterimRef\.current = null/);
+  assert.match(runtime,/clearEndpointTimer\(\);\s*const delay = result\.isFinal/);
+  assert.match(runtime,/if \(stateRef\.current !== 'listening'\) return/);
+});

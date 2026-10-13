@@ -59,3 +59,31 @@ export function classifyEnd(text: string): 'complete' | 'base' | 'trailing' {
   const d = computeEndpointDelay(text);
   return d <= ENDPOINT.complete ? 'complete' : d >= ENDPOINT.trailing ? 'trailing' : 'base';
 }
+
+/**
+ * Credit only already-waited time between a *matching, stable interim*
+ * recognition and the browser's final transcript. This does NOT shorten
+ * base/trailing pauses or incomplete utterances; a final recognition alone
+ * is not proof of turn completion in continuous Web Speech.
+ *
+ * Max 160ms overlap on a >=4-word complete phrase, with a hard 320ms pause
+ * after the final signal so the speaker can continue. Any new STT result
+ * cancels and replaces the timer in useMira. No inferred silence, no audio
+ * or raw speech persisted.
+ */
+export function computeStableFinalEndpointDelay(
+  transcript: string,
+  priorInterim: { transcript: string; atMs: number } | null,
+  nowMs: number,
+): number {
+  const planned = computeEndpointDelay(transcript);
+  if (planned !== ENDPOINT.complete || !priorInterim) return planned;
+  const words = transcript.trim().split(/\s+/).filter(Boolean).length;
+  if (words < ENDPOINT.minWords) return planned;
+  const normalized = (text: string) => text.trim().toLocaleLowerCase('vi')
+    .replace(/[.!?…\s]+$/gu, '').replace(/\s+/g, ' ');
+  if (!normalized(transcript) || normalized(transcript) !== normalized(priorInterim.transcript)) return planned;
+  const waitedMs = nowMs - priorInterim.atMs;
+  if (!Number.isFinite(waitedMs) || waitedMs < 200 || waitedMs > 10_000) return planned;
+  return Math.max(320, planned - Math.min(160, Math.floor(waitedMs)));
+}

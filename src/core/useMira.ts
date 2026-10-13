@@ -7,7 +7,7 @@ import { voicePrefs, loadVoicePrefs } from './voice-prefs';
 import { SileroVAD } from './vad/silero-vad';
 import { loadVadEnabled } from './vad/config';
 import { loadSmartTurn } from './stt/turn-config';
-import { computeEndpointDelay, ENDPOINT } from './stt/endpointer';
+import { computeEndpointDelay, computeStableFinalEndpointDelay, ENDPOINT } from './stt/endpointer';
 import { createTTS, type MiraTTS, type TTSDiagnostics } from './tts';
 import { createBrain, saveLLMConfig, type LLMConfig } from './brain';
 import { brainFailureMessage } from './brain/brain-failure';
@@ -113,6 +113,7 @@ export function useMira() {
   const [brainName, setBrainName] = useState(() => brainRef.current!.name);
 
   const pendingTranscriptRef = useRef('');
+  const lastInterimRef = useRef<{ transcript: string; atMs: number } | null>(null);
   const emptyCountRef = useRef(0);
   const startListeningRef = useRef<() => void>(() => {});
   const pendingListenRef = useRef<number | null>(null);
@@ -445,6 +446,7 @@ export function useMira() {
     cancelSpeech();
     setError(null);
     pendingTranscriptRef.current = '';
+    lastInterimRef.current = null;
 
     if (!stt.available) {
       sendEvent('FAIL');
@@ -464,12 +466,19 @@ export function useMira() {
       continuous: smart,
       onResult: (result) => {
         pendingTranscriptRef.current = result.transcript;
+        const receivedAt = performance.now();
+        if (!result.isFinal && lastInterimRef.current?.transcript !== result.transcript) {
+          lastInterimRef.current = { transcript: result.transcript, atMs: receivedAt };
+        }
         setCaption(result.transcript || 'Đang nghe…');
         setPartial(!result.isFinal);
 
         if (smart) {
           clearEndpointTimer();
-          const delay = result.isFinal ? computeEndpointDelay(result.transcript) : ENDPOINT.trailing;
+          const delay = result.isFinal
+            ? computeStableFinalEndpointDelay(result.transcript, lastInterimRef.current, receivedAt)
+            : ENDPOINT.trailing;
+          if (result.isFinal) lastInterimRef.current = null;
           endpointTimerRef.current = window.setTimeout(() => {
             endpointTimerRef.current = null;
             if (stateRef.current !== 'listening') return;
@@ -515,6 +524,7 @@ export function useMira() {
 
   const stopListening = useCallback(() => {
     sttRef.current!.abort();
+    lastInterimRef.current = null;
     sendEvent('MIC_STOP');
     goIdle(IDLE_CAPTION);
   }, [goIdle, sendEvent]);
