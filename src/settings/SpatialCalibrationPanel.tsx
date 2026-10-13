@@ -33,9 +33,18 @@ export default function SpatialCalibrationPanel(props:Props){
      if(disposed||document.hidden)return;
      const now=performance.now();
      const snapshot=getter.current();
-     if(!snapshot || !snapshot.handSeen){
-       setHandState({left:false,right:false,pinch:false,palm:false,count:0});
+     if(!snapshot){
        if(engine.current.tick(now))setVersion(v=>v+1);
+       return;
+     }
+     if(!snapshot.handSeen){
+       setHandState({left:false,right:false,pinch:false,palm:false,count:0});
+       // A neutral test counts camera-active observation polls even though
+       // the hand detector correctly reports no hand/frame timestamp.
+       if(engine.current.snapshot(now).active?.kind==='idle'){
+         const done=engine.current.sample({at:now,now,hands:[]});
+         if(done){setMessage(done.passed?'Bài thử trung tính đạt.':'Bài thử chưa đạt.');setVersion(v=>v+1);}
+       }else if(engine.current.tick(now))setVersion(v=>v+1);
        return;
      }
      const hands=snapshot.hands.map(hand=>({
@@ -103,7 +112,7 @@ export default function SpatialCalibrationPanel(props:Props){
        disabled={Boolean(results.active)} aria-pressed={chosen===x.kind}
        onClick={()=>setChosen(x.kind)}>{x.label}
        {results.trials.some(t=>t.kind===x.kind)&&<small aria-hidden="true">
-        {results.trials.filter(t=>t.kind===x.kind).at(-1)?.passed?'✓':'·'}</small>}
+        {results.trials.filter(t=>t.kind===x.kind).slice(-1)[0]?.passed?'✓':'·'}</small>}
       </button>)}
    </div>
    <div className="v2-calibration-prompt">

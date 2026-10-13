@@ -4,9 +4,11 @@
 - Read-only guided test: left, right, pinch, open palm, left+right pinch, and idle.
 - Progress requires >=240ms of fresh, consecutive camera frames; old/stale/
   duplicated frames, out-of-order inference and confidence below .75 do not pass.
-- Idle detects unexpected pinch/open-palm classifications. These are **not
-  automatic UI click false-positive measurements** because Settings disables
-  UI gesture action dispatch.
+- Idle detects unexpected pinch/open-palm classifications. When no hand is
+  present, it counts camera-active UI observations rather than hand-inference
+  frames, because the hand timestamp is naturally zero. This proves neither
+  camera FPS nor OS-level click false positives. Settings disables UI gesture
+  action dispatch.
 - Reports show per-trial success and session success rate, explicit detection
   time from trial-button click (human reaction INCLUDED), P50/P95, and existing
   camera-inference-to-UI measured P50/P95. No sensor-to-photon claim.

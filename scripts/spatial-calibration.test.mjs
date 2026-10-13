@@ -90,3 +90,11 @@ test('camera calibration is lazy, opt-in, view-only and mounted in Settings with
  assert.doesNotMatch(panel,/\.click\(\)|\.requestFullscreen\(/);
  assert.match(panel,/data-spatial-calibration/);
 });
+
+test('idle mode counts camera-active no-hand observations without fabricating hand frames',()=>{
+ const source=readFileSync('src/settings/SpatialCalibrationPanel.tsx','utf8');
+ assert.match(source,/snapshot\.handSeen/);
+ assert.match(source,/active\?\.kind==='idle'/);
+ assert.match(source,/engine\.current\.sample\(\{at:now,now,hands:\[\]\}\)/);
+ assert.doesNotMatch(source,/\.at\(-1\)/);
+});
