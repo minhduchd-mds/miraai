@@ -1704,9 +1704,9 @@ test('world model snapshot is read-only and reset clears session state', () => {
 });
 
 
-function spatialIntent(intent, at, stableMs = 0) {
+function spatialIntent(intent, at, stableMs = 0, eventId = 1) {
   return {
-    eventId: intent === 'none' ? 0 : 1,
+    eventId: intent === 'none' ? 0 : eventId,
     intent,
     gesture: intent.startsWith('pinch') ? 'None' : 'Pointing_Up',
     confidence: intent === 'none' ? 0 : 0.9,
@@ -1909,7 +1909,7 @@ test('spatial UI emits a complete pinch-grab window lifecycle', () => {
   frame = controller.update({
     face: spatialFace(),
     hand: spatialHand({ present: true, confidence: 0.9, x: 0.68, y: 0.58, pinching: false }),
-    gestureIntent: spatialIntent('pinch_up', 1640, 240),
+    gestureIntent: spatialIntent('pinch_up', 1640, 240, 2),
     headGesture: 'none',
     targets: windowTarget,
   }, 1640);
@@ -2334,7 +2334,7 @@ test('spatial UI emits object grab lifecycle without auto-activating it', () => 
   frame = controller.update({
     face: spatialFace({ present: false, confidence: 0 }),
     hand: spatialHand({ present: true, confidence: 0.9, x: 0.6, y: 0.52, pinching: false, direct: true }),
-    gestureIntent: spatialIntent('pinch_up', 1420),
+    gestureIntent: spatialIntent('pinch_up', 1420, 0, 2),
     headGesture: 'none',
     targets: objectTarget,
   }, 1420);
