@@ -22,3 +22,5 @@
   romantic-dialogue quality or real-provider live-output benchmarks.
 - AI should respond warmly only when appropriate; never enforce exclusivity,
   discourage real people, misrepresent real marriage or infer intimate status.
+
+- Follow-up hardening: task keyword 'lỗi' now requires technical context, so ordinary affectionate references to 'lời' cannot hijack the router. Accentless roleplay invitations are supported as a *per-turn* request.

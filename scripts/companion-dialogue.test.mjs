@@ -126,3 +126,18 @@ test('roleplay dispatch remains lazy, permissionless and does not block Brain if
  assert.match(prompt,/sửa nội dung trước/);
  assert.match(prompt,/không tự khẳng định quan hệ đời thực/);
 });
+
+test('affectionate Vietnamese words do not trigger a technical task',()=>{
+ assert.equal(dialogue.detectCompanionIntent('Anh nói lời yêu em'), 'ordinary');
+ assert.equal(dialogue.detectCompanionIntent('Anh yêu em'), 'affection');
+ assert.equal(dialogue.detectCompanionIntent('Sửa lỗi kết nối API giúp anh'), 'practical');
+});
+
+test('tone-neutral roleplay gate supports unaccented Vietnamese invitations',()=>{
+ assert.equal(dialogue.isExplicitCompanionRoleplayRequest('Em dong vai vo anh nhe'),true);
+ assert.equal(dialogue.isExplicitCompanionRoleplayRequest('Hay xung ho vo chong nhe'),true);
+ assert.equal(dialogue.isExplicitCompanionRoleplayRequest('Dung dong vai vo anh'),false);
+ const turn=readFileSync('src/runtime/turn-manager.ts','utf8');
+ assert.match(turn,/const requestPlain = input\.toLocaleLowerCase\('vi'\)\.normalize\('NFD'\)/);
+ assert.match(turn,/xung ho vo chong/);
+});

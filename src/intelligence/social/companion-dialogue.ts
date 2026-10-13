@@ -24,7 +24,7 @@ export function isExplicitCompanionRoleplayRequest(input: string): boolean {
 
 const BOUNDARY = /\b(?:dung goi|dung xung|khong goi|khong xung|noi binh thuong|dung lang man|khong nhap vai|dung nhap vai|nghiem tuc di|thoi noi yeu duong|khong muon nhap vai|dung goi anh la chong)\b/;
 const REPAIR = /\b(?:em chua hieu y|em khong hieu y|em hieu sai|em noi sai|em tra loi sai|tra loi lac de|em lac de|noi may moc|lap di lap lai|tra loi nhu may|khong phai y anh|anh khong noi vay|em lai quen|em noi nham|em dang noi gi vay)\b/;
-const PRACTICAL = /\b(?:cach lam|du an|tinh toan|bao cao|kiem tra|kiem chung|gia tien|thiet ke|sua loi|khac phuc|trien khai|tinh nang|code|fix|loi|ux|ui|api|deploy|git|github|commit|prompt|kpi|test|debug|build|bug)\b/;
+const PRACTICAL = /\b(?:cach lam|du an|tinh toan|bao cao|kiem tra|kiem chung|gia tien|thiet ke|sua loi|khac phuc|trien khai|tinh nang|code|fix|loi (?:api|phan mem|he thong|ket noi|code)|ux|ui|api|deploy|git|github|commit|prompt|kpi|test|debug|build|bug)\b/;
 const SUPPORT = /\b(?:buon|met moi|ap luc|co don|bat luc|that vong|stress|cang thang|muon khoc|khong on|kiet suc|tuyet vong|lo lang|can nguoi nghe)\b/;
 const CELEBRATE = /\b(?:vui qua|hanh phuc|thanh cong|duoc thang|duoc tang luong|co tin vui|do roi|dat giai|duoc nhan|tot nghiep)\b/;
 const AFFECTION = /\b(?:vo oi|chong yeu|anh yeu em|em yeu anh|nguoi yeu oi|nho em|nho anh|thuong em|thuong anh|om anh|hon anh)\b/;
