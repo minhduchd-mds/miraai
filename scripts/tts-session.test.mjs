@@ -204,11 +204,16 @@ test('initial history load requests local and remote concurrently and merges wit
  const h="import { distillFacts, loadHistory, recallMemory, saveTurn } from '../../core/history-store';";
  const s="import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from './runtime-store';";
  const p="import { memoryEnabled } from './preferences';";
+ const helperImport="import { mergeTurnHistory } from './merge-turn-history';";
+ const helper=readFileSync('src/intelligence/memory/merge-turn-history.ts','utf8')
+  .replace(/^import type .*;\s*/m,'')
+  .replace('export function mergeTurnHistory','function mergeTurnHistory');
  assert.ok(src.includes(h)&&src.includes(s)&&src.includes(p));
  const rewritten=src
  .replace(h,"const loadHistory=()=>globalThis.__miraMemoryTest.remote(); const distillFacts=()=>{}; const recallMemory=async()=>''; const saveTurn=()=>{};")
  .replace(s,"const createRuntimeMemoryStore=()=>({loadRecent:()=>globalThis.__miraMemoryTest.local()}); const isLocalOnlyMemoryRuntime=()=>false;")
- .replace(p,"const memoryEnabled=()=>true;");
+ .replace(p,"const memoryEnabled=()=>true;")
+ .replace(helperImport,helper);
  const events=[];let doneLocal,doneRemote;
  globalThis.__miraMemoryTest={
   local:()=>{events.push('local');return new Promise(r=>{doneLocal=r;});},
