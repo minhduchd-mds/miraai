@@ -12,6 +12,7 @@ const fmt=(value:number|null|undefined)=>value==null?'—':Math.round(value)+' m
 export default function SpatialCalibrationPanel(props:Props){
  const engine=useRef(new SpatialCalibrationSession());
  const videoRef=useRef<HTMLVideoElement>(null);
+ const streamGetterRef=useRef(props.getVisionStream);streamGetterRef.current=props.getVisionStream;
  const getter=useRef(props.getVisionSnapshot);getter.current=props.getVisionSnapshot;
  const [chosen,setChosen]=useState<CalibrationKind>('left');
  const [version,setVersion]=useState(0);
@@ -23,14 +24,14 @@ export default function SpatialCalibrationPanel(props:Props){
    const video=videoRef.current;
    if(!props.visionOn || !video) return;
    // Share the existing authorized MediaStream, never call getUserMedia.
-   const stream=props.getVisionStream();
+   const stream=streamGetterRef.current();
    if(!stream)return;
    video.srcObject=stream;
    video.muted=true;
    video.playsInline=true;
    void video.play().catch(()=>{});
    return()=>{video.pause();video.srcObject=null;};
- },[props.visionOn,props.getVisionStream]);
+ },[props.visionOn]);
  useEffect(()=>{
    if(props.visionOn)return;
    engine.current.cancel();
