@@ -225,3 +225,33 @@ test('Mira Feedback consent-first settings work on desktop and mobile',async({pa
   await page.screenshot({path:screenshotPath,animations:'disabled'});
   await testInfo.attach('mira-feedback-mobile',{path:screenshotPath,contentType:'image/png'});
 });
+
+
+test('Mira Spatial Calibration view is opt-in and fits desktop/mobile',async({page},testInfo)=>{
+  await page.goto('/?visual-test=1&scene=home-evening',{waitUntil:'domcontentloaded'});
+  await page.locator('[data-spatial-action="settings.open"]').click();
+  await page.getByRole('button',{name:'Hiệu chuẩn tay'}).click();
+  const panel=page.locator('[data-spatial-calibration]');
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText('Camera tắt')).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Bắt đầu kiểm tra'})).toBeDisabled();
+  await expect(panel.getByRole('button',{name:'Bật camera để thử'})).toBeVisible();
+  await expect(panel.getByText('Tỷ lệ đạt')).toBeVisible();
+  await expect(panel.getByText('Camera → giao diện (frame)')).toBeVisible();
+  // Changing trial must never turn on camera or activate spatial controls.
+  await panel.getByRole('button',{name:'Pinch hai tay'}).click();
+  await expect(panel.getByText('Đưa hai tay trái/phải vào camera')).toBeVisible();
+  await mkdir(outputDir,{recursive:true});
+  await page.setViewportSize({width:1366,height:768});
+  const desk=join(outputDir,'mira-calibration-desktop-1366x768.png');
+  await page.screenshot({path:desk,animations:'disabled'});
+  await testInfo.attach('mira-calibration-desktop',{path:desk,contentType:'image/png'});
+  await page.setViewportSize({width:390,height:844});
+  await expect(panel).toBeVisible();
+  await expect(page.getByRole('button',{name:'Hiệu chuẩn tay'})).toBeInViewport();
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  const mobile=join(outputDir,'mira-calibration-mobile-390x844.png');
+  await page.screenshot({path:mobile,animations:'disabled'});
+  await testInfo.attach('mira-calibration-mobile',{path:mobile,contentType:'image/png'});
+});

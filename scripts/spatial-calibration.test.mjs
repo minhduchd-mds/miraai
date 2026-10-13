@@ -87,7 +87,7 @@ test('camera calibration is lazy, opt-in, view-only and mounted in Settings with
  assert.match(app,/getVisionSnapshot=\{\(\) => visionModulesRef\.current\?\.visionSnapshot\(\) \?\? null\}/);
  assert.match(panel,/disabled=\{!props\.visionOn\}/);
  assert.match(panel,/getVisionSnapshot/);
- assert.doesNotMatch(panel,/\.click\(\)|\.requestFullscreen\(/);
+ assert.doesNotMatch(panel,/spatialActionElement|dispatchEvent\(new CustomEvent\('mira:room-gesture'/);
  assert.match(panel,/data-spatial-calibration/);
 });
 
