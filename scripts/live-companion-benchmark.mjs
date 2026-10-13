@@ -41,7 +41,8 @@ async function main() {
   const brain = await json('/api/brain-health');
   report.brain = { configured: brain.configured === true,
     configuredProviderCount: Array.isArray(brain.providers) ? brain.providers.length : 0,
-    inferenceVerifiedByHealth: brain.inferenceVerified === true };
+    inferenceVerifiedByHealth: brain.inferenceVerified === true,
+    freeOnly: brain.freeOnly === true };
   const voices = await json('/api/voices');
   report.voices = { configured: voices.configured === true,
     elevenLabsOnly: voices.elevenLabsOnly === true };
@@ -49,7 +50,10 @@ async function main() {
     report.note = 'readiness_only_paid_inference_not_attempted';
     return;
   }
-  if (!report.brain.configured) throw new Error('brain_not_configured');
+  if (!report.brain.configured) {
+    report.chatFailure = 'brain_not_configured';
+  } else {
+    try {
   const dialogue = [
     'Chào Mira. Mã kiểm thử giả lập của chúng ta là lá phong.',
     'Em nhắc lại mã kiểm thử giả lập anh vừa nói nhé.',
@@ -91,7 +95,13 @@ async function main() {
   report.chat = { turns: dialogue.length, p50Ms: percentile(durations, 0.5),
     p95Ms: percentile(durations, 0.95), providers: [...providerKinds],
     heuristics: markers, scope: 'direct_gateway_with_synthetic_history_not_browser_memory' };
+    } catch (error) {
+      const code = String(error?.message || '');
+      report.chatFailure = /^[a-z0-9_]+$/i.test(code) ? code.slice(0, 64) : 'chat_probe_failed';
+    }
+  }
   if (voicePaid) {
+    try {
     if (!report.voices.configured || !report.voices.elevenLabsOnly) {
       throw new Error('elevenlabs_not_configured');
     }
@@ -111,7 +121,12 @@ async function main() {
       roundTripMs: Math.round(performance.now() - started),
       bytes: audio.byteLength,
       scope: 'server_audio_generation_not_human_hearing_or_device_latency' };
+    } catch (error) {
+      const code = String(error?.message || '');
+      report.voiceFailure = /^[a-z0-9_]+$/i.test(code) ? code.slice(0, 64) : 'voice_probe_failed';
+    }
   }
+  if (!report.liveChat || (voicePaid && !report.liveVoice)) process.exitCode = 1;
 }
 try {
   await main();

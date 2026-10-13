@@ -23,7 +23,7 @@ jobs:
     # Later pushes never silently consume model/TTS credits.
     if: >-
       (github.event_name == 'push' &&
-       github.event.head_commit.message == 'test(companion): one-shot live synthetic benchmark') ||
+       github.event.head_commit.message == 'test(companion): verify voice independently of brain outage') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm_paid_request == true)
     runs-on: ubuntu-latest
     timeout-minutes: 6

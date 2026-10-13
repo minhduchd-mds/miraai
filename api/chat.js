@@ -96,9 +96,13 @@ export default async function handler(req, res) {
       responseLength,
       fallbacksTried: result.fallbacksTried || [],
     });
-  } catch {
-    // Upstream errors can embed prompt text or credentials. Never log them.
-    console.error('[Mira Brain Gateway] provider chain unavailable');
+  } catch (error) {
+    // Log allowlisted provider/status categories only. Do not log raw upstream
+    // errors, user content, provider response bodies, token IDs or credentials.
+    const safeStatusChain = String(error?.message || '')
+      .match(/\b(?:gateway|gemini|openai|anthropic)\((?:http_[45]\d{2}|request_failed)\)/g)
+      ?.join(' -> ') || 'unclassified';
+    console.error('[Mira Brain Gateway] provider chain unavailable: ' + safeStatusChain);
     return res.status(502).json({
       error: process.env.MIRA_BRAIN_FREE_ONLY === '1'
         ? 'free_models_unavailable' : 'brain_gateway_failed',

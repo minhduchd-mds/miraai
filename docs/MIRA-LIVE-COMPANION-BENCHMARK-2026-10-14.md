@@ -15,3 +15,8 @@ With explicit authorization: `node scripts/live-companion-benchmark.mjs --allow-
 
 ## Interpretation
 Report `brain.configured` and `voices.configured` indicate provider configuration only. `liveChat` means live answers returned; `liveVoice` means actual audio bytes returned. If production is protected or unreachable, report that failure rather than claiming success.
+
+## Independent follow-up and safe diagnostics
+- Brain inference failures do not skip the separate explicitly authorized ElevenLabs TTS probe.
+- Backend diagnostics log only allowlisted provider names and HTTP status categories, never raw errors, transcripts or credentials.
+- First live test reached production: configured Brain and ElevenLabs, but HTTP 502 from /api/chat. Voice was not reached in that first run.
