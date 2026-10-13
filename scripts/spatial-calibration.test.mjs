@@ -132,8 +132,11 @@ test('camera interruption and tab-background interruption fail closed, not count
  s.cancel();
  assert.equal(s.snapshot().completed,0);
  s.begin('zoom',500);
- assert.equal(s.tick(7500).passed,false);
- assert.equal(s.snapshot().completed,1);
+ const missing=s.tick(7500);
+ assert.equal(missing.passed,false);
+ assert.equal(missing.inconclusive,true);
+ assert.equal(s.snapshot().completed,0);
+ assert.equal(s.snapshot().inconclusive,1);
 });
 test('video preview rebinds if the existing stream changes, without requesting new media',()=>{
  const src=readFileSync('src/settings/SpatialCalibrationPanel.tsx','utf8');
