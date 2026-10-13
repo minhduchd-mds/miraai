@@ -20,3 +20,13 @@
 - Hardware qualification still requires multiple real devices, lighting
   conditions, baseline false-action observation outside settings and user
   testing. Guided pass rate is NOT statistical precision or general accuracy.
+
+## Camera-interruption hardening
+- A frame inferred before pressing **Bắt đầu kiểm tra** cannot earn a pass.
+- Backgrounding the page, switching the camera off, losing the underlying live
+  video track, or losing the inference snapshot cancels the pending trial
+  without adding it to the success/failure denominator.
+- Video preview follows a recovered **existing authorized** MediaStream;
+  it neither reopens camera permissions nor records frames.
+- No change to the 240ms gesture hold, 75% confidence threshold, 3D render,
+  or quality of AI inference. All hardware accuracy claims remain unverified.

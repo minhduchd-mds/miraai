@@ -107,3 +107,38 @@ test('calibration preview reuses authorized camera stream, never opens or record
  assert.match(panel,/video\.srcObject=null/);
  assert.doesNotMatch(panel,/getUserMedia\(|MediaRecorder\(|canvas\.toDataURL\(/);
 });
+
+
+test('cached hand inference predating the Start action never counts as trial evidence',()=>{
+ const s=new SpatialCalibrationSession();
+ assert.equal(s.begin('left',1000),true);
+ assert.equal(s.sample(l(995,1020)),null);
+ assert.equal(s.sample(l(1010,1020)),null);
+ assert.equal(s.sample(l(1190,1190)),null);
+ const done=s.sample(l(1260,1270));
+ assert.equal(done.passed,true);
+ assert.equal(done.validFrames,3);
+ assert.equal(done.rejectedFrames,1);
+});
+test('camera interruption and tab-background interruption fail closed, not counted as trial failures',()=>{
+ const engine=readFileSync('src/settings/SpatialCalibrationPanel.tsx','utf8');
+ assert.match(engine,/track\.readyState==='live'/);
+ assert.match(engine,/engine\.current\.cancel\(\)/);
+ assert.match(engine,/document\.addEventListener\('visibilitychange',onVisibility\)/);
+ assert.match(engine,/không tính kết quả/);
+ const s=new SpatialCalibrationSession();
+ s.begin('zoom',100);
+ s.sample({at:150,now:150,hands:[]});
+ s.cancel();
+ assert.equal(s.snapshot().completed,0);
+ s.begin('zoom',500);
+ assert.equal(s.tick(7500).passed,false);
+ assert.equal(s.snapshot().completed,1);
+});
+test('video preview rebinds if the existing stream changes, without requesting new media',()=>{
+ const src=readFileSync('src/settings/SpatialCalibrationPanel.tsx','utf8');
+ assert.match(src,/if\(video\.srcObject!==stream\)/);
+ assert.match(src,/window\.setInterval\(attach,750\)/);
+ assert.match(src,/window\.clearInterval\(timer\)/);
+ assert.doesNotMatch(src,/navigator\.mediaDevices\.getUserMedia|new MediaRecorder/);
+});

@@ -21,23 +21,49 @@ export default function SpatialCalibrationPanel(props:Props){
    inferenceToHandAction:{count:0,p50Ms:0,p95Ms:0},uniqueHandFrames:0});
  const [message,setMessage]=useState('');
  useEffect(()=>{
-   const video=videoRef.current;
-   if(!props.visionOn || !video) return;
-   // Share the existing authorized MediaStream, never call getUserMedia.
-   const stream=streamGetterRef.current();
-   if(!stream)return;
-   video.srcObject=stream;
-   video.muted=true;
-   video.playsInline=true;
-   void video.play().catch(()=>{});
-   return()=>{video.pause();video.srcObject=null;};
+   if(!props.visionOn)return;
+   let disposed=false;
+   // Rebind to an already-authorized stream after automatic camera recovery.
+   // Never call getUserMedia, create a second track, or restart a stable video.
+   const attach=()=>{
+     if(disposed||document.hidden)return;
+     const video=videoRef.current;
+     const stream=streamGetterRef.current();
+     if(!video||!stream||!stream.getVideoTracks().some(track=>track.readyState==='live'))return;
+     if(video.srcObject!==stream){
+       video.srcObject=stream;
+       video.muted=true;
+       video.playsInline=true;
+       void video.play().catch(()=>{});
+     }
+   };
+   attach();
+   const timer=window.setInterval(attach,750);
+   return()=>{
+     disposed=true;
+     window.clearInterval(timer);
+     const video=videoRef.current;
+     if(video){video.pause();video.srcObject=null;}
+   };
  },[props.visionOn]);
  useEffect(()=>{
    if(props.visionOn)return;
+   const wasRunning=Boolean(engine.current.snapshot().active);
    engine.current.cancel();
+   if(wasRunning)setMessage('Camera đã tắt. Bài thử được hủy, không tính vào tỷ lệ đạt.');
    setHandState({left:false,right:false,pinch:false,palm:false,count:0});
    setVersion(v=>v+1);
  },[props.visionOn]);
+ useEffect(()=>{
+   const onVisibility=()=>{
+     if(document.visibilityState!=='hidden'||!engine.current.snapshot().active)return;
+     engine.current.cancel();
+     setMessage('Bài thử đã hủy khi ứng dụng chạy nền. Không tính kết quả.');
+     setVersion(v=>v+1);
+   };
+   document.addEventListener('visibilitychange',onVisibility);
+   return()=>document.removeEventListener('visibilitychange',onVisibility);
+ },[]);
  useEffect(()=>{
    // Read-only observation. The settings dialog deliberately disables
    // Spatial UI actions; these samples must never trigger DOM clicks.
@@ -46,9 +72,25 @@ export default function SpatialCalibrationPanel(props:Props){
    const timer=window.setInterval(()=>{
      if(disposed||document.hidden)return;
      const now=performance.now();
+     const active=Boolean(engine.current.snapshot().active);
+     const stream=streamGetterRef.current();
+     const cameraLive=Boolean(stream?.getVideoTracks().some(track=>track.readyState==='live'));
+     if(!cameraLive){
+       if(active){
+         engine.current.cancel();
+         setMessage('Camera mất kết nối. Bài thử đã hủy, không tính kết quả.');
+         setVersion(v=>v+1);
+       }
+       setHandState({left:false,right:false,pinch:false,palm:false,count:0});
+       return;
+     }
      const snapshot=getter.current();
      if(!snapshot){
-       if(engine.current.tick(now))setVersion(v=>v+1);
+       if(active){
+         engine.current.cancel();
+         setMessage('Luồng nhận diện chưa sẵn sàng. Vui lòng thử lại.');
+         setVersion(v=>v+1);
+       }
        return;
      }
      if(!snapshot.handSeen){

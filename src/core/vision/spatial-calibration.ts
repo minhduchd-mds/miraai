@@ -75,7 +75,9 @@ export class SpatialCalibrationSession {
     if(!t || !Number.isFinite(frame.now)||frame.now<t.startedAt)return null;
     const spec=CALIBRATION_TESTS.find(x=>x.kind===t.kind)!;
     if(frame.now - t.startedAt >= spec.durationMs)return this.finish(frame.now);
-    if(!Number.isFinite(frame.at)||frame.at<=0||frame.at>frame.now||
+    // A snapshot captured before the user pressed Start is not evidence
+    // for this trial even if it is still within the 350ms freshness window.
+    if(!Number.isFinite(frame.at)||frame.at<=0||frame.at<t.startedAt||frame.at>frame.now||
        frame.now-frame.at>MAX_FRAME_AGE_MS||frame.at<=t.lastFrameAt ||
        !Array.isArray(frame.hands)){
       t.rejectedFrames++;
