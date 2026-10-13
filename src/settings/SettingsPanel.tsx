@@ -294,9 +294,9 @@ export default function SettingsPanel(props: Props) {
         <header><div><span>CÀI ĐẶT</span><h2 id="mira-settings-title">Mira của anh</h2></div><button type="button" className="v2-settings-close" onClick={props.onClose} aria-label="Đóng cài đặt">×</button></header>
         <nav className="v2-settings-tabs" aria-label="Nhóm cài đặt">
           <button type="button" className={tab === 'voice' ? 'active' : ''} onClick={() => setTab('voice')}>Giọng & hội thoại</button>
+          <button type="button" className={tab === 'feedback' ? 'active' : ''} onClick={() => setTab('feedback')}>Góp ý Mira</button>
           <button type="button" className={tab === 'appearance' ? 'active' : ''} onClick={() => setTab('appearance')}>Giao diện</button>
           <button type="button" className={tab === 'memory' ? 'active' : ''} onClick={() => setTab('memory')}>Ký ức & riêng tư</button>
-          <button type="button" className={tab === 'feedback' ? 'active' : ''} onClick={() => setTab('feedback')}>Góp ý Mira</button>
         </nav>
         <div className="v2-settings-body">
           {tab === 'voice' && <>

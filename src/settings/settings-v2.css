@@ -209,3 +209,42 @@
 .v2-feedback-item small {color:var(--faint);}
 .v2-feedback-item button {color:#ff9297;}
 @media(max-width:680px){.v2-feedback-choices button,.v2-feedback-actions button{flex:1;}}
+
+/* Mira Quality v2 — compact, readable review & personal quality indicators. */
+.v2-feedback-panel > .v2-setting-group {padding:20px;}
+.v2-feedback-heading {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.v2-feedback-heading h3 {font-size:15px;line-height:1.35;margin:0 0 4px;}
+.v2-feedback-heading p {font-size:11.5px;line-height:1.5;margin:0;max-width:460px;}
+.v2-feedback-privacy-badge {flex:0 0 auto;padding:6px 9px;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 33%,var(--stroke));color:var(--text);background:color-mix(in srgb,var(--accent) 9%,var(--bg));font-size:10.5px;font-weight:600;}
+.v2-feedback-panel .v2-feedback-choices {margin:15px 0 11px;}
+.v2-feedback-panel .v2-feedback-choices button {flex:1;min-width:120px;font-size:12px;font-weight:600;}
+.v2-feedback-panel .v2-feedback-field {font-size:11.5px;gap:6px;margin-top:10px;}
+.v2-feedback-field small {font-size:10px;color:var(--faint);}
+.v2-feedback-panel .v2-feedback-field select {min-height:42px;font-size:12px;}
+.v2-feedback-panel .v2-feedback-field textarea {min-height:68px;}
+.v2-feedback-panel .v2-feedback-check {font-size:11.5px;line-height:1.45;margin:13px 0 7px;}
+.v2-feedback-check strong {font-weight:600;color:var(--dim);}
+.v2-feedback-help {font-size:10.5px!important;line-height:1.45!important;margin:3px 0 6px!important;}
+.v2-feedback-privacy-info {margin:8px 0 6px;}
+.v2-feedback-privacy-info summary {color:var(--dim);font-size:11px;cursor:pointer;min-height:30px;display:list-item;align-content:center;}
+.v2-feedback-privacy-info p {font-size:11px;line-height:1.5;padding:4px 0 0;}
+.v2-feedback-panel .v2-feedback-actions button.primary {flex:1;min-height:42px;font-size:12px;font-weight:650;color:var(--text);background:color-mix(in srgb,var(--accent) 18%,var(--bg));}
+.v2-feedback-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0;}
+.v2-feedback-stats > div {min-width:0;display:grid;gap:6px;padding:12px 10px;border:1px solid var(--stroke);border-radius:12px;background:color-mix(in srgb,var(--bg) 85%,transparent);}
+.v2-feedback-stats strong {color:var(--text);font-size:22px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;}
+.v2-feedback-stats span {color:var(--dim);font-size:10.5px;line-height:1.35;}
+.v2-feedback-panel h4.v2-feedback-history-heading {color:var(--text);font-size:12px;font-weight:650;margin:13px 0 8px;}
+.v2-feedback-issue {font-size:11px!important;color:var(--dim)!important;}
+.v2-feedback-issue b {color:var(--text);font-weight:650;}
+.v2-settings-tabs {scroll-padding-inline:18px;scrollbar-width:none;}
+.v2-settings-tabs::-webkit-scrollbar {display:none;}
+.v2-settings-tabs button {flex-shrink:0;}
+@media(max-width:680px) {
+  .v2-settings-tabs {padding:0 16px 12px;gap:4px;}
+  .v2-settings-tabs button {padding:0 10px;font-size:10.7px;}
+  .v2-feedback-panel > .v2-setting-group {padding:16px;}
+  .v2-feedback-privacy-badge {font-size:9px;padding:5px 7px;}
+  .v2-feedback-heading h3 {font-size:14px;}
+  .v2-feedback-stats > div {padding:10px 8px;}
+  .v2-feedback-stats strong {font-size:20px;}
+}
