@@ -187,8 +187,8 @@ export class TurnManager {
     const persona = voicePrefs.persona;
     // Explicit user-invited roleplay works for just this turn without silently
     // rewriting the saved persona. Keep the companion guide lazy by default.
-    const invited = /(?:nhập vai|đóng vai|nói chuyện như|trò chuyện như)\\s+(?:một\\s+)?(?:người yêu|vợ|chồng|bạn đời)/i.test(input)
-      && !/(?:đừng|không|thôi)\\s+(?:nhập vai|đóng vai|nói chuyện như|trò chuyện như)/i.test(input);
+    const invited = /(?:nhập vai|đóng vai|nói chuyện như|trò chuyện như)\s+(?:một\s+)?(?:người yêu|vợ|chồng|bạn đời)/i.test(input)
+      && !/(?:đừng|không|thôi)\s+(?:nhập vai|đóng vai|nói chuyện như|trò chuyện như)/i.test(input);
     const dialoguePromise = persona === 'close' || persona === 'partner' || invited
       ? import('../intelligence/social/companion-dialogue')
           .then(({ companionTurnGuidance }) => companionTurnGuidance(input, prior, persona))
