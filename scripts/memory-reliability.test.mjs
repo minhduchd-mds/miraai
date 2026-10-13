@@ -32,7 +32,7 @@ test('Desktop capsule import retains the original UTC timestamps', () => {
 });
 
 
-test('long-term memory distillation can only use user's own words, not romantic AI narration',()=>{
+test("long-term memory distillation only uses user words, not romantic AI narration",()=>{
  const source=readFileSync('src/intelligence/memory/memory-service.ts','utf8');
  const turn=readFileSync('src/runtime/turn-manager.ts','utf8');
  assert.match(source,/const userEvidence = 'Người dùng: ' \+ userText\.trim\(\)\.slice\(0, 8000\)/);
