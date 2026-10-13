@@ -98,3 +98,12 @@ test('idle mode counts camera-active no-hand observations without fabricating ha
  assert.match(source,/engine\.current\.sample\(\{at:now,now,hands:\[\]\}\)/);
  assert.doesNotMatch(source,/\.at\(-1\)/);
 });
+
+test('calibration preview reuses authorized camera stream, never opens or records a second one',()=>{
+ const app=readFileSync('src/app/AppV2.tsx','utf8');
+ const panel=readFileSync('src/settings/SpatialCalibrationPanel.tsx','utf8');
+ assert.match(app,/getVisionStream=\{\(\) => visionModulesRef\.current\?\.visionStream\(\) \?\? null\}/);
+ assert.match(panel,/video\.srcObject=stream/);
+ assert.match(panel,/video\.srcObject=null/);
+ assert.doesNotMatch(panel,/getUserMedia\(|MediaRecorder\(|canvas\.toDataURL\(/);
+});

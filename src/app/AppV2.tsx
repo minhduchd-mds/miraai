@@ -993,6 +993,7 @@ export default function AppV2() {
             visionBooting={visionBooting}
             onToggleVision={() => void toggleVision()}
             getVisionSnapshot={() => visionModulesRef.current?.visionSnapshot() ?? null}
+            getVisionStream={() => visionModulesRef.current?.visionStream() ?? null}
           />
         </Suspense>
       )}

@@ -38,3 +38,8 @@
 .v2-calibration-metrics small{grid-column:1/-1;font-size:10px;color:var(--faint);line-height:1.4}
 .v2-calibration p.v2-calibration-disclaimer{font-size:10px;margin-top:13px}
 @media(max-width:680px){.v2-calibration-head{flex-wrap:wrap}.v2-calibration-live{grid-template-columns:repeat(2,minmax(0,1fr))}.v2-calibration-gate{flex-wrap:wrap}.v2-calibration-gate button{width:100%}.v2-calibration-stats b{font-size:19px}}
+
+.v2-calibration-preview{position:relative;border:1px solid var(--stroke);border-radius:14px;background:#0a1018;overflow:hidden;margin-top:13px;min-height:175px;aspect-ratio:16/8;max-height:260px}
+.v2-calibration-preview video{display:block;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.v2-calibration-preview>span{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);padding:6px 9px;background:#081016b8;color:#ebf7f4;border-radius:7px;font-size:10px}
+@media(max-width:680px){.v2-calibration-preview{aspect-ratio:16/10;min-height:0;max-height:230px}}

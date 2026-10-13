@@ -6,10 +6,12 @@ type VisionSnapshot=ReturnType<typeof import('../presence/vision-runtime')['visi
 interface Props {
  visionOn:boolean;visionBooting:boolean;onToggleVision:()=>void;
  getVisionSnapshot:()=>VisionSnapshot|null;
+ getVisionStream:()=>MediaStream|null;
 }
 const fmt=(value:number|null|undefined)=>value==null?'—':Math.round(value)+' ms';
 export default function SpatialCalibrationPanel(props:Props){
  const engine=useRef(new SpatialCalibrationSession());
+ const videoRef=useRef<HTMLVideoElement>(null);
  const getter=useRef(props.getVisionSnapshot);getter.current=props.getVisionSnapshot;
  const [chosen,setChosen]=useState<CalibrationKind>('left');
  const [version,setVersion]=useState(0);
@@ -17,7 +19,18 @@ export default function SpatialCalibrationPanel(props:Props){
  const [latency,setLatency]=useState({inferenceToUi:{count:0,p50Ms:0,p95Ms:0},
    inferenceToHandAction:{count:0,p50Ms:0,p95Ms:0},uniqueHandFrames:0});
  const [message,setMessage]=useState('');
- const status=engine.current.snapshot();
+ useEffect(()=>{
+   const video=videoRef.current;
+   if(!props.visionOn || !video) return;
+   // Share the existing authorized MediaStream, never call getUserMedia.
+   const stream=props.getVisionStream();
+   if(!stream)return;
+   video.srcObject=stream;
+   video.muted=true;
+   video.playsInline=true;
+   void video.play().catch(()=>{});
+   return()=>{video.pause();video.srcObject=null;};
+ },[props.visionOn,props.getVisionStream]);
  useEffect(()=>{
    if(props.visionOn)return;
    engine.current.cancel();
@@ -101,6 +114,10 @@ export default function SpatialCalibrationPanel(props:Props){
    </div>
    {!props.visionOn&&<div className="v2-calibration-gate"><p>Camera chỉ bật khi anh cho phép. Không ghi hình hoặc gửi dữ liệu lên máy chủ.</p>
       <button type="button" disabled={props.visionBooting} onClick={props.onToggleVision}>{props.visionBooting?'Đang mở…':'Bật camera để thử'}</button>
+    </div>}
+   {props.visionOn&&<div className="v2-calibration-preview">
+      <video ref={videoRef} autoPlay playsInline muted aria-label="Camera hiệu chuẩn tại chỗ"/>
+      <span>LIVE · Chỉ hiển thị tại máy, không ghi hình</span>
     </div>}
    <div className="v2-calibration-live" aria-label="Tín hiệu camera trực tiếp">
     <div><i data-on={handState.left}/><span>Tay trái</span></div>
