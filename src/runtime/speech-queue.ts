@@ -17,6 +17,8 @@ export interface SpeechQueuePlayOptions {
   voiceURI?: string;
   isActive: () => boolean;
   onDone: () => void;
+  /** Fires once only when the first response audio actually starts playing. */
+  onFirstAudio?: () => void;
 }
 
 export interface SpeechQueueCueOptions {
@@ -167,6 +169,7 @@ export class SpeechQueue {
           // Preserve semantic chunking but hide next-segment network latency
           // behind current audio. Speculation stays strictly one chunk ahead.
           if (token !== this.sequence || !options.isActive()) return;
+          if (index === 0) options.onFirstAudio?.();
           const next = plannedChunks[index + 1];
           if (next) tts.prefetch?.({
             text: next.text,

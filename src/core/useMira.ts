@@ -100,6 +100,9 @@ export function useMira() {
   const [who, setWho] = useState('CHẠM ĐỂ NÓI');
   const [partial, setPartial] = useState(false);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  // Final transcript -> first audible response. Local-only telemetry, no audio
+  // recordings or utterance text persisted, and never confused with brain time.
+  const [firstAudioLatencyMs, setFirstAudioLatencyMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<BrainTurn[]>([]);
   const historyRef = useRef<BrainTurn[]>([]);
@@ -329,7 +332,7 @@ export function useMira() {
     schedulePendingListen(resumeListeningDelayMs(responseText), () => liveRef.current);
   }, [schedulePendingListen]);
 
-  const speak = useCallback((text: string) => {
+  const speak = useCallback((text: string, onFirstAudio?: () => void) => {
     clearThinkingSignals();
     sttRef.current!.abort();
     clearEndpointTimer();
@@ -345,6 +348,7 @@ export function useMira() {
       rate: Math.max(0.72, Math.min(1.2, voicePrefs.rate * affectRef.current.speechRate)),
       voiceURI: voiceURIRef.current,
       isActive: () => stateRef.current === 'speaking',
+      onFirstAudio,
       onDone: () => {
         if (stateRef.current !== 'speaking') return;
         sendEvent('TTS_DONE');
@@ -368,6 +372,8 @@ export function useMira() {
     proactiveRef.current.noteUserActivity();
     stopMicLevel();
     const token = ++turnSeqRef.current;
+    const turnStartedAt = performance.now();
+    setFirstAudioLatencyMs(null);
     const wasInterrupted = interruptedTurnRef.current;
     interruptedTurnRef.current = false;
     const prior = historyRef.current;
@@ -395,7 +401,10 @@ export function useMira() {
         setError(brainFailureMessage(result.reply.failureCode));
       }
       pushHistory({ role: 'mira', text: result.reply.text });
-      speak(result.reply.text);
+      speak(result.reply.text, () => {
+        if (turnSeqRef.current !== token) return;
+        setFirstAudioLatencyMs(Math.max(0, Math.round(performance.now() - turnStartedAt)));
+      });
     } catch (err) {
       clearThinkingSignals();
       if (turnSeqRef.current !== token) return;
@@ -635,6 +644,7 @@ export function useMira() {
     who,
     partial,
     latencyMs,
+    firstAudioLatencyMs,
     error,
     history,
     voices,

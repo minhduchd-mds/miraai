@@ -129,3 +129,15 @@ test('prefetch never starts before first sound, and never plays mismatched audio
   assert.match(queue,/const next = plannedChunks\[index \+ 1\]/);
   assert.match(queue,/tts.prefetch\?\.\(\{/);
 });
+
+
+test('voice response timing counts only first actually playing answer chunk, never thinking cues',()=>{
+ const queue=readFileSync('src/runtime/speech-queue.ts','utf8');
+ const hook=readFileSync('src/core/useMira.ts','utf8');
+ assert.match(queue,/if \(index === 0\) options\.onFirstAudio\?\.\(\)/);
+ assert.match(queue,/if \(token !== this\.sequence \|\| !options\.isActive\(\)\) return/);
+ assert.match(hook,/const turnStartedAt = performance\.now\(\)/);
+ assert.match(hook,/setFirstAudioLatencyMs\(Math\.max\(0, Math\.round\(performance\.now\(\) - turnStartedAt\)\)\)/);
+ assert.match(hook,/if \(turnSeqRef\.current !== token\) return/);
+ assert.match(hook,/firstAudioLatencyMs,/);
+});
