@@ -98,9 +98,11 @@ export default function SpatialCalibrationPanel(props:Props){
        // A neutral test counts camera-active observation polls even though
        // the hand detector correctly reports no hand/frame timestamp.
        if(engine.current.snapshot(now).active?.kind==='idle'){
-         const done=engine.current.sample({at:now,now,hands:[]});
-         if(done)setMessage(done.passed?'Bài thử trung tính đạt.':'Bài thử chưa đạt.');
-         setVersion(v=>v+1); // advance neutral progress even with zero tracked hands
+         // Use authentic empty-hand inference timestamps, not UI poll time.
+         const done=engine.current.sample({at:snapshot.handFrameAt,now,hands:[]});
+         if(done)setMessage(done.inconclusive?'Không đủ khung hình nhận diện để kết luận.'
+           :done.passed?'Bài thử trung tính đạt.':'Phát hiện tín hiệu bất thường.');
+         setVersion(v=>v+1);
        }else if(engine.current.tick(now))setVersion(v=>v+1);
        return;
      }
@@ -123,7 +125,8 @@ export default function SpatialCalibrationPanel(props:Props){
        uniqueHandFrames:perf.uniqueHandFrames,
      });
      const result=engine.current.sample({at:snapshot.handFrameAt,now,hands});
-     if(result){setMessage(result.passed?'Đã ghi nhận bài thử đạt':'Bài thử chưa đạt, có thể thực hiện lại.');setVersion(v=>v+1);}
+     if(result){setMessage(result.inconclusive?'Không đủ dữ liệu camera để kết luận.'
+       :result.passed?'Đã ghi nhận bài thử đạt':'Bài thử chưa đạt, có thể thực hiện lại.');setVersion(v=>v+1);}
      else if(engine.current.snapshot(now).active)setVersion(v=>v+1);
    },120);
    return()=>{disposed=true;window.clearInterval(timer);};
@@ -192,10 +195,13 @@ export default function SpatialCalibrationPanel(props:Props){
    <div className="v2-calibration-head"><div><h3>Kết quả phiên thử</h3>
      <p>Chỉ phản ánh các bài thử anh thực hiện, không phải độ chính xác của hệ thống trên tất cả người dùng.</p></div></div>
    <div className="v2-calibration-stats">
-    <div><b>{results.completed}</b><span>Bài thử</span></div>
+    <div><b>{results.completed}</b><span>Bài có dữ liệu</span></div>
     <div><b>{results.passedRatePct==null?'—':results.passedRatePct+'%'}</b><span>Tỷ lệ đạt</span></div>
     <div><b>{results.unexpectedFrames}</b><span>Tín hiệu bất thường*</span></div>
    </div>
+   {results.inconclusive>0&&<p className="v2-calibration-inconclusive" role="status">
+     {results.inconclusive} bài chưa đủ khung nhận diện; không tính vào tỷ lệ đạt.
+   </p>}
    <div className="v2-calibration-metrics">
     <div><span>Nhận diện từ lúc bấm Bắt đầu</span><b>{fmt(results.reactionAndRecognition.p50Ms)} / {fmt(results.reactionAndRecognition.p95Ms)}</b><small>P50 / P95, gồm thời gian anh đưa tay vào khung hình</small></div>
     <div><span>Camera → giao diện (frame)</span><b>{fmt(latency.inferenceToUi.p50Ms)} / {fmt(latency.inferenceToUi.p95Ms)}</b><small>P50 / P95, {latency.inferenceToUi.count} mẫu; không phải độ trễ màn hình vật lý</small></div>

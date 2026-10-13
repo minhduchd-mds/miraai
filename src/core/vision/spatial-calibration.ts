@@ -20,6 +20,7 @@ export interface CalibrationFrame {
 export interface CalibrationResult {
   kind: CalibrationKind;
   passed: boolean;
+  inconclusive: boolean;
   detectedMs: number | null;
   validFrames: number;
   rejectedFrames: number;
@@ -58,7 +59,7 @@ function percentiles(values:number[]) {
   return {count:sorted.length,p50Ms:at(.5),p95Ms:at(.95)};
 }
 type ActiveTrial={kind:CalibrationKind;startedAt:number;lastFrameAt:number;
-  candidateSince:number;matched:boolean;validFrames:number;rejectedFrames:number;
+  candidateSince:number;matched:boolean;firstFrameAt:number;validFrames:number;rejectedFrames:number;
   unexpectedFrames:number;detectedMs:number|null;};
 export class SpatialCalibrationSession {
   private active:ActiveTrial|null=null;
@@ -66,7 +67,7 @@ export class SpatialCalibrationSession {
   begin(kind:CalibrationKind,now:number) {
     const spec=CALIBRATION_TESTS.find(t=>t.kind===kind);
     if(!spec || !Number.isFinite(now)||now<0)return false;
-    this.active={kind,startedAt:now,lastFrameAt:0,candidateSince:0,matched:false,
+    this.active={kind,startedAt:now,lastFrameAt:0,candidateSince:0,matched:false,firstFrameAt:0,
       validFrames:0,rejectedFrames:0,unexpectedFrames:0,detectedMs:null};
     return true;
   }
@@ -85,6 +86,7 @@ export class SpatialCalibrationSession {
     }
     const gap=t.lastFrameAt>0?frame.at-t.lastFrameAt:0;
     t.lastFrameAt=frame.at;
+    if(t.firstFrameAt===0)t.firstFrameAt=frame.at;
     t.validFrames++;
     if(gap>MAX_FRAME_GAP_MS){t.candidateSince=0;t.matched=false;}
     const detected=matched(t.kind,frame.hands);
@@ -108,8 +110,17 @@ export class SpatialCalibrationSession {
   }
   private finish(_now:number):CalibrationResult {
     const t=this.active!;
+    const spec=CALIBRATION_TESTS.find(x=>x.kind===t.kind)!;
+    // A neutral pass needs real early AND late inference, not repeated UI polls.
+    const idleCoverage=t.validFrames>=6 &&
+      t.firstFrameAt>0 && t.firstFrameAt<=t.startedAt+700 &&
+      t.lastFrameAt>=t.startedAt+spec.durationMs-500;
+    const inconclusive=t.kind==='idle'
+      ? t.unexpectedFrames===0 && !idleCoverage
+      : t.validFrames<2 && t.detectedMs===null;
     const result:CalibrationResult={kind:t.kind,
-      passed:t.kind==='idle'?t.unexpectedFrames===0&&t.validFrames>=3:t.detectedMs!==null,
+      passed:t.kind==='idle'?t.unexpectedFrames===0&&idleCoverage:t.detectedMs!==null,
+      inconclusive,
       detectedMs:t.detectedMs,validFrames:t.validFrames,
       rejectedFrames:t.rejectedFrames,unexpectedFrames:t.unexpectedFrames};
     this.finished.push(result);
@@ -128,8 +139,13 @@ export class SpatialCalibrationSession {
     return {
       active:t?{kind:t.kind,elapsedMs:Math.round(clamp((now??t.startedAt)-t.startedAt,0,120000)),
         durationMs:spec!.durationMs,validFrames:t.validFrames}:null,
-      trials,completed:trials.length,passed:trials.filter(x=>x.passed).length,
-      passedRatePct:trials.length?Math.round(trials.filter(x=>x.passed).length/trials.length*100):null,
+      trials,
+      completed:trials.filter(x=>!x.inconclusive).length,
+      inconclusive:trials.filter(x=>x.inconclusive).length,
+      passed:trials.filter(x=>x.passed).length,
+      passedRatePct:trials.some(x=>!x.inconclusive)
+        ?Math.round(trials.filter(x=>x.passed).length/trials.filter(x=>!x.inconclusive).length*100)
+        :null,
       unexpectedFrames:trials.reduce((sum,x)=>sum+x.unexpectedFrames,0),
       rejectedFrames:trials.reduce((sum,x)=>sum+x.rejectedFrames,0),
       reactionAndRecognition:percentiles(measured),

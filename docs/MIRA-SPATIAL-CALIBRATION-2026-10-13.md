@@ -30,3 +30,11 @@
   it neither reopens camera permissions nor records frames.
 - No change to the 240ms gesture hold, 75% confidence threshold, 3D render,
   or quality of AI inference. All hardware accuracy claims remain unverified.
+
+## Evidence-based idle evaluation
+- No-action calibration samples genuine empty-hand inference timestamps from the
+  holistic hand tracker, never timestamps invented by the React polling interval.
+- A neutral pass requires six distinct frames and coverage near both the start
+  and end of the four-second trial; repeated UI polls or frozen workers fail.
+- Without sufficient evidence, the trial is marked inconclusive and excluded
+  from the success-rate denominator. This is not proof of active click precision.

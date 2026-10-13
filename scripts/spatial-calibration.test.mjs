@@ -68,7 +68,7 @@ test('neutral idle records unexpected gesture frames but never claims click fals
 });
 test('neutral idle passes after enough actual camera frames and can export bounded numeric results',()=>{
  const s=new SpatialCalibrationSession();s.begin('idle',100);
- for(let i=0;i<10;i++)s.sample({at:120+i*200,now:120+i*200,hands:[]});
+ for(let i=0;i<20;i++)s.sample({at:120+i*195,now:120+i*195,hands:[]});
  assert.equal(s.tick(4200).passed,true);
  const result=s.snapshot();
  assert.equal(result.completed,1);
@@ -95,7 +95,7 @@ test('idle mode counts camera-active no-hand observations without fabricating ha
  const source=readFileSync('src/settings/SpatialCalibrationPanel.tsx','utf8');
  assert.match(source,/snapshot\.handSeen/);
  assert.match(source,/active\?\.kind==='idle'/);
- assert.match(source,/engine\.current\.sample\(\{at:now,now,hands:\[\]\}\)/);
+ assert.match(source,/engine\.current\.sample\(\{at:snapshot\.handFrameAt,now,hands:\[\]\}\)/);
  assert.doesNotMatch(source,/\.at\(-1\)/);
 });
 
@@ -141,4 +141,34 @@ test('video preview rebinds if the existing stream changes, without requesting n
  assert.match(src,/window\.setInterval\(attach,750\)/);
  assert.match(src,/window\.clearInterval\(timer\)/);
  assert.doesNotMatch(src,/navigator\.mediaDevices\.getUserMedia|new MediaRecorder/);
+});
+
+
+test('idle cannot claim success from stale or insufficient inference samples',()=>{
+ const s=new SpatialCalibrationSession();
+ s.begin('idle',100);
+ for(let i=0;i<10;i++)s.sample({at:120+i*190,now:120+i*190,hands:[]});
+ const result=s.tick(4200);
+ assert.equal(result.passed,false);
+ assert.equal(result.inconclusive,true);
+ assert.equal(s.snapshot().completed,0);
+ assert.equal(s.snapshot().inconclusive,1);
+ assert.equal(s.snapshot().passedRatePct,null);
+});
+test('idle finds an unexpected classification even without enough neutral coverage',()=>{
+ const s=new SpatialCalibrationSession();
+ s.begin('idle',100);
+ s.sample(l(140));
+ const result=s.tick(4200);
+ assert.equal(result.passed,false);
+ assert.equal(result.inconclusive,false);
+ assert.equal(result.unexpectedFrames,1);
+ assert.equal(s.snapshot().completed,1);
+ assert.equal(s.snapshot().passedRatePct,0);
+});
+test('empty-hand calibration never invents frame timestamps from UI polls',()=>{
+ const source=readFileSync('src/settings/SpatialCalibrationPanel.tsx','utf8');
+ assert.match(source,/snapshot\.handFrameAt,now,hands:\[\]/);
+ assert.doesNotMatch(source,/engine\.current\.sample\(\{at:now,now,hands:\[\]\}\)/);
+ assert.match(source,/result\.inconclusive/);
 });
