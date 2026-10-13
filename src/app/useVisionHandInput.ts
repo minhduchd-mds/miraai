@@ -22,10 +22,20 @@ export function useVisionHandInput(deviceAdapter: SpatialDeviceAdapterRuntime) {
 
   const updateVisionHandInput = useCallback((snapshot: VisionSnapshot | undefined, now: number) => {
     const frameAt = Number(snapshot?.handFrameAt || 0);
-    const newFrame = frameAt > 0 && frameAt !== lastHandFrameRef.current;
-    const rawHands = Array.isArray(snapshot?.hands) ? snapshot.hands : [];
-    if (!newFrame && frameAt === 0) gestureIntentTrackerRef.current.reset();
-    lastHandFrameRef.current = frameAt;
+    // A worker may deliver a frame out of order while the UI is polling.
+    // Only a newer, recently inferred frame can advance gesture timers.
+    const freshFrame = Number.isFinite(frameAt) && frameAt > 0 &&
+      frameAt <= now && now - frameAt <= 350;
+    const reversed = frameAt > 0 && frameAt < lastHandFrameRef.current;
+    const newFrame = freshFrame && frameAt > lastHandFrameRef.current;
+    const rawHands = freshFrame && !reversed && Array.isArray(snapshot?.hands)
+      ? snapshot.hands : [];
+    if (!freshFrame || reversed) {
+      gestureIntentTrackerRef.current.reset();
+      primarySessionRef.current.reset();
+    }
+    if (newFrame) lastHandFrameRef.current = frameAt;
+    else if (frameAt === 0) lastHandFrameRef.current = 0;
     const selection = primarySessionRef.current.update(
       snapshot?.handSeen ? rawHands : [],
       now,

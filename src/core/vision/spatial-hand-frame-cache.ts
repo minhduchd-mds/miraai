@@ -5,6 +5,7 @@
 export class SpatialHandFrameCache<T> {
   private frameAt = 0;
   private hands: T[] = [];
+  private rollbackReported = false;
 
   read(frameAt: number, build: (at: number) => T[], onStale?: () => void): T[] {
     if (!Number.isFinite(frameAt) || frameAt <= 0) {
@@ -14,7 +15,19 @@ export class SpatialHandFrameCache<T> {
       }
       return this.hands;
     }
-    if (frameAt !== this.frameAt) {
+    // Late worker responses must never replace a newer gesture frame. Keep
+    // the timestamp high-water mark, clear visible hands once and wait for a
+    // genuinely newer inference; repeated UI polls cannot re-arm old actions.
+    if (frameAt < this.frameAt) {
+      if (!this.rollbackReported) {
+        this.hands = [];
+        this.rollbackReported = true;
+        onStale?.();
+      }
+      return this.hands;
+    }
+    if (frameAt > this.frameAt) {
+      this.rollbackReported = false;
       this.hands = build(frameAt);
       this.frameAt = frameAt;
     }
@@ -24,5 +37,6 @@ export class SpatialHandFrameCache<T> {
   reset(): void {
     this.frameAt = 0;
     this.hands = [];
+    this.rollbackReported = false;
   }
 }

@@ -223,6 +223,7 @@ export class SpatialUIController {
   private grabReleaseSince: number | null = null;
   private focusSource: SpatialPointerSource = 'none';
   private lastHandledPinchId = 0;
+  private lastHandledReleaseId = 0;
 
   update(input: SpatialControlInput, now = performance.now()): SpatialControlFrame {
     const facePoint = faceSpatialPoint(input.face);
@@ -285,6 +286,18 @@ export class SpatialUIController {
       }
     }
 
+    // Intent provenance must be both recent and strictly monotonic.
+    // Old pinch_down/up messages cannot re-fire after a worker rollback.
+    const intentAt = input.gestureIntent.at;
+    const intentId = input.gestureIntent.eventId;
+    const timelyIntent = Number.isFinite(intentAt) && intentAt > 0 &&
+      intentAt <= now && now - intentAt <= 350 &&
+      Number.isSafeInteger(intentId) && intentId > 0;
+    const freshRelease = Boolean(timelyIntent &&
+      input.gestureIntent.intent === 'pinch_up' &&
+      intentId > this.lastHandledReleaseId);
+    if (freshRelease) this.lastHandledReleaseId = intentId;
+
     const events: SpatialControlEvent[] = [];
     const focus = this.focus;
     const trackedHand = handPoint.source === 'hand' && input.hand.present;
@@ -297,7 +310,7 @@ export class SpatialUIController {
     }
     const trackingLost = this.grabReleaseSince !== null && now - this.grabReleaseSince >= 180;
     const shouldCancelGrab = Boolean(this.grabTargetId) &&
-      (!grabTargetVisible || trackingLost) && input.gestureIntent.intent !== 'pinch_up';
+      (!grabTargetVisible || trackingLost) && !freshRelease;
     if (shouldCancelGrab) {
       events.push({
         type: 'cancel',
@@ -326,9 +339,9 @@ export class SpatialUIController {
     }
 
     // A unique intent ID can activate at most once; stale polls cannot replay it.
-    const pinchId = input.gestureIntent.intent === 'pinch_down'
-      ? Math.trunc(input.gestureIntent.eventId) : 0;
-    const freshPinch = pinchId > 0 && pinchId !== this.lastHandledPinchId;
+    const pinchId = timelyIntent && input.gestureIntent.intent === 'pinch_down'
+      ? intentId : 0;
+    const freshPinch = pinchId > this.lastHandledPinchId;
     if (freshPinch) this.lastHandledPinchId = pinchId;
     const nodEdge = input.headGesture === 'nod' && this.previousHeadGesture !== 'nod';
     let activatedByHead = false;
@@ -388,7 +401,7 @@ export class SpatialUIController {
       });
     }
 
-    if (this.grabTargetId && trackedHand && input.gestureIntent.intent === 'pinch_up') {
+    if (this.grabTargetId && trackedHand && freshRelease) {
       events.push({
         type: 'grab_end',
         targetId: this.grabTargetId,
@@ -424,6 +437,7 @@ export class SpatialUIController {
     this.grabReleaseSince = null;
     this.focusSource = 'none';
     this.lastHandledPinchId = 0;
+    this.lastHandledReleaseId = 0;
     return {
       ...EMPTY_SPATIAL_CONTROL_FRAME,
       pointer: { ...EMPTY_SPATIAL_POINT },
