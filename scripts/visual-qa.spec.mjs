@@ -155,3 +155,57 @@ test('Mira v16.3 visual scene and device-profile lab', async ({ browser }, testI
     'utf8',
   );
 });
+
+
+test('Mira Feedback consent-first settings work on desktop and mobile',async({page},testInfo)=>{
+  const requests=[];
+  let rows=[];
+  await page.route('**/api/feedback',async route=>{
+    const method=route.request().method();
+    const body=method==='GET'?null:route.request().postDataJSON();
+    requests.push({method,body});
+    if(method==='POST'){
+      rows=[{id:'1',rating:body.rating,reason:body.reason,note:body.note,
+        shared_exchange:body.shareExchange,created_at:new Date().toISOString(),
+        expires_at:new Date(Date.now()+90*86400000).toISOString()}];
+      await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify({ok:true,id:'1'})});
+    } else if(method==='DELETE'){
+      rows=[];
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
+    } else {
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({feedback:rows})});
+    }
+  });
+  await page.goto('/?visual-test=1&scene=home-evening',{waitUntil:'domcontentloaded'});
+  await page.locator('[data-spatial-action="settings.open"]').click();
+  await page.getByRole('button',{name:'Góp ý Mira'}).click();
+  const feedback=page.locator('.v2-feedback-panel');
+  await expect(feedback).toBeVisible();
+  await expect(feedback).toHaveAttribute('data-feedback-default','no-chat-sharing');
+  await expect(feedback.locator('input[type="checkbox"]')).not.toBeChecked();
+  await expect(feedback.locator('.v2-feedback-preview')).toHaveCount(0);
+  expect(requests.some(item=>item.method==='POST')).toBe(false);
+  await feedback.getByRole('button',{name:'Hữu ích'}).click();
+  await feedback.getByRole('button',{name:'Gửi góp ý'}).click();
+  await expect.poll(()=>requests.filter(item=>item.method==='POST').length).toBe(1);
+  const payload=requests.find(item=>item.method==='POST').body;
+  expect(payload.rating).toBe('helpful');
+  expect(payload.shareExchange).toBe(false);
+  expect(payload.userExcerpt).toBeUndefined();
+  expect(payload.assistantExcerpt).toBeUndefined();
+  await expect(feedback.getByText('Đã ghi nhận góp ý.')).toBeVisible();
+  await expect(feedback.locator('.v2-feedback-item')).toHaveCount(1);
+  page.once('dialog',dialog=>dialog.accept());
+  await feedback.locator('.v2-feedback-item').getByRole('button',{name:'Xóa'}).click();
+  await expect(feedback.locator('.v2-feedback-item')).toHaveCount(0);
+  expect(requests.some(item=>item.method==='DELETE')).toBe(true);
+
+  await page.setViewportSize({width:390,height:844});
+  await expect(feedback).toBeVisible();
+  const width=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+  expect(width).toBeLessThanOrEqual(1);
+  const screenshotPath=join(outputDir,'mira-feedback-mobile-390x844.png');
+  await mkdir(outputDir,{recursive:true});
+  await page.screenshot({path:screenshotPath,animations:'disabled'});
+  await testInfo.attach('mira-feedback-mobile',{path:screenshotPath,contentType:'image/png'});
+});
