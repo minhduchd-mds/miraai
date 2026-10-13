@@ -92,8 +92,13 @@ export class MemoryService {
     if (!memoryEnabled()) return;
     const userText = conversation.split('\nMira:')[0]?.replace(/^Người dùng:\s*/i, '') || conversation;
     if (memoryOptOut(userText)) return;
-    void this.local.distill(conversation);
-    if (serverMemoryAvailable()) distillFacts(conversation);
+    // An LLM answer is not evidence of a user's real relationship, memories,
+    // or biography. Keep persistent episodes/fact extraction USER-only.
+    // Full conversation turns remain separately available in user history.
+    const userEvidence = 'Người dùng: ' + userText.trim().slice(0, 8000);
+    if (!userText.trim()) return;
+    void this.local.distill(userEvidence);
+    if (serverMemoryAvailable()) distillFacts(userEvidence);
   }
 
   observeAffect(affect: AffectState): void {

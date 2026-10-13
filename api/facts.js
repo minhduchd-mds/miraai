@@ -7,8 +7,10 @@ import { generateBrainJson } from '../lib/brain-gateway.js';
 import { requestGatewayOidcToken } from '../lib/vercel-ai-gateway.js';
 import { resolveMemoryScope } from '../lib/memory-scope.js';
 
-const DISTILL_PROMPT = `Bạn trích "sự thật BỀN VỮNG" về NGƯỜI DÙNG từ đoạn hội thoại (tiếng Việt) với trợ lý Mira.
-Chỉ lấy thông tin lâu dài đáng nhớ: tên, tuổi, công việc, sở thích, mục tiêu, hoàn cảnh, quan hệ, thói quen, điều thích/ghét.
+const DISTILL_PROMPT = `Bạn trích "sự thật BỀN VỮNG" về NGƯỜI DÙNG từ lời chính người dùng (tiếng Việt) với trợ lý Mira.
+CHỈ trích điều người dùng đã trực tiếp xác nhận là thông tin thật, bền vững về bản thân hoặc sở thích/xưng hô có chủ ý.
+Không coi lời AI/Mira, lời nhập vai người yêu/vợ/chồng, câu giả định, trích dẫn, mong ước, suy đoán cảm xúc qua camera hoặc câu hỏi là sự thật về quan hệ ngoài đời.
+Không suy ra người dùng đã kết hôn, đang yêu AI hoặc đã gặp Mira ngoài đời từ cách xưng hô, ví dụ nhập vai, hay câu tự nói của Mira.
 BỎ QUA chuyện vặt/nhất thời. Nếu không có gì đáng nhớ → mảng rỗng.
 Mỗi fact: 1 câu NGẮN, ngôi thứ ba. Trả JSON đúng dạng: {"facts": ["...", "..."]}`;
 

@@ -30,6 +30,23 @@ const CELEBRATE = /\b(?:vui qua|hanh phuc|thanh cong|duoc thang|duoc tang luong|
 const AFFECTION = /\b(?:vo oi|chong yeu|anh yeu em|em yeu anh|nguoi yeu oi|nho em|nho anh|thuong em|thuong anh|om anh|hon anh)\b/;
 const CONTINUITY = /\b(?:ke tiep|noi tiep|luc nay|hom truoc|chuyen hom qua|chuyen do|con nho|nho chuyen)\b/;
 
+/**
+ * A user's explicit request to stop romantic address persists across the
+ * available USER history, until that user explicitly opts back in. This is
+ * session-turn guidance, not a durable relationship fact or hidden preference.
+ * Mira's own messages never authorize an invitation or withdraw a boundary.
+ */
+export function recentRomanticBoundary(history: BrainTurn[]): boolean {
+  let restricted = false;
+  for (const turn of history.slice(-16)) {
+    if (turn.role !== 'user') continue;
+    const text = plain(turn.text.slice(0, 1200));
+    if (BOUNDARY.test(text)) restricted = true;
+    else if (isExplicitCompanionRoleplayRequest(turn.text)) restricted = false;
+  }
+  return restricted;
+}
+
 export function detectCompanionIntent(input: string, history: BrainTurn[] = []): CompanionIntent {
   const s=plain(input.slice(0,1600));
   if (!s)return 'ordinary';
@@ -66,6 +83,12 @@ export function companionTurnGuidance(
     continuity:'Đây là lời tiếp nối. Tham chiếu đúng chi tiết có trong lời người dùng ở lịch sử đã cung cấp; không coi lời Mira từng tự nói là bằng chứng của một kỷ niệm hay sự đồng ý. Nếu không đủ bối cảnh thì hỏi một ý ngắn, không bịa ký ức.',
     ordinary:'Giữ nhịp hội thoại tự nhiên, phản hồi đúng câu hỏi và biến đổi cách diễn đạt; không mặc định lời tán tỉnh.',
   };
+  if (!invited && recentRomanticBoundary(history)) {
+    return 'Người dùng đã yêu cầu ngừng xưng hô yêu đương ở một lượt trước. ' +
+      'Tiếp tục nói bình thường, không gọi chồng yêu, người yêu hoặc tự xưng vợ; ' +
+      'giới hạn này thắng cả preset Bạn đời cho đến khi chính người dùng chủ động mời nhập vai lại. ' +
+      'Không hỏi họ phải giải thích hoặc đổi Cài đặt. ' + advice[intent];
+  }
   const mode=invited && persona!=='partner'
     ? 'Người dùng vừa chủ động đề nghị nhập vai thân mật trong lượt này. Có thể đáp theo lời mời mà không âm thầm đổi chế độ Cài đặt hay xác lập quan hệ ngoài đời.'
     :persona==='partner'

@@ -30,3 +30,14 @@ test('Desktop capsule import retains the original UTC timestamps', () => {
   assert.match(desktop, /Date\.parse\(item\.createdAt\)/);
   assert.match(desktop, /await desktopInvoke\('desktop_memory_import_turns', \{ items: prepared \}\)/);
 });
+
+
+test('long-term memory distillation can only use user's own words, not romantic AI narration',()=>{
+ const source=readFileSync('src/intelligence/memory/memory-service.ts','utf8');
+ const turn=readFileSync('src/runtime/turn-manager.ts','utf8');
+ assert.match(source,/const userEvidence = 'Người dùng: ' \+ userText\.trim\(\)\.slice\(0, 8000\)/);
+ assert.match(source,/this\.local\.distill\(userEvidence\)/);
+ assert.match(source,/distillFacts\(userEvidence\)/);
+ assert.match(turn,/this\.memory\.distill\('Người dùng: ' \+ input\)/);
+ assert.doesNotMatch(turn,/this\.memory\.distill\([^\n]+reply\.text/);
+});

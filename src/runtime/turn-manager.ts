@@ -265,7 +265,9 @@ export class TurnManager {
 
     // Never promote canned fallback text into persistent factual memory.
     if (reply.runtimeSource !== 'fallback') {
-      this.memory.distill('Người dùng: ' + input + '\nMira: ' + reply.text);
+      // Only the user's own words may be promoted into durable memory facts.
+      // Mira's romantic roleplay wording must never become a biography claim.
+      this.memory.distill('Người dùng: ' + input);
     }
     timings.totalMs = Math.round(now() - started);
     return { reply, latencyMs: timings.totalMs, timings };

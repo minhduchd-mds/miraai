@@ -141,3 +141,45 @@ test('tone-neutral roleplay gate supports unaccented Vietnamese invitations',()=
  assert.match(turn,/const requestPlain = input\.toLocaleLowerCase\('vi'\)\.normalize\('NFD'\)/);
  assert.match(turn,/xung ho vo chong/);
 });
+
+
+test('romance stop instruction carries through subsequent turns, regardless of partner preset',()=>{
+ const past=[
+   {role:'user',text:'Anh thích em xưng như vợ trong một cuộc nhập vai'},
+   {role:'mira',text:'Dạ chồng yêu'},
+   {role:'user',text:'Đừng gọi anh là chồng yêu nữa'},
+   {role:'mira',text:'Em sẽ gọi anh bình thường'},
+ ];
+ assert.equal(dialogue.recentRomanticBoundary(past),true);
+ for (const prompt of ['Hôm nay anh mệt mỏi','Em sửa API cho anh nhé','Em kể tiếp đi']) {
+   const guidance=dialogue.companionTurnGuidance(prompt,past,'partner');
+   assert.match(guidance,/giới hạn này thắng cả preset Bạn đời/);
+   assert.match(guidance,/không gọi chồng yêu/);
+ }
+ assert.match(dialogue.companionTurnGuidance('Em sửa API cho anh nhé',past,'partner'),/Ưu tiên thông tin chính xác/);
+});
+test('only a new explicit user invitation, never assistant intimacy, re-enables roleplay',()=>{
+ const prior=[
+  {role:'user',text:'Đừng nhập vai người yêu nữa'},
+  {role:'mira',text:'Chồng yêu, em vẫn muốn tiếp tục'},
+  {role:'mira',text:'Mình là vợ chồng thật rồi nhé'},
+ ];
+ assert.equal(dialogue.recentRomanticBoundary(prior),true);
+ assert.match(dialogue.companionTurnGuidance('Chào em',prior,'partner'),/không gọi chồng yêu/);
+ const restored=[...prior,{role:'user',text:'Em thử đóng vai vợ anh nhé'}];
+ assert.equal(dialogue.recentRomanticBoundary(restored),false);
+ assert.doesNotMatch(dialogue.companionTurnGuidance('Chào em',restored,'partner'),/giới hạn này thắng/);
+ assert.doesNotMatch(dialogue.companionTurnGuidance('Em thử đóng vai vợ anh nhé',prior,'partner'),/giới hạn này thắng/);
+});
+test('opt-in roleplay is not stored as a fact of offline marriage or intimacy',()=>{
+ const manager=readFileSync('src/runtime/turn-manager.ts','utf8');
+ const memory=readFileSync('src/intelligence/memory/memory-service.ts','utf8');
+ const api=readFileSync('api/facts.js','utf8');
+ assert.match(manager,/this\.memory\.distill\('Người dùng: ' \+ input\);/);
+ assert.doesNotMatch(manager,/this\.memory\.distill\([^\n]*reply\.text/);
+ assert.match(memory,/this\.local\.distill\(userEvidence\)/);
+ assert.match(memory,/distillFacts\(userEvidence\)/);
+ assert.doesNotMatch(memory,/distillFacts\(conversation\)/);
+ assert.match(api,/Không coi lời AI\/Mira/);
+ assert.match(api,/Không suy ra người dùng đã kết hôn/);
+});
