@@ -137,7 +137,7 @@ test('voice response timing counts only first actually playing answer chunk, nev
  assert.match(queue,/if \(index === 0\) options\.onFirstAudio\?\.\(\)/);
  assert.match(queue,/if \(token !== this\.sequence \|\| !options\.isActive\(\)\) return/);
  assert.match(hook,/const turnStartedAt = performance\.now\(\)/);
- assert.match(hook,/setFirstAudioLatencyMs\(Math\.max\(0, Math\.round\(performance\.now\(\) - turnStartedAt\)\)\)/);
+ assert.match(hook,/setFirstAudioLatencyMs\(firstAudioMs\)/);
  assert.match(hook,/if \(turnSeqRef\.current !== token\) return/);
  assert.match(hook,/firstAudioLatencyMs,/);
 });
