@@ -222,8 +222,7 @@ export class SpatialUIController {
   private lastActivationAt = -Infinity;
   private grabReleaseSince: number | null = null;
   private focusSource: SpatialPointerSource = 'none';
-  private lastHandledPinchId = 0;
-  private lastHandledReleaseId = 0;
+  private lastHandledIntentId = 0;
 
   update(input: SpatialControlInput, now = performance.now()): SpatialControlFrame {
     const facePoint = faceSpatialPoint(input.face);
@@ -293,10 +292,14 @@ export class SpatialUIController {
     const timelyIntent = Number.isFinite(intentAt) && intentAt > 0 &&
       intentAt <= now && now - intentAt <= 350 &&
       Number.isSafeInteger(intentId) && intentId > 0;
-    const freshRelease = Boolean(timelyIntent &&
-      input.gestureIntent.intent === 'pinch_up' &&
-      intentId > this.lastHandledReleaseId);
-    if (freshRelease) this.lastHandledReleaseId = intentId;
+    const controlIntent = input.gestureIntent.intent === 'pinch_down' ||
+      input.gestureIntent.intent === 'pinch_up';
+    const freshControlIntent = Boolean(timelyIntent && controlIntent &&
+      intentId > this.lastHandledIntentId);
+    // Shared high-water mark for both edges. A delayed pinch_up from before
+    // the current pinch_down cannot release a newly started drag.
+    if (freshControlIntent) this.lastHandledIntentId = intentId;
+    const freshRelease = freshControlIntent && input.gestureIntent.intent === 'pinch_up';
 
     const events: SpatialControlEvent[] = [];
     const focus = this.focus;
@@ -339,10 +342,7 @@ export class SpatialUIController {
     }
 
     // A unique intent ID can activate at most once; stale polls cannot replay it.
-    const pinchId = timelyIntent && input.gestureIntent.intent === 'pinch_down'
-      ? intentId : 0;
-    const freshPinch = pinchId > this.lastHandledPinchId;
-    if (freshPinch) this.lastHandledPinchId = pinchId;
+    const freshPinch = freshControlIntent && input.gestureIntent.intent === 'pinch_down';
     const nodEdge = input.headGesture === 'nod' && this.previousHeadGesture !== 'nod';
     let activatedByHead = false;
     if (nodEdge && canCommit && focus?.kind === 'action' && this.pointer.source === 'face') {
@@ -436,8 +436,7 @@ export class SpatialUIController {
     this.lastActivationAt = -Infinity;
     this.grabReleaseSince = null;
     this.focusSource = 'none';
-    this.lastHandledPinchId = 0;
-    this.lastHandledReleaseId = 0;
+    this.lastHandledIntentId = 0;
     return {
       ...EMPTY_SPATIAL_CONTROL_FRAME,
       pointer: { ...EMPTY_SPATIAL_POINT },

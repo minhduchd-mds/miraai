@@ -9,8 +9,11 @@ export class SpatialHandFrameCache<T> {
 
   read(frameAt: number, build: (at: number) => T[], onStale?: () => void): T[] {
     if (!Number.isFinite(frameAt) || frameAt <= 0) {
-      if (this.frameAt !== 0) {
-        this.reset();
+      // Temporary tracking loss is NOT a new camera session. Keep the
+      // high-water mark so a subsequently replayed old frame stays rejected.
+      if (this.frameAt > 0 && !this.rollbackReported) {
+        this.hands = [];
+        this.rollbackReported = true;
         onStale?.();
       }
       return this.hands;

@@ -35,7 +35,8 @@ export function useVisionHandInput(deviceAdapter: SpatialDeviceAdapterRuntime) {
       primarySessionRef.current.reset();
     }
     if (newFrame) lastHandFrameRef.current = frameAt;
-    else if (frameAt === 0) lastHandFrameRef.current = 0;
+    // A zero frame signals tracking loss, not a clock reset. Only the
+    // explicit stop/restart path may reset this high-water mark.
     const selection = primarySessionRef.current.update(
       snapshot?.handSeen ? rawHands : [],
       now,

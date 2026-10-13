@@ -19,3 +19,11 @@
   invariants, NOT measured precision/recall, frame latency or camera hardware.
 - Must still validate real webcams with lighting changes, people entering/exiting,
   two simultaneous hands, and speech while moving, before claiming high accuracy.
+
+## Additional hardening
+- A temporary zero-frame dropout **preserves** the camera timestamp high-water
+  mark; it only clears hands and disarms gesture candidates. Explicit stopVision
+  resets the mark when a new session is intentionally started.
+- A single monotonic intent ID gate now covers both pinch_down and pinch_up.
+  Replayed release edges are rejected even if a late worker response rewrites
+  its arrival timestamp. Drag cancellation on loss is unchanged.

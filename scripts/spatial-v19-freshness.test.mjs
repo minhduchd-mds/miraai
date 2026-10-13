@@ -75,6 +75,8 @@ test('out-of-order camera frames never overwrite a newer hand snapshot or re-arm
  assert.deepEqual(cache.read(220,build,()=>stale.push(1)),[{at:220}]);
  assert.deepEqual(builds,[100,170,220]);
  cache.read(0,build,()=>stale.push(1));
+ assert.deepEqual(cache.read(190,build,()=>stale.push(1)),[],
+   'a zero-frame dropout must not allow an earlier timestamp to re-arm the hand');
  assert.deepEqual(cache.read(240,build,()=>stale.push(1)),[{at:240}]);
 });
 
@@ -118,5 +120,7 @@ test('old pinch-up event cannot end a new grab or suppress loss cancellation',()
  call(740,740,22,'none',true,false);
  assert.deepEqual(call(900,900,23,'pinch_down').events.map(e=>e.type),['grab_start','grab_move']);
  assert.equal(call(950,370,21,'pinch_up',true,true).events.some(e=>e.type==='grab_end'),false);
+ assert.equal(call(980,980,22,'pinch_up',true,true).events.some(e=>e.type==='grab_end'),false,
+   'an old release ID with a fresh timestamp cannot close the newer drag');
  assert.equal(call(1010,1010,24,'pinch_up',true,false).events.some(e=>e.type==='grab_end'),true);
 });
