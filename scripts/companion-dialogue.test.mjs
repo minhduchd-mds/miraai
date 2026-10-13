@@ -43,7 +43,9 @@ test('continuity needs actual past user context and never invents history',()=>{
 });
 test('turn manager supplies temporal guidance without modifying memory persistence',()=>{
  const turn=readFileSync('src/runtime/turn-manager.ts','utf8');
- assert.match(turn,/companionTurnGuidance\(input, prior, voicePrefs\.persona\)/);
+ assert.match(turn,/import\('\.\.\/intelligence\/social\/companion-dialogue'\)/);
+ assert.match(turn,/companionTurnGuidance\(input, prior, persona\)/);
+ assert.match(turn,/dialoguePromise,/);
  assert.match(turn,/const context = \[baseContext, preBrainEvidence\(preBrainResult\), runtimeContext\.trim\(\), dialogue\]/);
  assert.match(turn,/this\.memory\.distill\('Người dùng: ' \+ input/);
  const prompt=readFileSync('src/core/brain/prompt.ts','utf8');
@@ -58,4 +60,17 @@ test('voice guidance respects the chosen warm role without changing ElevenLabs m
  const ui=readFileSync('src/settings/SettingsPanel.tsx','utf8');
  assert.match(ui,/aria-label="Chọn vai trò hội thoại"/);
  assert.match(ui,/persona === 'partner'/);
+});
+
+test('casual Vietnamese words do not accidentally trigger work from substring UI',()=>{
+ assert.equal(dialogue.detectCompanionIntent('Anh vui lắm'), 'ordinary');
+ assert.equal(dialogue.detectCompanionIntent('Anh vui quá'), 'celebrate');
+ assert.equal(dialogue.detectCompanionIntent('Làm UI/UX cho web'), 'practical');
+});
+test('warm companion guide stays outside default voice bundle',()=>{
+ const source=readFileSync('src/runtime/turn-manager.ts','utf8');
+ assert.doesNotMatch(source,/^import \{ companionTurnGuidance \} from/m);
+ assert.match(source,/persona === 'close' \|\| persona === 'partner'/);
+ assert.match(source,/const dialoguePromise/);
+ assert.match(source,/await Promise\.all\(\[/);
 });

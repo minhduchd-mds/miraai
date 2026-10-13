@@ -1,7 +1,6 @@
 import type { Brain, BrainReply, BrainTurn } from '../core/types';
 import type { HostActionDescriptor, HostActionResult, HostBridge, HostContext } from '../host';
 import { assembleBrainContext } from '../intelligence/context/context-assembler';
-import { companionTurnGuidance } from '../intelligence/social/companion-dialogue';
 import { voicePrefs } from '../core/voice-prefs';
 import { ownerIdentityReply } from '../intelligence/identity/owner-profile';
 import { deicticVisualReply } from '../intelligence/vision/deictic-vision';
@@ -183,6 +182,13 @@ export class TurnManager {
       memoryMs: 0, hostMs: 0, hostActionsMs: 0, preBrainSkillMs: 0,
       contextReadyMs: 0, brainMs: 0, totalMs: 0,
     };
+    // Warm/partner guidance is opt-in. Load its small lexicon asynchronously
+    // alongside Memory/Host preparation, not in the default AppV2 graph.
+    const persona = voicePrefs.persona;
+    const dialoguePromise = persona === 'close' || persona === 'partner'
+      ? import('../intelligence/social/companion-dialogue')
+          .then(({ companionTurnGuidance }) => companionTurnGuidance(input, prior, persona))
+      : Promise.resolve('');
     const hostAt = now();
     const hostPromise = Promise.resolve(this.host.getContext()).then(host => {
       timings.hostMs = Math.round(now() - hostAt);
@@ -215,11 +221,12 @@ export class TurnManager {
         .catch((error) => console.warn('[Mira Skill] execution failed', error));
     }
 
-    const [memory, host, hostActions, preBrainResult] = await Promise.all([
+    const [memory, host, hostActions, preBrainResult, dialogue] = await Promise.all([
       memoryPromise,
       hostPromise,
       hostActionsPromise,
       preBrainPromise,
+      dialoguePromise,
     ]);
     if (routedSkill?.skill.executionMode === 'pre-brain') {
       timings.preBrainSkillMs = Math.round(now() - preBrainAt);
@@ -231,7 +238,6 @@ export class TurnManager {
       this.skills.describe(),
       hostActions.map((action) => 'host:' + action.id + ' [' + action.risk + '] — ' + action.description),
     );
-    const dialogue = companionTurnGuidance(input, prior, voicePrefs.persona);
     const context = [baseContext, preBrainEvidence(preBrainResult), runtimeContext.trim(), dialogue].filter(Boolean).join('\n\n');
     const brainAt = now();
     const reply = await this.getBrain().reply(input, prior, context);

@@ -27,3 +27,8 @@ celebration, work and a user's explicit request to stop intimate language.
   persistence changes. They are NOT live provider conversation-quality scoring.
 - Real multi-turn Vietnamese/voice evaluations still needed to measure warmth,
   topic transitions, excessive affectionate nicknames and TTS latency.
+
+### Performance release guard
+The companion intent analyzer is lazy-loaded only for close/partner profiles.
+It runs in parallel with Memory and host context, keeping the default gentle
+startup graph below the existing 300 KiB deferred JavaScript limit.

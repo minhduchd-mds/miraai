@@ -18,7 +18,7 @@ export function detectCompanionIntent(input: string, history: BrainTurn[] = []):
   if (/(buon|met moi|ap luc|co don|bat luc|that vong|stress|cang thang|muon khoc|khong on|kiet suc|tuyet vong|lo lang|can nguoi nghe)/.test(s))return 'support';
   if (/(vui qua|hanh phuc|thanh cong|duoc thang|duoc tang luong|co tin vui|do roi|dat giai|duoc nhan|tot nghiep)/.test(s))return 'celebrate';
   if (/(vo oi|chong yeu|anh yeu em|em yeu anh|nguoi yeu oi|nho em|nho anh|thuong em|thuong anh|om anh|hon anh)/.test(s))return 'affection';
-  if (/(cach lam|code|fix|loi|du an|tinh toan|bao cao|kiem tra|kiem chung|gia tien|thiet ke|ux|ui|api|deploy|git)/.test(s))return 'practical';
+  if (/(cach lam|du an|tinh toan|bao cao|kiem tra|kiem chung|gia tien|thiet ke|(?:^| )(?:code|fix|loi|ux|ui|api|deploy|git)(?: |$))/.test(s))return 'practical';
   if (/(ke tiep|noi tiep|luc nay|hom truoc|chuyen hom qua|chuyen do|con nho|nho chuyen)/.test(s)
       && history.some(t=>t.role==='user' && t.text.trim()))return 'continuity';
   return 'ordinary';
