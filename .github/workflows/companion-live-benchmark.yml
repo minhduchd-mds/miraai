@@ -1,0 +1,42 @@
+name: Mira Real Companion Benchmark
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/live-companion-benchmark.mjs
+      - .github/workflows/companion-live-benchmark.yml
+  workflow_dispatch:
+    inputs:
+      confirm_paid_request:
+        description: 'I approve synthetic production inference and one ElevenLabs TTS request'
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  companion-real-smoke:
+    # The one-shot push gate is tied to this precise reviewed commit message.
+    # Later pushes never silently consume model/TTS credits.
+    if: >-
+      (github.event_name == 'push' &&
+       github.event.head_commit.message == 'test(companion): one-shot live synthetic benchmark') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm_paid_request == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+      - name: Syntax check
+        run: node --check scripts/live-companion-benchmark.mjs
+      - name: Probe synthetic production Brain and ElevenLabs
+        run: node scripts/live-companion-benchmark.mjs --allow-paid-call --allow-voice-call
+        env:
+          MIRA_BENCHMARK_BASE_URL: https://miraai-five.vercel.app
