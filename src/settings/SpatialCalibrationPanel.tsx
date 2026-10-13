@@ -43,7 +43,8 @@ export default function SpatialCalibrationPanel(props:Props){
        // the hand detector correctly reports no hand/frame timestamp.
        if(engine.current.snapshot(now).active?.kind==='idle'){
          const done=engine.current.sample({at:now,now,hands:[]});
-         if(done){setMessage(done.passed?'Bài thử trung tính đạt.':'Bài thử chưa đạt.');setVersion(v=>v+1);}
+         if(done)setMessage(done.passed?'Bài thử trung tính đạt.':'Bài thử chưa đạt.');
+         setVersion(v=>v+1); // advance neutral progress even with zero tracked hands
        }else if(engine.current.tick(now))setVersion(v=>v+1);
        return;
      }
