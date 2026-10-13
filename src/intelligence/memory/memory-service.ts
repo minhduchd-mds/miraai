@@ -40,9 +40,14 @@ export class MemoryService {
 
   async loadRecent(): Promise<BrainTurn[]> {
     if (!memoryEnabled()) return [];
-    const local = await this.local.loadRecent();
-    if (!serverMemoryAvailable()) return local;
-    const remote = await loadHistory();
+    // Local IndexedDB and server history are independent: reduce startup
+    // wait from their sum to their maximum, preserving both data sources.
+    const remoteAvailable = serverMemoryAvailable();
+    const [local, remote] = await Promise.all([
+      this.local.loadRecent(),
+      remoteAvailable ? loadHistory() : Promise.resolve<BrainTurn[]>([]),
+    ]);
+    if (!remoteAvailable) return local;
     if (!remote.length) return local;
     if (!local.length) return remote;
     const merged: BrainTurn[] = [];

@@ -177,3 +177,62 @@ test('STT final endpoint overlap never replaces continuous turn merging or trail
   assert.match(runtime,/clearEndpointTimer\(\);\s*const delay = result\.isFinal/);
   assert.match(runtime,/if \(stateRef\.current !== 'listening'\) return/);
 });
+
+test('bounded voice latency profiler stores numeric-only data and distinguishes fallback',async()=>{
+ const source=readFileSync('src/runtime/response-latency.ts','utf8');
+ const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+ const {ResponseLatencyWindow}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+ const profiler=new ResponseLatencyWindow(4);
+ const sample=(n,source='provider')=>({memoryMs:n,hostMs:2,hostActionsMs:3,preBrainSkillMs:0,
+  contextReadyMs:n+5,brainMs:n*2,totalMs:n*3,firstAudioMs:n*4,source,prompt:'PRIVATE_NOT_RETAINED'});
+ for(let i=1;i<=5;i++)profiler.record(sample(i));
+ profiler.record(sample(6,'fallback'));
+ const report=profiler.snapshot();
+ assert.equal(report.count,4);
+ assert.equal(report.fallbackCount,1);
+ assert.equal(report.firstAudio.count,3);
+ assert.equal(report.firstAudio.p50Ms,16);
+ assert.equal(report.firstAudio.p95Ms,20);
+ assert.equal(JSON.stringify(report).includes('PRIVATE_NOT_RETAINED'),false);
+ profiler.record({...sample(7),brainMs:Infinity});
+ assert.equal(profiler.snapshot().count,4);
+ profiler.reset();assert.equal(profiler.snapshot().brain.p95Ms,null);
+});
+
+test('initial history load requests local and remote concurrently and merges without dropped turns',async()=>{
+ const src=readFileSync('src/intelligence/memory/memory-service.ts','utf8');
+ const h="import { distillFacts, loadHistory, recallMemory, saveTurn } from '../../core/history-store';";
+ const s="import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from './runtime-store';";
+ const p="import { memoryEnabled } from './preferences';";
+ assert.ok(src.includes(h)&&src.includes(s)&&src.includes(p));
+ const rewritten=src
+ .replace(h,"const loadHistory=()=>globalThis.__miraMemoryTest.remote(); const distillFacts=()=>{}; const recallMemory=async()=>''; const saveTurn=()=>{};")
+ .replace(s,"const createRuntimeMemoryStore=()=>({loadRecent:()=>globalThis.__miraMemoryTest.local()}); const isLocalOnlyMemoryRuntime=()=>false;")
+ .replace(p,"const memoryEnabled=()=>true;");
+ const events=[];let doneLocal,doneRemote;
+ globalThis.__miraMemoryTest={
+  local:()=>{events.push('local');return new Promise(r=>{doneLocal=r;});},
+  remote:()=>{events.push('remote');return new Promise(r=>{doneRemote=r;});}
+ };
+ try{
+  const js=ts.transpileModule(rewritten,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+  const {MemoryService}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+  const pending=new MemoryService().loadRecent();
+  assert.deepEqual(events,['local','remote']);
+  doneRemote([{role:'mira',text:'same'},{role:'mira',text:'remote'}]);
+  doneLocal([{role:'user',text:'local'},{role:'mira',text:'same'}]);
+  assert.deepEqual(await pending,[{role:'user',text:'local'},{role:'mira',text:'same'},{role:'mira',text:'remote'}]);
+ }finally{delete globalThis.__miraMemoryTest;}
+});
+
+test('voice performance stages wait for full context and first genuine answer audio',()=>{
+ const turn=readFileSync('src/runtime/turn-manager.ts','utf8');
+ const hook=readFileSync('src/core/useMira.ts','utf8');
+ assert.match(turn,/memoryPromise,/);
+ assert.match(turn,/preBrainPromise,/);
+ assert.match(turn,/const reply = await this\.getBrain\(\)\.reply\(input, prior, context\)/);
+ assert.match(turn,/timings\.brainMs = Math\.round\(now\(\) - brainAt\)/);
+ assert.match(hook,/setFirstAudioLatencyMs\(firstAudioMs\)/);
+ assert.match(hook,/if \(turnSeqRef\.current !== token\) return;/);
+ assert.match(hook,/latencyWindowRef\.current\?\.record\(/);
+});

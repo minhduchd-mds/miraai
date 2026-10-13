@@ -9,9 +9,21 @@ import { isExplicitDesktopMusicCommand } from '../intelligence/skills/desktop-mu
 import { authorizeHostAction } from './host-action-policy';
 import { runtimeAuditTrail } from './runtime-audit';
 
+export interface TurnTimings {
+  memoryMs: number;
+  hostMs: number;
+  hostActionsMs: number;
+  preBrainSkillMs: number;
+  contextReadyMs: number;
+  brainMs: number;
+  totalMs: number;
+}
+
 export interface TurnResult {
   reply: BrainReply;
   latencyMs: number;
+  /** Numeric only; independent preparation timings overlap. */
+  timings?: TurnTimings;
 }
 
 function now(): number {
@@ -165,10 +177,28 @@ export class TurnManager {
       return { reply: { text: visualReply, mood: 'neutral' }, latencyMs: Math.round(now() - started) };
     }
 
-    const hostPromise = Promise.resolve(this.host.getContext());
-    const hostActionsPromise = this.listHostActions();
+    const timings: TurnTimings = {
+      memoryMs: 0, hostMs: 0, hostActionsMs: 0, preBrainSkillMs: 0,
+      contextReadyMs: 0, brainMs: 0, totalMs: 0,
+    };
+    const hostAt = now();
+    const hostPromise = Promise.resolve(this.host.getContext()).then(host => {
+      timings.hostMs = Math.round(now() - hostAt);
+      return host;
+    });
+    const actionsAt = now();
+    const hostActionsPromise = this.listHostActions().then(actions => {
+      timings.hostActionsMs = Math.round(now() - actionsAt);
+      return actions;
+    });
+    const memoryAt = now();
+    const memoryPromise = this.memory.recall(input).then(memory => {
+      timings.memoryMs = Math.round(now() - memoryAt);
+      return memory;
+    });
 
     const routedSkill = this.skills.route(input);
+    const preBrainAt = now();
     const preBrainPromise = routedSkill?.skill.executionMode === 'pre-brain'
       ? hostPromise
           .then((host) => this.skills.executeById(routedSkill.skill.id, input, this.skillContext(host, input)))
@@ -184,11 +214,15 @@ export class TurnManager {
     }
 
     const [memory, host, hostActions, preBrainResult] = await Promise.all([
-      this.memory.recall(input),
+      memoryPromise,
       hostPromise,
       hostActionsPromise,
       preBrainPromise,
     ]);
+    if (routedSkill?.skill.executionMode === 'pre-brain') {
+      timings.preBrainSkillMs = Math.round(now() - preBrainAt);
+    }
+    timings.contextReadyMs = Math.round(now() - started);
     const baseContext = assembleBrainContext(
       memory,
       host,
@@ -196,7 +230,9 @@ export class TurnManager {
       hostActions.map((action) => 'host:' + action.id + ' [' + action.risk + '] — ' + action.description),
     );
     const context = [baseContext, preBrainEvidence(preBrainResult), runtimeContext.trim()].filter(Boolean).join('\n\n');
+    const brainAt = now();
     const reply = await this.getBrain().reply(input, prior, context);
+    timings.brainMs = Math.round(now() - brainAt);
 
     for (const call of reply.toolCalls || []) {
       if (call.skillId.startsWith('host:')) {
@@ -215,6 +251,7 @@ export class TurnManager {
     if (reply.runtimeSource !== 'fallback') {
       this.memory.distill('Người dùng: ' + input + '\nMira: ' + reply.text);
     }
-    return { reply, latencyMs: Math.round(now() - started) };
+    timings.totalMs = Math.round(now() - started);
+    return { reply, latencyMs: timings.totalMs, timings };
   }
 }

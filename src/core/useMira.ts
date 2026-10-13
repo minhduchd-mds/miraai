@@ -21,6 +21,7 @@ import {
   type ConversationSource,
 } from '../runtime/conversation-timing';
 import { TurnManager } from '../runtime/turn-manager';
+import { ResponseLatencyWindow, type ResponseLatencySnapshot } from '../runtime/response-latency';
 import { MemoryService } from '../intelligence/memory/memory-service';
 import { createDefaultSkillRegistry } from '../intelligence/skills';
 import { getHostBridge } from '../host';
@@ -103,6 +104,9 @@ export function useMira() {
   // Final transcript -> first audible response. Local-only telemetry, no audio
   // recordings or utterance text persisted, and never confused with brain time.
   const [firstAudioLatencyMs, setFirstAudioLatencyMs] = useState<number | null>(null);
+  const latencyWindowRef = useRef<ResponseLatencyWindow | null>(null);
+  if (!latencyWindowRef.current) latencyWindowRef.current = new ResponseLatencyWindow(64);
+  const [responseLatency, setResponseLatency] = useState<ResponseLatencySnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<BrainTurn[]>([]);
   const historyRef = useRef<BrainTurn[]>([]);
@@ -404,7 +408,16 @@ export function useMira() {
       pushHistory({ role: 'mira', text: result.reply.text });
       speak(result.reply.text, () => {
         if (turnSeqRef.current !== token) return;
-        setFirstAudioLatencyMs(Math.max(0, Math.round(performance.now() - turnStartedAt)));
+        const firstAudioMs = Math.max(0, Math.round(performance.now() - turnStartedAt));
+        setFirstAudioLatencyMs(firstAudioMs);
+        if (result.timings) {
+          latencyWindowRef.current?.record({
+            ...result.timings,
+            firstAudioMs,
+            source: result.reply.runtimeSource || 'unknown',
+          });
+          setResponseLatency(latencyWindowRef.current?.snapshot() || null);
+        }
       });
     } catch (err) {
       clearThinkingSignals();
@@ -655,6 +668,7 @@ export function useMira() {
     partial,
     latencyMs,
     firstAudioLatencyMs,
+    responseLatency,
     error,
     history,
     voices,
