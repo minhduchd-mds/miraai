@@ -190,7 +190,7 @@ export class TurnManager {
     const requestPlain = input.toLocaleLowerCase('vi').normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
     const invited = /(?:nhap vai|dong vai|noi chuyen nhu|tro chuyen nhu)\s+(?:mot\s+)?(?:nguoi yeu|vo|chong|ban doi)|(?:xung ho vo chong|goi anh la chong)/i.test(requestPlain)
-      && !/(?:dung|khong|thoi)\s+(?:nhap vai|dong vai|noi chuyen nhu|tro chuyen nhu|xung ho vo chong|goi anh la chong)/i.test(requestPlain);
+      && !/(?:dung|khong|thoi|chua)\b(?:\s+[a-z0-9]+){0,5}\s+(?:nhap vai|dong vai|noi chuyen nhu|tro chuyen nhu|xung ho vo chong|goi anh la chong)/i.test(requestPlain);
     const dialoguePromise = persona === 'close' || persona === 'partner' || invited
       ? import('../intelligence/social/companion-dialogue')
           .then(({ companionTurnGuidance }) => companionTurnGuidance(input, prior, persona))

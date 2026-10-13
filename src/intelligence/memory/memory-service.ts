@@ -2,6 +2,7 @@ import type { BrainTurn } from '../../core/types';
 import { distillFacts, loadHistory, recallMemory, saveTurn } from '../../core/history-store';
 import type { AffectState } from '../affect/mood-engine';
 import { createRuntimeMemoryStore, isLocalOnlyMemoryRuntime } from './runtime-store';
+import { mergeTurnHistory } from './merge-turn-history';
 import { memoryEnabled } from './preferences';
 
 function serverMemoryAvailable(): boolean {
@@ -48,17 +49,7 @@ export class MemoryService {
       remoteAvailable ? loadHistory() : Promise.resolve<BrainTurn[]>([]),
     ]);
     if (!remoteAvailable) return local;
-    if (!remote.length) return local;
-    if (!local.length) return remote;
-    const merged: BrainTurn[] = [];
-    const seen = new Set<string>();
-    for (const turn of [...local, ...remote]) {
-      const key = turn.role + ':' + turn.text;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      merged.push(turn);
-    }
-    return merged.slice(-40);
+    return mergeTurnHistory(local, remote);
   }
 
   save(turn: BrainTurn): void {

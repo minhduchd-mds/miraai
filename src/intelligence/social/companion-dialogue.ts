@@ -13,11 +13,17 @@ function plain(text: string): string {
 export type CompanionIntent =
   'boundary' | 'repair' | 'support' | 'celebrate' | 'affection' |
   'practical' | 'continuity' | 'ordinary';
+/** Negated roleplay requests cannot be interpreted as consent. */
+function rejectsRomanticRoleplay(text: string): boolean {
+  const s = plain(text.slice(0, 1200));
+  return /\b(?:dung|khong|thoi|chua)\b(?:\s+[a-z0-9]+){0,5}\s+(?:nhap vai|dong vai|noi chuyen nhu|tro chuyen nhu|xung ho vo chong|goi anh la chong)\b/.test(s);
+}
+
 
 /** Explicit invitation, not a sentiment guess; used only for this turn. */
 export function isExplicitCompanionRoleplayRequest(input: string): boolean {
   const s = plain(input.slice(0,1200));
-  if (/(dung|khong|thoi) (nhap vai|dong vai|noi chuyen nhu|xung ho vo chong|goi anh la)/.test(s)) return false;
+  if (rejectsRomanticRoleplay(s)) return false;
   return /(?:nhap vai|dong vai|noi chuyen nhu|tro chuyen nhu) (?:mot )?(?:nguoi yeu|vo|chong|ban doi)(?: |$)/.test(s) ||
     /(?:muon|hay|thu) (?:em )?(?:xung ho vo chong|xung em la vo|goi anh la chong)(?: |$)/.test(s);
 }
@@ -41,7 +47,7 @@ export function recentRomanticBoundary(history: BrainTurn[]): boolean {
   for (const turn of history.slice(-16)) {
     if (turn.role !== 'user') continue;
     const text = plain(turn.text.slice(0, 1200));
-    if (BOUNDARY.test(text)) restricted = true;
+    if (BOUNDARY.test(text) || rejectsRomanticRoleplay(text)) restricted = true;
     else if (isExplicitCompanionRoleplayRequest(turn.text)) restricted = false;
   }
   return restricted;
@@ -50,7 +56,7 @@ export function recentRomanticBoundary(history: BrainTurn[]): boolean {
 export function detectCompanionIntent(input: string, history: BrainTurn[] = []): CompanionIntent {
   const s=plain(input.slice(0,1600));
   if (!s)return 'ordinary';
-  if (BOUNDARY.test(s))return 'boundary';
+  if (BOUNDARY.test(s) || rejectsRomanticRoleplay(s))return 'boundary';
   // A correction takes precedence over comfort, affection or getting more
   // information. Avoid automatically defending the original answer.
   if (REPAIR.test(s))return 'repair';
