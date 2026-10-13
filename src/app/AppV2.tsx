@@ -989,6 +989,10 @@ export default function AppV2() {
             getVoiceDiagnostics={mira.ttsDiagnostics}
             onOpenLabs={openLabs}
             recentHistory={mira.history}
+            visionOn={visionOn}
+            visionBooting={visionBooting}
+            onToggleVision={() => void toggleVision()}
+            getVisionSnapshot={() => visionModulesRef.current?.visionSnapshot() ?? null}
           />
         </Suspense>
       )}

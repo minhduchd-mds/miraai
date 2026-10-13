@@ -40,6 +40,7 @@ import {
 } from '../intelligence/memory/profile-client';
 const StructuredMemoryInspector = lazy(() => import('./StructuredMemoryInspector'));
 const FeedbackPanel = lazy(() => import('./FeedbackPanel'));
+const SpatialCalibrationPanel = lazy(() => import('./SpatialCalibrationPanel'));
 
 import './settings-v2.css';
 
@@ -55,9 +56,13 @@ interface Props {
   getVoiceDiagnostics: () => TTSDiagnostics;
   onOpenLabs: () => void;
   recentHistory: BrainTurn[];
+  visionOn: boolean;
+  visionBooting: boolean;
+  onToggleVision: () => void;
+  getVisionSnapshot: () => ReturnType<typeof import('../presence/vision-runtime')['visionSnapshot']> | null;
 }
 
-type Tab = 'voice' | 'appearance' | 'memory' | 'feedback';
+type Tab = 'voice' | 'control' | 'appearance' | 'memory' | 'feedback';
 const THEMES: Theme[] = ['nova', 'aura', 'ember', 'iris'];
 
 function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (next: boolean) => void; label: string; hint?: string }) {
@@ -294,6 +299,7 @@ export default function SettingsPanel(props: Props) {
         <header><div><span>CÀI ĐẶT</span><h2 id="mira-settings-title">Mira của anh</h2></div><button type="button" className="v2-settings-close" onClick={props.onClose} aria-label="Đóng cài đặt">×</button></header>
         <nav className="v2-settings-tabs" aria-label="Nhóm cài đặt">
           <button type="button" className={tab === 'voice' ? 'active' : ''} onClick={() => setTab('voice')}>Giọng & hội thoại</button>
+          <button type="button" className={tab === 'control' ? 'active' : ''} onClick={() => setTab('control')}>Hiệu chuẩn tay</button>
           <button type="button" className={tab === 'feedback' ? 'active' : ''} onClick={() => setTab('feedback')}>Góp ý Mira</button>
           <button type="button" className={tab === 'appearance' ? 'active' : ''} onClick={() => setTab('appearance')}>Giao diện</button>
           <button type="button" className={tab === 'memory' ? 'active' : ''} onClick={() => setTab('memory')}>Ký ức & riêng tư</button>
@@ -341,6 +347,7 @@ export default function SettingsPanel(props: Props) {
             <div className="v2-setting-group"><h3>Tính cách</h3><div className="v2-personas">{PERSONAS.map((item) => <button key={item.id} type="button" className={persona === item.id ? 'active' : ''} onClick={() => changePersona(item.id)}><span>{item.icon}</span><b>{item.label}</b></button>)}</div></div>
             <div className="v2-setting-group"><h3>Hội thoại tự nhiên</h3><Toggle checked={smartTurn} onChange={changeSmart} label="Smart turn-taking" hint="Chờ đúng lúc anh nói xong thay vì cắt theo khoảng lặng cứng." /><Toggle checked={vad} onChange={changeVad} label="Ngắt lời bằng giọng" hint="Cho phép nói chen khi Mira đang trả lời." /></div>
           </>}
+          {tab === 'control' && <Suspense fallback={<p className="v2-empty">Đang mở hiệu chuẩn…</p>}><SpatialCalibrationPanel visionOn={props.visionOn} visionBooting={props.visionBooting} onToggleVision={props.onToggleVision} getVisionSnapshot={props.getVisionSnapshot}/></Suspense>}
           {tab === 'appearance' && <div className="v2-setting-group"><h3>Màu quả cầu</h3><div className="v2-theme-grid">{THEMES.map((item) => <button key={item} type="button" data-theme-preview={item} className={props.theme === item ? 'active' : ''} onClick={() => props.onTheme(item)}><i /><span>{item}</span></button>)}</div></div>}
           {tab === 'feedback' && <Suspense fallback={<p className="v2-empty">Đang mở góp ý…</p>}><FeedbackPanel recentHistory={props.recentHistory}/></Suspense>}
           {tab === 'memory' && <>
