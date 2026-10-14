@@ -161,6 +161,14 @@ export class ServerTTS implements TTSAdapter {
     return blob;
   }
 
+  private markHealthy(): void {
+    this.consecutiveFailures = 0;
+    this.circuitOpenUntil = 0;
+    this.healthState = 'healthy';
+    this.nextHealthProbeAt = Date.now() + 120_000;
+    this.lastError = null;
+  }
+
   /** Native progressive MP3, kept out of the initial UI bundle. */
   private async speakProgressively(opts: TTSSpeakOptions, controller: AbortController, utteranceId: number): Promise<void> {
     const isCurrent = () => this.utteranceId === utteranceId && !controller.signal.aborted;
@@ -173,7 +181,7 @@ export class ServerTTS implements TTSAdapter {
       });
       if (!response.ok || !response.body) throw new Error('elevenlabs_stream_unavailable');
       const {startProgressiveMp3} = await import('./progressive-mp3');
-      if (!isCurrent()) { await response.body.cancel().catch(() => {}); return; }
+      if (!isCurrent()) return;
       const stream = startProgressiveMp3(response, controller.signal, (error) => {
         if (!isCurrent()) return;
         this.fail(opts, error);
@@ -188,10 +196,7 @@ export class ServerTTS implements TTSAdapter {
       stream.audio.onplaying = () => {
         if (!isCurrent()) return;
         this.fetching = false;
-        this.healthState = 'healthy';
-        this.nextHealthProbeAt = Date.now() + 120_000;
-        this.consecutiveFailures = 0;
-        this.lastError = null;
+        this.markHealthy();
         opts.onStart?.();
       };
       stream.audio.onended = () => {
@@ -279,11 +284,7 @@ export class ServerTTS implements TTSAdapter {
         if (this.cancelled || !blob) return;
         if (!blob.size) throw new Error('empty_audio');
 
-        this.consecutiveFailures = 0;
-        this.circuitOpenUntil = 0;
-        this.healthState = 'healthy';
-        this.nextHealthProbeAt = Date.now() + 120_000;
-        this.lastError = null;
+        this.markHealthy();
 
         const url = URL.createObjectURL(blob);
         this.objectUrl = url;
