@@ -11,6 +11,12 @@ on:
       - "src/core/tts/**"
       - ".github/workflows/voice-smoke.yml"
   workflow_dispatch:
+    inputs:
+      confirm_paid_voice:
+        description: 'I approve one real synthetic ElevenLabs voice generation'
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: read
@@ -21,6 +27,12 @@ concurrency:
 
 jobs:
   smoke:
+    # A single reviewed push may test streaming once. Future pushes never
+    # silently spend ElevenLabs credits; manual reruns require explicit opt-in.
+    if: >-
+      (github.event_name == 'push' &&
+       github.event.head_commit.message == 'test(voice): one-time real streaming audio probe') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm_paid_voice == true)
     runs-on: ubuntu-latest
     timeout-minutes: 8
 
@@ -63,9 +75,11 @@ jobs:
           set -euo pipefail
           base="https://miraai-five.vercel.app/api"
 
-          status="$(curl --silent --show-error --max-time 35             --dump-header /tmp/mira-tts.headers             --output /tmp/mira-tts.mp3             --write-out "%{http_code}"             -H "content-type: application/json"             --data '{"text":"Anh về rồi à? Em ở đây, mình nói chuyện một chút nhé.","instructions":"gentle warm welcome"}'             "$base/tts")"
+          status="$(curl --silent --show-error --max-time 35             --dump-header /tmp/mira-tts.headers             --output /tmp/mira-tts.mp3             --write-out "%{http_code} %{time_starttransfer} %{time_total}"             -H "content-type: application/json"             --data '{"text":"Anh về rồi à? Em ở đây, mình nói chuyện một chút nhé.","instructions":"gentle warm welcome"}'             "$base/tts?stream=1")"
 
-          echo "HTTP $status"
+          read -r code first_byte total_time <<< "$status"
+          status="$code"
+          echo "HTTP $status (stream time-to-first-byte: ${first_byte}s; transfer total: ${total_time}s)"
           cat /tmp/mira-tts.headers
 
           if [ "$status" != "200" ]; then
