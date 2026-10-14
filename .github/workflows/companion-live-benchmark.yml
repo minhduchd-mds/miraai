@@ -23,7 +23,7 @@ jobs:
     # Later pushes never silently consume model/TTS credits.
     if: >-
       (github.event_name == 'push' &&
-       github.event.head_commit.message == 'test(companion): verify voice independently of brain outage') ||
+       github.event.head_commit.message == 'test(companion): isolate free provider status without retaining prompts') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm_paid_request == true)
     runs-on: ubuntu-latest
     timeout-minutes: 6
@@ -37,6 +37,6 @@ jobs:
       - name: Syntax check
         run: node --check scripts/live-companion-benchmark.mjs
       - name: Probe synthetic production Brain and ElevenLabs
-        run: node scripts/live-companion-benchmark.mjs --allow-paid-call --allow-voice-call
+        run: node scripts/live-companion-benchmark.mjs --allow-paid-call
         env:
           MIRA_BENCHMARK_BASE_URL: https://miraai-five.vercel.app

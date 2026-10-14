@@ -69,7 +69,7 @@ test('Free-only exhaustion fails closed and never reaches billable fallback',asy
     };
     await assert.rejects(generateBrainChat('Mira',[{role:'user',text:'hi'}],
       {runtimeOidcToken:'ephemeral'}),
-      err=>/gateway\(request_failed\)/.test(err.message)&&!err.message.includes('quota depleted'));
+      err=>/gateway\(http_429\)/.test(err.message)&&!err.message.includes('quota depleted'));
     assert.deepEqual(called,freeModels.split(','));
    }finally{globalThis.fetch=old}
  });
@@ -79,4 +79,19 @@ test('Normal paid routing is preserved only if free-only flag is absent',async()
   OPENAI_API_KEY:'synthetic',OPENAI_MODEL:'gpt-4.1-mini'},()=>{
    assert.deepEqual(providerOrder({runtimeOidcToken:'ephemeral'}),['gateway','openai']);
  });
+});
+
+test('free-only errors report safe HTTP status without raw provider bodies', async () => {
+  await withEnvironment({ MIRA_BRAIN_FREE_ONLY: '1',
+    MIRA_BRAIN_PROVIDER: 'gateway',
+    MIRA_BRAIN_GATEWAY_FREE_MODELS: freeModels }, async () => {
+    const old = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => new Response('PRIVATE_PROVIDER_BODY_DO_NOT_LOG',{status:403});
+      await assert.rejects(generateBrainChat('Synthetic', [{role:'user',text:'hello'}],
+        {runtimeOidcToken:'synthetic-token'}), err =>
+          err.message.includes('gateway(http_403)') &&
+          !err.message.includes('PRIVATE_PROVIDER_BODY_DO_NOT_LOG'));
+    } finally { globalThis.fetch=old; }
+  });
 });

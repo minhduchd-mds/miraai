@@ -63,7 +63,7 @@ test('Gemini authentication failure does not expose a provider error response',a
   {env:{GEMINI_API_KEY:'synthetic-private-key'},
    now:()=>Date.now()+120_000,
    fetcher:async()=>new Response('sensitive internal provider text',{status:403})}),
-  err=>err.message==='gemini_auth_unavailable'&&!err.message.includes('sensitive'));
+  err=>err.message==='gemini_auth_unavailable_http_403'&&!err.message.includes('sensitive'));
 });
 test('If free Gemini fails, router can safely use the existing free Gateway instead',async()=>{
  await scopedEnv({MIRA_BRAIN_FREE_ONLY:'1',MIRA_BRAIN_PROVIDER:'gemini',

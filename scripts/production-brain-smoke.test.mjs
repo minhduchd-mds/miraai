@@ -27,6 +27,6 @@ test('synthetic companion live QA never runs on an ordinary CI push or leaks rep
  assert.doesNotMatch(file,/console\.(?:log|error)\([^\n]*result\.text/);
  assert.doesNotMatch(file,/process\.env\.(?:ELEVENLABS_API_KEY|DATABASE_URL|OPENAI_API_KEY)/);
  assert.match(workflow,/workflow_dispatch:/);
- assert.match(workflow,/github\.event\.head_commit\.message == 'test\(companion\): verify voice independently of brain outage'/);
+ assert.match(workflow,/github\.event\.head_commit\.message == 'test\(companion\): isolate free provider status without retaining prompts'/);
  assert.match(workflow,/inputs\.confirm_paid_request == true/);
 });
