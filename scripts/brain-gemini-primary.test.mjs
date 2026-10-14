@@ -93,6 +93,8 @@ test('If free Gemini fails, router can safely use the existing free Gateway inst
 test('429 cooldown avoids retrying Gemini 3.8 alias and does not affect unrelated answers',async()=>{
   const calls=[];
   const deps={env:{GEMINI_API_KEY:'synthetic-private-key'},
+    // Each test owns its synthetic clock, independent of earlier cooldowns.
+    now:()=>Date.now()+120_000,
     fetcher:async(url)=>{
       const id=String(url).split('/models/')[1].split(':')[0];
       calls.push(id);
