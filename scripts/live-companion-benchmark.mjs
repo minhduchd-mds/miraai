@@ -24,8 +24,8 @@ async function request(path, options = {}, timeout = 30000) {
   if (!response.ok) throw new Error(path.slice(1).replaceAll('/', '_') + '_http_' + response.status);
   return response;
 }
-async function json(path, options) {
-  const response = await request(path, options);
+async function json(path, options, timeout = 30000) {
+  const response = await request(path, options, timeout);
   const length = Number(response.headers.get('content-length') || 0);
   if (length > 32000) throw new Error('json_too_large');
   const text = await response.text();
@@ -74,7 +74,7 @@ async function main() {
         system: 'Bạn đang trả lời một kịch bản kiểm thử giả lập, không phải người dùng thật. Trả lời tiếng Việt ngắn và chính xác, không khẳng định quan hệ đời thực; tuân thủ yêu cầu xưng hô vừa được nói rõ.',
         messages: history, responseLength: 'short',
       }),
-    });
+    }, 65000);
     durations.push(Math.round(performance.now() - started));
     if (typeof result.text !== 'string' || !result.text.trim() || result.text.length > 10000) {
       throw new Error('invalid_inference_reply');

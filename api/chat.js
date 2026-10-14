@@ -100,7 +100,7 @@ export default async function handler(req, res) {
     // Log allowlisted provider/status categories only. Do not log raw upstream
     // errors, user content, provider response bodies, token IDs or credentials.
     const safeStatusChain = String(error?.message || '')
-      .match(/\b(?:gateway|gemini|openai|anthropic)\((?:http_[45]\d{2}|request_failed)\)/g)
+      .match(/\b(?:gateway|gemini|openai|anthropic)\((?:http_[45]\d{2}|request_failed|catalog_unavailable|no_candidates|empty_response|timeout|network_failure|invalid_response)\)/g)
       ?.join(' -> ') || 'unclassified';
     console.error('[Mira Brain Gateway] provider chain unavailable: ' + safeStatusChain);
     return res.status(502).json({
