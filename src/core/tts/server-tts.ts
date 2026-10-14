@@ -136,6 +136,10 @@ export class ServerTTS implements TTSAdapter {
     return JSON.stringify([opts.text, opts.voiceURI || null, opts.instructions || null]);
   }
 
+  private speechPayload(opts: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>): string {
+    return JSON.stringify({text:opts.text,voice:opts.voiceURI||null,instructions:opts.instructions||null});
+  }
+
   private async requestAudio(
     opts: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>,
     signal: AbortSignal,
@@ -143,11 +147,7 @@ export class ServerTTS implements TTSAdapter {
     const response = await fetch(`${this.serverUrl}/tts`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        text: opts.text,
-        voice: opts.voiceURI || null,
-        instructions: opts.instructions || null,
-      }),
+      body: this.speechPayload(opts),
       signal,
     });
     if (!response.ok) {
@@ -168,11 +168,10 @@ export class ServerTTS implements TTSAdapter {
       const response = await fetch(`${this.serverUrl}/tts?stream=1`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({text: opts.text, voice: opts.voiceURI || null, instructions: opts.instructions || null}),
+        body: this.speechPayload(opts),
         signal: controller.signal,
       });
       if (!response.ok || !response.body) throw new Error('elevenlabs_stream_unavailable');
-      if (!isCurrent()) { await response.body.cancel().catch(() => {}); return; }
       const {startProgressiveMp3} = await import('./progressive-mp3');
       if (!isCurrent()) { await response.body.cancel().catch(() => {}); return; }
       const stream = startProgressiveMp3(response, controller.signal, (error) => {
@@ -261,8 +260,7 @@ export class ServerTTS implements TTSAdapter {
     // Progressive ElevenLabs MP3 works in Chromium and other MSE audio/mpeg
     // browsers. Keep all other browsers on the proven buffered Blob path.
     const canStream = !ready && typeof MediaSource !== 'undefined'
-      && typeof MediaSource.isTypeSupported === 'function'
-      && MediaSource.isTypeSupported('audio/mpeg');
+      && MediaSource.isTypeSupported?.('audio/mpeg');
     if (canStream) {
       void this.speakProgressively(opts, controller, utteranceId);
       return;
