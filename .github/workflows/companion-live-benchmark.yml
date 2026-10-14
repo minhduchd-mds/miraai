@@ -23,7 +23,7 @@ jobs:
     # Later pushes never silently consume model/TTS credits.
     if: >-
       (github.event_name == 'push' &&
-       github.event.head_commit.message == 'fix(brain): allow 60s runtime for bounded free-provider fallback') ||
+       github.event.head_commit.message == 'perf(brain): skip Gemini 3.7 alias retries and rate-limit cooldown') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm_paid_request == true)
     runs-on: ubuntu-latest
     timeout-minutes: 6

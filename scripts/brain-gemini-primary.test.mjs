@@ -34,8 +34,9 @@ test('Configured Gemini runs first, free Gateway second, never OpenAI',async()=>
  });
 });
 test('Gemini free tier model allowlist ignores unknown or chargeable model override',()=>{
- assert.deepEqual(GEMINI_FREE_CHAT_MODELS,['gemini-3.8-flash','gemini-3.7-flash','gemini-3.5-flash-lite']);
+ assert.deepEqual(GEMINI_FREE_CHAT_MODELS,['gemini-3.8-flash','gemini-3.5-flash-lite']);
  assert.deepEqual(geminiChatModels({GEMINI_MODEL:'other-paid-pro-preview'}),GEMINI_FREE_CHAT_MODELS);
+ assert.deepEqual(geminiChatModels({GEMINI_MODEL:'gemini-3.7-flash'}),GEMINI_FREE_CHAT_MODELS);
 });
 test('Gemini direct API switches to second model on rate limit and keeps keys server-only',async()=>{
  const models=[];
@@ -55,8 +56,8 @@ test('Gemini direct API switches to second model on rate limit and keeps keys se
     return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Em đang nghe anh.'}]}}]}));
   },
  });
- assert.deepEqual(models,['gemini-3.8-flash','gemini-3.7-flash']);
- assert.deepEqual(result,{text:'Em đang nghe anh.',provider:'gemini',model:'gemini-3.7-flash'});
+ assert.deepEqual(models,['gemini-3.8-flash','gemini-3.5-flash-lite']);
+ assert.deepEqual(result,{text:'Em đang nghe anh.',provider:'gemini',model:'gemini-3.5-flash-lite'});
 });
 test('Gemini authentication failure does not expose a provider error response',async()=>{
  await assert.rejects(generateGeminiFreeChat('',[{role:'user',text:'hi'}],{},
@@ -87,4 +88,25 @@ test('If free Gemini fails, router can safely use the existing free Gateway inst
     assert.ok(!urls.some(url=>url.includes('api.openai.com')));
   }finally{globalThis.fetch=prior}
  });
+});
+
+test('429 cooldown avoids retrying Gemini 3.8 alias and does not affect unrelated answers',async()=>{
+  const calls=[];
+  const deps={env:{GEMINI_API_KEY:'synthetic-private-key'},
+    fetcher:async(url)=>{
+      const id=String(url).split('/models/')[1].split(':')[0];
+      calls.push(id);
+      if(id==='gemini-3.8-flash')return new Response('do-not-log-provider-message',{status:429});
+      return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Đã trả lời qua fallback miễn phí.'}]}}]}));
+    }};
+  const first=await generateGeminiFreeChat('Synthetic',[{role:'user',text:'Lượt thử 1'}],
+    {deadlineAt:Date.now()+20_000},deps);
+  assert.equal(first.provider,'gemini');
+  assert.equal(first.model,'gemini-3.5-flash-lite');
+  const count=calls.length;
+  const second=await generateGeminiFreeChat('Synthetic',[{role:'user',text:'Lượt thử 2'}],
+    {deadlineAt:Date.now()+20_000},deps);
+  assert.equal(second.text,'Đã trả lời qua fallback miễn phí.');
+  assert.deepEqual(calls.slice(count),['gemini-3.5-flash-lite']);
+  assert.ok(!JSON.stringify(second).includes('do-not-log-provider-message'));
 });

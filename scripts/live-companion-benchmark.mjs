@@ -65,6 +65,7 @@ async function main() {
   const durations = [];
   const markers = [];
   const providerKinds = new Set();
+  const modelKinds = new Set();
   for (let i = 0; i < dialogue.length; i++) {
     history.push({ role: 'user', text: dialogue[i] });
     const started = performance.now();
@@ -80,6 +81,10 @@ async function main() {
       throw new Error('invalid_inference_reply');
     }
     providerKinds.add(String(result.provider || 'unknown').slice(0, 30));
+    if (['gemini-3.8-flash','gemini-3.5-flash-lite','gemini-3.7-flash',
+      'inclusionai/ling-3.1-flash-free','poolside/laguna-s-2.1-free'].includes(result.model)) {
+      modelKinds.add(result.model);
+    }
     markers.push({
       turn: i + 1,
       replyValid: true,
@@ -93,7 +98,8 @@ async function main() {
   }
   report.liveChat = true;
   report.chat = { turns: dialogue.length, p50Ms: percentile(durations, 0.5),
-    p95Ms: percentile(durations, 0.95), providers: [...providerKinds],
+    p95Ms: percentile(durations, 0.95), turnMs: durations,
+    providers: [...providerKinds], models: [...modelKinds],
     heuristics: markers, scope: 'direct_gateway_with_synthetic_history_not_browser_memory' };
     } catch (error) {
       const code = String(error?.message || '');

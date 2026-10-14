@@ -44,3 +44,12 @@ Report `brain.configured` and `voices.configured` indicate provider configuratio
 - This **does not prove** browser Memory persistence, automatic emotional inference accuracy, real-device speech-to-first-audio, or subjective romantic naturalness.
 - Earlier independent synthetic [ElevenLabs check](https://github.com/minhduchd-mds/miraai/actions/runs/38442240754) generated 35,570 bytes of actual audio in 3,782ms round trip. Voice generation was intentionally not rerun in the recovery benchmark to avoid unnecessary credits.
 - On detecting a scenario where an explicit user's romantic boundary fell outside the last 16 history turns, boundary scanning was extended to all provided USER turns. This makes no lasting relationship claim and stores no extra user data.
+
+## Brain latency iteration — 2026-10-14
+
+- Retained Gemini 3.8 Flash as the first-choice model and existing low thinking level, system instructions, short-answer minimum token budget, and ElevenLabs configuration.
+- Removed an unnecessary retry alias: on October 8, 2026, Google announced `gemini-3.7-flash` API requests redirect to `gemini-3.8-flash` ([official release notes](https://ai.google.dev/gemini-api/docs/changelog)). Retrying 3.7 after a failed 3.8 request did not change the underlying model and could add another 12s timeout.
+- Legacy `GEMINI_MODEL=gemini-3.7-flash` is canonicalized to 3.8 rather than rejected. 3.5 Flash-Lite remains only an existing fallback when the primary is unavailable, not the normal route.
+- Rate-limit responses (`429`) enter a **90-second process-local cooldown** rather than retrying the exhausted model for each dialogue turn; model-validation failures use a 5-minute cooldown. No personal memory or per-user metadata is stored in cooldowns.
+- The synthetic benchmark now reports per-turn wall-clock durations and allowlisted model identifiers (no AI reply content, prompts, credentials or private records).
+- Real before/after performance remains **unverified until the follow-up live Actions run succeeds**. Five-turn previous reference: p50 7,869ms / p95 21,648ms, Gemini.
