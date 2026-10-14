@@ -241,3 +241,11 @@ test('voice performance stages wait for full context and first genuine answer au
  assert.match(hook,/if \(turnSeqRef\.current !== token\) return;/);
  assert.match(hook,/latencyWindowRef\.current\?\.record\(/);
 });
+
+test('streaming remains optional and the existing buffered voice path is unchanged',()=>{
+ const client=readFileSync('src/core/tts/server-tts.ts','utf8');
+ assert.match(client,/const canStream = !ready/);
+ assert.match(client,/if \(canStream\) \{\s*void this\.speakProgressively/);
+ assert.match(client,/this\.requestAudio\(opts, controller\.signal\)/);
+ assert.match(client,/if \(token !== this\.sequence \|\| !options\.isActive\(\)\) return/);
+});

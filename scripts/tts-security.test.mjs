@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { readLimitedTtsAudio, MAX_TTS_AUDIO_BYTES } from '../server/tts-response.mjs';
+import { readLimitedTtsAudio, streamLimitedTtsAudio, MAX_TTS_AUDIO_BYTES } from '../server/tts-response.mjs';
 import { canonicalRequestHost } from '../lib/request-host.js';
 import { originAllowed, takeRateSlot } from '../server/tts-policy.mjs';
 
@@ -65,4 +65,34 @@ test('Mira Vercel and Node gateways use bounded audio reader, never full-array b
     assert.match(source, /readLimitedTtsAudio\(response\)/);
     assert.doesNotMatch(source, /response\.arrayBuffer\(\)/);
   }
+});
+
+test('streamed audio relays valid MP3 incrementally and terminates cleanly', async()=>{
+  const writes=[];let ended=false;
+  const writable={write(chunk){writes.push([...chunk]);},end(){ended=true;}};
+  const size=await streamLimitedTtsAudio(res([[1,2],[3,4,5]]),writable,6);
+  assert.equal(size,5);
+  assert.deepEqual(writes,[[1,2],[3,4,5]]);
+  assert.equal(ended,true);
+});
+test('streamed audio rejects hostile MIME and bounded size before/after writes',async()=>{
+  const writes=[];const writable={write(chunk){writes.push([...chunk]);},end(){}};
+  await assert.rejects(streamLimitedTtsAudio(res([[1]],{'content-type':'application/json'}),writable,5),/content_type/);
+  await assert.rejects(streamLimitedTtsAudio(res([[1]],{'content-length':'900'}),writable,5),/too_large/);
+  assert.equal(writes.length,0);
+  await assert.rejects(streamLimitedTtsAudio(res([[1,2,3],[4,5,6]]),writable,5),/too_large/);
+  assert.deepEqual(writes,[[1,2,3]],'never relay over the limit');
+});
+test('progressive voice preserves ElevenLabs v4 and streaming API contract',()=>{
+  const contract=readFileSync('server/tts-contract.mjs','utf8');
+  const server=readFileSync('api/tts.js','utf8');
+  const client=readFileSync('src/core/tts/server-tts.ts','utf8');
+  assert.match(contract,/\/v1\/text-to-dialogue\/stream\?output_format=/);
+  assert.match(contract,/MIRA_DEFAULT_MODEL_ID = 'eleven_v4'/);
+  assert.match(server,/streamLimitedTtsAudio\(response, res\)/);
+  assert.match(server,/res\.headersSent/);
+  assert.match(client,/MediaSource\.isTypeSupported\('audio\/mpeg'\)/);
+  assert.match(client,/speakProgressively\(opts, controller, utteranceId\)/);
+  assert.match(client,/if \(!isCurrent\(\)\) return/);
+  assert.match(client,/controller\.signal/);
 });

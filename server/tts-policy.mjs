@@ -21,6 +21,7 @@ export {
   defaultElevenVoice,
   elevenDialoguePayload,
   elevenDialogueUrl,
+  elevenDialogueStreamUrl,
   isTtsOriginAllowed,
   performanceText,
   ttsContractMetadata,

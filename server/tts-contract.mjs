@@ -75,3 +75,7 @@ export function elevenDialoguePayload(text, instructions = '') {
 export function elevenDialogueUrl() {
   return `https://api.elevenlabs.io/v1/text-to-dialogue?output_format=${MIRA_TTS_OUTPUT_FORMAT}`;
 }
+/** ElevenLabs official progressive MP3 endpoint. Same voice, model and format. */
+export function elevenDialogueStreamUrl() {
+  return `https://api.elevenlabs.io/v1/text-to-dialogue/stream?output_format=${MIRA_TTS_OUTPUT_FORMAT}`;
+}

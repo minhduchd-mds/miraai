@@ -1,11 +1,12 @@
 import { markPrivateResponse } from '../lib/private-response.js';
-import { readLimitedTtsAudio } from '../server/tts-response.mjs';
+import { readLimitedTtsAudio, streamLimitedTtsAudio } from '../server/tts-response.mjs';
 import { enforceAiQuota } from '../lib/ai-quota.js';
 import {
   applyCors,
   MIRA_TTS_MAX_TEXT_LENGTH,
   elevenDialoguePayload,
   elevenDialogueUrl,
+  elevenDialogueStreamUrl,
   originAllowed,
   takeRateSlot,
 } from '../server/tts-policy.mjs';
@@ -38,13 +39,18 @@ export default async function handler(req, res) {
 
   // Production voice identity/model are server-controlled through the shared contract.
   const payload = elevenDialoguePayload(text, body.instructions);
+  // Streaming is a client capability, never an instruction to switch model/voice.
+  const streaming = new URL(req.url || '/api/tts', 'https://miraai.local').searchParams.get('stream') === '1';
+  const controller = new AbortController();
+  // On client interruption, stop generating and forwarding unused audio bytes.
+  res.on?.('close', () => controller.abort());
 
   try {
     const response = await fetch(
-      elevenDialogueUrl(),
+      streaming ? elevenDialogueStreamUrl() : elevenDialogueUrl(),
       {
         method: 'POST',
-        signal: AbortSignal.timeout(18_000),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(18_000)]),
         headers: {
           'content-type': 'application/json',
           'xi-api-key': key,
@@ -58,15 +64,26 @@ export default async function handler(req, res) {
       throw new Error(`ElevenLabs TTS ${response.status}: ${detail}`);
     }
 
-    const { audio, contentType } = await readLimitedTtsAudio(response);
-
-    res.setHeader('content-type', contentType);
+    res.setHeader('content-type', 'audio/mpeg');
     res.setHeader('cache-control', 'no-store');
     res.setHeader('x-mira-tts-provider', 'elevenlabs');
     res.setHeader('x-mira-tts-model', payload.model_id);
     res.setHeader('x-mira-tts-voice', payload.inputs[0].voice_id);
+    if (streaming) {
+      res.status(200);
+      // No 2nd upstream request, no browser-provided voice/model, no audio storage.
+      await streamLimitedTtsAudio(response, res);
+      return;
+    }
+    const { audio, contentType } = await readLimitedTtsAudio(response);
+    res.setHeader('content-type', contentType);
     return res.status(200).send(audio);
   } catch (error) {
+    if (res.headersSent) {
+      // Never append a JSON error to a partially streamed MP3.
+      res.destroy?.();
+      return;
+    }
     return res.status(502).json({
       error: 'elevenlabs_tts_failed',
       detail: 'provider_unavailable',
