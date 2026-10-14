@@ -23,7 +23,7 @@ jobs:
     # Later pushes never silently consume model/TTS credits.
     if: >-
       (github.event_name == 'push' &&
-       github.event.head_commit.message == 'perf(brain): skip Gemini 3.7 alias retries and rate-limit cooldown') ||
+       github.event.head_commit.message == 'perf(brain): bound voice latency and pause slow Gemini retries') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm_paid_request == true)
     runs-on: ubuntu-latest
     timeout-minutes: 6

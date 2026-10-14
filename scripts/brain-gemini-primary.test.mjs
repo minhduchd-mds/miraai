@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateGeminiFreeChat, geminiKeyConfigured, geminiChatModels, GEMINI_FREE_CHAT_MODELS } from '../lib/gemini-chat-free.js';
+import { generateGeminiFreeChat, geminiKeyConfigured, geminiChatModels, geminiAttemptBudgetMs, GEMINI_FREE_CHAT_MODELS } from '../lib/gemini-chat-free.js';
 import { providerOrder, generateBrainChat } from '../lib/brain-gateway.js';
 
 const keys=['MIRA_BRAIN_FREE_ONLY','MIRA_BRAIN_PROVIDER','MIRA_BRAIN_FALLBACKS','MIRA_BRAIN_AUTO_ROUTER',
@@ -111,4 +111,33 @@ test('429 cooldown avoids retrying Gemini 3.8 alias and does not affect unrelate
   assert.equal(second.text,'Đã trả lời qua fallback miễn phí.');
   assert.deepEqual(calls.slice(count),['gemini-3.5-flash-lite']);
   assert.ok(!JSON.stringify(second).includes('do-not-log-provider-message'));
+});
+
+test('Short speech uses bounded sequential model budgets, deeper requests retain 12s',()=>{
+ assert.equal(geminiAttemptBudgetMs(450,'gemini-3.8-flash',48_000),6000);
+ assert.equal(geminiAttemptBudgetMs(450,'gemini-3.5-flash-lite',48_000),9000);
+ assert.equal(geminiAttemptBudgetMs(1200,'gemini-3.8-flash',48_000),8000);
+ assert.equal(geminiAttemptBudgetMs(1200,'gemini-3.5-flash-lite',48_000),10000);
+ assert.equal(geminiAttemptBudgetMs(2200,'gemini-3.8-flash',48_000),12000);
+ assert.equal(geminiAttemptBudgetMs(450,'gemini-3.8-flash',3100),3100);
+ assert.equal(geminiAttemptBudgetMs(450,'gemini-3.8-flash',100),600);
+});
+test('A slow free provider never triggers speculative concurrent paid inference',async()=>{
+ const requests=[];
+ let pending=0,maxPending=0;
+ const response=await generateGeminiFreeChat('synthetic',[{role:'user',text:'hello'}],
+   {maxTokens:450,deadlineAt:Date.now()+48_000},
+   {env:{GEMINI_API_KEY:'synthetic-key'},now:()=>Date.now()+180_000,
+    fetcher:async(url)=>{
+      pending++;maxPending=Math.max(maxPending,pending);
+      const model=String(url).split('/models/')[1].split(':')[0];
+      requests.push(model);
+      try {
+        if(model==='gemini-3.8-flash')return new Response('redacted quota body',{status:429});
+        return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Đã xử lý.'}]}}]}));
+      } finally {pending--;}
+    }});
+ assert.equal(maxPending,1);
+ assert.deepEqual(requests,['gemini-3.8-flash','gemini-3.5-flash-lite']);
+ assert.equal(response.model,'gemini-3.5-flash-lite');
 });

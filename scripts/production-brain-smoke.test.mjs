@@ -27,7 +27,7 @@ test('synthetic companion live QA never runs on an ordinary CI push or leaks rep
  assert.doesNotMatch(file,/console\.(?:log|error)\([^\n]*result\.text/);
  assert.doesNotMatch(file,/process\.env\.(?:ELEVENLABS_API_KEY|DATABASE_URL|OPENAI_API_KEY)/);
  assert.match(workflow,/workflow_dispatch:/);
- assert.match(workflow,/github\.event\.head_commit\.message == 'perf\(brain\): skip Gemini 3.7 alias retries and rate-limit cooldown'/);
+ assert.match(workflow,/github\.event\.head_commit\.message == 'perf\(brain\): bound voice latency and pause slow Gemini retries'/);
  assert.match(workflow,/inputs\.confirm_paid_request == true/);
 });
 
