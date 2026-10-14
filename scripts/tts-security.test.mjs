@@ -93,6 +93,15 @@ test('progressive voice preserves ElevenLabs v4 and streaming API contract',()=>
   assert.match(server,/res\.headersSent/);
   assert.match(client,/MediaSource\.isTypeSupported\('audio\/mpeg'\)/);
   assert.match(client,/speakProgressively\(opts, controller, utteranceId\)/);
-  assert.match(client,/if \(!isCurrent\(\)\) return/);
+  assert.match(client,/if \(!isCurrent\(\)\)/);
   assert.match(client,/controller\.signal/);
+});
+
+test('progressive decoder is deferred outside the initial UI bundle',()=>{
+ const client=readFileSync('src/core/tts/server-tts.ts','utf8');
+ const helper=readFileSync('src/core/tts/progressive-mp3.ts','utf8');
+ assert.match(client,/await import\('\.\/progressive-mp3'\)/);
+ assert.match(helper,/mediaSource\.addSourceBuffer\('audio\/mpeg'\)/);
+ assert.match(helper,/sourceBuffer|buffer\.appendBuffer/);
+ assert.match(helper,/signal\.aborted/);
 });

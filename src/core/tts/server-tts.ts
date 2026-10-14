@@ -161,11 +161,7 @@ export class ServerTTS implements TTSAdapter {
     return blob;
   }
 
-  /**
-   * Native progressive playback of ElevenLabs MP3 chunks.
-   * No second/paid retry: a broken stream fails closed and reports TTS error.
-   * The same AbortController owns the HTTP stream and MediaSource lifetime.
-   */
+  /** Native progressive MP3, kept out of the initial UI bundle. */
   private async speakProgressively(opts: TTSSpeakOptions, controller: AbortController, utteranceId: number): Promise<void> {
     const isCurrent = () => this.utteranceId === utteranceId && !controller.signal.aborted;
     try {
@@ -177,15 +173,20 @@ export class ServerTTS implements TTSAdapter {
       });
       if (!response.ok || !response.body) throw new Error('elevenlabs_stream_unavailable');
       if (!isCurrent()) { await response.body.cancel().catch(() => {}); return; }
-      const source = new MediaSource();
-      const url = URL.createObjectURL(source);
-      const audio = new Audio(url);
-      this.objectUrl = url;
-      this.audio = audio;
-      audio.playbackRate = opts.rate ?? 1;
-      audio.preservesPitch = true;
-      this.detach = attachAnalyser(audio);
-      audio.onplaying = () => {
+      const {startProgressiveMp3} = await import('./progressive-mp3');
+      if (!isCurrent()) { await response.body.cancel().catch(() => {}); return; }
+      const stream = startProgressiveMp3(response, controller.signal, (error) => {
+        if (!isCurrent()) return;
+        this.fail(opts, error);
+        controller.abort();
+        this.cleanupAudio();
+      });
+      this.objectUrl = stream.url;
+      this.audio = stream.audio;
+      stream.audio.playbackRate = opts.rate ?? 1;
+      stream.audio.preservesPitch = true;
+      this.detach = attachAnalyser(stream.audio);
+      stream.audio.onplaying = () => {
         if (!isCurrent()) return;
         this.fetching = false;
         this.healthState = 'healthy';
@@ -194,70 +195,19 @@ export class ServerTTS implements TTSAdapter {
         this.lastError = null;
         opts.onStart?.();
       };
-      audio.onended = () => {
-        if (!isCurrent() || this.audio !== audio) return;
+      stream.audio.onended = () => {
+        if (!isCurrent() || this.audio !== stream.audio) return;
         this.cleanupAudio();
         if (this.abortCtl === controller) this.abortCtl = null;
         opts.onEnd?.();
       };
-      audio.onerror = () => {
-        if (!isCurrent() || this.audio !== audio) return;
-        this.cleanupAudio();
+      stream.audio.onerror = () => {
+        if (!isCurrent() || this.audio !== stream.audio) return;
         this.fail(opts, 'progressive_audio_playback_failed');
+        controller.abort();
+        this.cleanupAudio();
       };
-      const open = new Promise<void>((resolve, reject) => {
-        const cleanup = () => {
-          source.removeEventListener('sourceopen', opened);
-          source.removeEventListener('sourceclose', closed);
-          controller.signal.removeEventListener('abort', aborted);
-        };
-        const opened = () => { cleanup(); resolve(); };
-        const closed = () => { cleanup(); reject(new Error('progressive_audio_closed')); };
-        const aborted = () => { cleanup(); reject(new Error('progressive_audio_aborted')); };
-        source.addEventListener('sourceopen', opened, {once:true});
-        source.addEventListener('sourceclose', closed, {once:true});
-        controller.signal.addEventListener('abort', aborted, {once:true});
-        if (source.readyState === 'open') opened();
-      });
-      audio.load?.(); // Triggers sourceopen without falsely marking playback started.
-      await open;
-      if (!isCurrent()) return;
-      const buffer = source.addSourceBuffer('audio/mpeg');
-      const reader = response.body.getReader();
-      let bytes = 0;
-      let playbackRequested = false;
-      try {
-        while (isCurrent()) {
-          const {done,value} = await reader.read();
-          if (done) break;
-          if (!(value instanceof Uint8Array)) throw new Error('progressive_audio_invalid_chunk');
-          bytes += value.byteLength;
-          if (bytes > 8 * 1024 * 1024) throw new Error('progressive_audio_too_large');
-          if (!value.byteLength) continue;
-          await new Promise<void>((resolve,reject) => {
-            const cleanup = () => {
-              buffer.removeEventListener('updateend', updated);
-              buffer.removeEventListener('error', failed);
-              controller.signal.removeEventListener('abort', aborted);
-            };
-            const updated = () => {cleanup();resolve();};
-            const failed = () => {cleanup();reject(new Error('progressive_audio_decode_failed'));};
-            const aborted = () => {cleanup();reject(new Error('progressive_audio_aborted'));};
-            buffer.addEventListener('updateend', updated, {once:true});
-            buffer.addEventListener('error', failed, {once:true});
-            controller.signal.addEventListener('abort', aborted, {once:true});
-            try { buffer.appendBuffer(value); } catch (error) { cleanup(); reject(error); }
-          });
-          if (!playbackRequested && isCurrent()) {
-            playbackRequested = true;
-            void audio.play().catch((error) => {
-              if (isCurrent()) this.fail(opts, error);
-            });
-          }
-        }
-        if (isCurrent() && !bytes) throw new Error('progressive_audio_empty');
-        if (isCurrent() && source.readyState === 'open') source.endOfStream();
-      } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+      await stream.finished;
     } catch (error) {
       if (!isCurrent()) return;
       this.fetching = false;
