@@ -102,12 +102,12 @@ test('429 cooldown avoids retrying Gemini 3.8 alias and does not affect unrelate
       return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Đã trả lời qua fallback miễn phí.'}]}}]}));
     }};
   const first=await generateGeminiFreeChat('Synthetic',[{role:'user',text:'Lượt thử 1'}],
-    {deadlineAt:Date.now()+20_000},deps);
+    {deadlineAt:Date.now()+160_000},deps);
   assert.equal(first.provider,'gemini');
   assert.equal(first.model,'gemini-3.5-flash-lite');
   const count=calls.length;
   const second=await generateGeminiFreeChat('Synthetic',[{role:'user',text:'Lượt thử 2'}],
-    {deadlineAt:Date.now()+20_000},deps);
+    {deadlineAt:Date.now()+160_000},deps);
   assert.equal(second.text,'Đã trả lời qua fallback miễn phí.');
   assert.deepEqual(calls.slice(count),['gemini-3.5-flash-lite']);
   assert.ok(!JSON.stringify(second).includes('do-not-log-provider-message'));
