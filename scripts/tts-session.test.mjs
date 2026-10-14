@@ -247,5 +247,5 @@ test('streaming remains optional and the existing buffered voice path is unchang
  assert.match(client,/const canStream = !ready/);
  assert.match(client,/if \(canStream\) \{\s*void this\.speakProgressively/);
  assert.match(client,/this\.requestAudio\(opts, controller\.signal\)/);
- assert.match(client,/if \(token !== this\.sequence \|\| !options\.isActive\(\)\) return/);
+ assert.match(client,/const isCurrent = \(\) => this\.utteranceId === utteranceId && !controller\.signal\.aborted/);
 });
