@@ -27,6 +27,14 @@ test('synthetic companion live QA never runs on an ordinary CI push or leaks rep
  assert.doesNotMatch(file,/console\.(?:log|error)\([^\n]*result\.text/);
  assert.doesNotMatch(file,/process\.env\.(?:ELEVENLABS_API_KEY|DATABASE_URL|OPENAI_API_KEY)/);
  assert.match(workflow,/workflow_dispatch:/);
- assert.match(workflow,/github\.event\.head_commit\.message == 'test\(companion\): distinguish network errors and honor Brain fallback timeout'/);
+ assert.match(workflow,/github\.event\.head_commit\.message == 'test\(companion\): allow 60s runtime for bounded free-provider fallback'/);
  assert.match(workflow,/inputs\.confirm_paid_request == true/);
+});
+
+test('Vercel Brain function duration covers the bounded free-provider chain',()=>{
+ const config=JSON.parse(readFileSync('vercel.json','utf8'));
+ assert.equal(config.functions['api/chat.js'].maxDuration,60);
+ const router=readFileSync('lib/brain-gateway.js','utf8');
+ assert.match(router,/48_000/);
+ assert.doesNotMatch(JSON.stringify(config),/env|token|key|secret|rewrites/i);
 });
