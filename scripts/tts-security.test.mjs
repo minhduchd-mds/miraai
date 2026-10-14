@@ -91,7 +91,7 @@ test('progressive voice preserves ElevenLabs v4 and streaming API contract',()=>
   assert.match(contract,/MIRA_DEFAULT_MODEL_ID = 'eleven_v4'/);
   assert.match(server,/streamLimitedTtsAudio\(response, res\)/);
   assert.match(server,/res\.headersSent/);
-  assert.match(client,/MediaSource\.isTypeSupported\('audio\/mpeg'\)/);
+  assert.match(client,/MediaSource\.isTypeSupported\?\.\('audio\/mpeg'\)/);
   assert.match(client,/speakProgressively\(opts, controller, utteranceId\)/);
   assert.match(client,/if \(!isCurrent\(\)\)/);
   assert.match(client,/controller\.signal/);
