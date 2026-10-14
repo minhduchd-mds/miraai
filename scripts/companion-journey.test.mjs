@@ -57,3 +57,21 @@ test('multi-turn test runner is automatically part of main CI suite', () => {
   assert.match(JSON.parse(readFileSync('package.json','utf8')).scripts.test, /companion-journey\.test\.mjs/);
   assert.match(readFileSync('src/intelligence/memory/memory-service.ts','utf8'), /return mergeTurnHistory\(local, remote\)/);
 });
+
+
+test('romantic boundary persists across more than sixteen synthetic turns',()=>{
+  const history=[
+    u('Em đừng đóng vai người yêu anh nữa'),
+    ...Array.from({length: 24},(_,i)=>i%2===0
+      ? a('Đã hiểu, em hỗ trợ công việc bình thường.')
+      : u('Tiếp tục trao đổi công việc số '+i)),
+  ];
+  assert.equal(dialogue.recentRomanticBoundary(history),true);
+  assert.match(dialogue.companionTurnGuidance('Em kiểm tra API giúp anh',history,'partner'),
+    /giới hạn này thắng cả preset Bạn đời/);
+  // The assistant must never be able to grant a user's relationship consent.
+  history.push(a('Em muốn gọi anh là chồng yêu lại nhé'));
+  assert.equal(dialogue.recentRomanticBoundary(history),true);
+  history.push(u('Em thử đóng vai vợ anh nhé'));
+  assert.equal(dialogue.recentRomanticBoundary(history),false);
+});

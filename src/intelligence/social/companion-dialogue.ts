@@ -37,14 +37,14 @@ const AFFECTION = /\b(?:vo oi|chong yeu|anh yeu em|em yeu anh|nguoi yeu oi|nho e
 const CONTINUITY = /\b(?:ke tiep|noi tiep|luc nay|hom truoc|chuyen hom qua|chuyen do|con nho|nho chuyen)\b/;
 
 /**
- * A user's explicit request to stop romantic address persists across the
- * available USER history, until that user explicitly opts back in. This is
+ * A user's explicit request to stop romantic address persists across ALL
+ * supplied USER history, until that user explicitly opts back in. This is
  * session-turn guidance, not a durable relationship fact or hidden preference.
  * Mira's own messages never authorize an invitation or withdraw a boundary.
  */
 export function recentRomanticBoundary(history: BrainTurn[]): boolean {
   let restricted = false;
-  for (const turn of history.slice(-16)) {
+  for (const turn of history) {
     if (turn.role !== 'user') continue;
     const text = plain(turn.text.slice(0, 1200));
     if (BOUNDARY.test(text) || rejectsRomanticRoleplay(text)) restricted = true;

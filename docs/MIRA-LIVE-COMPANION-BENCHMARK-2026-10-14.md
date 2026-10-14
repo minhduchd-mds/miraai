@@ -35,3 +35,12 @@ Report `brain.configured` and `voices.configured` indicate provider configuratio
 1. With production now emitting sanitized provider/status categories, inspect the *next explicitly authorized* synthetic Brain request in Vercel logs to distinguish provider HTTP/auth/quota failures; do not record prompts or raw exceptions.
 2. Check availability, free-tier quota and credentials of the two configured providers, and verify gateway model catalog zero-price eligibility. **Do not change persona, ElevenLabs voice/model or enable paid fallback automatically.**
 3. Only after successful inference, run the five-turn live scenario plus Memory consent isolation, then a separate optional real-device listening/STT latency evaluation with explicit user permission.
+
+## Follow-up verified production recovery — 2026-10-14
+
+- Root of the **HTTP 504** observed during diagnosis: Vercel production runtime log explicitly stated `Vercel Runtime Timeout Error: Task timed out after 30 seconds` on `/api/chat`. The bounded free-model fallback could legitimately use up to 48 seconds plus quota work.
+- Added `vercel.json` with `functions.api/chat.js.maxDuration=60` and a CI assertion to permit the existing fallback to finish. Provider keys, persona, response quality budgets, and ElevenLabs voice/model were not modified.
+- [Real production companion benchmark](https://github.com/minhduchd-mds/miraai/actions/runs/38499868496): **SUCCESS**, five synthetic turns, `provider=gemini`, `p50=7,869ms`, `p95=21,648ms`. Every turn returned nonempty output; synthetic recall, boundary adherence, and technical task switching heuristics were positive. No personal data was supplied or logged.
+- This **does not prove** browser Memory persistence, automatic emotional inference accuracy, real-device speech-to-first-audio, or subjective romantic naturalness.
+- Earlier independent synthetic [ElevenLabs check](https://github.com/minhduchd-mds/miraai/actions/runs/38442240754) generated 35,570 bytes of actual audio in 3,782ms round trip. Voice generation was intentionally not rerun in the recovery benchmark to avoid unnecessary credits.
+- On detecting a scenario where an explicit user's romantic boundary fell outside the last 16 history turns, boundary scanning was extended to all provided USER turns. This makes no lasting relationship claim and stores no extra user data.

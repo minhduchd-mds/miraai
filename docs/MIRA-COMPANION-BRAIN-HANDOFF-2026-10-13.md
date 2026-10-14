@@ -4,8 +4,8 @@
 - Preset **Thân thiết** and **Bạn đời · nhập vai** remain opt-in. Their
   dynamic guidance is only loaded for invited/selected turns; standard
   professional/technical requests are still factual and action-first.
-- A real user's explicit romantic boundary persists across the most recent
-  16 turns of provided conversation history until that user explicitly invites
+- A real user's explicit romantic boundary persists across the available
+  conversation history supplied to the companion guide until that user explicitly invites
   the role back. Mira messages cannot give consent. No persistent relationship
   status is inferred or saved from these instructions.
 - Durable memory episodes / fact extraction now receive **user words only**,
