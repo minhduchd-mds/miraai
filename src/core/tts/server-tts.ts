@@ -137,7 +137,7 @@ export class ServerTTS implements TTSAdapter {
   }
 
   private speechPayload(opts: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>): string {
-    return JSON.stringify({text:opts.text,voice:opts.voiceURI||null,instructions:opts.instructions||null});
+    return JSON.stringify({text: opts.text, voice: opts.voiceURI || null, instructions: opts.instructions || null});
   }
 
   private async requestAudio(
