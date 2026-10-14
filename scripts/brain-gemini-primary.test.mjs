@@ -126,8 +126,8 @@ test('A slow free provider never triggers speculative concurrent paid inference'
  const requests=[];
  let pending=0,maxPending=0;
  const response=await generateGeminiFreeChat('synthetic',[{role:'user',text:'hello'}],
-   {maxTokens:450,deadlineAt:Date.now()+48_000},
-   {env:{GEMINI_API_KEY:'synthetic-key'},now:()=>Date.now()+180_000,
+   {maxTokens:450,deadlineAt:Date.now()+360_000},
+   {env:{GEMINI_API_KEY:'synthetic-key'},now:()=>Date.now()+300_000,
     fetcher:async(url)=>{
       pending++;maxPending=Math.max(maxPending,pending);
       const model=String(url).split('/models/')[1].split(':')[0];
