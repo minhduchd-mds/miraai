@@ -15,7 +15,8 @@ function makeFile({uri,triangles=2,version='2.0',name='trial.glb'}={}){
  const body=Buffer.from(JSON.stringify(json));const pad=Buffer.alloc((4-body.length%4)%4,32);
  const b=Buffer.alloc(20+body.length+pad.length);
  b.write('glTF');b.writeUInt32LE(2,4);b.writeUInt32LE(b.length,8);
- b.writeUInt32LE(body.length+pad.length,12);b.write('JSON',16);body.copy(b,20);
+ b.writeUInt32LE(body.length+pad.length,12);b.write('JSON',16);
+ body.copy(b,20);pad.copy(b,20+body.length);
  return {name,size:b.length,slice:(start,end)=>new Blob([b.subarray(start,end)])};
 }
 test('GLB-only static local models can be inspected without uploading',async()=>{
