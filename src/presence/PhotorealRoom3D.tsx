@@ -1,5 +1,5 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import type { DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { MiraPresenceScene } from './presence-scene';
@@ -8,6 +8,7 @@ import RoomLuxuryInterior from './RoomLuxuryInterior';
 import {moveRoomCamera} from './room-navigation';
 import {roomMaxPixelRatio} from './room-render-budget';
 import {candidate3DFromSearch} from './candidate-avatar-source';
+import {inspectLocalCandidateGLB} from './candidate-local-glb';
 
 // Rigged 3D human is a separate lazy chunk (VRM parser is deliberately not in AppV2).
 const RoomMiraVRM = lazy(() => import('./RoomMiraVRM'));
@@ -106,6 +107,41 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  const onReadyRef=useRef(onReady);
  onReadyRef.current=onReady;
  const [avatarStatus,setAvatarStatus]=useState<'pending'|'approved'|'review'|'preview'|'rejected'>('pending');
+ const [localAsset,setLocalAsset]=useState<{url:string;name:string}|null>(null);
+ const [localMessage,setLocalMessage]=useState('');
+ useEffect(()=>()=>{if(localAsset)URL.revokeObjectURL(localAsset.url);},[localAsset]);
+ const stageCandidate=useCallback(async(file:File)=>{
+   if(!candidate)return;
+   setLocalMessage('Đang kiểm tra model...');
+   try{
+     const info=await inspectLocalCandidateGLB(file);
+     const url=URL.createObjectURL(file);
+     setLocalAsset({url,name:info.name});
+     setLocalMessage(`${info.name} · ${info.triangles.toLocaleString()} tam giác · chỉ trên máy này`);
+   }catch(error){
+     setLocalMessage(error instanceof Error?error.message:'GLB không hợp lệ.');
+   }
+ },[candidate]);
+ const selectLocalGLB=useCallback(()=>{
+   if(!candidate)return;
+   const input=document.createElement('input');
+   input.type='file';input.accept='.glb,model/gltf-binary';
+   input.addEventListener('change',()=>{
+     const file=input.files?.item(0);
+     if(file)void stageCandidate(file);
+   },{once:true});
+   input.click();
+ },[candidate,stageCandidate]);
+ const candidateDragOver=(event:ReactDragEvent<HTMLSpanElement>)=>{
+   if(!candidate)return;
+   event.preventDefault();event.dataTransfer.dropEffect='copy';
+ };
+ const candidateDrop=(event:ReactDragEvent<HTMLSpanElement>)=>{
+   if(!candidate)return;
+   event.preventDefault();event.stopPropagation();
+   const file=event.dataTransfer.files.item(0);
+   if(file)void stageCandidate(file);
+ };
  const recordAvatarStatus=useCallback((next:typeof avatarStatus)=>setAvatarStatus(next),[]);
  const sceneReady=useCallback(()=>onReadyRef.current(),[]);
 
@@ -116,6 +152,11 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      &&document.activeElement===stageRef.current?.closest('button.photo-mira');
    const keydown=(event:KeyboardEvent)=>{
      if(!canControl()||editable(event.target)||event.altKey||event.ctrlKey||event.metaKey)return;
+     if(candidate && event.code==='KeyU'){
+       event.preventDefault();
+       selectLocalGLB();
+       return;
+     }
      const n=/^Digit([1-6])$/.exec(event.code);
      if(n){
        event.preventDefault();
@@ -150,7 +191,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
      document.removeEventListener('visibilitychange',visibility);
      document.removeEventListener('pointerdown',outsidePointer,true);
    };
- },[]);
+ },[candidate,selectLocalGLB]);
  // The vision hook emits visual-only pose deltas after a fresh 240ms hold.
  // Never trigger voice activation, OS actions or camera permission here.
  useEffect(()=>{
@@ -211,8 +252,18 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
    <span ref={stageRef} className="pm-room3d-stage" data-avatar-status={avatarStatus}
      onPointerDown={pointerDown} onPointerMove={pointerMove}
      onPointerUp={pointerEnd} onPointerCancel={pointerEnd}
+     onDragOver={candidateDragOver} onDrop={candidateDrop}
      onLostPointerCapture={pointerEnd}
      onClick={event=>event.stopPropagation()}>
+     {candidate && <span style={{position:'absolute',top:12,left:12,right:12,
+        zIndex:2,pointerEvents:'none',fontSize:12,lineHeight:1.4,
+        color:'#f5eee9',textShadow:'0 1px 4px #17151c'}}>
+       <span style={{display:'inline-block',padding:'7px 11px',borderRadius:9,
+          background:'rgba(18,18,23,.78)'}}>
+         GLB Lab · Kéo thả file .glb hoặc nhấn U khi vùng 3D đang được chọn
+         {localMessage&&<> · {localMessage}</>}
+       </span>
+     </span>}
      <Canvas frameloop="demand" shadows dpr={[1,maxDpr]}
        camera={{fov:46,near:.08,far:75,position:[PRESETS[0].x,1.77,PRESETS[0].z]}}
        gl={{alpha:false,antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:false}}
@@ -230,7 +281,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
        <RoomLuxuryInterior scene={scene}/>
        <Suspense fallback={null}>
          {candidate
-           ? <CandidateMiraAvatar candidate={candidate} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
+           ? <CandidateMiraAvatar candidate={candidate} localUrl={localAsset?.url} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
            : humanLab
              ? <VitruvianLabAvatar state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
              : <RoomMiraVRM state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>}
