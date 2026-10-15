@@ -7,10 +7,12 @@ import type { MiraState } from '../core/types';
 import RoomLuxuryInterior from './RoomLuxuryInterior';
 import {moveRoomCamera} from './room-navigation';
 import {roomMaxPixelRatio} from './room-render-budget';
+import {candidate3DFromSearch} from './candidate-avatar-source';
 
 // Rigged 3D human is a separate lazy chunk (VRM parser is deliberately not in AppV2).
 const RoomMiraVRM = lazy(() => import('./RoomMiraVRM'));
 const VitruvianLabAvatar = lazy(() => import('./VitruvianLabAvatar'));
+const CandidateMiraAvatar = lazy(() => import('./CandidateMiraAvatar'));
 type Controls={yaw:number;pitch:number;x:number;z:number;keys:Set<string>};
 const CLAMP=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const KEYS=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
@@ -87,6 +89,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  },[]);
  useEffect(()=>()=>detachWebGLRef.current(),[]);
  const humanLab = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('humanLab')==='1';
+ const candidate = typeof window!=='undefined' ? candidate3DFromSearch(window.location.search) : null;
  // Constrained devices render fewer physical pixels; desktop remains at
  // the exact previous [1,1.5] range to preserve the approved room look.
  const maxDpr=useState(()=>{
@@ -226,9 +229,11 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
        <RoomCamera controls={controls}/>
        <RoomLuxuryInterior scene={scene}/>
        <Suspense fallback={null}>
-         {humanLab
-           ? <VitruvianLabAvatar state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
-           : <RoomMiraVRM state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>}
+         {candidate
+           ? <CandidateMiraAvatar candidate={candidate} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
+           : humanLab
+             ? <VitruvianLabAvatar state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
+             : <RoomMiraVRM state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>}
        </Suspense>
      </Canvas>
    </span>
