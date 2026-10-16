@@ -52,6 +52,19 @@ test('visual prototype does not ship external model binaries',()=>{
  assert.match(prune,/realistic', 'vitruvian-lab'/);
 });
 
+test('BA screenshot regression: hair does not curtain facial features and anatomy is bounded',()=>{
+ const hairSource=original.split('const hairCurves=useMemo(')[1].split('\n useEffect(()=>')[0];
+ assert.match(hairSource,/\[-1,1\]\.flatMap/);
+ assert.match(hairSource,/const x=side\*\(\.195\+\.048\*spread\)/);
+ assert.doesNotMatch(hairSource,/front\?\.145/,'old central curtain path must not return');
+ assert.match(original,/tubeGeometry args=\{\[curve,18,\.009/);
+ assert.match(original,/scale=\{\[\.025,\.047,\.033\]\}/,'nose must stay proportionate');
+ assert.match(original,/scale=\{\[\.041,\.029,\.047\]\}/,'cheeks must not be floating spheres');
+ assert.match(original,/scale=\{\[\.13,\.285,\.136\]\}/,'thigh proportions controlled');
+ assert.match(original,/scale=\{\[\.105,\.28,\.107\]\}/,'shin proportions controlled');
+ assert.match(original,/scale=\{\[\.060,\.057,\.092\]\}/,'hands fit on armrest');
+});
+
 test('geometry is bounded, mouth closes on audio silence, and render cadence sleeps',()=>{
  assert.match(original,/new THREE\.Vector3/);
  assert.match(original,/createOriginalFaceController/);
