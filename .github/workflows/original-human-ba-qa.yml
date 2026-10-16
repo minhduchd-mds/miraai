@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - "src/presence/OriginalMiraLabAvatar.tsx"
+      - "src/presence/original-human-head-geometry.ts"
+      - "scripts/original-human-head-geometry.test.mjs"
+      - "package.json"
       - "src/presence/original-human-face-motion.ts"
       - "src/presence/OriginalMiraLimb.tsx"
       - "src/presence/original-human-limb-pose.ts"
