@@ -152,8 +152,8 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
          <sphereGeometry args={[1,20,14]}/>
          <meshStandardMaterial color="#d4a48d" roughness={.90}/>
        </mesh>
-       {/* Contact: hand centre world x=±.665, y=.695, z=1.74; chair armrest top y=.695. */}
-       <mesh position={[side*.38,-.565,-.05]} castShadow scale={[.065,.065,.105]}>
+       {/* Contact: hand centre x=±.665, y=.76, z=1.74; bottom tangent at armrest top y=.695. */}
+       <mesh position={[side*.38,-.50,-.05]} castShadow scale={[.065,.065,.105]}>
          <sphereGeometry args={[1,20,14]}/>
          <meshStandardMaterial color="#d5aa94" roughness={.84}/>
        </mesh>
