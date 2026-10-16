@@ -1,5 +1,22 @@
 # Mira — Original Human v1 pipeline (16 October 2026)
 
+## Original procedural human lab — working 3D prototype
+
+An entirely new, code-authored **stylized humanoid prototype** is now available on the native Three.js room, with no imported geometry/texture/animation or third-party character likeness. It is a fully volumetric seated figure with face, sclera/iris, nose, cheeks, separate eyelid meshes, PBR-like skin materials, layered hair strands, torso and limbs. It uses Character Director, natural gaze drift, a viseme envelope and only the existing outgoing TTS signal.
+
+Open a capable desktop browser at:
+
+`/?room3d=1&originalHumanLab=1`
+
+Use existing room controls `1`–`6` for camera viewpoints; mouse drag to rotate. This sets avatar status to `review`, not `approved`. Production's default approved-avatar gate and unoccupied-chair behavior remain intact.
+
+**Current visual quality is stylized procedural geometry, not photorealism**. The prototype gives a wholly owned motion/lighting/effect test fixture while the properly sculpted, separately reviewed high-fidelity original human is authored in Blender. It should not be silently promoted as the production Mira likeness. See `src/presence/OriginalMiraLabAvatar.tsx` and `scripts/original-human-lab.test.mjs`.
+
+## Next authoring checkpoint
+
+Record five true visual captures of the original prototype, particularly hair silhouette, eyes, chair intersection and expression movements. Use findings to sculpt an original realistic female avatar in Blender, then run the preflight and the SHA256-bound release rights gate described below.
+
+
 **Status:** production avatar still PENDING. This describes a reproducible and copyright-conscious route, not a claim that Mira already owns or ships a photoreal human. No Weelife models, animations, clothing, hair, texture, proprietary shaders or branding may be incorporated.
 
 ## 1. Author the asset
