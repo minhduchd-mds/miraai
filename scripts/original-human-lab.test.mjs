@@ -54,7 +54,9 @@ test('visual prototype does not ship external model binaries',()=>{
 
 test('geometry is bounded, mouth closes on audio silence, and render cadence sleeps',()=>{
  assert.match(original,/new THREE\.Vector3/);
- assert.match(original,/Math\.min\(\.125,shapes\.aa/);
+ assert.match(original,/createOriginalFaceController/);
+ assert.match(original,/facial\.mouthHeight/);
+ assert.match(original,/facial\.closure/);
  assert.match(original,/state==='speaking'&&ttsLevel\.active/);
  assert.match(original,/if\(!document\.hidden\)invalidate\(\)/);
  assert.match(original,/window\.clearInterval\(interval\)/);
