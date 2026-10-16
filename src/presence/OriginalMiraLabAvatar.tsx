@@ -1,0 +1,232 @@
+import {useEffect,useMemo,useRef} from 'react';
+import {useFrame,useThree} from '@react-three/fiber';
+import * as THREE from 'three';
+import type {MiraState} from '../core/types';
+import {ttsLevel} from '../core/audio-level';
+import {createCharacterDirector} from './character-director';
+import {createCharacterGaze} from './character-gaze';
+import {createVisemeEnvelope} from './viseme-envelope';
+import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
+import {visemesForSpeech} from './tts-visemes';
+
+type Props={
+ state:MiraState;
+ onReady:()=>void;
+ onAssetStatus?:(status:'review')=>void;
+};
+
+/**
+ * Mira-owned procedural geometry research avatar.
+ *
+ * This isn't photorealism and does not pretend to be an approved production
+ * likeness. No downloaded mesh, photo texture, proprietary animation, camera
+ * feed or reference artwork participates in this render.
+ *
+ * Developer preview: ?room3d=1&originalHumanLab=1
+ */
+export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Props){
+ const head=useRef<THREE.Group>(null);
+ const torso=useRef<THREE.Group>(null);
+ const leftArm=useRef<THREE.Group>(null);
+ const rightArm=useRef<THREE.Group>(null);
+ const leftLid=useRef<THREE.Mesh>(null);
+ const rightLid=useRef<THREE.Mesh>(null);
+ const irisLeft=useRef<THREE.Mesh>(null);
+ const irisRight=useRef<THREE.Mesh>(null);
+ const mouth=useRef<THREE.Mesh>(null);
+ const innerLip=useRef<THREE.Mesh>(null);
+ const director=useRef(createCharacterDirector());
+ const gaze=useRef(createCharacterGaze());
+ const lips=useRef(createVisemeEnvelope());
+ const jaw=useRef(0);
+ const invalidate=useThree(s=>s.invalidate);
+ const ready=useRef(onReady);ready.current=onReady;
+ const status=useRef(onAssetStatus);status.current=onAssetStatus;
+ const hairCurves=useMemo(()=>Array.from({length:13},(_,i)=>{
+   const side=(i-6)/6;
+   const front=Math.abs(side)<.5;
+   const points=[
+     new THREE.Vector3(side*.14,.54,-.05),
+     new THREE.Vector3(side*.24,.52,front?.145:.02),
+     new THREE.Vector3(side*.255,.31,front?.20:-.19),
+     new THREE.Vector3(side*.25,.04,front?.15:-.19),
+   ];
+   return new THREE.CatmullRomCurve3(points);
+ }),[]);
+ useEffect(()=>{
+   status.current?.('review');
+   ready.current();
+ },[]);
+ useEffect(()=>{
+   const interval=window.setInterval(()=>{
+     if(!document.hidden)invalidate();
+   },humanMotionCadence(state));
+   return ()=>window.clearInterval(interval);
+ },[invalidate,state]);
+
+ useFrame((_,delta)=>{
+   const now=performance.now()*.001;
+   const energy=state==='speaking'&&ttsLevel.active?ttsLevel.value:undefined;
+   const motion=humanMotionFrame(now,state,energy);
+   const cues=director.current.sample(now,state,energy);
+   const gazeOffset=gaze.current.sample(now,state);
+   const k=1-Math.exp(-Math.min(Math.max(delta,0),.12)*15);
+   jaw.current+=(motion.mouthOpen-jaw.current)*k;
+   const shapes=lips.current.update(visemesForSpeech(jaw.current,
+     state==='speaking'&&ttsLevel.active?ttsLevel.bands:null),delta);
+   if(head.current){
+     head.current.rotation.set(motion.headPitch+cues.headPitch,
+       motion.headYaw+cues.headYaw,cues.headRoll);
+   }
+   if(torso.current){
+     torso.current.rotation.x=motion.breathing;
+     torso.current.rotation.z=cues.chestRoll;
+   }
+   if(leftArm.current)leftArm.current.rotation.set(cues.leftArmX,0,cues.leftArmZ);
+   if(rightArm.current)rightArm.current.rotation.set(cues.rightArmX,0,cues.rightArmZ);
+   for(const lid of [leftLid.current,rightLid.current])
+     if(lid)lid.scale.y=.001+motion.blink*.031;
+   for(const [eye,side] of [[irisLeft.current,-1],[irisRight.current,1]] as const){
+     if(!eye)continue;
+     eye.position.x=side*.088+gazeOffset.x*.17;
+     eye.position.y=.325+gazeOffset.y*.17;
+   }
+   if(mouth.current)mouth.current.scale.y=.009+Math.min(.125,shapes.aa*.18+shapes.oh*.08);
+   if(innerLip.current)innerLip.current.scale.y=.008+Math.min(.075,shapes.aa*.105+shapes.oh*.10);
+ });
+
+ return <group name="mira-original-humanoid-lab-only" position={[0,0,1.78]}>
+   {/* Neutral seated silhouette with independently authored shapes. */}
+   <group ref={torso} position={[0,.84,0]}>
+     <mesh position={[0,.28,-.015]} castShadow receiveShadow scale={[.315,.445,.205]}>
+       <sphereGeometry args={[1,38,26]}/>
+       <meshPhysicalMaterial color="#28232a" roughness={.79} metalness={.03}
+         clearcoat={.08}/>
+     </mesh>
+     <mesh position={[0,.47,.156]} castShadow scale={[.20,.17,.048]}>
+       <sphereGeometry args={[1,24,16]}/>
+       <meshStandardMaterial color="#d6ab96" roughness={.92}/>
+     </mesh>
+     <mesh position={[0,.005,0]} castShadow scale={[.32,.18,.23]}>
+       <sphereGeometry args={[1,28,20]}/>
+       <meshStandardMaterial color="#202027" roughness={.87}/>
+     </mesh>
+   </group>
+   <mesh position={[0,.93,.055]} castShadow scale={[.29,.14,.235]}>
+     <sphereGeometry args={[1,24,18]}/>
+     <meshStandardMaterial color="#25232a" roughness={.91}/>
+   </mesh>
+   {/* Arm pivots use the same verified state blending as the VRM route. */}
+   {([-1,1] as const).map((side)=>{
+     const ref=side<0?leftArm:rightArm;
+     return <group key={side} ref={ref} position={[side*.285,1.26,.01]}>
+       <mesh position={[side*.085,-.215,.055]} rotation={[.28,0,side*-.08]}
+         castShadow scale={[.108,.29,.12]}>
+         <sphereGeometry args={[1,20,14]}/>
+         <meshStandardMaterial color="#29242c" roughness={.84}/>
+       </mesh>
+       <mesh position={[side*.15,-.47,.21]} rotation={[-.85,0,side*.10]}
+         castShadow scale={[.095,.22,.102]}>
+         <sphereGeometry args={[1,20,14]}/>
+         <meshStandardMaterial color="#d4a48d" roughness={.90}/>
+       </mesh>
+       <mesh position={[side*.21,-.58,.34]} castShadow scale={[.073,.11,.065]}>
+         <sphereGeometry args={[1,20,14]}/>
+         <meshStandardMaterial color="#d5aa94" roughness={.84}/>
+       </mesh>
+     </group>;
+   })}
+   {/* Lap and shins are genuine 3D geometry, not a photographic plane. */}
+   {([-1,1] as const).map(side=><group key={side}>
+     <mesh position={[side*.165,.68,.265]} rotation={[.90,0,side*.06]}
+       castShadow scale={[.157,.35,.171]}>
+       <sphereGeometry args={[1,24,18]}/>
+       <meshStandardMaterial color="#25232a" roughness={.89}/>
+     </mesh>
+     <mesh position={[side*.171,.37,.53]} castShadow scale={[.123,.34,.129]}>
+       <sphereGeometry args={[1,24,18]}/>
+       <meshStandardMaterial color="#d0a38f" roughness={.92}/>
+     </mesh>
+     <mesh position={[side*.17,.09,.595]} castShadow scale={[.125,.075,.20]}>
+       <sphereGeometry args={[1,22,16]}/>
+       <meshStandardMaterial color="#342a30" roughness={.70}/>
+     </mesh>
+   </group>)}
+   <mesh position={[0,1.315,.02]} castShadow scale={[.092,.145,.09]}>
+     <sphereGeometry args={[1,22,16]}/>
+     <meshStandardMaterial color="#d5a38c" roughness={.91}/>
+   </mesh>
+   <group ref={head} position={[0,1.33,.03]}>
+     {/* Full head / jaw profile in true geometry. */}
+     <mesh position={[0,.275,0]} castShadow receiveShadow
+       scale={[.224,.29,.204]}>
+       <sphereGeometry args={[1,48,36]}/>
+       <meshPhysicalMaterial color="#d5a38e" roughness={.86}
+         clearcoat={.045} clearcoatRoughness={.88}/>
+     </mesh>
+     <mesh position={[0,.091,.065]} castShadow scale={[.151,.092,.124]}>
+       <sphereGeometry args={[1,32,24]}/>
+       <meshStandardMaterial color="#d6a58f" roughness={.89}/>
+     </mesh>
+     {([-1,1] as const).map(side=><group key={side}>
+       <mesh position={[side*.102,.331,.179]} scale={[.059,.043,.034]}>
+         <sphereGeometry args={[1,24,20]}/>
+         <meshPhysicalMaterial color="#efe5dc" roughness={.28} clearcoat={.45}/>
+       </mesh>
+       <mesh ref={side<0?irisLeft:irisRight} position={[side*.088,.325,.208]}
+         scale={[.024,.028,.011]}>
+         <sphereGeometry args={[1,22,16]}/>
+         <meshPhysicalMaterial color="#493832" roughness={.31}
+           clearcoat={.55}/>
+       </mesh>
+       <mesh position={[side*.087,.327,.219]} scale={[.011,.013,.007]}>
+         <sphereGeometry args={[1,16,12]}/>
+         <meshBasicMaterial color="#19151a"/>
+       </mesh>
+       <mesh ref={side<0?leftLid:rightLid} position={[side*.104,.34,.218]}
+         scale={[.064,.001,.023]}>
+         <sphereGeometry args={[1,20,12]}/>
+         <meshStandardMaterial color="#d4a08b" roughness={.85}/>
+       </mesh>
+       <mesh position={[side*.105,.398,.193]} rotation={[0,0,side*-.13]}
+         scale={[.067,.013,.027]}>
+         <sphereGeometry args={[1,16,10]}/>
+         <meshStandardMaterial color="#34272b" roughness={.92}/>
+       </mesh>
+       <mesh position={[side*.166,.225,.139]} scale={[.071,.059,.068]}>
+         <sphereGeometry args={[1,22,16]}/>
+         <meshPhysicalMaterial color="#d29b88" roughness={.94}/>
+       </mesh>
+       <mesh position={[side*.219,.257,.014]} scale={[.044,.078,.036]}>
+         <sphereGeometry args={[1,20,12]}/>
+         <meshStandardMaterial color="#d5a18c" roughness={.91}/>
+       </mesh>
+     </group>)}
+     <mesh position={[0,.246,.218]} castShadow scale={[.035,.082,.048]}>
+       <sphereGeometry args={[1,22,16]}/>
+       <meshStandardMaterial color="#d1a18b" roughness={.90}/>
+     </mesh>
+     <mesh ref={mouth} position={[0,.128,.204]} scale={[.07,.009,.029]}>
+       <sphereGeometry args={[1,26,16]}/>
+       <meshStandardMaterial color="#693b43" roughness={.77}/>
+     </mesh>
+     <mesh ref={innerLip} position={[0,.104,.224]} scale={[.052,.008,.024]}>
+       <sphereGeometry args={[1,20,12]}/>
+       <meshStandardMaterial color="#b7787e" roughness={.77}/>
+     </mesh>
+     {/* Original lightweight hair volume, individually modeled strands. */}
+     <mesh position={[0,.438,-.065]} castShadow scale={[.244,.175,.222]}>
+       <sphereGeometry args={[1,40,28]}/>
+       <meshStandardMaterial color="#292029" roughness={.76}/>
+     </mesh>
+     <mesh position={[0,.225,-.174]} castShadow scale={[.236,.285,.14]}>
+       <sphereGeometry args={[1,36,24]}/>
+       <meshStandardMaterial color="#292028" roughness={.84}/>
+     </mesh>
+     {hairCurves.map((curve,i)=><mesh key={i} castShadow={i%3===0}>
+       <tubeGeometry args={[curve,16,.018+(i%3)*.004,6,false]}/>
+       <meshStandardMaterial color={i%4===0?'#44313a':'#2b212b'} roughness={.78}/>
+     </mesh>)}
+   </group>
+ </group>;
+}
