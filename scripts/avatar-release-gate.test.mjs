@@ -33,6 +33,11 @@ test('substituted binary, wrong asset and invented rights do not pass',()=>{
   assert.ok(report.failures.includes(violation),violation);
  }
 });
+test('bespoke model can remain proprietary with ownership proof',()=>{
+ const m={...manifest,license:'PROPRIETARY-OWNED'};
+ const dossier={...rights(),license:'PROPRIETARY-OWNED'};
+ assert.equal(evaluateAvatarRights(m,dossier,bytes).ok,true);
+});
 test('CC-BY requires both attribution and visible license notice URL',()=>{
  const m={...manifest,license:'CC-BY-4.0'};
  const r={...rights(),license:'CC-BY-4.0'};
