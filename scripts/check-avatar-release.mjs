@@ -2,6 +2,8 @@ import {createHash} from 'node:crypto';
 import {existsSync,readFileSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {qualityReport,readGlbJson} from './validate-realistic-avatar.mjs';
+import {auditHumanAssetRig} from './audit-realistic-motion.mjs';
 
 /**
  * Release proof for a bespoke 3D human.
@@ -73,7 +75,16 @@ export function auditAvatarRelease({root=process.cwd()}={}){
  try{rights=JSON.parse(readFileSync(rightPath,'utf8'));buffer=readFileSync(binPath);}
  catch{return {status:'failed',errors:['dossier_or_asset_unreadable']};}
  const result=evaluateAvatarRights(m,rights,buffer);
- return {status:result.ok?'review_recorded':'failed',errors:result.failures,
+ const errors=[...result.failures];
+ // The provenance record alone cannot certify a visually or mechanically valid
+ // model: keep the existing GLB/VRM structural gates mandatory at build time.
+ const technical=qualityReport(m,buffer);
+ if(technical.status!=='approved')errors.push(...technical.errors);
+ try{
+  const motion=auditHumanAssetRig(readGlbJson(buffer));
+  if(!motion.ready)errors.push(...motion.errors);
+ }catch{errors.push('rig_or_facial_audit_failed');}
+ return {status:errors.length?'failed':'review_recorded',errors,
    asset:m.asset,sha256:sha256(buffer)};
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
