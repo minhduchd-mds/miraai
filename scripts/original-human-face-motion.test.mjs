@@ -66,7 +66,7 @@ test('pupil, iris, catchlight all move under one eye group; seated hands reach c
  assert.match(character,/group ref=\{side<0\?irisLeft:irisRight\}/);
  assert.match(character,/mesh ref=\{side<0\?leftLid:rightLid\}/);
  assert.match(character,/mesh ref=\{side<0\?browLeft:browRight\}/);
- assert.match(character,/mesh position=\{\[side\*\.38,-\.565,-\.05\]\}/);
+ assert.match(character,/mesh position=\{\[side\*\.38,-\.50,-\.05\]\}/);
  assert.match(interior,/at=\{\[side\*\.69,\.61,1\.68\]\} size=\{\[\.13,\.17,\.60\]\}/);
  for(const forbidden of ['getUserMedia(','TextureLoader','GLTFLoader','fetch('])
   assert.ok(!code.includes(forbidden),'unexpected external/private dependency '+forbidden);
