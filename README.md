@@ -95,6 +95,10 @@ ANTHROPIC_API_KEY=
 ELEVENLABS_API_KEY=
 ```
 
+## Licensing and media provenance
+
+The repository's Apache-2.0 `LICENSE` is not a blanket grant for third-party 3D assets, VRoid presets, portraits or other media. A 135-file media integrity inventory and 115-package dependency-license inventory are tracked in CI. **Not all media rights have been cleared**, so an unconditional copyright-safe claim cannot be made. See [Asset Licensing](ASSET-LICENSING.md) and the [IP audit](docs/MIRA-IP-RIGHTS-AUDIT-2026-10-16.md). Standard production builds exclude unapproved lab-only 3D assets and concept references; some WebP scenes still need rights evidence.
+
 ## Docs
 
 - [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md) — capability/status matrix.
