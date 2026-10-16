@@ -8,6 +8,7 @@ import {createCharacterGaze} from './character-gaze';
 import {createVisemeEnvelope} from './viseme-envelope';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {visemesForSpeech} from './tts-visemes';
+import {createOriginalFaceController} from './original-human-face-motion';
 
 type Props={
  state:MiraState;
@@ -31,13 +32,16 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
  const rightArm=useRef<THREE.Group>(null);
  const leftLid=useRef<THREE.Mesh>(null);
  const rightLid=useRef<THREE.Mesh>(null);
- const irisLeft=useRef<THREE.Mesh>(null);
- const irisRight=useRef<THREE.Mesh>(null);
+ const irisLeft=useRef<THREE.Group>(null);
+ const irisRight=useRef<THREE.Group>(null);
+ const browLeft=useRef<THREE.Mesh>(null);
+ const browRight=useRef<THREE.Mesh>(null);
  const mouth=useRef<THREE.Mesh>(null);
  const innerLip=useRef<THREE.Mesh>(null);
  const director=useRef(createCharacterDirector());
  const gaze=useRef(createCharacterGaze());
  const lips=useRef(createVisemeEnvelope());
+ const face=useRef(createOriginalFaceController());
  const jaw=useRef(0);
  const invalidate=useThree(s=>s.invalidate);
  const ready=useRef(onReady);ready.current=onReady;
@@ -84,15 +88,33 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
    }
    if(leftArm.current)leftArm.current.rotation.set(cues.leftArmX,0,cues.leftArmZ);
    if(rightArm.current)rightArm.current.rotation.set(cues.rightArmX,0,cues.rightArmZ);
-   for(const lid of [leftLid.current,rightLid.current])
-     if(lid)lid.scale.y=.001+motion.blink*.031;
-   for(const [eye,side] of [[irisLeft.current,-1],[irisRight.current,1]] as const){
-     if(!eye)continue;
-     eye.position.x=side*.088+gazeOffset.x*.17;
-     eye.position.y=.325+gazeOffset.y*.17;
+   const facial=face.current.sample({
+     seconds:now,dt:delta,gaze:gazeOffset,visemes:shapes,
+     smile:motion.smile,speaking:state==='speaking',
+   });
+   for(const lid of [leftLid.current,rightLid.current]){
+     if(!lid)continue;
+     lid.position.y=.036-facial.closure*.035;
+     lid.scale.y=.013+facial.closure*.034;
    }
-   if(mouth.current)mouth.current.scale.y=.009+Math.min(.125,shapes.aa*.18+shapes.oh*.08);
-   if(innerLip.current)innerLip.current.scale.y=.008+Math.min(.075,shapes.aa*.105+shapes.oh*.10);
+   // Iris, pupil and catchlight share a parent: no detached pupils on eye turns.
+   for(const eye of [irisLeft.current,irisRight.current]){
+     if(!eye)continue;
+     eye.position.x=facial.irisX;
+     eye.position.y=-.006+facial.irisY;
+   }
+   for(const brow of [browLeft.current,browRight.current])
+     if(brow)brow.position.y=.067+facial.eyebrowLift;
+   if(mouth.current){
+     mouth.current.scale.x=facial.mouthWidth;
+     mouth.current.scale.y=facial.mouthHeight;
+     mouth.current.position.y=.128+facial.smileLift*.4;
+   }
+   if(innerLip.current){
+     innerLip.current.scale.x=facial.mouthWidth*.75;
+     innerLip.current.scale.y=Math.max(.007,facial.mouthHeight*.72);
+     innerLip.current.position.y=.103+facial.smileLift*.5;
+   }
  });
 
  return <group name="mira-original-humanoid-lab-only" position={[0,0,1.78]}>
@@ -125,12 +147,13 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
          <sphereGeometry args={[1,20,14]}/>
          <meshStandardMaterial color="#29242c" roughness={.84}/>
        </mesh>
-       <mesh position={[side*.15,-.47,.21]} rotation={[-.85,0,side*.10]}
-         castShadow scale={[.095,.22,.102]}>
+       <mesh position={[side*.24,-.46,-.035]} rotation={[-.25,0,side*-.30]}
+         castShadow scale={[.095,.255,.102]}>
          <sphereGeometry args={[1,20,14]}/>
          <meshStandardMaterial color="#d4a48d" roughness={.90}/>
        </mesh>
-       <mesh position={[side*.21,-.58,.34]} castShadow scale={[.073,.11,.065]}>
+       {/* Contact: hand centre world x=±.665, y=.695, z=1.74; chair armrest top y=.695. */}
+       <mesh position={[side*.38,-.565,-.05]} castShadow scale={[.065,.065,.105]}>
          <sphereGeometry args={[1,20,14]}/>
          <meshStandardMaterial color="#d5aa94" roughness={.84}/>
        </mesh>
@@ -169,30 +192,41 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
        <meshStandardMaterial color="#d6a58f" roughness={.89}/>
      </mesh>
      {([-1,1] as const).map(side=><group key={side}>
-       <mesh position={[side*.102,.331,.179]} scale={[.059,.043,.034]}>
-         <sphereGeometry args={[1,24,20]}/>
-         <meshPhysicalMaterial color="#efe5dc" roughness={.28} clearcoat={.45}/>
-       </mesh>
-       <mesh ref={side<0?irisLeft:irisRight} position={[side*.088,.325,.208]}
-         scale={[.024,.028,.011]}>
-         <sphereGeometry args={[1,22,16]}/>
-         <meshPhysicalMaterial color="#493832" roughness={.31}
-           clearcoat={.55}/>
-       </mesh>
-       <mesh position={[side*.087,.327,.219]} scale={[.011,.013,.007]}>
-         <sphereGeometry args={[1,16,12]}/>
-         <meshBasicMaterial color="#19151a"/>
-       </mesh>
-       <mesh ref={side<0?leftLid:rightLid} position={[side*.104,.34,.218]}
-         scale={[.064,.001,.023]}>
-         <sphereGeometry args={[1,20,12]}/>
-         <meshStandardMaterial color="#d4a08b" roughness={.85}/>
-       </mesh>
-       <mesh position={[side*.105,.398,.193]} rotation={[0,0,side*-.13]}
-         scale={[.067,.013,.027]}>
-         <sphereGeometry args={[1,16,10]}/>
-         <meshStandardMaterial color="#34272b" roughness={.92}/>
-       </mesh>
+       <group position={[side*.102,.331,.179]}>
+         <mesh scale={[.059,.043,.034]}>
+           <sphereGeometry args={[1,24,20]}/>
+           <meshPhysicalMaterial color="#efe5dc" roughness={.28} clearcoat={.45}/>
+         </mesh>
+         <group ref={side<0?irisLeft:irisRight} position={[0,-.006,0]}>
+           <mesh position={[0,0,.033]} scale={[.024,.028,.011]}>
+             <sphereGeometry args={[1,22,16]}/>
+             <meshPhysicalMaterial color="#493832" roughness={.31} clearcoat={.55}/>
+           </mesh>
+           <mesh position={[0,0,.046]} scale={[.011,.013,.007]}>
+             <sphereGeometry args={[1,16,12]}/>
+             <meshBasicMaterial color="#19151a"/>
+           </mesh>
+           <mesh position={[-.008,.010,.052]} scale={[.004,.005,.003]}>
+             <sphereGeometry args={[1,12,10]}/>
+             <meshBasicMaterial color="#ffffff"/>
+           </mesh>
+         </group>
+         <mesh ref={side<0?leftLid:rightLid} position={[0,.036,.045]}
+           scale={[.064,.013,.026]}>
+           <sphereGeometry args={[1,20,12]}/>
+           <meshStandardMaterial color="#d4a08b" roughness={.85}/>
+         </mesh>
+         <mesh position={[0,-.033,.040]} scale={[.055,.010,.025]}>
+           <sphereGeometry args={[1,20,12]}/>
+           <meshStandardMaterial color="#c99282" roughness={.90}/>
+         </mesh>
+         <mesh ref={side<0?browLeft:browRight}
+           position={[0,.067,.011]} rotation={[0,0,side*-.13]}
+           scale={[.067,.013,.027]}>
+           <sphereGeometry args={[1,16,10]}/>
+           <meshStandardMaterial color="#34272b" roughness={.92}/>
+         </mesh>
+       </group>
        <mesh position={[side*.166,.225,.139]} scale={[.071,.059,.068]}>
          <sphereGeometry args={[1,22,16]}/>
          <meshPhysicalMaterial color="#d29b88" roughness={.94}/>
