@@ -10,6 +10,7 @@ import {dressPreviewForIndoors} from './preview-indoor-wardrobe';
 import {hidePreviewHairTufts} from './preview-hair-trim';
 import {stabilizePreviewHairPhysics} from './preview-hair-dynamics';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
+import {createCharacterDirector} from './character-director';
 import {ttsLevel} from '../core/audio-level';
 import {visemesForSpeech} from './tts-visemes';
 import {companionReaction} from './companion-reaction';
@@ -129,6 +130,7 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
   const glbRef = useRef<THREE.Group | null>(null);
   const restRotations = useRef(new WeakMap<THREE.Object3D,THREE.Euler>());
   const jawBlend=useRef(0);
+  const characterDirector=useRef(createCharacterDirector());
   const reactionBlend=useRef({smile:0,headTilt:0});
   const morphSlots = useRef<Array<{mesh:THREE.Mesh; names:Map<string,number>; base:number[]}>>([]);
   const callback = useRef(onReady);
@@ -182,6 +184,8 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
             if(node instanceof THREE.Mesh){node.castShadow=true;node.receiveShadow=true;}
           });
           glbRef.current=gltf.scene;
+          characterDirector.current.reset();
+          restRotations.current=new WeakMap();
           // Cache facial morph slots once. Preserve authored neutral weights.
           const facial:Array<{mesh:THREE.Mesh;names:Map<string,number>;base:number[]}>=[];
           gltf.scene.traverse(node=>{
@@ -245,6 +249,8 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
             if('receiveShadow' in node)(node as {receiveShadow:boolean}).receiveShadow=true;
           });
           ref.current=vrm;
+          characterDirector.current.reset();
+          restRotations.current=new WeakMap();
           setModel(vrm);setHumanGLB(null);setAvatar(source);setFailed(false);
           statusCallback.current?.(source.mode==='preview'?'preview':allowReview?'review':'approved');
           callback.current();invalidate();
@@ -295,8 +301,10 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
     const vrm=ref.current;
     const root=vrm?.scene||glbRef.current;
     if(!root)return;
-    const motion=humanMotionFrame(performance.now()*.001,state,
-      state==='speaking' && ttsLevel.active ? ttsLevel.value : undefined);
+    const now=performance.now()*.001;
+    const ttsEnergy=state==='speaking' && ttsLevel.active ? ttsLevel.value : undefined;
+    const motion=humanMotionFrame(now,state,ttsEnergy);
+    const cues=characterDirector.current.sample(now,state,ttsEnergy);
     // Smooth fast RMS fluctuations without forcing a mouth-open pose in silence.
     const k=1-Math.exp(-Math.min(Math.max(delta,0),.1)*15);
     jawBlend.current+=(motion.mouthOpen-jawBlend.current)*k;
@@ -318,8 +326,8 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         original=head.rotation.clone();
         restRotations.current.set(head,original);
       }
-      head.rotation.set(original.x+motion.headPitch,
-        original.y+motion.headYaw,original.z+reactionBlend.current.headTilt);
+      head.rotation.set(original.x+motion.headPitch+cues.headPitch,
+        original.y+motion.headYaw+cues.headYaw,original.z+reactionBlend.current.headTilt+cues.headRoll);
     }
     const torso=vrm?.humanoid?.getNormalizedBoneNode('chest')||
       root.getObjectByName('mixamorigSpine2')||null;
@@ -330,7 +338,25 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         restRotations.current.set(torso,original);
       }
       torso.rotation.x=original.x+motion.breathing;
+      torso.rotation.z=original.z+cues.chestRoll;
     }
+    // Additive, restrained gestures only: the validated rig retains its rest pose.
+    // Do not move elbows/hands to assumed positions that may intersect furniture.
+    const applyArmMotion=(side:'left'|'right',offsetX:number,offsetZ:number)=>{
+      const node=vrm?.humanoid?.getNormalizedBoneNode(side==='left'?'leftUpperArm':'rightUpperArm')||
+        root.getObjectByName(side==='left'?'mixamorigLeftArm':'mixamorigRightArm')||
+        root.getObjectByName(side==='left'?'LeftUpperArm':'RightUpperArm')||null;
+      if(!node)return;
+      let original=restRotations.current.get(node);
+      if(!original){
+        original=node.rotation.clone();
+        restRotations.current.set(node,original);
+      }
+      node.rotation.x=original.x+offsetX;
+      node.rotation.z=original.z+offsetZ;
+    };
+    applyArmMotion('left',cues.leftArmX,cues.leftArmZ);
+    applyArmMotion('right',cues.rightArmX,cues.rightArmZ);
 
     if(vrm){
       // Drive only expressions the approved VRM actually exports.
