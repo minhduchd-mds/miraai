@@ -135,19 +135,11 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
        <meshPhysicalMaterial color="#28232a" roughness={.79} metalness={.03}
          clearcoat={.08}/>
      </mesh>
-     <mesh position={[0,.46,.157]} castShadow scale={[.105,.067,.034]}>
-       <sphereGeometry args={[1,24,16]}/>
-       <meshStandardMaterial color="#d6ab96" roughness={.92}/>
-     </mesh>
-     <mesh position={[0,.005,0]} castShadow scale={[.268,.155,.195]}>
-       <sphereGeometry args={[1,28,20]}/>
-       <meshStandardMaterial color="#202027" roughness={.87}/>
-     </mesh>
+     {/* The single garment shell now joins shoulders to hips. Previously
+          two independent ellipsoids formed a false skin-colored neck egg
+          and an inflated belly belt in the six-camera screenshots. */}
    </group>
-   <mesh position={[0,.93,.055]} castShadow scale={[.255,.12,.198]}>
-     <sphereGeometry args={[1,24,18]}/>
-     <meshStandardMaterial color="#25232a" roughness={.91}/>
-   </mesh>
+
    {/* Shoulder, elbow, wrist and four fingers are physically connected.
         This replaces disconnected, rotated giant oval arm/leg placeholders. */}
    {([-1,1] as const).map((side)=>{
