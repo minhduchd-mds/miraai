@@ -28,15 +28,21 @@ test('original Mira geometric human renders in isolated 3D lab across two camera
  const canvas=stage.locator('canvas');
  await expect(canvas).toBeVisible();
  await mkdir(join(process.cwd(),'artifacts','visual-qa'),{recursive:true});
- for(const [key,num] of [['front','1'],['quarter','2']]){
+ const distinct=[];
+ for(const [key,num] of [
+  ['front','1'],['left45','2'],['profile','3'],['right45','4'],
+  ['rear','5'],['faceclose','6']
+ ]){
   await hero.focus();
   await page.keyboard.press(num);
   await page.waitForTimeout(350);
   await expect(stage).toHaveAttribute('data-avatar-status','review');
   const image=join(process.cwd(),'artifacts','visual-qa','mira-original-human-'+key+'.png');
-  await canvas.screenshot({path:image});
+  const capture=await canvas.screenshot({path:image});
+  distinct.push(capture.toString('base64'));
   await testInfo.attach('original-human-'+key,{path:image,contentType:'image/png'});
  }
+ expect(new Set(distinct).size).toBeGreaterThanOrEqual(3);
  await expect(page.locator('.voice-footer')).toBeVisible();
  expect(errors.filter(x=>/WebGL|THREE|Cannot read properties|useFrame/.test(x))).toEqual([]);
  await context.close();
