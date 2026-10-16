@@ -32,7 +32,7 @@ test('staged model remains pending visual approval even after technical QA',()=>
  assert.equal(qualityReport(m,glb()).status,'review_required');
  assert.equal(m.status,'pending');assert.equal(m.visualApproval,'pending');
 });
-test('stage command copies only locally validated GLB/VRM and refuses overwrite',()=>{
+test('stage command copies only locally validated GLB/VRM and refuses overwrite',async()=>{
  const tmp=mkdtempSync(join(tmpdir(),'mira-avatar-'));
  try{
   const root=join(tmp,'project'),folder=join(root,'public','avatars','realistic');
@@ -43,6 +43,12 @@ test('stage command copies only locally validated GLB/VRM and refuses overwrite'
   assert.equal(out.report.status,'review_required');
   assert.equal(out.motionReport.ready,true);
   assert.ok(existsSync(join(folder,'mira-human-v1.vrm')));
+  const rights=JSON.parse(readFileSync(join(folder,'mira-human-v1.vrm.rights.json'),'utf8'));
+  const {createHash}=await import('node:crypto');
+  const expectedHash=createHash('sha256').update(glb()).digest('hex');
+  assert.equal(rights.sha256,expectedHash,'staged rights record must match actual binary');
+  assert.equal(rights.commercialUse,false,'staging cannot approve commercial rights');
+  assert.equal(rights.redistribution,false,'staging cannot approve redistribution');
   assert.equal(JSON.parse(readFileSync(join(folder,'manifest.json'))).status,'pending');
   assert.throws(()=>stageRealisticAsset({...args,file:src},{root}),/already staged/);
  }finally{rmSync(tmp,{recursive:true,force:true});}
@@ -59,6 +65,11 @@ test('asset staging fails closed when lip-sync, blink or smile target channels a
  }finally{rmSync(tmp,{recursive:true,force:true});}
 });
 
+test('original Mira asset can retain a proprietary license without auto-approval',()=>{
+ const m=buildStageManifest({...args,license:'PROPRIETARY-OWNED'});
+ assert.equal(m.license,'PROPRIETARY-OWNED');
+ assert.equal(m.status,'pending');
+});
 test('stage rejects non-commercial license and unsafe filenames',()=>{
  for(const wrong of [{license:'CC-BY-NC-4.0'},{sourceUrl:'http://example.org'},
   {asset:'../../bad.vrm'},{asset:'avatar.fbx'},{poseMode:'mixamo-seated'}]){
