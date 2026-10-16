@@ -9,6 +9,9 @@ import {createVisemeEnvelope} from './viseme-envelope';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {visemesForSpeech} from './tts-visemes';
 import {createOriginalFaceController} from './original-human-face-motion';
+import OriginalMiraLimb from './OriginalMiraLimb';
+import {seatedArm,seatedLeg} from './original-human-limb-pose';
+import type {Point3} from './original-human-limb-pose';
 
 type Props={
  state:MiraState;
@@ -124,61 +127,82 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
  return <group name="mira-original-humanoid-lab-only" position={[0,0,1.78]}>
    {/* Neutral seated silhouette with independently authored shapes. */}
    <group ref={torso} position={[0,.84,0]}>
-     <mesh position={[0,.28,-.015]} castShadow receiveShadow scale={[.315,.445,.205]}>
+     <mesh position={[0,.25,-.015]} castShadow receiveShadow scale={[.268,.325,.185]}>
        <sphereGeometry args={[1,38,26]}/>
        <meshPhysicalMaterial color="#28232a" roughness={.79} metalness={.03}
          clearcoat={.08}/>
      </mesh>
-     <mesh position={[0,.47,.156]} castShadow scale={[.20,.17,.048]}>
+     <mesh position={[0,.46,.157]} castShadow scale={[.105,.067,.034]}>
        <sphereGeometry args={[1,24,16]}/>
        <meshStandardMaterial color="#d6ab96" roughness={.92}/>
      </mesh>
-     <mesh position={[0,.005,0]} castShadow scale={[.32,.18,.23]}>
+     <mesh position={[0,.005,0]} castShadow scale={[.268,.155,.195]}>
        <sphereGeometry args={[1,28,20]}/>
        <meshStandardMaterial color="#202027" roughness={.87}/>
      </mesh>
    </group>
-   <mesh position={[0,.93,.055]} castShadow scale={[.29,.14,.235]}>
+   <mesh position={[0,.93,.055]} castShadow scale={[.255,.12,.198]}>
      <sphereGeometry args={[1,24,18]}/>
      <meshStandardMaterial color="#25232a" roughness={.91}/>
    </mesh>
-   {/* Arm pivots use the same verified state blending as the VRM route. */}
+   {/* Shoulder, elbow, wrist and four fingers are physically connected.
+        This replaces disconnected, rotated giant oval arm/leg placeholders. */}
    {([-1,1] as const).map((side)=>{
+     const arm=seatedArm(side);
+     const relative=(p:Point3):Point3=>[
+       p[0]-arm.shoulder[0],p[1]-arm.shoulder[1],p[2]-arm.shoulder[2]
+     ];
+     const elbow=relative(arm.elbow),wrist=relative(arm.wrist),hand=relative(arm.hand);
      const ref=side<0?leftArm:rightArm;
-     return <group key={side} ref={ref} position={[side*.285,1.26,.01]}>
-       <mesh position={[side*.085,-.215,.055]} rotation={[.28,0,side*-.08]}
-         castShadow scale={[.108,.29,.12]}>
-         <sphereGeometry args={[1,20,14]}/>
-         <meshStandardMaterial color="#29242c" roughness={.84}/>
+     return <group key={side} ref={ref} position={arm.shoulder}>
+       <OriginalMiraLimb from={[0,0,0]} to={elbow}
+         startRadius={.088} endRadius={.073} color="#29242c"/>
+       <mesh position={elbow} castShadow scale={[.075,.073,.078]}>
+         <sphereGeometry args={[1,18,14]}/>
+         <meshStandardMaterial color="#29242c" roughness={.87}/>
        </mesh>
-       <mesh position={[side*.24,-.46,-.035]} rotation={[-.25,0,side*-.30]}
-         castShadow scale={[.084,.245,.096]}>
-         <sphereGeometry args={[1,20,14]}/>
-         <meshStandardMaterial color="#29242c" roughness={.84}/>
+       <OriginalMiraLimb from={elbow} to={wrist}
+         startRadius={.073} endRadius={.052} color="#29242c"/>
+       <mesh position={wrist} castShadow scale={[.057,.047,.055]}>
+         <sphereGeometry args={[1,18,14]}/>
+         <meshStandardMaterial color="#29242c" roughness={.86}/>
        </mesh>
-       {/* Contact: hand centre x=±.665, y=.76, z=1.74; bottom tangent at armrest top y=.695. */}
-       <mesh position={[side*.38,-.50,-.05]} castShadow scale={[.060,.057,.092]}>
-         <sphereGeometry args={[1,20,14]}/>
-         <meshStandardMaterial color="#d5aa94" roughness={.84}/>
+       <OriginalMiraLimb from={wrist} to={hand}
+         startRadius={.054} endRadius={.051} color="#d5aa94" roughness={.88}/>
+       <mesh position={hand} castShadow scale={[.063,.055,.069]}>
+         <sphereGeometry args={[1,20,16]}/>
+         <meshStandardMaterial color="#d5aa94" roughness={.88}/>
+       </mesh>
+       {[-1.5,-.5,.5,1.5].map((index)=>
+         <OriginalMiraLimb key={index}
+           from={[hand[0]+index*.026,hand[1]-.018,hand[2]+.042]}
+           to={[hand[0]+index*.027,hand[1]-.029,hand[2]+.110-Math.abs(index)*.012]}
+           startRadius={.012} endRadius={.009} color="#d5aa94" roughness={.89}/>
+       )}
+     </group>;
+   })}
+   {/* Connected tapered thigh, knee, shin and ankle; measured against chair. */}
+   {([-1,1] as const).map(side=>{
+     const leg=seatedLeg(side);
+     return <group key={side}>
+       <OriginalMiraLimb from={leg.hip} to={leg.knee}
+         startRadius={.132} endRadius={.102} color="#26232b" roughness={.88}/>
+       <mesh position={leg.knee} castShadow scale={[.101,.098,.104]}>
+         <sphereGeometry args={[1,18,14]}/>
+         <meshStandardMaterial color="#26232b" roughness={.87}/>
+       </mesh>
+       <OriginalMiraLimb from={leg.knee} to={leg.ankle}
+         startRadius={.095} endRadius={.069} color="#d0a38f" roughness={.91}/>
+       <mesh position={leg.ankle} castShadow scale={[.070,.075,.069]}>
+         <sphereGeometry args={[1,18,14]}/>
+         <meshStandardMaterial color="#d0a38f" roughness={.89}/>
+       </mesh>
+       <mesh position={leg.foot} castShadow scale={[.12,.068,.175]}>
+         <sphereGeometry args={[1,24,16]}/>
+         <meshStandardMaterial color="#342a30" roughness={.76}/>
        </mesh>
      </group>;
    })}
-   {/* Lap and shins are genuine 3D geometry, not a photographic plane. */}
-   {([-1,1] as const).map(side=><group key={side}>
-     <mesh position={[side*.165,.665,.265]} rotation={[.90,0,side*.06]}
-       castShadow scale={[.13,.285,.136]}>
-       <sphereGeometry args={[1,24,18]}/>
-       <meshStandardMaterial color="#25232a" roughness={.89}/>
-     </mesh>
-     <mesh position={[side*.171,.37,.48]} castShadow scale={[.105,.28,.107]}>
-       <sphereGeometry args={[1,24,18]}/>
-       <meshStandardMaterial color="#d0a38f" roughness={.92}/>
-     </mesh>
-     <mesh position={[side*.17,.09,.57]} castShadow scale={[.113,.068,.17]}>
-       <sphereGeometry args={[1,22,16]}/>
-       <meshStandardMaterial color="#342a30" roughness={.70}/>
-     </mesh>
-   </group>)}
    <mesh position={[0,1.315,.02]} castShadow scale={[.092,.145,.09]}>
      <sphereGeometry args={[1,22,16]}/>
      <meshStandardMaterial color="#d5a38c" roughness={.91}/>
