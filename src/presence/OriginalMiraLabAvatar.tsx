@@ -46,17 +46,21 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
  const invalidate=useThree(s=>s.invalidate);
  const ready=useRef(onReady);ready.current=onReady;
  const status=useRef(onAssetStatus);status.current=onAssetStatus;
- const hairCurves=useMemo(()=>Array.from({length:13},(_,i)=>{
-   const side=(i-6)/6;
-   const front=Math.abs(side)<.5;
-   const points=[
-     new THREE.Vector3(side*.14,.54,-.05),
-     new THREE.Vector3(side*.24,.52,front?.145:.02),
-     new THREE.Vector3(side*.255,.31,front?.20:-.19),
-     new THREE.Vector3(side*.25,.04,front?.15:-.19),
-   ];
-   return new THREE.CatmullRomCurve3(points);
- }),[]);
+ // All long locks are anchored beside or behind the face, never across the
+ // central eyes, nose or mouth. This fixes the first six-view screenshot's
+ // barcode-like forehead curtain and leaves the facial landmarks visible.
+ const hairCurves=useMemo(()=>[-1,1].flatMap(side=>
+   Array.from({length:5},(_,i)=>{
+     const spread=i/4;
+     const x=side*(.195+.048*spread);
+     return new THREE.CatmullRomCurve3([
+       new THREE.Vector3(x,.455,-.050),
+       new THREE.Vector3(side*(.227+.025*spread),.355,-.065),
+       new THREE.Vector3(side*(.232+.045*spread),.18,-.110),
+       new THREE.Vector3(side*(.235+.050*spread),.035,-.155),
+     ]);
+   })
+ ),[]);
  useEffect(()=>{
    status.current?.('review');
    ready.current();
@@ -148,12 +152,12 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
          <meshStandardMaterial color="#29242c" roughness={.84}/>
        </mesh>
        <mesh position={[side*.24,-.46,-.035]} rotation={[-.25,0,side*-.30]}
-         castShadow scale={[.095,.255,.102]}>
+         castShadow scale={[.084,.245,.096]}>
          <sphereGeometry args={[1,20,14]}/>
-         <meshStandardMaterial color="#d4a48d" roughness={.90}/>
+         <meshStandardMaterial color="#29242c" roughness={.84}/>
        </mesh>
        {/* Contact: hand centre x=±.665, y=.76, z=1.74; bottom tangent at armrest top y=.695. */}
-       <mesh position={[side*.38,-.50,-.05]} castShadow scale={[.065,.065,.105]}>
+       <mesh position={[side*.38,-.50,-.05]} castShadow scale={[.060,.057,.092]}>
          <sphereGeometry args={[1,20,14]}/>
          <meshStandardMaterial color="#d5aa94" roughness={.84}/>
        </mesh>
@@ -161,16 +165,16 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
    })}
    {/* Lap and shins are genuine 3D geometry, not a photographic plane. */}
    {([-1,1] as const).map(side=><group key={side}>
-     <mesh position={[side*.165,.68,.265]} rotation={[.90,0,side*.06]}
-       castShadow scale={[.157,.35,.171]}>
+     <mesh position={[side*.165,.665,.265]} rotation={[.90,0,side*.06]}
+       castShadow scale={[.13,.285,.136]}>
        <sphereGeometry args={[1,24,18]}/>
        <meshStandardMaterial color="#25232a" roughness={.89}/>
      </mesh>
-     <mesh position={[side*.171,.37,.53]} castShadow scale={[.123,.34,.129]}>
+     <mesh position={[side*.171,.37,.48]} castShadow scale={[.105,.28,.107]}>
        <sphereGeometry args={[1,24,18]}/>
        <meshStandardMaterial color="#d0a38f" roughness={.92}/>
      </mesh>
-     <mesh position={[side*.17,.09,.595]} castShadow scale={[.125,.075,.20]}>
+     <mesh position={[side*.17,.09,.57]} castShadow scale={[.113,.068,.17]}>
        <sphereGeometry args={[1,22,16]}/>
        <meshStandardMaterial color="#342a30" roughness={.70}/>
      </mesh>
@@ -193,30 +197,30 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
      </mesh>
      {([-1,1] as const).map(side=><group key={side}>
        <group position={[side*.102,.331,.179]}>
-         <mesh scale={[.059,.043,.034]}>
+         <mesh scale={[.054,.035,.025]}>
            <sphereGeometry args={[1,24,20]}/>
            <meshPhysicalMaterial color="#efe5dc" roughness={.28} clearcoat={.45}/>
          </mesh>
          <group ref={side<0?irisLeft:irisRight} position={[0,-.006,0]}>
-           <mesh position={[0,0,.033]} scale={[.024,.028,.011]}>
+           <mesh position={[0,0,.027]} scale={[.020,.024,.008]}>
              <sphereGeometry args={[1,22,16]}/>
              <meshPhysicalMaterial color="#493832" roughness={.31} clearcoat={.55}/>
            </mesh>
-           <mesh position={[0,0,.046]} scale={[.011,.013,.007]}>
+           <mesh position={[0,0,.037]} scale={[.009,.011,.005]}>
              <sphereGeometry args={[1,16,12]}/>
              <meshBasicMaterial color="#19151a"/>
            </mesh>
-           <mesh position={[-.008,.010,.052]} scale={[.004,.005,.003]}>
+           <mesh position={[-.006,.008,.041]} scale={[.003,.004,.002]}>
              <sphereGeometry args={[1,12,10]}/>
              <meshBasicMaterial color="#ffffff"/>
            </mesh>
          </group>
-         <mesh ref={side<0?leftLid:rightLid} position={[0,.036,.045]}
+         <mesh ref={side<0?leftLid:rightLid} position={[0,.036,.037]}
            scale={[.064,.013,.026]}>
            <sphereGeometry args={[1,20,12]}/>
            <meshStandardMaterial color="#d4a08b" roughness={.85}/>
          </mesh>
-         <mesh position={[0,-.033,.040]} scale={[.055,.010,.025]}>
+         <mesh position={[0,-.031,.031]} scale={[.052,.008,.020]}>
            <sphereGeometry args={[1,20,12]}/>
            <meshStandardMaterial color="#c99282" roughness={.90}/>
          </mesh>
@@ -227,16 +231,16 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
            <meshStandardMaterial color="#34272b" roughness={.92}/>
          </mesh>
        </group>
-       <mesh position={[side*.166,.225,.139]} scale={[.071,.059,.068]}>
+       <mesh position={[side*.155,.215,.145]} scale={[.041,.029,.047]}>
          <sphereGeometry args={[1,22,16]}/>
          <meshPhysicalMaterial color="#d29b88" roughness={.94}/>
        </mesh>
-       <mesh position={[side*.219,.257,.014]} scale={[.044,.078,.036]}>
+       <mesh position={[side*.219,.257,.014]} scale={[.037,.065,.031]}>
          <sphereGeometry args={[1,20,12]}/>
          <meshStandardMaterial color="#d5a18c" roughness={.91}/>
        </mesh>
      </group>)}
-     <mesh position={[0,.246,.218]} castShadow scale={[.035,.082,.048]}>
+     <mesh position={[0,.248,.208]} castShadow scale={[.025,.047,.033]}>
        <sphereGeometry args={[1,22,16]}/>
        <meshStandardMaterial color="#d1a18b" roughness={.90}/>
      </mesh>
@@ -249,16 +253,16 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
        <meshStandardMaterial color="#b7787e" roughness={.77}/>
      </mesh>
      {/* Original lightweight hair volume, individually modeled strands. */}
-     <mesh position={[0,.438,-.065]} castShadow scale={[.244,.175,.222]}>
+     <mesh position={[0,.451,-.077]} castShadow scale={[.241,.155,.221]}>
        <sphereGeometry args={[1,40,28]}/>
        <meshStandardMaterial color="#292029" roughness={.76}/>
      </mesh>
-     <mesh position={[0,.225,-.174]} castShadow scale={[.236,.285,.14]}>
+     <mesh position={[0,.262,-.165]} castShadow scale={[.222,.305,.142]}>
        <sphereGeometry args={[1,36,24]}/>
        <meshStandardMaterial color="#292028" roughness={.84}/>
      </mesh>
      {hairCurves.map((curve,i)=><mesh key={i} castShadow={i%3===0}>
-       <tubeGeometry args={[curve,16,.018+(i%3)*.004,6,false]}/>
+       <tubeGeometry args={[curve,18,.009+(i%3)*.002,6,false]}/>
        <meshStandardMaterial color={i%4===0?'#44313a':'#2b212b'} roughness={.78}/>
      </mesh>)}
    </group>
