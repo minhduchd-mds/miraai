@@ -73,6 +73,13 @@ if (existsSync(join(DIST, 'manifest.webmanifest'))) {
 
 const runtimeForbidden = [
   join(DIST, 'looks'),
+  join(DIST, 'avatars', 'female'),
+  join(DIST, 'avatars', 'male'),
+  join(DIST, 'avatars', 'mira.vrm'),
+  join(DIST, 'avatars', 'mira.webp'),
+  join(DIST, 'avatars', 'splat.ply'),
+  join(DIST, 'avatars', 'realistic', 'vitruvian-lab'),
+  join(DIST, 'mira-assets', 'reference'),
   join(DIST, 'mira-assets', 'poses'),
   join(DIST, 'mira-assets', 'gestures'),
   join(DIST, 'mira-assets', 'ui'),
