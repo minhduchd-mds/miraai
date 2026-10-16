@@ -1,5 +1,7 @@
 # Mira — Original Human v1 pipeline (16 October 2026)
 
+> **Mandatory repeat-until-accepted QA:** Follow [Test → Screenshot → UX/BA → Dev → Retest production acceptance loop](MIRA-3D-PRODUCTION-ACCEPTANCE-LOOP.md) on every update. No P0/P1 is considered resolved without actual screenshot evidence, functional regression tests and explicit acceptance. Keep production pending until these conditions are met.
+
 ## Original procedural human lab — working 3D prototype
 
 An entirely new, code-authored **stylized humanoid prototype** is now available on the native Three.js room, with no imported geometry/texture/animation or third-party character likeness. It is a fully volumetric seated figure with face, sclera/iris, nose, cheeks, separate eyelid meshes, PBR-like skin materials, layered hair strands, torso and limbs. It uses Character Director, natural gaze drift, a viseme envelope and only the existing outgoing TTS signal.
