@@ -33,9 +33,11 @@ Correct issues in Blender, export rigged glTF 2.0 binary (`.glb`) with baked or 
 node scripts/stage-realistic-avatar.mjs \
   --file /path/to/mira-human-v1.glb \
   --asset mira-human-v1.glb \
-  --license CC0-1.0 \
+  --license PROPRIETARY-OWNED \
   --source-url https://source-author.example/path/to/artwork
 ```
+
+When authoring Mira's own bespoke character, use `PROPRIETARY-OWNED` and retain the commission/source contract and exclusive ownership records. The name is an internal rights category, **not** an SPDX license or independent proof of ownership. If an externally licensed CC0/CC-BY base is used, verify whether attribution and derivative obligations apply to the actual distributed art.
 
 The staged binary must pass existing `qualityReport()` and `auditHumanAssetRig()`; staging writes an SHA256-bound `mira-human-v1.glb.rights.json` with **all approval fields intentionally blank/false**, and leaves `manifest.json` at `pending`. The source URL shown is a placeholder: use the *real* author URL in practice.
 
