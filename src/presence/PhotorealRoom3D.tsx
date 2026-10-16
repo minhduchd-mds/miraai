@@ -13,6 +13,8 @@ import {inspectLocalCandidateGLB} from './candidate-local-glb';
 // Rigged 3D human is a separate lazy chunk (VRM parser is deliberately not in AppV2).
 const RoomMiraVRM = lazy(() => import('./RoomMiraVRM'));
 const VitruvianLabAvatar = lazy(() => import('./VitruvianLabAvatar'));
+// Independent procedural geometry lab. Never replaces an approved avatar.
+const OriginalMiraLabAvatar = lazy(() => import('./OriginalMiraLabAvatar'));
 const CandidateMiraAvatar = lazy(() => import('./CandidateMiraAvatar'));
 type Controls={yaw:number;pitch:number;x:number;z:number;keys:Set<string>};
 const CLAMP=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
@@ -90,6 +92,7 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
  },[]);
  useEffect(()=>()=>detachWebGLRef.current(),[]);
  const humanLab = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('humanLab')==='1';
+ const originalHumanLab = typeof window!=='undefined' && new URLSearchParams(window.location.search).get('originalHumanLab')==='1';
  const candidate = typeof window!=='undefined' ? candidate3DFromSearch(window.location.search) : null;
  // Constrained devices render fewer physical pixels; desktop remains at
  // the exact previous [1,1.5] range to preserve the approved room look.
@@ -282,6 +285,8 @@ export default function PhotorealRoom3D({scene,state,onReady,onFailure}:Room3DPr
        <Suspense fallback={null}>
          {candidate
            ? <CandidateMiraAvatar candidate={candidate} localUrl={localAsset?.url} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
+           : originalHumanLab
+             ? <OriginalMiraLabAvatar state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
            : humanLab
              ? <VitruvianLabAvatar state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>
              : <RoomMiraVRM state={state} onReady={sceneReady} onAssetStatus={recordAvatarStatus}/>}
