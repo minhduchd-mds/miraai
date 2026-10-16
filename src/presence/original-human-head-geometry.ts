@@ -17,7 +17,7 @@ export function originalHeadPosition(x:number,y:number,z:number):[number,number,
  let zz=z*.204;
  // Continuous nasal ridge + tip; never a standalone orb.
  const bridge=gaussian(xx,yy+.016,.031,.083)*.010;
- const tip=gaussian(xx,yy+.077,.027,.034)*.024;
+ const tip=gaussian(xx,yy+.047,.027,.034)*.024;
  // A restrained natural cheek fullness on the same continuous surface.
  const cheeks=(gaussian(xx-.115,yy+.063,.045,.054)
        +gaussian(xx+.115,yy+.063,.045,.054))*.0045;
