@@ -58,8 +58,12 @@ test('BA screenshot regression: hair does not curtain facial features and anatom
  assert.match(hairSource,/const x=side\*\(\.195\+\.048\*spread\)/);
  assert.doesNotMatch(hairSource,/front\?\.145/,'old central curtain path must not return');
  assert.match(original,/tubeGeometry args=\{\[curve,18,\.009/);
- assert.match(original,/scale=\{\[\.022,\.036,\.026\]\}/,'nose bridge no longer floats as an oval');
- assert.match(original,/scale=\{\[\.020,\.014,\.024\]\}/,'cheek bumps must not protrude');
+ assert.match(original,/createOriginalHeadGeometry/,'new unified head mesh required');
+ assert.match(original,/geometry=\{originalHead\}/,'render deformable facial geometry');
+ assert.doesNotMatch(original,/position=\{\[side\*\.152,\.213,\.143\]\}/,'no floating cheek spheres');
+ assert.doesNotMatch(original,/position=\{\[0,\.248,\.204\]\}/,'no floating nose sphere');
+ assert.doesNotMatch(original,/position=\{\[0,\.091,\.065\]\}/,'no disconnected jaw shell');
+ assert.match(original,/originalHead\.dispose\(\)/,'dispose GPU geometry on unmount');
  assert.match(original,/OriginalMiraLimb from=\{leg\.hip\} to=\{leg\.knee\}/);
  assert.match(original,/OriginalMiraLimb from=\{leg\.knee\} to=\{leg\.ankle\}/);
  assert.match(original,/OriginalMiraLimb from=\{elbow\} to=\{wrist\}/);
