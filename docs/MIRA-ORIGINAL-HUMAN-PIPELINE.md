@@ -12,6 +12,16 @@ Use existing room controls `1`–`6` for camera viewpoints; mouse drag to rotate
 
 **Current visual quality is stylized procedural geometry, not photorealism**. The prototype gives a wholly owned motion/lighting/effect test fixture while the properly sculpted, separately reviewed high-fidelity original human is authored in Blender. It should not be silently promoted as the production Mira likeness. See `src/presence/OriginalMiraLabAvatar.tsx` and `scripts/original-human-lab.test.mjs`.
 
+## Original face and seated-contact iteration v2
+
+The first procedural lab exposed three measurable visual flaws: the iris drifted independently from its dark pupil, blink duration could disappear at the room's idle render cadence (125ms), and the hands hovered away from the padded chair armrests.
+
+The face rig now uses one movable group for **iris, pupil and catchlight**, eyelids with expanded visible closure, a lower-lid line, expressive but bounded brows and a shared mouth-shape controller with attack/release smoothing. The blink pulse was extended for demand-render sampling at 8fps; this is a procedural animation technique, not actual optical eyelid motion capture.
+
+The authored seated arms and hand positions have been adjusted toward the existing chair-arm positions x=±0.69, y≈0.695, z≈1.7 in room coordinates. These are **pose-alignment approximations**, not IK/contact physics; physical mesh collisions still require multi-angle visual review.
+
+Validation: `node --test scripts/original-human-face-motion.test.mjs`, `npm run check`, and Chromium screenshots in `scripts/original-human-visual.spec.mjs`. No source model or facial animation is imported.
+
 ## Next authoring checkpoint
 
 Record five true visual captures of the original prototype, particularly hair silhouette, eyes, chair intersection and expression movements. Use findings to sculpt an original realistic female avatar in Blender, then run the preflight and the SHA256-bound release rights gate described below.
