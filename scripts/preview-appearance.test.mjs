@@ -25,7 +25,9 @@ test('natural head rest starts nearly centered and does not override 3D eye trac
  assert.match(loader,/rotate\('head', \.018, 0, -\.018\)/);
  assert.match(loader,/const head=vrm\?\.humanoid\?\.getNormalizedBoneNode\('head'\)/);
  assert.match(loader,/original\.y\+motion\.headYaw/);
- assert.match(loader,/if\(vrm\.lookAt&&vrm\.lookAt\.target!==camera\)vrm\.lookAt\.target=camera/);
+ assert.match(loader,/if\(vrm\.lookAt\)/);
+ assert.match(loader,/camera\.getWorldPosition\(gazeCameraPosition\.current\)/);
+ assert.match(loader,/if\(vrm\.lookAt\.target!==gazeTarget\.current\)vrm\.lookAt\.target=gazeTarget\.current/);
  assert.match(loader,/vrm\.update\(Math\.min\(delta,\.06\)\)/);
 });
 

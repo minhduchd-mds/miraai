@@ -19,7 +19,9 @@ test('only preview models get static hair; realistic rigs retain physics and ori
  assert.match(source,/import \{stabilizePreviewHairPhysics\} from '\.\/preview-hair-dynamics'/);
  assert.match(source,/if\(source\.mode==='preview' &&\s*new URLSearchParams\(window\.location\.search\)\.get\('hairPhysics'\)!=='original'\)\s*stabilizePreviewHairPhysics\(vrm\)/);
  assert.match(source,/vrm\.update\(Math\.min\(delta,\.06\)\)/);
- assert.match(source,/if\(vrm\.lookAt&&vrm\.lookAt\.target!==camera\)/);
+ assert.match(source,/if\(vrm\.lookAt\)/);
+ assert.match(source,/vrm\.lookAt\.target=gazeTarget\.current/);
+ assert.match(source,/camera\.getWorldQuaternion\(gazeCameraQuaternion\.current\)/);
  assert.match(source,/hidePreviewHairTufts\(vrm\)/);
  assert.doesNotMatch(source,/if\(source\.mode==='realistic'\)\s*stabilizePreviewHairPhysics/);
 });
