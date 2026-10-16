@@ -11,13 +11,13 @@ export function originalHeadPosition(x:number,y:number,z:number):[number,number,
  const gaussian=(dx:number,dy:number,sx:number,sy:number)=>
   Math.exp(-.5*((dx/sx)**2+(dy/sy)**2));
  const front=Math.max(0,Math.min(1,(z-.025)/.12));
- const taper=y<-.095?1-.14*Math.min(1,(-y-.095)/.18):1;
+ const taper=y<-.095?1-.075*Math.min(1,(-y-.095)/.18):1;
  const xx=x*.224*taper;
  const yy=y*.290;
  let zz=z*.204;
  // Continuous nasal ridge + tip; never a standalone orb.
  const bridge=gaussian(xx,yy+.016,.031,.083)*.010;
- const tip=gaussian(xx,yy+.047,.027,.034)*.024;
+ const tip=gaussian(xx,yy+.047,.029,.034)*.028;
  // A restrained natural cheek fullness on the same continuous surface.
  const cheeks=(gaussian(xx-.115,yy+.063,.045,.054)
        +gaussian(xx+.115,yy+.063,.045,.054))*.0045;
