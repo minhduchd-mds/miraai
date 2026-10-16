@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,rmSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,rmSync,writeFileSync,readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {evaluateAvatarRights,auditAvatarRelease,sha256} from './check-avatar-release.mjs';
@@ -65,7 +65,6 @@ test('an unapproved production manifest stays safe without exposing a candidate'
  }finally{rmSync(root,{recursive:true,force:true});}
 });
 test('production build requires release gate and quarantines pending GLB/VRM files',()=>{
- const {readFileSync}=await import('node:fs');
  const pkg=JSON.parse(readFileSync('package.json','utf8'));
  assert.match(pkg.scripts.build,/^node scripts\/check-avatar-release\.mjs && /);
  const prune=readFileSync('scripts/prune-runtime-assets.mjs','utf8');
