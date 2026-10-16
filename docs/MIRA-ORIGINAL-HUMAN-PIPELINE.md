@@ -18,7 +18,7 @@ The first procedural lab exposed three measurable visual flaws: the iris drifted
 
 The face rig now uses one movable group for **iris, pupil and catchlight**, eyelids with expanded visible closure, a lower-lid line, expressive but bounded brows and a shared mouth-shape controller with attack/release smoothing. The blink pulse was extended for demand-render sampling at 8fps; this is a procedural animation technique, not actual optical eyelid motion capture.
 
-The authored seated arms and hand positions have been adjusted toward the existing chair-arm positions x=±0.69, y≈0.695, z≈1.7 in room coordinates. These are **pose-alignment approximations**, not IK/contact physics; physical mesh collisions still require multi-angle visual review.
+The authored seated arms and hand positions have been adjusted toward the existing chair-arm positions x=±0.69, top y≈0.695, z≈1.7 in room coordinates. These are **pose-alignment approximations**, not IK/contact physics; physical mesh collisions still require multi-angle visual review.
 
 Validation: `node --test scripts/original-human-face-motion.test.mjs`, `npm run check`, and Chromium screenshots in `scripts/original-human-visual.spec.mjs`. No source model or facial animation is imported.
 
