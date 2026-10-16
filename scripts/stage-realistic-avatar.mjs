@@ -1,4 +1,5 @@
 import {readFileSync,writeFileSync,copyFileSync,existsSync,statSync} from 'node:fs';
+import {sha256} from './check-avatar-release.mjs';
 import {basename,resolve,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {qualityReport,readGlbJson} from './validate-realistic-avatar.mjs';
@@ -34,7 +35,7 @@ export function stageRealisticAsset(opts,{root=process.cwd()}={}){
   if(!existsSync(src)||!statSync(src).isFile())throw Error('Avatar binary missing');
   const size=statSync(src).size;
   if(size>50*1024*1024||size<20)throw Error('Avatar must be a valid GLB under 50MiB');
-  if(existsSync(dst))throw Error('Asset already staged; refusing overwrite');
+  if(existsSync(dst)||existsSync(dst+'.rights.json'))throw Error('Asset already staged; refusing overwrite');
   const manifestFile=resolve(base,'manifest.json');
   const existing=JSON.parse(readFileSync(manifestFile,'utf8'));
   if(existing.status==='approved')throw Error('Cannot overwrite a previously approved avatar');
@@ -44,9 +45,21 @@ export function stageRealisticAsset(opts,{root=process.cwd()}={}){
   const motion=auditHumanAssetRig(readGlbJson(binary));
   if(!motion.ready)throw Error('Avatar facial PBR / motion QA failed: '+motion.errors.join('; '));
   // Only after all checks pass is the asset copied, still PENDING manual visual approval.
+  // Generate a deliberately INCOMPLETE rights dossier for source research.
+  // Technical staging is NOT permission to redistribute this model.
+  const rights={
+    schemaVersion:1,asset:manifest.asset,sha256:sha256(binary),
+    creator:'',rightsHolder:'',sourceUrl:manifest.sourceUrl,
+    evidenceUrl:'',license:manifest.license,
+    commercialUse:false,redistribution:false,modification:false,
+    attribution:'',licenseNoticeUrl:'',
+    review:{rightsReviewer:'',rightsReviewedAt:'',visualReviewer:'',visualReviewedAt:''},
+    visualEvidence:[],
+  };
   copyFileSync(src,dst);
+  writeFileSync(dst+'.rights.json',JSON.stringify(rights,null,2)+'\n');
   writeFileSync(manifestFile,JSON.stringify(manifest,null,2)+'\n');
-  return {manifest,report:qa,motionReport:motion,assetPath:dst};
+  return {manifest,rights,report:qa,motionReport:motion,assetPath:dst};
 }
 function main(args=process.argv.slice(2)){
   const input={};
