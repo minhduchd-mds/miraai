@@ -11,6 +11,8 @@ import {hidePreviewHairTufts} from './preview-hair-trim';
 import {stabilizePreviewHairPhysics} from './preview-hair-dynamics';
 import {humanMotionFrame,humanMotionCadence} from './realistic-human-motion';
 import {createCharacterDirector} from './character-director';
+import {createCharacterGaze} from './character-gaze';
+import {createVisemeEnvelope} from './viseme-envelope';
 import {ttsLevel} from '../core/audio-level';
 import {visemesForSpeech} from './tts-visemes';
 import {companionReaction} from './companion-reaction';
@@ -131,6 +133,12 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
   const restRotations = useRef(new WeakMap<THREE.Object3D,THREE.Euler>());
   const jawBlend=useRef(0);
   const characterDirector=useRef(createCharacterDirector());
+  const characterGaze=useRef(createCharacterGaze());
+  const visemeEnvelope=useRef(createVisemeEnvelope());
+  const gazeTarget=useRef(new THREE.Object3D());
+  const gazeCameraPosition=useRef(new THREE.Vector3());
+  const gazeCameraQuaternion=useRef(new THREE.Quaternion());
+  const gazeVector=useRef(new THREE.Vector3());
   const reactionBlend=useRef({smile:0,headTilt:0});
   const morphSlots = useRef<Array<{mesh:THREE.Mesh; names:Map<string,number>; base:number[]}>>([]);
   const callback = useRef(onReady);
@@ -185,6 +193,10 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
           });
           glbRef.current=gltf.scene;
           characterDirector.current.reset();
+          characterGaze.current.reset();
+          visemeEnvelope.current.reset();
+          jawBlend.current=0;
+          reactionBlend.current={smile:0,headTilt:0};
           restRotations.current=new WeakMap();
           // Cache facial morph slots once. Preserve authored neutral weights.
           const facial:Array<{mesh:THREE.Mesh;names:Map<string,number>;base:number[]}>=[];
@@ -250,6 +262,10 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
           });
           ref.current=vrm;
           characterDirector.current.reset();
+          characterGaze.current.reset();
+          visemeEnvelope.current.reset();
+          jawBlend.current=0;
+          reactionBlend.current={smile:0,headTilt:0};
           restRotations.current=new WeakMap();
           setModel(vrm);setHumanGLB(null);setAvatar(source);setFailed(false);
           statusCallback.current?.(source.mode==='preview'?'preview':allowReview?'review':'approved');
@@ -309,8 +325,9 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
     const k=1-Math.exp(-Math.min(Math.max(delta,0),.1)*15);
     jawBlend.current+=(motion.mouthOpen-jawBlend.current)*k;
     const mouthOpen=jawBlend.current;
-    const visemes=visemesForSpeech(mouthOpen,
+    const rawVisemes=visemesForSpeech(mouthOpen,
       state==='speaking' && ttsLevel.active ? ttsLevel.bands : null);
+    const visemes=visemeEnvelope.current.update(rawVisemes,Math.max(0,Math.min(delta,.12)));
     // Only consumes existing, voluntarily enabled face-tracker signals.
     // Never opens a camera or infers a diagnosis from an expression.
     const reaction=companionReaction(faceData);
@@ -368,9 +385,17 @@ export default function RoomMiraVRM({onReady,state,onAssetStatus}:Props) {
         }
         if(expressions.getExpression('happy')) expressions.setValue('happy',socialSmile);
       }
-      // VRM look-at is evaluated inside update(); set target first so gaze
-      // follows camera motion on the same rendered frame.
-      if(vrm.lookAt&&vrm.lookAt.target!==camera)vrm.lookAt.target=camera;
+      // World-space eye target follows the viewer with restrained natural gaze.
+      // It is a transform-only object, not a camera/video capture or a scene mesh.
+      if(vrm.lookAt){
+        const gaze=characterGaze.current.sample(now,state);
+        camera.getWorldPosition(gazeCameraPosition.current);
+        camera.getWorldQuaternion(gazeCameraQuaternion.current);
+        gazeVector.current.set(gaze.x,gaze.y,0).applyQuaternion(gazeCameraQuaternion.current);
+        gazeTarget.current.position.copy(gazeCameraPosition.current).add(gazeVector.current);
+        gazeTarget.current.updateMatrixWorld(true);
+        if(vrm.lookAt.target!==gazeTarget.current)vrm.lookAt.target=gazeTarget.current;
+      }
       vrm.update(Math.min(delta,.06));
       return;
     }
