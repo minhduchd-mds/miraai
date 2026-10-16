@@ -1,0 +1,557 @@
+{
+  "_GLTFLoader-Sq3tetBF.js": {
+    "file": "assets/GLTFLoader-Sq3tetBF.js",
+    "name": "GLTFLoader",
+    "imports": [
+      "_three.core-D6Nk5u3W.js"
+    ]
+  },
+  "_avatar-config-BuKfZXNk.js": {
+    "file": "assets/avatar-config-BuKfZXNk.js",
+    "name": "avatar-config"
+  },
+  "_bridge-BcIVl4cs.js": {
+    "file": "assets/bridge-BcIVl4cs.js",
+    "name": "bridge"
+  },
+  "_browser-capabilities-wX2FA9eq.js": {
+    "file": "assets/browser-capabilities-wX2FA9eq.js",
+    "name": "browser-capabilities"
+  },
+  "_companion-reaction-C3iL5AyC.js": {
+    "file": "assets/companion-reaction-C3iL5AyC.js",
+    "name": "companion-reaction"
+  },
+  "_face-tracker-BAI-plrm.js": {
+    "file": "assets/face-tracker-BAI-plrm.js",
+    "name": "face-tracker",
+    "imports": [
+      "index.html",
+      "_three.core-D6Nk5u3W.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs"
+    ]
+  },
+  "_finance-intent-BdGg2cSH.js": {
+    "file": "assets/finance-intent-BdGg2cSH.js",
+    "name": "finance-intent"
+  },
+  "_gesture-tracker-D6_s7g0J.js": {
+    "file": "assets/gesture-tracker-D6_s7g0J.js",
+    "name": "gesture-tracker",
+    "imports": [
+      "index.html",
+      "_face-tracker-BAI-plrm.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs"
+    ]
+  },
+  "_react-three-fiber.esm-CiinDMFX.js": {
+    "file": "assets/react-three-fiber.esm-CiinDMFX.js",
+    "name": "react-three-fiber.esm",
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_three.module-Ds0dwj-2.js"
+    ]
+  },
+  "_rolldown-runtime-DkW27tQK.js": {
+    "file": "assets/rolldown-runtime-DkW27tQK.js",
+    "name": "rolldown-runtime"
+  },
+  "_three-vrm.module-DCCg3rL9.js": {
+    "file": "assets/three-vrm.module-DCCg3rL9.js",
+    "name": "three-vrm.module",
+    "imports": [
+      "_three.core-D6Nk5u3W.js",
+      "_three.module-Ds0dwj-2.js"
+    ]
+  },
+  "_three.core-D6Nk5u3W.js": {
+    "file": "assets/three.core-D6Nk5u3W.js",
+    "name": "three.core"
+  },
+  "_three.module-Ds0dwj-2.js": {
+    "file": "assets/three.module-Ds0dwj-2.js",
+    "name": "three.module",
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "_three.core-D6Nk5u3W.js"
+    ]
+  },
+  "_tts-visemes-Dyk8Nsh7.js": {
+    "file": "assets/tts-visemes-Dyk8Nsh7.js",
+    "name": "tts-visemes"
+  },
+  "_useMira-BnFs14bd.js": {
+    "file": "assets/useMira-BnFs14bd.js",
+    "name": "useMira",
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_voice-prefs-6SprC5-a.js",
+      "_bridge-BcIVl4cs.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@ricky0123/vad-web/dist/index.js",
+      "src/core/tts/progressive-mp3.ts",
+      "src/core/brain/local-webllm-brain.ts",
+      "src/intelligence/social/companion-dialogue.ts",
+      "src/intelligence/memory/local-memory-portability.ts",
+      "src/intelligence/skills/finance-calculator-skill.ts",
+      "src/intelligence/skills/finance-live-skill.ts",
+      "src/intelligence/skills/finance-policy-skill.ts"
+    ]
+  },
+  "_viseme-envelope-CGi7-RTD.js": {
+    "file": "assets/viseme-envelope-CGi7-RTD.js",
+    "name": "viseme-envelope"
+  },
+  "_voice-prefs-6SprC5-a.js": {
+    "file": "assets/voice-prefs-6SprC5-a.js",
+    "name": "voice-prefs"
+  },
+  "index.html": {
+    "file": "assets/index-B6G2tQ6B.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js"
+    ],
+    "dynamicImports": [
+      "src/app/AppV2.tsx",
+      "src/App.tsx"
+    ],
+    "css": [
+      "assets/index-Cer55T5U.css"
+    ]
+  },
+  "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs": {
+    "file": "assets/vision_bundle-B9r8jUlo.js",
+    "name": "vision_bundle",
+    "src": "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js": {
+    "file": "assets/gaussian-splats-3d.module-BWlSRInH.js",
+    "name": "gaussian-splats-3d.module",
+    "src": "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_three.core-D6Nk5u3W.js",
+      "_three.module-Ds0dwj-2.js"
+    ]
+  },
+  "node_modules/@ricky0123/vad-web/dist/index.js": {
+    "file": "assets/dist-CXPmyCOC.js",
+    "name": "dist",
+    "src": "node_modules/@ricky0123/vad-web/dist/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html"
+    ]
+  },
+  "src/App.tsx": {
+    "file": "assets/App-CLjr7oJN.js",
+    "name": "App",
+    "src": "src/App.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_useMira-BnFs14bd.js",
+      "_voice-prefs-6SprC5-a.js",
+      "_face-tracker-BAI-plrm.js",
+      "_gesture-tracker-D6_s7g0J.js",
+      "_avatar-config-BuKfZXNk.js",
+      "_react-three-fiber.esm-CiinDMFX.js",
+      "_GLTFLoader-Sq3tetBF.js",
+      "_three-vrm.module-DCCg3rL9.js",
+      "src/ui/ContentPanel.tsx"
+    ],
+    "dynamicImports": [
+      "node_modules/@mkkellogg/gaussian-splats-3d/build/gaussian-splats-3d.module.js"
+    ]
+  },
+  "src/app/AppV2.tsx": {
+    "file": "assets/AppV2-BaWWfOom.js",
+    "name": "AppV2",
+    "src": "src/app/AppV2.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_useMira-BnFs14bd.js"
+    ],
+    "dynamicImports": [
+      "src/presence/vision-runtime.ts",
+      "src/presence/PhotorealMira.tsx",
+      "src/presence/FaceMeshOverlay.tsx",
+      "src/presence/HandSkeletonOverlay.tsx",
+      "src/presence/SpatialControlOverlay.tsx",
+      "src/ui/ContentPanel.tsx",
+      "src/settings/SettingsPanel.tsx",
+      "src/core/vision/spatial-ui-control.ts"
+    ],
+    "css": [
+      "assets/AppV2-D9Oana0q.css"
+    ]
+  },
+  "src/core/brain/local-webllm-brain.ts": {
+    "file": "assets/local-webllm-brain-U--Ejrk9.js",
+    "name": "local-webllm-brain",
+    "src": "src/core/brain/local-webllm-brain.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_useMira-BnFs14bd.js",
+      "_voice-prefs-6SprC5-a.js"
+    ]
+  },
+  "src/core/tts/progressive-mp3.ts": {
+    "file": "assets/progressive-mp3-DmQOqooe.js",
+    "name": "progressive-mp3",
+    "src": "src/core/tts/progressive-mp3.ts",
+    "isDynamicEntry": true
+  },
+  "src/core/vision/spatial-ui-control.ts": {
+    "file": "assets/spatial-ui-control-D_i6FWZK.js",
+    "name": "spatial-ui-control",
+    "src": "src/core/vision/spatial-ui-control.ts",
+    "isDynamicEntry": true
+  },
+  "src/intelligence/memory/local-memory-portability.ts": {
+    "file": "assets/local-memory-portability-BiaR_1TB.js",
+    "name": "local-memory-portability",
+    "src": "src/intelligence/memory/local-memory-portability.ts",
+    "isDynamicEntry": true
+  },
+  "src/intelligence/skills/finance-calculator-skill.ts": {
+    "file": "assets/finance-calculator-skill-LD24XMBS.js",
+    "name": "finance-calculator-skill",
+    "src": "src/intelligence/skills/finance-calculator-skill.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_finance-intent-BdGg2cSH.js"
+    ]
+  },
+  "src/intelligence/skills/finance-live-skill.ts": {
+    "file": "assets/finance-live-skill-DklQRNYM.js",
+    "name": "finance-live-skill",
+    "src": "src/intelligence/skills/finance-live-skill.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_useMira-BnFs14bd.js",
+      "_finance-intent-BdGg2cSH.js"
+    ]
+  },
+  "src/intelligence/skills/finance-policy-skill.ts": {
+    "file": "assets/finance-policy-skill-DZeoRd1V.js",
+    "name": "finance-policy-skill",
+    "src": "src/intelligence/skills/finance-policy-skill.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_finance-intent-BdGg2cSH.js"
+    ]
+  },
+  "src/intelligence/social/companion-dialogue.ts": {
+    "file": "assets/companion-dialogue-D-OCNSr3.js",
+    "name": "companion-dialogue",
+    "src": "src/intelligence/social/companion-dialogue.ts",
+    "isDynamicEntry": true
+  },
+  "src/presence/CandidateMiraAvatar.tsx": {
+    "file": "assets/CandidateMiraAvatar-DEMG1zFx.js",
+    "name": "CandidateMiraAvatar",
+    "src": "src/presence/CandidateMiraAvatar.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_react-three-fiber.esm-CiinDMFX.js",
+      "_GLTFLoader-Sq3tetBF.js"
+    ]
+  },
+  "src/presence/FaceMeshOverlay.tsx": {
+    "file": "assets/FaceMeshOverlay-DqCfXC9O.js",
+    "name": "FaceMeshOverlay",
+    "src": "src/presence/FaceMeshOverlay.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/presence/HandSkeletonOverlay.tsx": {
+    "file": "assets/HandSkeletonOverlay-CItzpbRM.js",
+    "name": "HandSkeletonOverlay",
+    "src": "src/presence/HandSkeletonOverlay.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/presence/OriginalMiraLabAvatar.tsx": {
+    "file": "assets/OriginalMiraLabAvatar-L_OBPPGW.js",
+    "name": "OriginalMiraLabAvatar",
+    "src": "src/presence/OriginalMiraLabAvatar.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_useMira-BnFs14bd.js",
+      "_react-three-fiber.esm-CiinDMFX.js",
+      "_viseme-envelope-CGi7-RTD.js",
+      "_tts-visemes-Dyk8Nsh7.js"
+    ]
+  },
+  "src/presence/PhotorealMira.tsx": {
+    "file": "assets/PhotorealMira-C3OurmjR.js",
+    "name": "PhotorealMira",
+    "src": "src/presence/PhotorealMira.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_useMira-BnFs14bd.js",
+      "src/app/AppV2.tsx"
+    ],
+    "dynamicImports": [
+      "src/presence/PhotorealSceneCanvas.tsx",
+      "src/presence/PhotorealSceneSegments.tsx",
+      "src/presence/PhotorealSpatial3D.tsx",
+      "src/presence/PhotorealRoom3D.tsx",
+      "src/presence/photoreal-camera-depth.ts",
+      "src/presence/photoreal-environment.ts"
+    ],
+    "css": [
+      "assets/PhotorealMira-CUCuumNO.css"
+    ]
+  },
+  "src/presence/PhotorealRoom3D.tsx": {
+    "file": "assets/PhotorealRoom3D-B0M1ss5o.js",
+    "name": "PhotorealRoom3D",
+    "src": "src/presence/PhotorealRoom3D.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_react-three-fiber.esm-CiinDMFX.js"
+    ],
+    "dynamicImports": [
+      "src/presence/RoomMiraVRM.tsx",
+      "src/presence/VitruvianLabAvatar.tsx",
+      "src/presence/OriginalMiraLabAvatar.tsx",
+      "src/presence/CandidateMiraAvatar.tsx"
+    ]
+  },
+  "src/presence/PhotorealSceneCanvas.tsx": {
+    "file": "assets/PhotorealSceneCanvas-DrdDuXGD.js",
+    "name": "PhotorealSceneCanvas",
+    "src": "src/presence/PhotorealSceneCanvas.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html"
+    ]
+  },
+  "src/presence/PhotorealSceneSegments.tsx": {
+    "file": "assets/PhotorealSceneSegments-3vPmvG8V.js",
+    "name": "PhotorealSceneSegments",
+    "src": "src/presence/PhotorealSceneSegments.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/presence/PhotorealSpatial3D.tsx": {
+    "file": "assets/PhotorealSpatial3D-BX2Om-MF.js",
+    "name": "PhotorealSpatial3D",
+    "src": "src/presence/PhotorealSpatial3D.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_react-three-fiber.esm-CiinDMFX.js"
+    ]
+  },
+  "src/presence/RoomMiraVRM.tsx": {
+    "file": "assets/RoomMiraVRM-Biecwelf.js",
+    "name": "RoomMiraVRM",
+    "src": "src/presence/RoomMiraVRM.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_useMira-BnFs14bd.js",
+      "_face-tracker-BAI-plrm.js",
+      "_react-three-fiber.esm-CiinDMFX.js",
+      "_GLTFLoader-Sq3tetBF.js",
+      "_three-vrm.module-DCCg3rL9.js",
+      "_viseme-envelope-CGi7-RTD.js",
+      "_tts-visemes-Dyk8Nsh7.js",
+      "src/presence/PhotorealMira.tsx",
+      "_companion-reaction-C3iL5AyC.js"
+    ]
+  },
+  "src/presence/SpatialControlOverlay.tsx": {
+    "file": "assets/SpatialControlOverlay-CT49Kgvo.js",
+    "name": "SpatialControlOverlay",
+    "src": "src/presence/SpatialControlOverlay.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ]
+  },
+  "src/presence/VitruvianLabAvatar.tsx": {
+    "file": "assets/VitruvianLabAvatar-BOHG4CW6.js",
+    "name": "VitruvianLabAvatar",
+    "src": "src/presence/VitruvianLabAvatar.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_three.core-D6Nk5u3W.js",
+      "_useMira-BnFs14bd.js",
+      "_face-tracker-BAI-plrm.js",
+      "_react-three-fiber.esm-CiinDMFX.js",
+      "_GLTFLoader-Sq3tetBF.js",
+      "_tts-visemes-Dyk8Nsh7.js",
+      "_companion-reaction-C3iL5AyC.js"
+    ]
+  },
+  "src/presence/photoreal-camera-depth.ts": {
+    "file": "assets/photoreal-camera-depth-Cdl6xSad.js",
+    "name": "photoreal-camera-depth",
+    "src": "src/presence/photoreal-camera-depth.ts",
+    "isDynamicEntry": true
+  },
+  "src/presence/photoreal-environment.ts": {
+    "file": "assets/photoreal-environment-DniX-6QU.js",
+    "name": "photoreal-environment",
+    "src": "src/presence/photoreal-environment.ts",
+    "isDynamicEntry": true
+  },
+  "src/presence/vision-runtime.ts": {
+    "file": "assets/vision-runtime-DXH48x1o.js",
+    "name": "vision-runtime",
+    "src": "src/presence/vision-runtime.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_face-tracker-BAI-plrm.js",
+      "_gesture-tracker-D6_s7g0J.js",
+      "src/app/AppV2.tsx",
+      "_browser-capabilities-wX2FA9eq.js"
+    ],
+    "dynamicImports": [
+      "node_modules/@mediapipe/tasks-vision/vision_bundle.mjs"
+    ],
+    "assets": [
+      "assets/vision-postprocess-worker-CK2HsPi0.js"
+    ]
+  },
+  "src/runtime/connectivity-diagnostics.ts": {
+    "file": "assets/connectivity-diagnostics-j-j8BoCy.js",
+    "name": "connectivity-diagnostics",
+    "src": "src/runtime/connectivity-diagnostics.ts",
+    "isDynamicEntry": true,
+    "imports": [
+      "_useMira-BnFs14bd.js",
+      "_bridge-BcIVl4cs.js"
+    ]
+  },
+  "src/settings/FeedbackPanel.tsx": {
+    "file": "assets/FeedbackPanel-HFoiBmfp.js",
+    "name": "FeedbackPanel",
+    "src": "src/settings/FeedbackPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html"
+    ]
+  },
+  "src/settings/SettingsPanel.tsx": {
+    "file": "assets/SettingsPanel-BUkR7vqx.js",
+    "name": "SettingsPanel",
+    "src": "src/settings/SettingsPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_useMira-BnFs14bd.js",
+      "_voice-prefs-6SprC5-a.js",
+      "_bridge-BcIVl4cs.js",
+      "_avatar-config-BuKfZXNk.js",
+      "_browser-capabilities-wX2FA9eq.js"
+    ],
+    "dynamicImports": [
+      "src/settings/StructuredMemoryInspector.tsx",
+      "src/settings/FeedbackPanel.tsx",
+      "src/settings/SpatialCalibrationPanel.tsx",
+      "src/runtime/connectivity-diagnostics.ts"
+    ],
+    "css": [
+      "assets/SettingsPanel-DyXB17JG.css"
+    ]
+  },
+  "src/settings/SpatialCalibrationPanel.tsx": {
+    "file": "assets/SpatialCalibrationPanel-0Yss-jGI.js",
+    "name": "SpatialCalibrationPanel",
+    "src": "src/settings/SpatialCalibrationPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html"
+    ],
+    "css": [
+      "assets/SpatialCalibrationPanel-DC48Gs_1.css"
+    ]
+  },
+  "src/settings/StructuredMemoryInspector.tsx": {
+    "file": "assets/StructuredMemoryInspector-DAQvVocf.js",
+    "name": "StructuredMemoryInspector",
+    "src": "src/settings/StructuredMemoryInspector.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "src/settings/SettingsPanel.tsx"
+    ]
+  },
+  "src/ui/ContentPanel.tsx": {
+    "file": "assets/ContentPanel-C8ys-Ew7.js",
+    "name": "ContentPanel",
+    "src": "src/ui/ContentPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-DkW27tQK.js",
+      "index.html",
+      "_useMira-BnFs14bd.js"
+    ],
+    "css": [
+      "assets/ContentPanel-CpxSsqXW.css"
+    ]
+  },
+  "src/ui/styles.css": {
+    "file": "assets/styles-sin_nFZ8.css",
+    "src": "src/ui/styles.css"
+  },
+  "src/ui/vision-v2.css": {
+    "file": "assets/vision-v2-BVt6Bi2J.css",
+    "src": "src/ui/vision-v2.css"
+  }
+}
