@@ -37,6 +37,16 @@ const before = sizeOf(DIST);
 let removed = 0;
 
 // Source/reference media stays in git but never ships in normal Web/Desktop artifacts.
+// Copyright-safe release boundary: do not ship unreviewed 3D binaries,
+// portrait references or the source-declared CC0 lab's unreviewed derivatives.
+// Existing source and its Git history remain public and require separate legal review.
+removed += removeTree(join(DIST, 'avatars', 'female'));
+removed += removeTree(join(DIST, 'avatars', 'male'));
+removed += removeTree(join(DIST, 'avatars', 'mira.vrm'));
+removed += removeTree(join(DIST, 'avatars', 'mira.webp'));
+removed += removeTree(join(DIST, 'avatars', 'splat.ply'));
+removed += removeTree(join(DIST, 'avatars', 'realistic', 'vitruvian-lab'));
+removed += removeTree(join(DIST, 'mira-assets', 'reference'));
 removed += removeTree(join(DIST, 'looks'));
 removed += removeTree(join(DIST, 'mira-assets', 'poses'));
 removed += removeTree(join(DIST, 'mira-assets', 'gestures'));
