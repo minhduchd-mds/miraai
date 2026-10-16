@@ -60,9 +60,15 @@ test('BA screenshot regression: hair does not curtain facial features and anatom
  assert.match(original,/tubeGeometry args=\{\[curve,18,\.009/);
  assert.match(original,/scale=\{\[\.025,\.047,\.033\]\}/,'nose must stay proportionate');
  assert.match(original,/scale=\{\[\.041,\.029,\.047\]\}/,'cheeks must not be floating spheres');
- assert.match(original,/scale=\{\[\.13,\.285,\.136\]\}/,'thigh proportions controlled');
- assert.match(original,/scale=\{\[\.105,\.28,\.107\]\}/,'shin proportions controlled');
- assert.match(original,/scale=\{\[\.060,\.057,\.092\]\}/,'hands fit on armrest');
+ assert.match(original,/OriginalMiraLimb from=\{leg\.hip\} to=\{leg\.knee\}/);
+ assert.match(original,/OriginalMiraLimb from=\{leg\.knee\} to=\{leg\.ankle\}/);
+ assert.match(original,/OriginalMiraLimb from=\{elbow\} to=\{wrist\}/);
+ assert.match(original,/OriginalMiraLimb from=\{wrist\} to=\{hand\}/);
+ assert.match(original,/\[-1\.5,-\.5,\.5,1\.5\]\.map/,'four independent fingers');
+
+
+
+
 });
 
 test('geometry is bounded, mouth closes on audio silence, and render cadence sleeps',()=>{
