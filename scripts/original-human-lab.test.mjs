@@ -58,8 +58,8 @@ test('BA screenshot regression: hair does not curtain facial features and anatom
  assert.match(hairSource,/const x=side\*\(\.195\+\.048\*spread\)/);
  assert.doesNotMatch(hairSource,/front\?\.145/,'old central curtain path must not return');
  assert.match(original,/tubeGeometry args=\{\[curve,18,\.009/);
- assert.match(original,/scale=\{\[\.025,\.047,\.033\]\}/,'nose must stay proportionate');
- assert.match(original,/scale=\{\[\.041,\.029,\.047\]\}/,'cheeks must not be floating spheres');
+ assert.match(original,/scale=\{\[\.022,\.036,\.026\]\}/,'nose bridge no longer floats as an oval');
+ assert.match(original,/scale=\{\[\.020,\.014,\.024\]\}/,'cheek bumps must not protrude');
  assert.match(original,/OriginalMiraLimb from=\{leg\.hip\} to=\{leg\.knee\}/);
  assert.match(original,/OriginalMiraLimb from=\{leg\.knee\} to=\{leg\.ankle\}/);
  assert.match(original,/OriginalMiraLimb from=\{elbow\} to=\{wrist\}/);
