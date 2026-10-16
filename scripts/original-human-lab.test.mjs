@@ -87,3 +87,12 @@ test('geometry is bounded, mouth closes on audio silence, and render cadence sle
  assert.match(original,/leftLid/);
  assert.match(original,/rightLid/);
 });
+
+test('BA round 7 unified torso excludes floating skin-colored neck egg and swollen black belt',()=>{
+ assert.doesNotMatch(original,/position=\{\[0,\.46,\.157\]\}/);
+ assert.doesNotMatch(original,/position=\{\[0,\.005,0\]\}/);
+ assert.doesNotMatch(original,/position=\{\[0,\.93,\.055\]\}/);
+ assert.match(original,/mesh position=\{\[0,\.25,-\.015\]\}/);
+ assert.match(original,/name="mira-neck"/);
+ assert.match(original,/cylinderGeometry args=\{\[\.070,\.079,\.190,28,1\]\}/);
+});
