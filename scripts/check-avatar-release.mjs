@@ -39,7 +39,7 @@ export function evaluateAvatarRights(manifest,rights,binary){
  if(!url(rights.sourceUrl)||rights.sourceUrl!==manifest.sourceUrl)
    failures.push('rights_source_url_mismatch');
  if(!url(rights.evidenceUrl))failures.push('license_evidence_url_invalid');
- if(!['CC0-1.0','CC-BY-4.0'].includes(rights.license)||
+ if(!['CC0-1.0','CC-BY-4.0','PROPRIETARY-OWNED'].includes(rights.license)||
    rights.license!==manifest.license)failures.push('license_not_approved');
  if(rights.commercialUse!==true||rights.redistribution!==true||rights.modification!==true)
    failures.push('permission_scope_not_documented');
