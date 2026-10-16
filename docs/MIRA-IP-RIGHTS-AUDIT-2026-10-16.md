@@ -28,6 +28,11 @@ Engineering review of the public `minhduchd-mds/miraai` repository. This is not 
 | Dependencies | 115 package-lock entries: 79 MIT, 13 BSD-3-Clause, 8 Apache-2.0, 3 ISC and 12 MPL-2.0 (Lightning CSS platform binaries) | Medium | Preserve required copyright notices, produce distribution SBOM, recheck versions on upgrade |
 | ElevenLabs / other services | API service rights and generated speech conditions not proved by npm license data | Needs service-specific review | Check voice, likeness, output and plan terms separately |
 
+### Official service-license checks (16 October 2026)
+
+- **ElevenLabs** official terms updated 9 October 2026: paid service outputs may be commercially used subject to rights and prohibited-use policy; free-tier outputs are non-commercial only, and the free publishing attribution rules apply. The user's actual generating plan and voice identity permissions are not confirmed by this source audit. See https://elevenlabs.io/terms-of-use and https://help.elevenlabs.io/hc/en-us/articles/13313564601361-Can-I-publish-the-content-I-generate-on-the-platform
+- **Adobe Mixamo** official FAQ allows royalty-free personal/commercial project usage of characters/animations, but redistribution of raw standalone animation/character files is a separate restriction clarified by Adobe community guidance. Do not add raw FBX or baked extractable action clips to the open repo before reviewing the license. See https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html and https://community.adobe.com/questions-696/mixamo-faq-licensing-royalties-ownership-eula-and-tos-589400
+
 ### Key precautions
 
 1. Do not copy Weelife binary, character mesh, animation clips, shaders, textures, voice packs, code or distinctive character likeness. General rigging, shading, blending and animation-state concepts can be independently implemented, subject to applicable law.
