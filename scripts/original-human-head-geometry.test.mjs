@@ -45,3 +45,16 @@ test('mouth and eyes sit close to face skin and all QA cameras remain available'
  assert.match(room,/makeFaceClosePreset/);
  assert.match(room,/Digit\(\[1-6\]\)/);
 });
+
+test('BA round 6: eyes have flatter profile, neck is continuous and chin stays round',()=>{
+ const a=readFileSync('src/presence/OriginalMiraLabAvatar.tsx','utf8');
+ const geo=readFileSync('src/presence/original-human-head-geometry.ts','utf8');
+ assert.match(a,/name="mira-neck" position=\{\[0,1\.326,\.012\]\}/);
+ assert.match(a,/cylinderGeometry args=\{\[\.070,\.079,\.190,28,1\]\}/);
+ assert.doesNotMatch(a,/mesh position=\{\[0,1\.315,\.02\]\}/);
+ assert.match(a,/mesh scale=\{\[\.045,\.025,\.014\]\}/);
+ assert.match(a,/position=\{\[0,\.029,\.022\]\}/);
+ assert.match(a,/lid\.position\.y=\.029-facial\.closure\*\.023/);
+ assert.match(geo,/1-\.075\*Math\.min/);
+ assert.doesNotMatch(a,/scale=\{\[\.061,\.009,\.018\]\}/);
+});
