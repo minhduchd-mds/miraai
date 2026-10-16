@@ -1,0 +1,871 @@
+{
+  "schemaVersion": 1,
+  "auditedAt": "2026-10-16",
+  "caveat": "File hashes verify integrity only, not copyright ownership or redistribution rights.",
+  "groups": {
+    "encoded-media": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "Base64 image fragments; generator/source license not recorded"
+    },
+    "vroid-preview": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "VRoid models; creator, custom meshes/garments, third-party textures and redistribution permissions unverified"
+    },
+    "vitruvian-lab": {
+      "status": "declared_cc0_lab_only",
+      "license": "CC0 character and textures per upstream claim",
+      "url": "https://github.com/ibrews/VitruvianGodot",
+      "commit": "bdecdcd537b4031fdd0fb299b7e4f93f084fffa0",
+      "note": "Lab only. Retargeted upstream Adobe Mixamo animation rights differ from CC0; verify extracted derivatives."
+    },
+    "gaussian-splat": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "Capture/subject ownership and privacy releases missing"
+    },
+    "reference-art": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "Source concepts and reference photos unverified"
+    },
+    "generated-scenes": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "Per-scene creator, source image rights and generator ToS missing"
+    },
+    "expression-art": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "Portrait/expression source and likeness rights unverified"
+    },
+    "ui-media": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "Visual art creator and redistribution rights unverified"
+    },
+    "scene-source": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "Restored WebP checksum is not evidence of license"
+    },
+    "app-icon": {
+      "status": "review_required",
+      "license": "unknown",
+      "note": "App icon design rights not recorded"
+    }
+  },
+  "assets": [
+    {
+      "path": "assets-source/mira-bedroom.part00",
+      "gitBlobSha": "88999ab037b568aabd67dbcccbf87a2e5f253ff0",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part01",
+      "gitBlobSha": "1d0553166d5bef818621893bb42270066d5ad0b9",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part02",
+      "gitBlobSha": "8d8f35e5172c5db745dabd22deb05ef4594d8c3f",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part03",
+      "gitBlobSha": "a7a90538a1ad40eb91300138c5216f69935be94c",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part04",
+      "gitBlobSha": "f50670a65cc43c2b658fa442d36875af00a279a3",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part05",
+      "gitBlobSha": "fc7d6496e0b2f7011ad341af2449f4c317bce3c2",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part06",
+      "gitBlobSha": "a85768445711bae7f0febf184002b38ce6626530",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part07",
+      "gitBlobSha": "2b186977e873564542ffffa4cb4cd1a06a8acde0",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part08",
+      "gitBlobSha": "37b7fd65735aa7fb63762fb0affaf49b3abcd51a",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part09",
+      "gitBlobSha": "eea9898bac6896d170a55591b275110e77b0452f",
+      "bytes": 17901,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-bedroom.part10",
+      "gitBlobSha": "1b1ab4f6d7df6b8a4e82321122a18d0aeb97d672",
+      "bytes": 17894,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.b64",
+      "gitBlobSha": "797a1694661b34e87d6e0c3cadc8b876503f2fac",
+      "bytes": 28839,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part00",
+      "gitBlobSha": "7d18e024a42e0a96964c5d0ff17d450a39f51d6d",
+      "bytes": 6000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part01",
+      "gitBlobSha": "3141e412de2ba601a98bc6517ade6526ea1f1120",
+      "bytes": 6000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part02",
+      "gitBlobSha": "70e82fa3f288646ecacfd35d987ba199cd6e4f21",
+      "bytes": 6000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part03",
+      "gitBlobSha": "9362ad44e4e37cc7dd03e350c4cd135722671486",
+      "bytes": 6000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part04",
+      "gitBlobSha": "3eaff2e498ce626ca4f801c90399f3e8c623ecfe",
+      "bytes": 3676,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part08",
+      "gitBlobSha": "1f09a89df24c655655a60a87ffca52537d14d5bc",
+      "bytes": 3000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part09",
+      "gitBlobSha": "b11e9abf5fc236b8613e9801d7f405ddabce9b09",
+      "bytes": 3000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part10",
+      "gitBlobSha": "673a338a002490d644269bfce6942ffad4b20c3a",
+      "bytes": 3000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part11",
+      "gitBlobSha": "35cd24f1dfa6004a2bb9b4de715676d3c3c58e91",
+      "bytes": 3000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part12",
+      "gitBlobSha": "6bfe07b763b4558649a2d08a1064d3633fd91f0b",
+      "bytes": 3000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part13",
+      "gitBlobSha": "837b8d7f1da264edfe8aa5145ee59a408fad9860",
+      "bytes": 3000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part14",
+      "gitBlobSha": "fb6f5010bf049d371ba4f7dc15d875b08ab55fd1",
+      "bytes": 3000,
+      "group": "encoded-media"
+    },
+    {
+      "path": "assets-source/mira-photoreal.part15",
+      "gitBlobSha": "589d1d4fd8699f937f2843529a12d57d7c605dbc",
+      "bytes": 1660,
+      "group": "encoded-media"
+    },
+    {
+      "path": "public/assets/mira-holographic.webp",
+      "gitBlobSha": "bc17e367209e9e43712d2df90fd00db52546e8cf",
+      "bytes": 15008,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/avatars/female/mira_female_01_idol_nova.vrm",
+      "gitBlobSha": "953ca1a1888b2aab86e46bc79fdc8cdf507b0e13",
+      "bytes": 4872332,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_01_idol_nova.webp",
+      "gitBlobSha": "7ca66fb48aa86d7de455bb88b6f836fe7a492657",
+      "bytes": 123642,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_02_lavender_lounge.vrm",
+      "gitBlobSha": "87182c3011d3b6a5f7d6da0cd0030fd5abb6759c",
+      "bytes": 4869348,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_02_lavender_lounge.webp",
+      "gitBlobSha": "9007c416748932758e8d81a38b7a3af43b4a2ab8",
+      "bytes": 119582,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_03_aurora_blue.vrm",
+      "gitBlobSha": "d960733bcbba4cd5c76cd76aa0e1c50611684cfd",
+      "bytes": 4862944,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_03_aurora_blue.webp",
+      "gitBlobSha": "205acebac5a013d4fa5f88cf65f14fc261799930",
+      "bytes": 105786,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_04_soft_rose.vrm",
+      "gitBlobSha": "7d8944f77138b5a312053d7cbc1eab047aaf092f",
+      "bytes": 4855572,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_04_soft_rose.webp",
+      "gitBlobSha": "3791d57bbb90e03c8d7a8ff45efe929201307089",
+      "bytes": 101126,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_05_iris_maid.vrm",
+      "gitBlobSha": "1e1bb485f5040e4c6ed0a34a3833e28d1a23ec6a",
+      "bytes": 4868136,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/female/mira_female_05_iris_maid.webp",
+      "gitBlobSha": "fa432ad7afd71dab2b73700ad09686c3cd35b95e",
+      "bytes": 123412,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/male/mira_male_01_black_casual.vrm",
+      "gitBlobSha": "c1126e77c23194b9f1362fa86719e332207faf5b",
+      "bytes": 8361608,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/male/mira_male_01_black_casual.webp",
+      "gitBlobSha": "49a0632e2e059d0d97b1ba80feaab60d6baefc3f",
+      "bytes": 44698,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/male/mira_male_02_silver_white.vrm",
+      "gitBlobSha": "ad7cd87bda869568cd0330c85644391bf39186ad",
+      "bytes": 8393744,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/male/mira_male_03_body_black_open.vrm",
+      "gitBlobSha": "2d0614944b08f2c1928ac6854464de35de984e26",
+      "bytes": 8360216,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/male/mira_male_03_body_black_open.webp",
+      "gitBlobSha": "ba033a0fd527c99134f94695c7cbbcfbbed33665",
+      "bytes": 47902,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/mira.vrm",
+      "gitBlobSha": "cd0eeeb1d5194b6e37a132225c5758df1af2a403",
+      "bytes": 15433736,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/mira.webp",
+      "gitBlobSha": "097d9bb2f34d9618cf575f1f6c9b2140c82aafc4",
+      "bytes": 146416,
+      "group": "vroid-preview"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/body.glb",
+      "gitBlobSha": "fc94ac14c9b804bcce19061f794b7d68bbb2bb2e",
+      "bytes": 1500508,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/hair.glb",
+      "gitBlobSha": "7e0c9ec086ee935f6a20f8054c1104c40f119a89",
+      "bytes": 3464924,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/head.glb",
+      "gitBlobSha": "7b64ad0ca148e7b6c9f88fe7baa8bfa607350fc6",
+      "bytes": 1743144,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_body_bc.webp",
+      "gitBlobSha": "a6773acf60aac46b60246ead2a51bf276aead66f",
+      "bytes": 122982,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_body_n.webp",
+      "gitBlobSha": "c2187ec04a00aef0b038c4d02037189a1237917c",
+      "bytes": 696938,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_body_rough.webp",
+      "gitBlobSha": "8506932837fa44d84d75140b4617575c9d7562df",
+      "bytes": 350364,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_face_bc.webp",
+      "gitBlobSha": "16e3b4a4f51fb6e814cb9b5e1e2f543fae1ffb69",
+      "bytes": 695408,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_face_n.webp",
+      "gitBlobSha": "1e53cdc97406526c8bdfca14c3ea8093b3aa164c",
+      "bytes": 2682786,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_face_rough.webp",
+      "gitBlobSha": "ec5e1dfd9b1e18f33fdc06d56a0b7b03e0c7b661",
+      "bytes": 1111608,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_hair_diffuse.webp",
+      "gitBlobSha": "9ff6087044a40cca8e1ffa6fe53c8b4b46112b61",
+      "bytes": 60622,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_hair_normal.webp",
+      "gitBlobSha": "d84958f792f38427423f1adb32d63fa372d00c6c",
+      "bytes": 318456,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_hair_opacity.webp",
+      "gitBlobSha": "fdacf6259cf56aaf5285ccb3972c76299a835409",
+      "bytes": 1414794,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_iris.webp",
+      "gitBlobSha": "f50d1a794e5b6385ac88b8543c513bc4fe5dd85e",
+      "bytes": 35222,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_mouth.webp",
+      "gitBlobSha": "1d7022e3e2ac24740f1bf649695e4029fb7858dc",
+      "bytes": 80064,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/realistic/vitruvian-lab/vit_sclera.webp",
+      "gitBlobSha": "2351a32e21708cfb92f5ba5861123b5f0d475574",
+      "bytes": 33570,
+      "group": "vitruvian-lab"
+    },
+    {
+      "path": "public/avatars/splat.ply",
+      "gitBlobSha": "7153aa2942b78c9047e5b564522f7f0041404b4d",
+      "bytes": 17826208,
+      "group": "gaussian-splat"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_bokeh_warm.png",
+      "gitBlobSha": "593b23dcb1099402181441d0650201ed803b09e9",
+      "bytes": 63183,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_emotion_halo_love.png",
+      "gitBlobSha": "b42961f4c1b405e3b0c58cd9a363997b5bb978f8",
+      "bytes": 56563,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_face_tracking_frame.png",
+      "gitBlobSha": "d666d1886e5c318445ed70426d852fe271b2dff6",
+      "bytes": 77509,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_heart_particles.png",
+      "gitBlobSha": "b42961f4c1b405e3b0c58cd9a363997b5bb978f8",
+      "bytes": 56563,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_live_pulse_green.png",
+      "gitBlobSha": "282f77b729c6e387a251d88a98876fee76c98e8b",
+      "bytes": 22102,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_mic_ring_neon.png",
+      "gitBlobSha": "1f04f38edb7058d725738319deee552e3e181fee",
+      "bytes": 52914,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_sparkles.png",
+      "gitBlobSha": "6a6102764411534856c08d241ce8313977af2310",
+      "bytes": 101459,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_transition_glow.png",
+      "gitBlobSha": "c14083fdb0f5890cce32c82a2516243b2ae68385",
+      "bytes": 59523,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/effects/fx_voice_wave_cyan_magenta.png",
+      "gitBlobSha": "f66a63b300ceca586ae83664f2c1871b0b3085d6",
+      "bytes": 48718,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_01_gentle.png",
+      "gitBlobSha": "c8ae02f3dfd694dcf05367abf97534631f1fe489",
+      "bytes": 386549,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_01_gentle.webp",
+      "gitBlobSha": "d8beff346dcd7ffaa127dd5c98ff0b56dbda80a6",
+      "bytes": 18096,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_02_smile.png",
+      "gitBlobSha": "247c72e6ce3e8f86c651f7f8c0557a7a04a39266",
+      "bytes": 370122,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_02_smile.webp",
+      "gitBlobSha": "43735d159d61c86758f42da552cc03595ec87651",
+      "bytes": 16994,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_03_wink.png",
+      "gitBlobSha": "247c72e6ce3e8f86c651f7f8c0557a7a04a39266",
+      "bytes": 370122,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_03_wink.webp",
+      "gitBlobSha": "43735d159d61c86758f42da552cc03595ec87651",
+      "bytes": 16994,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_04_kiss.png",
+      "gitBlobSha": "1e33720969d39aafa56804d092a7e8b8df123bb2",
+      "bytes": 434096,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_04_kiss.webp",
+      "gitBlobSha": "a2397199ecac7d3de9fef5734710cc0030036786",
+      "bytes": 24892,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_05_shy.png",
+      "gitBlobSha": "5887cde2f99061d0ed2d61f0a616d0a9b70f1795",
+      "bytes": 372024,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_05_shy.webp",
+      "gitBlobSha": "f83400b8f4c96fc8099688981e2025fa5d471739",
+      "bytes": 17342,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_06_surprise.png",
+      "gitBlobSha": "94837f6184b86a1855434b78012ce0c00781affe",
+      "bytes": 380401,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_06_surprise.webp",
+      "gitBlobSha": "24cbbe5832085350328a804acd89c05aacabbb0a",
+      "bytes": 17774,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_07_sad_soft.png",
+      "gitBlobSha": "19d69f8fcda5614f6e89f22d286f6936b1285307",
+      "bytes": 378869,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_07_sad_soft.webp",
+      "gitBlobSha": "2b6016477e54f25f11833687fc1f3c8c7cb14005",
+      "bytes": 17192,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_08_pout.png",
+      "gitBlobSha": "8574f486c50fbf8a726b5ef14234734a0c59dd9c",
+      "bytes": 369195,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_08_pout.webp",
+      "gitBlobSha": "748eb7547396419f341a93af79801fbbdfcf3c87",
+      "bytes": 17104,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_09_cute.png",
+      "gitBlobSha": "781121fc3cbce67dc3177f3c20060fc580215398",
+      "bytes": 383403,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_09_cute.webp",
+      "gitBlobSha": "72f6b6d8c10643c10d2488190566c6c3cabe6ec3",
+      "bytes": 17314,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_10_focus.png",
+      "gitBlobSha": "8d956f44ac2a38bd3d092fd519f064dac17d3a85",
+      "bytes": 359227,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_10_focus.webp",
+      "gitBlobSha": "9bb87cd7b9840359e9c57fc8c42052832af25353",
+      "bytes": 16488,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_11_calm.png",
+      "gitBlobSha": "c8ae02f3dfd694dcf05367abf97534631f1fe489",
+      "bytes": 386549,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_11_calm.webp",
+      "gitBlobSha": "d8beff346dcd7ffaa127dd5c98ff0b56dbda80a6",
+      "bytes": 18096,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_12_sleepy.png",
+      "gitBlobSha": "b910dfd53930c5c72189f5ddd833e511b3a70aed",
+      "bytes": 352393,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/expressions/expr_12_sleepy.webp",
+      "gitBlobSha": "8f74d16c46022ead9a28a544dafa67ea61fe38d2",
+      "bytes": 17012,
+      "group": "expression-art"
+    },
+    {
+      "path": "public/mira-assets/gestures/gesture_heart.png",
+      "gitBlobSha": "24088a21a810758c56de812bee9abffb3db02ad9",
+      "bytes": 19377,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/gestures/gesture_like.png",
+      "gitBlobSha": "e47d99ca91c3c6b196cc92b335288feed2606f74",
+      "bytes": 10826,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/gestures/gesture_open.png",
+      "gitBlobSha": "fda251a22d3d10ca690bb6f878309ba8abd25cde",
+      "bytes": 19704,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/gestures/gesture_point.png",
+      "gitBlobSha": "3404056a710cc3e6a3ae3315ffb8d1fee55a4eac",
+      "bytes": 16952,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/gestures/gesture_vsign.png",
+      "gitBlobSha": "b4de4d177e9fe4baa96177e60aff3329a181159c",
+      "bytes": 11081,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/gestures/gesture_wave.png",
+      "gitBlobSha": "d53719aaeaab4d07e570debc69653a40979efe9f",
+      "bytes": 14815,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_bed_close.png",
+      "gitBlobSha": "f4ef1437d73b7c6064ba2c14275953db8c046b68",
+      "bytes": 305299,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_cook_spoon.png",
+      "gitBlobSha": "ae1397203759fed80fb44170d45b10006b794a90",
+      "bytes": 82341,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_cooking.png",
+      "gitBlobSha": "72185f70389075392a40b9e9d7c88db8b6a02e1e",
+      "bytes": 213230,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_cozy.png",
+      "gitBlobSha": "dd6e69812d9df72fcea5d3d317ef5aa27c143d4f",
+      "bytes": 107447,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_morning.png",
+      "gitBlobSha": "75b2f27c8f7b05ca064f31b8381df54896b973fe",
+      "bytes": 119949,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_rest.png",
+      "gitBlobSha": "7b5cc1fd99cbcccaf09648aa28158be7d792fb46",
+      "bytes": 144580,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_shy.png",
+      "gitBlobSha": "bb1070a27fd622594e153cd13538f0e028b83220",
+      "bytes": 85542,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_sleep.png",
+      "gitBlobSha": "527b1532bd4470c667a12e8a9f66c5218c76624d",
+      "bytes": 194240,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_welcome.png",
+      "gitBlobSha": "fe2a6b82033a7ae7539d674152e705e53f23b5a7",
+      "bytes": 125435,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/poses/pose_work.png",
+      "gitBlobSha": "6602b567321d8bb70d9f11b513abebd57cc47cc8",
+      "bytes": 120910,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/reference/mira_concept_front.webp",
+      "gitBlobSha": "5826274f39a617810695e27900ebbc988ad0d618",
+      "bytes": 67172,
+      "group": "reference-art"
+    },
+    {
+      "path": "public/mira-assets/reference/mira_concept_portrait.webp",
+      "gitBlobSha": "c386c4bb08eaaae307068635e7c6014c4e466266",
+      "bytes": 31704,
+      "group": "reference-art"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_bed_close.png",
+      "gitBlobSha": "5c7b2513be714666a6e32537f639330c784748ec",
+      "bytes": 1962024,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_bed_close.webp",
+      "gitBlobSha": "afff748b431db6922c4b4bbbb38a6a0f6b91762a",
+      "bytes": 149770,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_bedtime.png",
+      "gitBlobSha": "b7c9e76822e19a6f6be979da2259384b5e271c2c",
+      "bytes": 1900601,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_bedtime.webp",
+      "gitBlobSha": "eb1d5e0f1b5bb90a11d91cf99464e9964f41d6bb",
+      "bytes": 140784,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_cooking_together.png",
+      "gitBlobSha": "48f7ee7391b32a4fdcb3d8df1d2f39fe05ca072b",
+      "bytes": 1914029,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_cooking_together.webp",
+      "gitBlobSha": "72a065a90f6cbe65211c428493567f4bfb2daa08",
+      "bytes": 136190,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_home_main.png",
+      "gitBlobSha": "cd3d58a9ae279d82602eca6124854f4d748de5c7",
+      "bytes": 2052101,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_home_main.webp",
+      "gitBlobSha": "f683d14db7b18816caa2ef8f0eb00f30be63e619",
+      "bytes": 166356,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_morning.png",
+      "gitBlobSha": "74f813012d4a34a20c638d21e744c9b82d144fc4",
+      "bytes": 1824346,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_morning.webp",
+      "gitBlobSha": "ba5b9a579765eebfa81f154ca776a906fe1fdfd2",
+      "bytes": 125724,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_relax_sofa.png",
+      "gitBlobSha": "57c9e17f579c8a3a58549d557d3e1b4ec038623e",
+      "bytes": 2015055,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_relax_sofa.webp",
+      "gitBlobSha": "404b5b67ca7d9d71612355235b618cf793338cf8",
+      "bytes": 152888,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_sleep.png",
+      "gitBlobSha": "04effbb2f707baead9a8225e6c90a811e0bee8b0",
+      "bytes": 1820363,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_sleep.webp",
+      "gitBlobSha": "a96cece6d44af4bd4ce166808940048c3861175b",
+      "bytes": 126498,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_welcome_home.png",
+      "gitBlobSha": "44fd368ed2f26e0b7e57379b6437025ee390296d",
+      "bytes": 1858612,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_welcome_home.webp",
+      "gitBlobSha": "c224c890971a674a9e1f17e2d595751dba40163e",
+      "bytes": 127438,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_work_together.png",
+      "gitBlobSha": "f60318e19d50a9d10e1fd3349ac8c3c5f2d7e7c3",
+      "bytes": 1863236,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/scenes/scene_work_together.webp",
+      "gitBlobSha": "3fa3532d034215016745c64e9664a4b46508711c",
+      "bytes": 136446,
+      "group": "generated-scenes"
+    },
+    {
+      "path": "public/mira-assets/ui/ui_caption_bar.png",
+      "gitBlobSha": "dc19508d6914582f4b372b99c648fb91f8589e60",
+      "bytes": 113606,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/ui/ui_dark_bar.png",
+      "gitBlobSha": "99a758a7dacfc79f15cba35ae49fa3858858fa9f",
+      "bytes": 59174,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/ui/ui_end_cluster.png",
+      "gitBlobSha": "97d2f8f3a6bb72e5c9696b964f5c7cb7513d7104",
+      "bytes": 29766,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/ui/ui_neon_frame.png",
+      "gitBlobSha": "c62ca790d40be09b10b5416ae8cadbacbbb17b76",
+      "bytes": 74014,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/ui/ui_speech_bubble.png",
+      "gitBlobSha": "8057c3cac19d00fea983bb7233c685125a71e0f1",
+      "bytes": 43155,
+      "group": "ui-media"
+    },
+    {
+      "path": "public/scenes/mira-bedroom.webp",
+      "gitBlobSha": "eed1f3bc8d66e712ffefb7d676104584bb641978",
+      "bytes": 147678,
+      "group": "scene-source"
+    },
+    {
+      "path": "src-tauri/icons/icon.png",
+      "gitBlobSha": "1f04f38edb7058d725738319deee552e3e181fee",
+      "bytes": 52914,
+      "group": "app-icon"
+    }
+  ]
+}
