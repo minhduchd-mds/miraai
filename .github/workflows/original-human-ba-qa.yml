@@ -1,0 +1,46 @@
+name: Mira Original Human — BA Capture Review
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/presence/OriginalMiraLabAvatar.tsx"
+      - "src/presence/original-human-face-motion.ts"
+      - "scripts/original-human-visual.spec.mjs"
+      - "scripts/original-human-lab.test.mjs"
+      - ".github/workflows/original-human-ba-qa.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mira-original-human-ba-qa
+  cancel-in-progress: true
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked packages
+        run: npm ci
+      - name: Install pinned Playwright
+        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build original Lab
+        run: npm run build
+      - name: Test actual six-camera WebGL output
+        run: npx playwright test --config=playwright.config.mjs scripts/original-human-visual.spec.mjs
+      - name: Upload six-view screenshots and test traces
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mira-original-human-ba-capture-${{ github.sha }}
+          path: |
+            artifacts/visual-qa/mira-original-human-*.png
+            test-results
+          if-no-files-found: warn
+          retention-days: 30
