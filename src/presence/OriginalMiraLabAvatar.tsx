@@ -115,12 +115,12 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
    if(mouth.current){
      mouth.current.scale.x=facial.mouthWidth;
      mouth.current.scale.y=facial.mouthHeight;
-     mouth.current.position.y=.128+facial.smileLift*.4;
+     mouth.current.position.y=.126+facial.smileLift*.4;
    }
    if(innerLip.current){
      innerLip.current.scale.x=facial.mouthWidth*.75;
      innerLip.current.scale.y=Math.max(.007,facial.mouthHeight*.72);
-     innerLip.current.position.y=.103+facial.smileLift*.5;
+     innerLip.current.position.y=.114+facial.smileLift*.5;
    }
  });
 
@@ -221,20 +221,20 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
      </mesh>
      {([-1,1] as const).map(side=><group key={side}>
        <group position={[side*.102,.331,.179]}>
-         <mesh scale={[.054,.035,.025]}>
+         <mesh scale={[.050,.031,.022]}>
            <sphereGeometry args={[1,24,20]}/>
            <meshPhysicalMaterial color="#efe5dc" roughness={.28} clearcoat={.45}/>
          </mesh>
          <group ref={side<0?irisLeft:irisRight} position={[0,-.006,0]}>
-           <mesh position={[0,0,.027]} scale={[.020,.024,.008]}>
+           <mesh position={[0,0,.024]} scale={[.018,.021,.008]}>
              <sphereGeometry args={[1,22,16]}/>
              <meshPhysicalMaterial color="#493832" roughness={.31} clearcoat={.55}/>
            </mesh>
-           <mesh position={[0,0,.037]} scale={[.009,.011,.005]}>
+           <mesh position={[0,0,.034]} scale={[.008,.010,.004]}>
              <sphereGeometry args={[1,16,12]}/>
              <meshBasicMaterial color="#19151a"/>
            </mesh>
-           <mesh position={[-.006,.008,.041]} scale={[.003,.004,.002]}>
+           <mesh position={[-.006,.008,.038]} scale={[.003,.004,.002]}>
              <sphereGeometry args={[1,12,10]}/>
              <meshBasicMaterial color="#ffffff"/>
            </mesh>
@@ -249,32 +249,32 @@ export default function OriginalMiraLabAvatar({state,onReady,onAssetStatus}:Prop
            <meshStandardMaterial color="#c99282" roughness={.90}/>
          </mesh>
          <mesh ref={side<0?browLeft:browRight}
-           position={[0,.067,.011]} rotation={[0,0,side*-.13]}
-           scale={[.067,.013,.027]}>
+           position={[0,.067,.011]} rotation={[0,0,side*-.08]}
+           scale={[.061,.009,.018]}>
            <sphereGeometry args={[1,16,10]}/>
            <meshStandardMaterial color="#34272b" roughness={.92}/>
          </mesh>
        </group>
-       <mesh position={[side*.155,.215,.145]} scale={[.041,.029,.047]}>
+       <mesh position={[side*.152,.213,.143]} scale={[.020,.014,.024]}>
          <sphereGeometry args={[1,22,16]}/>
          <meshPhysicalMaterial color="#d29b88" roughness={.94}/>
        </mesh>
-       <mesh position={[side*.219,.257,.014]} scale={[.037,.065,.031]}>
+       <mesh position={[side*.219,.257,.014]} scale={[.027,.050,.025]}>
          <sphereGeometry args={[1,20,12]}/>
          <meshStandardMaterial color="#d5a18c" roughness={.91}/>
        </mesh>
      </group>)}
-     <mesh position={[0,.248,.208]} castShadow scale={[.025,.047,.033]}>
+     <mesh position={[0,.248,.204]} castShadow scale={[.022,.036,.026]}>
        <sphereGeometry args={[1,22,16]}/>
        <meshStandardMaterial color="#d1a18b" roughness={.90}/>
      </mesh>
-     <mesh ref={mouth} position={[0,.128,.204]} scale={[.07,.009,.029]}>
+     <mesh ref={mouth} position={[0,.126,.203]} scale={[.067,.009,.025]}>
        <sphereGeometry args={[1,26,16]}/>
-       <meshStandardMaterial color="#693b43" roughness={.77}/>
+       <meshStandardMaterial color="#875357" roughness={.82}/>
      </mesh>
-     <mesh ref={innerLip} position={[0,.104,.224]} scale={[.052,.008,.024]}>
+     <mesh ref={innerLip} position={[0,.114,.215]} scale={[.050,.008,.021]}>
        <sphereGeometry args={[1,20,12]}/>
-       <meshStandardMaterial color="#b7787e" roughness={.77}/>
+       <meshStandardMaterial color="#b77b78" roughness={.84}/>
      </mesh>
      {/* Original lightweight hair volume, individually modeled strands. */}
      <mesh position={[0,.451,-.077]} castShadow scale={[.241,.155,.221]}>
