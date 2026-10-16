@@ -5,6 +5,9 @@ on:
     paths:
       - "src/presence/OriginalMiraLabAvatar.tsx"
       - "src/presence/original-human-face-motion.ts"
+      - "src/presence/OriginalMiraLimb.tsx"
+      - "src/presence/original-human-limb-pose.ts"
+      - "scripts/original-human-limb-pose.test.mjs"
       - "scripts/original-human-visual.spec.mjs"
       - "scripts/original-human-lab.test.mjs"
       - ".github/workflows/original-human-ba-qa.yml"
