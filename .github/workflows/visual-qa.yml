@@ -17,6 +17,7 @@ on:
       - "public/sw.js"
       - "scripts/visual-qa.spec.mjs"
       - "scripts/vitruvian-lab-visual.spec.mjs"
+      - "scripts/original-human-visual.spec.mjs"
       - "scripts/capability-smoke.spec.mjs"
       - "playwright.config.mjs"
       - ".github/workflows/visual-qa.yml"
