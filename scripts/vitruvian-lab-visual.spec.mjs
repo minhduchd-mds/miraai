@@ -1,8 +1,15 @@
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 import {join} from 'node:path';
 
 test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints',async({browser},info)=>{
+ // Normal production builds intentionally quarantine the unreviewed
+ // Vitruvian research mesh. A dedicated licensed LAB artifact may enable
+ // MIRA_MESHOPT_CANDIDATE=1, but normal Visual QA must not reverse the rights gate.
+ const labInArtifact=existsSync(join('dist','avatars','realistic','vitruvian-lab','head.glb'));
+ test.skip(!labInArtifact && process.env.MIRA_MESHOPT_CANDIDATE!=='1',
+   'Lab model quarantined by production asset-rights policy; no visual clearance claimed.');
  test.setTimeout(360_000); // 5 Chromium/WebGL renders exceed 180s on software GPU runners.
  const ctx=await browser.newContext({viewport:{width:1366,height:768},
    deviceScaleFactor:1,reducedMotion:'no-preference',colorScheme:'dark'});
@@ -83,6 +90,12 @@ test('CC0 PBR human LAB renders actual skinned body, FACS face and 5 viewpoints'
 
 
 test('female fair-rose PBR material variant renders genuine 3D mesh close-up',async({browser},info)=>{
+ // Normal production builds intentionally quarantine the unreviewed
+ // Vitruvian research mesh. A dedicated licensed LAB artifact may enable
+ // MIRA_MESHOPT_CANDIDATE=1, but normal Visual QA must not reverse the rights gate.
+ const labInArtifact=existsSync(join('dist','avatars','realistic','vitruvian-lab','head.glb'));
+ test.skip(!labInArtifact && process.env.MIRA_MESHOPT_CANDIDATE!=='1',
+   'Lab model quarantined by production asset-rights policy; no visual clearance claimed.');
  test.setTimeout(210_000);
  const context=await browser.newContext({viewport:{width:1366,height:768},
   deviceScaleFactor:1,reducedMotion:'no-preference',colorScheme:'dark'});
@@ -112,4 +125,12 @@ test('female fair-rose PBR material variant renders genuine 3D mesh close-up',as
   await info.attach('female-fair-rose-3d-close',{path:out,contentType:'image/png'});
   expect(errors).toEqual([]);
  }finally{await context.close();}
+});
+
+test('normal production build has no unapproved Vitruvian human binary',async()=>{
+ if(process.env.MIRA_MESHOPT_CANDIDATE==='1')test.skip(true,'Dedicated experimental asset build');
+ // This is the negative production packaging check, not a real avatar visual QA.
+ for(const name of ['head.glb','body.glb','hair.glb']){
+  expect(existsSync(join('dist','avatars','realistic','vitruvian-lab',name))).toBe(false);
+ }
 });
