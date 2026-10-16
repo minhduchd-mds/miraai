@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
 const DIST = 'dist';
@@ -46,6 +46,22 @@ removed += removeTree(join(DIST, 'avatars', 'mira.vrm'));
 removed += removeTree(join(DIST, 'avatars', 'mira.webp'));
 removed += removeTree(join(DIST, 'avatars', 'splat.ply'));
 removed += removeTree(join(DIST, 'avatars', 'realistic', 'vitruvian-lab'));
+
+// Files staged for HUMAN REVIEW are not licensed for production by default.
+// The build preflight independently validates all rights evidence when approved.
+let releaseAvatar = '';
+try {
+  const manifest = JSON.parse(readFileSync(join(DIST,'avatars','realistic','manifest.json'),'utf8'));
+  if(manifest.status==='approved' && /^[a-z0-9][a-z0-9_-]{1,70}\.(?:glb|vrm)$/.test(manifest.asset))
+    releaseAvatar = manifest.asset;
+} catch { /* retain no unreviewed binary */ }
+removed += removeMatching(join(DIST, 'avatars', 'realistic'), path => {
+  const file = path.split(/[\\/]/).pop();
+  if (!file) return false;
+  if (/\.(?:glb|vrm)$/i.test(file)) return !releaseAvatar || file!==releaseAvatar;
+  if (/\.(?:glb|vrm)\.rights\.json$/i.test(file)) return !releaseAvatar || file!==releaseAvatar+'.rights.json';
+  return false;
+});
 removed += removeTree(join(DIST, 'mira-assets', 'reference'));
 removed += removeTree(join(DIST, 'looks'));
 removed += removeTree(join(DIST, 'mira-assets', 'poses'));
