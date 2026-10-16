@@ -6,12 +6,12 @@ import {qualityReport,readGlbJson} from './validate-realistic-avatar.mjs';
 import {auditHumanAssetRig} from './audit-realistic-motion.mjs';
 
 const FILE_PATTERN=/^[a-z0-9][a-z0-9_-]{1,70}\.(vrm|glb)$/;
-const LICENSES=new Set(['CC0-1.0','CC-BY-4.0']);
+const LICENSES=new Set(['CC0-1.0','CC-BY-4.0','PROPRIETARY-OWNED']);
 export function buildStageManifest({file,asset,license,sourceUrl,poseMode='authored',
     scale=1,position=[0,0,2.28],rotationY=Math.PI}={}){
   const name=asset||basename(file||'');
   if(!FILE_PATTERN.test(name))throw Error('Require a safe .vrm/.glb asset name');
-  if(!LICENSES.has(license))throw Error('Only CC0-1.0 or CC-BY-4.0 3D assets are stageable');
+  if(!LICENSES.has(license))throw Error('Require CC0-1.0, CC-BY-4.0 or evidence-backed PROPRIETARY-OWNED');
   try {const u=new URL(sourceUrl);if(u.protocol!=='https:')throw Error();}
   catch{throw Error('Provide an HTTPS original asset/provenance URL');}
   if(!['authored','mixamo-seated'].includes(poseMode))throw Error('Unknown rig pose mode');
