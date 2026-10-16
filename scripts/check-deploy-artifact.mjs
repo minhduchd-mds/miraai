@@ -95,6 +95,21 @@ for (const root of [join(DIST, 'mira-assets', 'scenes'), join(DIST, 'mira-assets
   }
 }
 
+// The public binary directory must contain only a release-approved character.
+// Source/lab rights records must never be leaked by a pending web build.
+let releaseAvatar = '';
+try {
+  const m=JSON.parse(readFileSync(join(DIST,'avatars','realistic','manifest.json'),'utf8'));
+  if(m.status==='approved' && /^[a-z0-9][a-z0-9_-]{1,70}\.(?:glb|vrm)$/.test(m.asset))
+    releaseAvatar=m.asset;
+} catch { /* no approved asset */ }
+for(const file of walk(join(DIST,'avatars','realistic'))){
+  if (!/\.(?:glb|vrm)$/i.test(file)) continue;
+  const name=file.split(/[\\/]/).pop();
+  if(!releaseAvatar || name!==releaseAvatar)
+    failures.push('unapproved 3D human leaked into production build: '+file);
+}
+
 const files = walk(DIST);
 const heavy = files.filter((path) => /\.vrm$|splat\.ply$/i.test(path));
 if (pagesMode && heavy.length) failures.push(`Pages artifact contains heavy 3D assets: ${heavy.join(', ')}`);
