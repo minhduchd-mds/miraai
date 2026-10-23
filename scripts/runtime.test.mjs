@@ -5775,7 +5775,7 @@ test('AppV2 delegates debounced face head voice control lifecycle', () => {
 
 test('AppV2 delegates scene graph to short-term world context orchestration', () => {
   const app = readFileSync('src/app/AppV2.tsx', 'utf8');
-  const hook = readFileSync('src/app/useVisionWorldContext.ts', 'utf8');
+  const hook = readFileSync('src/app/useVisionWorldContext.ts', 'utf8') + readFileSync('src/app/vision-world-pipeline.ts', 'utf8');
 
   assert.match(app, /useVisionWorldContext/);
   assert.match(readFileSync('src/app/useVisionSpatialRuntime.ts', 'utf8'), /updateVisionWorldContext\(/);

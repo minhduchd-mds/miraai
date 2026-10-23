@@ -386,7 +386,9 @@ for (const token of ['resolveFaceControlAction', 'updateFaceHeadControl', 'reset
   if (!faceHeadControlLifecycle.includes(token)) failures.push(`face head control lifecycle extraction missing: ${token}`);
 }
 
-const visionWorldContext = readFileSync('src/app/useVisionWorldContext.ts', 'utf8');
+// The hook lazy-loads the camera-only pipeline; together they must still own every stage.
+const visionWorldContext = readFileSync('src/app/useVisionWorldContext.ts', 'utf8') + readFileSync('src/app/vision-world-pipeline.ts', 'utf8');
+if (!readFileSync('src/app/useVisionWorldContext.ts', 'utf8').includes("import('./vision-world-pipeline')")) failures.push('vision world pipeline must be lazy-loaded (camera-only)');
 for (const token of ['SpatialSceneGraphTracker', 'ObjectInteractionTracker', 'ActionSequenceTracker', 'CausalActionGraphTracker', 'ShortTermWorldModelTracker', 'BehaviorTimeline', 'updateVisionWorldContext', 'resetVisionWorldContext', 'spatialScenePrompt', 'objectInteractionPrompt', 'actionSequencePrompt', 'causalActionGraphPrompt', 'worldModelPrompt', 'environmentPrompt', 'interactionPrompt', 'presenceContinuityPrompt']) {
   if (!visionWorldContext.includes(token)) failures.push(`vision world context extraction missing: ${token}`);
 }
