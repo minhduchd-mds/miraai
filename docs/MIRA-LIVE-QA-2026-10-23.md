@@ -26,6 +26,18 @@ Môi trường: Chromium 153 headless (SwiftShader), `vite preview` của bản 
 - Bundle: initial 141,2 KiB JS; AppV2 graph **299,6 / 300 KiB** (engine Live 10 KiB, dock, crisis module đều lazy).
 - Test hành vi mới: `crisis-safety` (7), `live-token` (10, gồm handler `/api/chat` thật với req/res giả), `live-protocol` (10).
 
+## CI trên GitHub Actions
+
+| Commit | Workflow | Kết quả |
+| --- | --- | --- |
+| `f9e5345` | CI (Node 24/26), Pages, Desktop Native Check, macOS DMG, Windows release, BA Capture Review | success |
+| `f9e5345` | Visual QA | failure — spec còn bấm nút `.v2-female-mode` đã chuyển vào Cài đặt |
+| `b4da803` | CI, Pages | success |
+| `b4da803` | Visual QA (run 39988124713, chạy tay vì spec realistic-human không nằm trong `paths`) | success, artifact `mira-visual-qa-b4da803…` |
+
+Vercel production `dpl_E6W3PguKWfnRonhQ1vbYkhWnsLgh` (READY): `/api/brain-health` trả `status: configured_unverified`,
+`live.configured: true`, `live.model: gemini-3.8-live`; không có runtime error trong giờ đầu.
+
 ## Chưa xác minh được trong sandbox — cần kiểm sau deploy
 
 1. **Gọi Gemini Live thật**: sandbox không có `GEMINI_API_KEY` và không ra được mạng ngoài. Sau deploy, `GET /api/brain-health`
