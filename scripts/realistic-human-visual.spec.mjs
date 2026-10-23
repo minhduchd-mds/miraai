@@ -69,15 +69,20 @@ test('female live portrait uses the existing local authored photo and switches w
   await expect(root.locator('.pm-scene-canvas,.pm-depth-layer,.pm-live-female-portrait')).toHaveCount(0);
   const asset=await scene.getAttribute('src');
   expect(asset).toContain('/mira-assets/scenes/');
-  const button=page.locator('.v2-female-mode');
-  await expect(button).toHaveAttribute('aria-pressed','true');
+  // Framing moved from the header into Settings → Giao diện (DESIGN.md §7: header = brand, status, settings).
+  await page.locator('[data-spatial-action="settings.open"]').click();
+  await page.getByRole('button',{name:'Giao diện'}).click();
+  const button=page.locator('.v2-setting-row',{hasText:'Khung chân dung'}).getByRole('switch');
+  await expect(button).toHaveAttribute('aria-checked','true');
   await button.click();
   await expect(root).toHaveAttribute('data-female-presentation','scene');
   await expect(root.locator('.pm-live-female-portrait')).toHaveCount(0);
-  await expect(button).toHaveAttribute('aria-pressed','false');
+  await expect(button).toHaveAttribute('aria-checked','false');
   await expect(page.locator('.pm-scene-fallback')).toBeVisible();
   await expect(page.locator('.v2-camera-preview')).toHaveCount(0);
   await button.click();
+  await expect(root).toHaveAttribute('data-female-presentation','portrait');
+  await page.keyboard.press('Escape');
   await expect(root.locator('.pm-scene-shell img')).toHaveCount(1);
   await expect(root.locator('.pm-scene-canvas,.pm-depth-layer,.pm-live-female-portrait')).toHaveCount(0);
   await expect(page.locator('.voice-primary')).toBeVisible();
