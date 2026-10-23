@@ -20,6 +20,8 @@ MIRA_LIVE_VOICE=       # tuỳ chọn, tên prebuilt voice
 MIRA_LIVE_DISABLED=    # =1 để tắt
 ```
 
+**Mira LiveAvatar** (mặc định): gương mặt Mira cử động và nói theo giọng thật như đang livestream — khẩu hình, chớp mắt, ánh mắt, nghiêng đầu — chạy bằng WebGL trên máy người dùng, không phí theo phút. Chi tiết: [`docs/MIRA-LIVE-AVATAR.md`](docs/MIRA-LIVE-AVATAR.md).
+
 Kế hoạch triển khai (định dạng ECC planner): [`docs/plans/2026-10-23-live-3d-companion.md`](docs/plans/2026-10-23-live-3d-companion.md). Bản đồ code Graphify: [`graphify-out/GRAPH_REPORT.md`](graphify-out/GRAPH_REPORT.md) — cập nhật bằng `graphify update .`.
 
 

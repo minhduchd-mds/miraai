@@ -25,3 +25,4 @@ graphify-out/cache/
 graphify-out/manifest.json
 graphify-out/graph.html
 graphify-out/.graphify_analysis.json
+graphify-out/20*/

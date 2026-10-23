@@ -1,0 +1,82 @@
+/* Mira LiveAvatar — full-stage livestream-style presence. */
+.live-avatar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: #0b0a0c;
+  cursor: pointer;
+  overflow: hidden;
+}
+.live-avatar-still,
+.live-avatar-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.live-avatar-still { object-fit: cover; object-position: 50% 32%; }
+.live-avatar-canvas { opacity: 0; transition: opacity .35s ease; }
+.live-avatar[data-live-avatar="live"] .live-avatar-canvas { opacity: 1; }
+.live-avatar[data-live-avatar="live"] .live-avatar-still {
+  /* Ambient fill around the height-fitted camera panel on wide screens. */
+  filter: blur(28px) brightness(.62) saturate(1.1);
+  transform: scale(1.12);
+}
+
+/* Soft vignette so header/footer controls stay legible over the photo. */
+.live-avatar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 18%),
+    linear-gradient(0deg, rgba(0,0,0,.58) 0%, rgba(0,0,0,0) 34%);
+}
+
+.live-avatar-badge {
+  position: absolute;
+  z-index: 2;
+  top: calc(env(safe-area-inset-top) + 72px);
+  left: 16px;
+  visibility: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  background: rgba(10, 10, 14, .55);
+  color: #fff;
+  font: 700 12px/1 'Inter', system-ui, sans-serif;
+  letter-spacing: .08em;
+}
+.live-avatar-badge i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.7); }
+.live-avatar.is-realtime .live-avatar-badge { visibility: visible; background: #e5323b; }
+.live-avatar.is-realtime .live-avatar-badge i { background: #fff; animation: liveAvatarPulse 1.2s ease-in-out infinite; }
+
+/* Transparency: users always know the host is synthetic (EU AI Act art. 50 style disclosure). */
+.live-avatar-ai-note {
+  position: absolute;
+  z-index: 2;
+  top: calc(env(safe-area-inset-top) + 76px);
+  right: 16px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(10, 10, 14, .5);
+  color: rgba(255, 255, 255, .86);
+  font: 500 11px/1 'Inter', system-ui, sans-serif;
+}
+
+@media (max-width: 760px) {
+  .live-avatar-badge { top: calc(env(safe-area-inset-top) + 124px); }
+  .live-avatar-ai-note { top: calc(env(safe-area-inset-top) + 128px); right: auto; left: 16px; }
+  .live-avatar.is-realtime .live-avatar-ai-note { left: 92px; }
+}
+
+@keyframes liveAvatarPulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .live-avatar.is-realtime .live-avatar-badge i { animation: none; }
+}

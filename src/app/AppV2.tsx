@@ -89,6 +89,16 @@ import { useVisionSpatialRuntime } from './useVisionSpatialRuntime';
 import '../ui/a11y.css';
 
 const PhotorealMira = lazy(() => import('../presence/PhotorealMira'));
+const LiveAvatarPresence = lazy(() => import('../presence/live-avatar/LiveAvatarPresence'));
+// LiveAvatar (original, documented face animated in real time) is the default presence.
+// Classic photo scenes stay for QA/lab URLs and for users who pick them in Settings.
+const CLASSIC_QUERY = /[?&](?:visual-test|room3d|humanLab|appearance|candidate3d|avatarPreview|spatial3d)=/;
+function readPresenceStyle(): 'live' | 'classic' {
+  try {
+    if (CLASSIC_QUERY.test(window.location.search)) return 'classic';
+    return localStorage.getItem('mira.presence.style') === 'classic' ? 'classic' : 'live';
+  } catch { return 'live'; }
+}
 const FaceMeshOverlay = lazy(() => import('../presence/FaceMeshOverlay'));
 const HandSkeletonOverlay = lazy(() => import('../presence/HandSkeletonOverlay'));
 const SpatialControlOverlay = lazy(() => import('../presence/SpatialControlOverlay'));
@@ -117,6 +127,7 @@ export default function AppV2() {
   const [liveView, setLiveView] = useState<LiveTalkView | null>(null);
   const liveActive = Boolean(liveView && liveView.state !== 'idle' && liveView.state !== 'error');
   const [intimateScenes, setIntimateScenes] = useState(intimateScenesEnabled);
+  const [presenceStyle, setPresenceStyle] = useState(readPresenceStyle);
   const talk = liveActive && liveView
     ? liveView
     : { state: mira.state, caption: mira.caption, who: mira.who };
@@ -653,15 +664,6 @@ export default function AppV2() {
     url.searchParams.set('legacy', '1');
     window.location.assign(url.toString());
   };
-  const moodLabel = ({
-    happy: 'Tín hiệu tích cực',
-    sad: 'Tín hiệu trầm',
-    tired: 'Hoạt động thấp',
-    angry: 'Tín hiệu căng',
-    surprised: 'Phản ứng mở',
-    neutral: 'Trung tính',
-  } as Record<AffectState['mood'], string>)[faceAffect.mood];
-
   const affectSignal = describeAffectSignal({
     faceSeen,
     mood: faceAffect.mood,
@@ -841,7 +843,9 @@ export default function AppV2() {
       <main className="v2-workspace voice-workspace" id="main-content" tabIndex={-1}>
         <div className="voice-stage holographic-stage">
           <Suspense fallback={<div className="voice-presence-loading" aria-hidden="true" />}>
-          <PhotorealMira
+          {presenceStyle === 'live' ? (
+            <LiveAvatarPresence state={talk.state} live={mira.live || liveActive} realtime={liveActive} onActivate={activateVoice} />
+          ) : <PhotorealMira
             state={talk.state}
             femalePresentation={femalePresentation}
             onActivate={activateVoice}
@@ -897,7 +901,7 @@ export default function AppV2() {
             spatialNodePhysicsMode={spatialPhysicsRef.current.snapshot('mira.node').mode}
             spatialNodeDepth={spatialObjects.find((object) => object.id === 'mira.node')?.pose.position.z || 0}
             spatialCoreActive={visionOn || webXRSnapshot.active}
-          />
+          />}
           </Suspense>
         </div>
 
@@ -938,7 +942,7 @@ export default function AppV2() {
           mira={mira}
           activateVoice={activateVoice}
           voiceSessionActive={voiceSessionActive}
-          idleLabel={PRESENCE_SCENE_LABEL[presenceScene]}
+          idleLabel={presenceStyle === 'live' ? 'Sẵn sàng trò chuyện' : PRESENCE_SCENE_LABEL[presenceScene]}
           stateCopy={STATE_COPY}
           talk={talk}
           onLiveView={setLiveView}
@@ -967,6 +971,8 @@ export default function AppV2() {
             femalePresentation={femalePresentation}
             onToggleFemalePresentation={toggleFemalePresentation}
             onIntimateScenesChange={setIntimateScenes}
+            presenceStyle={presenceStyle}
+            onPresenceStyle={setPresenceStyle}
           />
         </Suspense>
       )}

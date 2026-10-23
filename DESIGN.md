@@ -50,6 +50,7 @@ Telemetry không được chiếm ưu tiên thị giác trên màn hình chính.
 
 Production mặc định hỗ trợ:
 
+0. **Mira LiveAvatar** (mặc định từ v17.1) — chân dung gốc có hồ sơ, biến dạng thời gian thực theo giọng; luôn có nhãn "Nhân vật AI".
 1. **VRM 3D** — lip-sync, blink, breathing, mood, look-at.
 2. **2D fallback** — khi WebGL/model không sẵn sàng hoặc người dùng chủ động chọn.
 

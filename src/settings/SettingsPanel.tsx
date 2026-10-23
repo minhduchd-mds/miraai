@@ -68,6 +68,8 @@ interface Props {
   femalePresentation: 'portrait' | 'scene';
   onToggleFemalePresentation: () => void;
   onIntimateScenesChange: (enabled: boolean) => void;
+  presenceStyle: 'live' | 'classic';
+  onPresenceStyle: (style: 'live' | 'classic') => void;
 }
 
 type Tab = 'voice' | 'control' | 'appearance' | 'memory' | 'feedback';
@@ -377,7 +379,7 @@ export default function SettingsPanel(props: Props) {
             <div className="v2-setting-group"><h3>Hội thoại tự nhiên</h3><Toggle checked={smartTurn} onChange={changeSmart} label="Smart turn-taking" hint="Chờ đúng lúc anh nói xong thay vì cắt theo khoảng lặng cứng." /><Toggle checked={vad} onChange={changeVad} label="Ngắt lời bằng giọng" hint="Cho phép nói chen khi Mira đang trả lời." /></div>
           </>}
           {tab === 'control' && <Suspense fallback={<p className="v2-empty">Đang mở hiệu chuẩn…</p>}><SpatialCalibrationPanel visionOn={props.visionOn} visionBooting={props.visionBooting} onToggleVision={props.onToggleVision} getVisionSnapshot={props.getVisionSnapshot} getVisionStream={props.getVisionStream}/></Suspense>}
-          {tab === 'appearance' && <div className="v2-setting-group"><h3>Hiện diện</h3><Toggle checked={props.femalePresentation === 'portrait'} onChange={() => props.onToggleFemalePresentation()} label="Khung chân dung" hint="Bật: cận cảnh Mira. Tắt: toàn cảnh căn phòng." /><Toggle checked={intimateScenes} onChange={changeIntimateScenes} label="Cảnh buổi tối theo giờ (18+)" hint="Tự đổi sang cảnh “Về nhà” và “Đi ngủ” vào buổi tối. Mặc định tắt." /><Toggle checked={props.visionOn} onChange={() => props.onToggleVision()} label="Camera nhận diện" hint={props.visionBooting ? 'Đang mở camera…' : 'Chỉ bật khi anh cho phép; xử lý trên thiết bị, không lưu hình ảnh.'} /></div>}
+          {tab === 'appearance' && <div className="v2-setting-group"><h3>Hiện diện</h3><Toggle checked={props.presenceStyle === 'live'} onChange={(next) => { const style = next ? 'live' : 'classic'; try { localStorage.setItem('mira.presence.style', style); } catch { /* session only */ } props.onPresenceStyle(style); }} label="Mira LiveAvatar" hint="Gương mặt Mira cử động và nói theo giọng thật, như đang livestream. Tắt để dùng ảnh cảnh cũ." /><Toggle checked={props.femalePresentation === 'portrait'} onChange={() => props.onToggleFemalePresentation()} label="Khung chân dung" hint="Bật: cận cảnh Mira. Tắt: toàn cảnh căn phòng." /><Toggle checked={intimateScenes} onChange={changeIntimateScenes} label="Cảnh buổi tối theo giờ (18+)" hint="Tự đổi sang cảnh “Về nhà” và “Đi ngủ” vào buổi tối. Mặc định tắt." /><Toggle checked={props.visionOn} onChange={() => props.onToggleVision()} label="Camera nhận diện" hint={props.visionBooting ? 'Đang mở camera…' : 'Chỉ bật khi anh cho phép; xử lý trên thiết bị, không lưu hình ảnh.'} /></div>}
           {tab === 'appearance' && <div className="v2-setting-group"><h3>Màu quả cầu</h3><div className="v2-theme-grid">{THEMES.map((item) => <button key={item} type="button" data-theme-preview={item} className={props.theme === item ? 'active' : ''} onClick={() => props.onTheme(item)}><i /><span>{item}</span></button>)}</div></div>}
           {tab === 'feedback' && <Suspense fallback={<p className="v2-empty">Đang mở góp ý…</p>}><FeedbackPanel recentHistory={props.recentHistory}/></Suspense>}
           {tab === 'memory' && <>

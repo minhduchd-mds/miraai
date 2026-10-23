@@ -54,6 +54,12 @@
       "status": "review_required",
       "license": "unknown",
       "note": "App icon design rights not recorded"
+    },
+    "live-avatar-generated": {
+      "status": "review_required",
+      "license": "Figma AI generated output (gemini-3.1-flash-image) on the user's Figma team plan",
+      "url": "https://www.figma.com/design/4ZUXPxQvSWfWJXsAJwRr8V",
+      "note": "Original fictional adult character generated 2026-10-24 for Mira LiveAvatar; prompt, model, file key and node recorded in docs/MIRA-LIVE-AVATAR-FACE-PROVENANCE.md. Prompt forbids resemblance to real people. Generator output terms and similarity review pending human sign-off."
     }
   },
   "assets": [
@@ -644,6 +650,12 @@
       "gitBlobSha": "d53719aaeaab4d07e570debc69653a40979efe9f",
       "bytes": 14815,
       "group": "ui-media"
+    },
+    {
+      "path": "public/mira-assets/live/mira-live-face-v1.webp",
+      "gitBlobSha": "3a380f0f1248b59f8bb61c1ba05af446fda51ee4",
+      "bytes": 119020,
+      "group": "live-avatar-generated"
     },
     {
       "path": "public/mira-assets/poses/pose_bed_close.png",

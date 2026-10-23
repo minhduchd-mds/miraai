@@ -52,6 +52,10 @@ const runtimeExpressionBytes = sum(runtimeExpressions);
 const largestScene = largest(runtimeScenes);
 const largestExpression = largest(runtimeExpressions);
 
+// Mira LiveAvatar face: one original portrait, loaded on first paint of the default presence.
+const liveFace = records.find((item) => item.rel === 'live/mira-live-face-v1.webp');
+if (!liveFace) failures.push('missing live/mira-live-face-v1.webp');
+else if (liveFace.bytes > 180 * KiB) failures.push(`live avatar face ${(liveFace.bytes / KiB).toFixed(1)} KiB > 180 KiB`);
 if (runtimeScenes.length !== 9) failures.push(`expected 9 WebP scenes, found ${runtimeScenes.length}`);
 if (runtimeExpressions.length !== 12) failures.push(`expected 12 WebP expressions, found ${runtimeExpressions.length}`);
 if (sourcePngBytes > budgets.sourcePngTotal) failures.push(`PNG source ${(sourcePngBytes / MiB).toFixed(2)} MiB > 24 MiB`);
