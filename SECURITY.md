@@ -5,7 +5,28 @@ Mira is a voice-first companion with optional cloud providers, persistent memory
 ## Secrets
 
 - Production OpenAI/Anthropic/Gemini credentials live server-side.
-- `/api/chat` is the production Brain Gateway.
+- `/api/chat` is the production Brain Gateway. It requires an explicit `Origin` (browser or Tauri);
+  requests without one are refused so the endpoint is not an anonymous LLM proxy. This raises the bar,
+  it is **not** authentication — quotas (`lib/ai-quota.js`) remain the cost control.
+- Every model prompt starts with the server-owned `SAFETY_POLICY_VI` (`lib/crisis-safety.js`); the
+  client-assembled persona/context follows it as lower-priority data.
+
+## Mira Live (realtime voice)
+
+- The browser never receives `GEMINI_API_KEY`. `POST /api/chat?route=live-token` mints a **single-use**
+  Gemini Live ephemeral token (30 min lifetime, 1 min to start a session) via `lib/live-token.js`.
+- The token is constrained (`liveConnectConstraints`) to one model and to a system instruction built on
+  the server from a whitelisted persona id; the partner role is downgraded unless the client sends the
+  18+ confirmation. Client memory context is bounded to 2,400 characters and framed as data.
+- Quota lane `live`: 6 sessions / 10 min / client, 150 globally. `MIRA_LIVE_DISABLED=1` turns it off.
+- Audio is streamed, not stored. Transcripts follow the normal history/Memory path.
+
+## Crisis safety
+
+- A self-harm disclosure (`detectCrisis`, high level) gets a deterministic reply with 115 and Vietnamese
+  hotlines on every runtime — server (`/api/chat`) and client (`useMira`), even when every provider is down.
+- Crisis turns are kept out of Memory persistence; a persistent help banner is shown until the user closes it.
+- Detection is phrase-based and conservative; it is a safety net, not a diagnosis, and the text is never logged.
 - Direct browser BYOK is restricted to Vite DEV / Developer Labs.
 - Never commit real API keys or put them in `VITE_*` production variables.
 
@@ -15,7 +36,7 @@ Mira is a voice-first companion with optional cloud providers, persistent memory
 
 Current identity is an **anonymous browser scope**:
 - legacy `device_id` seeds existing memory once;
-- server pins the scope in an HttpOnly, SameSite=Lax cookie;
+- server pins the scope in a signed HttpOnly, SameSite=Strict cookie (`__Host-mira_session` on Vercel);
 - profile/history/memory APIs resolve ownership from that cookie.
 
 Users can disable memory and can edit, forget, export or delete stored facts/history from Settings.

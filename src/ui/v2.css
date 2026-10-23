@@ -279,7 +279,7 @@
 }
 
 
-/* Mira v16 — voice-first companion controls. No text composer. */
+/* Mira v16 — voice-first companion controls. Text composer added in v17 below. */
 
 .voice-footer {
   min-width: min(480px, calc(100vw - 32px));
@@ -462,3 +462,98 @@
   .v2-session-details > summary { min-height: 28px; padding: 5px 8px; }
   .v2-session-panel { left: 50%; }
 }
+
+/* Mira Live v17 — realtime button, text composer, crisis + 18+ surfaces.
+   Touch targets ≥ 44px (WCAG 2.5.5); text fallback is mandatory (DESIGN.md §8). */
+.v2-actions button { width: 44px; height: 44px; }
+.v2-actions .ico { width: 17px; height: 17px; }
+
+.voice-realtime {
+  min-width: 52px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  background: rgba(6, 12, 34, .55);
+  color: color-mix(in srgb, var(--accent) 80%, #fff 20%);
+  font: 700 11px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: background .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.voice-realtime:hover { transform: translateY(-1px); }
+.voice-realtime.active {
+  color: #06121f;
+  background: var(--accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 38%, transparent);
+  animation: v16VoicePulse 1.4s ease-in-out infinite;
+}
+.voice-primary:disabled { opacity: .35; cursor: default; }
+.voice-end { width: 44px; height: 44px; }
+
+.voice-composer {
+  pointer-events: auto;
+  width: min(480px, calc(100vw - 32px));
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(168, 187, 241, .14);
+  border-radius: 999px;
+  background: rgba(4, 8, 24, .62);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .2);
+}
+.voice-composer input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(242, 247, 255, .94);
+  font: 500 15px/1.2 'Inter', system-ui, sans-serif;
+}
+.voice-composer input::placeholder { color: rgba(205, 216, 255, .6); }
+.voice-composer input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.voice-composer button {
+  min-width: 64px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 44%, rgba(29, 42, 100, .9));
+  color: #fff;
+  font: 600 14px/1 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+}
+.voice-composer button:disabled { opacity: .4; cursor: default; }
+.voice-session-caption span { font-size: 13px; color: rgba(242, 247, 255, .92); }
+.voice-session-caption small { font-size: 10px; }
+
+.v2-crisis {
+  position: fixed;
+  z-index: 80;
+  top: calc(env(safe-area-inset-top) + 72px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 24px));
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 196, 120, .45);
+  background: rgba(24, 16, 8, .94);
+  color: #fff4e6;
+  font: 500 14px/1.45 'Inter', system-ui, sans-serif;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+}
+.v2-crisis b { display: block; margin-bottom: 8px; font-size: 16px; }
+.v2-crisis ul { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 8px; }
+.v2-crisis a { color: #ffd59a; font-weight: 600; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.v2-crisis small { display: block; color: rgba(255, 244, 230, .72); font-size: 12px; }
+.v2-crisis button { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(255, 244, 230, .3); background: transparent; color: inherit; cursor: pointer; }
+
+@media (max-width: 760px) {
+  .voice-composer { width: calc(100vw - 24px); }
+  .voice-control-dock { gap: 8px; padding: 6px 8px; }
+  .voice-wave-mini { display: none; }
+}
+/* Vietnamese status labels need full diacritic support even if the mono webfont fails to load. */
+.voice-session-caption small { font-family: 'Inter', system-ui, sans-serif; letter-spacing: .06em; }

@@ -27,18 +27,19 @@ import { createDefaultSkillRegistry } from '../intelligence/skills';
 import { getHostBridge } from '../host';
 import { neutralAffect, type AffectState } from '../intelligence/affect/mood-engine';
 import { ProactiveEngine } from '../intelligence/proactive/proactive-engine';
+import { crisisReply, isHighRiskText } from '../intelligence/safety/crisis-client';
 
 const LANG = 'vi-VN';
-const IDLE_CAPTION = 'Chạm một lần để bật Mira 24/7.';
+const IDLE_CAPTION = 'Chạm mic để nói, hoặc gõ tin nhắn bên dưới.';
 const MAX_EMPTY_BACKOFF = 6;
 
 const DEMO_COPY: Record<MiraState, { who: string; txt: string }> = {
   idle: { who: 'CHẠM ĐỂ NÓI', txt: IDLE_CAPTION },
-  listening: { who: 'BẠN ĐANG NÓI', txt: 'Mira, tóm tắt phiên audit sáng nay giúp em' },
+  listening: { who: 'BẠN ĐANG NÓI', txt: 'Mira, hôm nay em thấy thế nào?' },
   thinking: { who: 'MIRA', txt: 'Đang suy nghĩ…' },
   speaking: {
     who: 'MIRA',
-    txt: 'Tất nhiên rồi! Phiên sáng nay có ba lỗi nghiêm trọng và mười hai cảnh báo — em ưu tiên phần lệch màu ở màn Đăng nhập trước nhé.',
+    txt: 'Em ổn ạ, cảm ơn anh đã hỏi. Hôm nay của anh thế nào, có chuyện gì vui kể em nghe với?',
   },
   interrupted: { who: 'MIRA', txt: '— Được, em dừng lại.' },
   error: { who: 'LỖI', txt: 'Có lỗi xảy ra.' },
@@ -132,6 +133,8 @@ export function useMira() {
   const interruptedTurnRef = useRef(false);
   const affectRef = useRef<AffectState>(neutralAffect());
   const [observedMood, setObservedMood] = useState<AffectState['mood']>('neutral');
+  // Crisis banner: set when a self-harm disclosure is detected, cleared only by the user.
+  const [crisis, setCrisis] = useState(false);
   const proactiveRef = useRef(new ProactiveEngine());
 
   const clearThinkingSignals = useCallback(() => {
@@ -148,10 +151,11 @@ export function useMira() {
     speechQueueRef.current?.cancel();
   }, [clearThinkingSignals]);
 
-  const pushHistory = useCallback((turn: BrainTurn) => {
+  const pushHistory = useCallback((turn: BrainTurn, persist = true) => {
     historyRef.current = [...historyRef.current, turn].slice(-12);
     setHistory(historyRef.current);
-    memoryRef.current!.save(turn);
+    // Crisis disclosures stay in the on-screen session only: never distilled into memory.
+    if (persist) memoryRef.current!.save(turn);
   }, []);
 
   useEffect(() => {
@@ -382,7 +386,22 @@ export function useMira() {
     const wasInterrupted = interruptedTurnRef.current;
     interruptedTurnRef.current = false;
     const prior = historyRef.current;
-    pushHistory({ role: 'user', text });
+    const crisisTurn = await isHighRiskText(text);
+    if (turnSeqRef.current !== token) return;
+    pushHistory({ role: 'user', text }, !crisisTurn);
+
+    // Deterministic safety net — works on every runtime (Web, Pages, Desktop) and never
+    // depends on a model being reachable. Resources are also shown as a persistent banner.
+    if (crisisTurn) {
+      clearThinkingSignals();
+      setCrisis(true);
+      setError(null);
+      const reply = await crisisReply();
+      pushHistory({ role: 'mira', text: reply }, false);
+      sendEvent(source === 'voice' ? 'STT_FINAL' : 'TEXT_SUBMIT');
+      speak(reply);
+      return;
+    }
 
     setError(null);
     setWho('MIRA');
@@ -657,9 +676,48 @@ export function useMira() {
     }
   }, [cancelSpeech, clearEndpointTimer, clearPendingListen, forceState, setLive]);
 
+  /** Mira Live records its transcripts through the same history + Memory path. */
+  const liveCrisisReplyRef = useRef(false);
+  // Turns are processed strictly in arrival order (user before Mira) even though the
+  // crisis check is async — otherwise a fast Mira turn could overtake its user turn.
+  const recordQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const recordTurn = useCallback((turn: BrainTurn): Promise<void> => {
+    const text = turn.text.trim();
+    if (!text) return recordQueueRef.current;
+    recordQueueRef.current = recordQueueRef.current.then(async () => {
+      let persist = true;
+      if (turn.role === 'user' && await isHighRiskText(text)) {
+        setCrisis(true);
+        liveCrisisReplyRef.current = true;
+        persist = false;
+      } else if (turn.role === 'mira' && liveCrisisReplyRef.current) {
+        liveCrisisReplyRef.current = false;
+        persist = false;
+      }
+      pushHistory({ role: turn.role, text }, persist);
+    }).catch(() => undefined);
+    return recordQueueRef.current;
+  }, [pushHistory]);
+
+  /** Bounded memory context for a Live session (sent to the server as data, not instructions). */
+  const recallContext = useCallback(async (): Promise<string> => {
+    const lastUser = [...historyRef.current].reverse().find((turn) => turn.role === 'user')?.text || '';
+    try {
+      const recalled = await memoryRef.current!.recall(lastUser);
+      return String(recalled || '').slice(0, 2400);
+    } catch {
+      return '';
+    }
+  }, []);
+
   return {
     state,
     stateRef,
+    crisis,
+    flagCrisis: () => setCrisis(true),
+    dismissCrisis: () => setCrisis(false),
+    recordTurn,
+    recallContext,
     live,
     mood,
     moodRef,

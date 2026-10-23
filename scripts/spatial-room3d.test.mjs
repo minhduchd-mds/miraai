@@ -84,16 +84,17 @@ test('3D hero contains a spatial upholstered chair and a close foreground seated
  assert.match(css,/\.photo-mira\[data-room3d-active="true"\] \.pm-hero-copy/);
 });
 
-test('3D mode removes HUD, gallery and copy; AppV2 voice footer remains unchanged',()=>{
+test('3D mode removes HUD, gallery and copy; voice footer stays in the lazy VoiceDock',()=>{
  assert.doesNotMatch(room,/pm-room3d-hud|pm-room3d-gallery|setViewPreset/);
  assert.match(room,/Digit\(\[1-6\]\)/);
  assert.match(integration,/!room3DActive && <span\s+key=\{`hero-/);
- assert.match(integration,/!room3DActive && <span className="pm-live-pill"/);
+ // The duplicate status pill was removed (state is shown once, in the header).
+ assert.doesNotMatch(integration,/className="pm-live-pill"/);
  assert.match(integration,/!room3DActive && <span className="pm-wave"/);
- const app=readFileSync('src/app/AppV2.tsx','utf8');
- assert.match(app,/voice-footer state-\$\{mira\.state\}/);
- assert.match(app,/className="voice-control-dock"/);
- assert.match(app,/className="voice-session-caption"/);
+ const dock=readFileSync('src/app/VoiceDock.tsx','utf8');
+ assert.match(dock,/voice-footer state-\$\{talk\.state\}/);
+ assert.match(dock,/className="voice-control-dock"/);
+ assert.match(dock,/className="voice-session-caption"/);
 });
 test('Mira seated pose, foreground composition and compact human chair are present',()=>{
  assert.match(vrm,/rotate\('leftLowerArm', -\.90,/);
@@ -106,7 +107,7 @@ test('Mira seated pose, foreground composition and compact human chair are prese
 
 test('active room3d does not mount duplicate 2D scene, spatial gizmos or text overlays',()=>{
  const app=readFileSync('src/app/AppV2.tsx','utf8');
- assert.match(app,/voice-footer state-\$\{mira\.state\}/);
+ assert.match(app,/lazy\(\(\) => import\('\.\/VoiceDock'\)\)/);
  assert.match(integration,/!room3DActive && <img[\s\S]*?pm-bedroom-scene pm-scene-fallback/);
  assert.doesNotMatch(css,/\.pm-room3d-hud|\.pm-room3d-gallery/);
  assert.match(integration,/!room3DActive && <span[\s\S]{0,70}pm-state-orb/);

@@ -183,7 +183,7 @@ Client preference can disable load/save/recall/distill.
 
 Server scope migration:
 1. legacy `device_id` seeds the first scope to preserve existing history;
-2. server sets `mira_scope` HttpOnly + SameSite=Lax cookie;
+2. server sets a signed `__Host-mira_session` HttpOnly + SameSite=Strict cookie (legacy `mira_scope` is no longer accepted);
 3. subsequent APIs prefer server cookie over arbitrary browser-provided id.
 
 `/api/profile` supports list/edit/forget/export/delete-all.

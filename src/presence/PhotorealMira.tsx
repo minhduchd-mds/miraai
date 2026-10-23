@@ -91,12 +91,12 @@ const PRESENCE_VISUAL: Record<MiraPresenceScene, {
 };
 
 const STATE_LABEL: Record<MiraState, string> = {
-  idle: 'READY',
-  listening: 'LISTENING',
-  thinking: 'THINKING',
-  speaking: 'SPEAKING',
-  interrupted: 'RESUMING',
-  error: 'CHECK',
+  idle: 'SẴN SÀNG',
+  listening: 'ĐANG NGHE',
+  thinking: 'ĐANG NGHĨ',
+  speaking: 'ĐANG NÓI',
+  interrupted: 'ĐÃ DỪNG',
+  error: 'CẦN KIỂM TRA',
 };
 
 const WAVE_BARS = Array.from({ length: 31 }, (_, index) => index);
@@ -239,8 +239,7 @@ export default function PhotorealMira({
     socialCue,
   });
   const showAffectionFx = observedMood === 'happy' && moodConfidence >= 0.45;
-  const liveLabel = live ? '24/7 ACTIVE' : voiceReady ? 'VOICE READY' : 'CHẠM 1 LẦN ĐỂ BẬT';
-  const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bật Mira 24/7';
+  const label = live ? 'Mira đang ở chế độ trò chuyện liên tục' : 'Bắt đầu trò chuyện với Mira';
 
   useEffect(() => {
     const node = rootRef.current;
@@ -692,7 +691,7 @@ export default function PhotorealMira({
         aria-hidden="true"
       >
         <span className="pm-hero-capabilities" aria-hidden="true">
-          <span><i />VOICE FIRST</span>
+          <span><i />GIỌNG NÓI</span>
         </span>
         <span className="pm-hero-story">
           <span className="pm-hero-kicker">MIRA <i /> {STATE_LABEL[state]}</span>
@@ -701,11 +700,7 @@ export default function PhotorealMira({
         </span>
       </span>}
 
-      {!room3DActive && <span className="pm-live-pill" aria-hidden="true">
-        <i />
-        <b>{liveLabel}</b>
-        <em>{STATE_LABEL[state]}</em>
-      </span>}
+      {/* The session state lives once, in the header status — no duplicate pill over the stage. */}
 
       {!room3DActive && <span className="pm-wave" aria-hidden="true">
         {WAVE_BARS.map((index) => <i key={index} />)}

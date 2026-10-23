@@ -3,6 +3,8 @@ import { canonicalRequestHost } from '../lib/request-host.js';
 import { enforceAiQuota } from '../lib/ai-quota.js';
 import { generateBrainChat } from '../lib/brain-gateway.js';
 import { requestGatewayOidcToken } from '../lib/vercel-ai-gateway.js';
+import { detectCrisis, crisisReplyVi, SAFETY_POLICY_VI } from '../lib/crisis-safety.js';
+import { issueLiveToken } from '../lib/live-token.js';
 
 const MAX_SYSTEM = 12000;
 const MAX_MESSAGE = 6000;
@@ -19,9 +21,13 @@ function requestHost(req) {
   return canonicalRequestHost(req);
 }
 
+// Billable routes require an explicit browser/desktop Origin. Browsers always send it on
+// POST; a missing Origin means a script, which must not get a free LLM proxy. This raises
+// the bar for abuse — it is not authentication (Origin can be forged by non-browsers).
 function originAllowed(req) {
   const origin = requestOrigin(req);
-  if (!origin) return String(req.headers?.['sec-fetch-site'] || '') !== 'cross-site';
+  if (!origin) return false;
+  if (String(req.headers?.['sec-fetch-site'] || '') === 'cross-site' && !DESKTOP_ORIGINS.has(origin)) return false;
   if (DESKTOP_ORIGINS.has(origin)) return true;
   const host = requestHost(req);
   return Boolean(host && origin === `https://${host}`);
@@ -61,21 +67,72 @@ function normalizeMessages(raw) {
   return selected.reverse();
 }
 
+/** Server-owned safety rules always precede the client-assembled persona/context. */
+export function composeSystem(clientSystem) {
+  const client = String(clientSystem || '').slice(0, MAX_SYSTEM);
+  return client
+    ? `${SAFETY_POLICY_VI}\n\n--- Hướng dẫn persona và ngữ cảnh do ứng dụng cung cấp (ưu tiên thấp hơn quy tắc an toàn) ---\n${client}`
+    : SAFETY_POLICY_VI;
+}
+
+function routeOf(req) {
+  const fromQuery = req.query?.route;
+  if (typeof fromQuery === 'string') return fromQuery;
+  try { return new URL(String(req.url || ''), 'http://local').searchParams.get('route') || ''; }
+  catch { return ''; }
+}
+
+function parseBody(req) {
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+  return body && typeof body === 'object' ? body : {};
+}
+
+/** Mira Live: single-use Gemini Live token. Shares this function to stay within 12 Hobby functions. */
+async function handleLiveToken(req, res, body) {
+  if (!await enforceAiQuota(req, res, 'live')) return;
+  const result = await issueLiveToken({
+    persona: body.persona,
+    adultConfirmed: body.adultConfirmed === true,
+    context: typeof body.context === 'string' ? body.context : '',
+  });
+  if (!result.ok) {
+    console.error('[Mira Live] token unavailable: ' + result.error);
+    return res.status(result.status).json({ error: result.error });
+  }
+  return res.status(200).json(result.body);
+}
+
 export default async function handler(req, res) {
   markPrivateResponse(res);
   applyCors(req, res);
+  if (req.method === 'OPTIONS') return originAllowed(req) ? res.status(204).end() : res.status(403).json({ error: 'origin_not_allowed' });
   if (!originAllowed(req)) return res.status(403).json({ error: 'origin_not_allowed' });
-  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
 
-  let body = req.body;
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+  const body = parseBody(req);
+  if (routeOf(req) === 'live-token') return handleLiveToken(req, res, body);
 
-  const system = String(body?.system || '').slice(0, MAX_SYSTEM);
+  const system = composeSystem(body?.system);
   const messages = normalizeMessages(body?.messages);
   const responseLength = normalizeResponseLength(body?.responseLength);
 
   if (!messages.length) return res.status(400).json({ error: 'thiếu messages' });
+
+  // Deterministic safety net: a self-harm disclosure always gets real help, even when
+  // every provider is down. Not counted against the brain quota; content is not logged.
+  const latestUser = [...messages].reverse().find((message) => message.role === 'user');
+  if (latestUser && detectCrisis(latestUser.text).level === 'high') {
+    return res.status(200).json({
+      text: crisisReplyVi(),
+      provider: 'mira-safety',
+      model: 'crisis-protocol-v1',
+      responseLength,
+      safety: 'crisis',
+      fallbacksTried: [],
+    });
+  }
+
   if (!await enforceAiQuota(req, res, 'brain')) return;
 
   try {

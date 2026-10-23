@@ -35,7 +35,9 @@ async function main() {
   const start = performance.now();
   const response = await fetchBounded('/api/chat', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    // /api/chat rejects requests without an Origin (no anonymous LLM proxy); the smoke
+    // check identifies itself as the deployment's own origin, exactly like the web app.
+    headers: { 'content-type': 'application/json', origin: url },
     body: JSON.stringify({
       system: 'Trả lời bằng tiếng Việt, một câu ngắn. Không yêu cầu thông tin cá nhân.',
       messages: [{ role: 'user', text: 'Xin chào Mira. Hãy chào lại trong một câu.' }],

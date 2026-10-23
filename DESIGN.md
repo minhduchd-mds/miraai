@@ -78,7 +78,7 @@ Primary surface chỉ gồm:
 - Kết quả trực quan khi skill trả về view.
 - Một lối vào Settings/Labs.
 
-Không đặt Camera, Hand, 2D/3D, Splat, provider, API key, state simulator thành nút ngang hàng trên header production.
+Không đặt Camera, Hand, 2D/3D, Splat, provider, API key, state simulator thành nút ngang hàng trên header production. Header chỉ gồm thương hiệu, trạng thái phiên và Cài đặt; camera, khung chân dung và màu nằm trong Cài đặt → Giao diện.
 
 Legacy/Labs trong giai đoạn migrate được truy cập bằng `?legacy=1` để không làm mất các prototype hiện có.
 
@@ -93,7 +93,9 @@ Mọi trạng thái phải có cả tín hiệu màu/chuyển động **và text
 - Interrupted → “Đã ngắt lời”.
 - Error → thông báo nguyên nhân và đường thoát.
 
-Voice-first không đồng nghĩa voice-only. Text composer là hạng mục V2 tiếp theo và là fallback bắt buộc khi STT/mic không dùng được.
+Voice-first không đồng nghĩa voice-only. Ô nhập văn bản (`VoiceDock`) luôn có trên màn chính và là fallback bắt buộc khi STT/mic không dùng được; khi đang Live, tin nhắn gõ đi vào cùng cuộc gọi.
+
+**Mira Live** (nút `LIVE`): hội thoại song công thời gian thực; nói chen dừng audio ngay. Chỉ một đường mic chạy tại một thời điểm — bật Live sẽ dừng chế độ mic thường.
 
 ## 9. Settings & Developer boundary
 
@@ -116,7 +118,11 @@ Developer/Labs:
 
 Production không yêu cầu người dùng hiểu những khái niệm kỹ thuật trên.
 
-## 10. Privacy
+## 10. Privacy & an toàn
+
+- Persona "Bạn đời · nhập vai" và cảnh "Về nhà"/"Đi ngủ" chỉ mở sau xác nhận 18+ trên thiết bị; mặc định là cảnh trung tính.
+- Tiết lộ ý định tự hại luôn nhận phản hồi an toàn + số 115 và đường dây nóng, kèm banner hỗ trợ.
+
 
 - Mic/camera luôn phải có trạng thái quyền rõ ràng.
 - Camera/sensor là opt-in.

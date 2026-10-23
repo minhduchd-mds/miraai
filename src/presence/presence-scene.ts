@@ -18,6 +18,20 @@ export interface PresenceSceneInput {
   interactionState?: 'engaged' | 'focused' | 'looking_away' | 'returning' | 'absent' | 'uncertain';
   expectedReturnMinute?: number;
   recentReturnAt?: number | null;
+  /**
+   * The evening "welcome home" and bedtime scenes are 18+ opt-in. The app always passes
+   * an explicit boolean; `false` maps them to neutral home scenes.
+   */
+  intimateScenes?: boolean;
+}
+
+/** Scenes that need the 18+ opt-in before they may be chosen automatically. */
+export const INTIMATE_PRESENCE_SCENES: ReadonlySet<MiraPresenceScene> = new Set(['welcome-home', 'bedtime']);
+
+export function neutralPresenceScene(scene: MiraPresenceScene, now: Date): MiraPresenceScene {
+  if (!INTIMATE_PRESENCE_SCENES.has(scene)) return scene;
+  const minute = presenceMinuteOfDay(now);
+  return minute >= PRESENCE_SCHEDULE.wakeMinute && minute < PRESENCE_SCHEDULE.eveningWeekendMinute ? 'daytime' : 'home-evening';
 }
 
 export const PRESENCE_SCENE_LABEL: Record<MiraPresenceScene, string> = {
@@ -228,6 +242,13 @@ export function learnedPresenceReturnMinute(
 }
 
 export function resolvePresenceScene(input: PresenceSceneInput): MiraPresenceScene {
+  const scene = resolveScheduledPresenceScene(input);
+  if (input.intimateScenes !== false) return scene;
+  const now = input.now instanceof Date ? input.now : new Date(typeof input.now === 'number' ? input.now : Date.now());
+  return neutralPresenceScene(scene, now);
+}
+
+function resolveScheduledPresenceScene(input: PresenceSceneInput): MiraPresenceScene {
   const now = input.now instanceof Date
     ? input.now
     : new Date(typeof input.now === 'number' ? input.now : Date.now());

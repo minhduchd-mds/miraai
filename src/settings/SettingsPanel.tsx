@@ -20,10 +20,14 @@ import {
   type MiraDeviceDiagnostics,
 } from '../runtime/device-diagnostics';
 import {
+  intimateScenesEnabled,
+  isAdultConfirmed,
   loadVoicePrefs,
   PERSONAS,
   RESPONSE_LENGTHS,
   saveVoicePrefs,
+  setAdultConfirmed,
+  setIntimateScenesEnabled,
   SPEEDS,
   type ResponseLength,
 } from '../core/voice-prefs';
@@ -61,6 +65,9 @@ interface Props {
   onToggleVision: () => void;
   getVisionSnapshot: () => ReturnType<typeof import('../presence/vision-runtime')['visionSnapshot']> | null;
   getVisionStream: () => MediaStream | null;
+  femalePresentation: 'portrait' | 'scene';
+  onToggleFemalePresentation: () => void;
+  onIntimateScenesChange: (enabled: boolean) => void;
 }
 
 type Tab = 'voice' | 'control' | 'appearance' | 'memory' | 'feedback';
@@ -207,7 +214,28 @@ export default function SettingsPanel(props: Props) {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const changeRate = (next: number) => { setRate(next); saveVoicePrefs({ rate: next }); };
-  const changePersona = (next: string) => { setPersona(next); saveVoicePrefs({ persona: next }); };
+  const [adult, setAdult] = useState(() => isAdultConfirmed());
+  const [intimateScenes, setIntimateScenes] = useState(() => intimateScenesEnabled());
+  const [adultPrompt, setAdultPrompt] = useState<null | 'partner' | 'scenes'>(null);
+  const changePersona = (next: string) => {
+    // The intimate role-play is behind a self-attested 18+ confirmation.
+    if (next === 'partner' && !isAdultConfirmed()) { setAdultPrompt('partner'); return; }
+    setPersona(next); saveVoicePrefs({ persona: next });
+  };
+  const changeIntimateScenes = (next: boolean) => {
+    if (next && !isAdultConfirmed()) { setAdultPrompt('scenes'); return; }
+    setIntimateScenesEnabled(next); setIntimateScenes(next); props.onIntimateScenesChange(next);
+  };
+  const confirmAdult = () => {
+    setAdultConfirmed(true); setAdult(true);
+    if (adultPrompt === 'partner') { setPersona('partner'); saveVoicePrefs({ persona: 'partner' }); }
+    if (adultPrompt === 'scenes') { setIntimateScenesEnabled(true); setIntimateScenes(true); props.onIntimateScenesChange(true); }
+    setAdultPrompt(null);
+  };
+  const revokeAdult = () => {
+    setAdultConfirmed(false); setAdult(false); setIntimateScenes(false); props.onIntimateScenesChange(false);
+    if (persona === 'partner') { setPersona('close'); saveVoicePrefs({ persona: 'close' }); }
+  };
   const changeResponseLength = (next: ResponseLength) => { setResponseLength(next); saveVoicePrefs({ responseLength: next }); };
   const changeSmart = (next: boolean) => { setSmartTurn(next); saveSmartTurn(next); };
   const changeVad = (next: boolean) => { setVad(next); saveVadEnabled(next); };
@@ -345,10 +373,11 @@ export default function SettingsPanel(props: Props) {
               {deviceDiagnostics && <p className="v2-disclosure">Báo cáo JSON không chứa camera frame, mic audio, user-agent, device ID hay vị trí.</p>}
             </div>
             <div className="v2-setting-group"><h3>Độ dài câu trả lời</h3><div className="v2-choice-block"><span>Mức chi tiết</span><div className="v2-segmented">{RESPONSE_LENGTHS.map((item) => <button key={item.id} type="button" className={responseLength === item.id ? 'active' : ''} onClick={() => changeResponseLength(item.id)}>{item.label}</button>)}</div><p className="v2-disclosure">{selectedResponseLength.description}</p></div></div>
-            <div className="v2-setting-group"><h3>Tính cách & cách đồng hành</h3><div className="v2-personas" role="group" aria-label="Chọn vai trò hội thoại">{PERSONAS.map((item) => <button key={item.id} type="button" aria-pressed={persona === item.id} className={persona === item.id ? 'active' : ''} onClick={() => changePersona(item.id)}><span>{item.icon}</span><b>{item.label}</b></button>)}</div><p className="v2-disclosure">{persona === 'partner' ? 'Chế độ nhập vai bạn đời theo lựa chọn của anh; Mira vẫn là AI, không khẳng định quan hệ thực tế. Có thể đổi bất cứ lúc nào.' : persona === 'close' ? 'Gần gũi và biết lắng nghe hơn, nhưng không tự chuyển sang xưng hô yêu đương.' : 'Mira tự điều chỉnh sự ấm áp theo nội dung, không mặc định nhập vai người yêu hoặc bạn đời.'}</p></div>
+            <div className="v2-setting-group"><h3>Tính cách & cách đồng hành</h3><div className="v2-personas" role="group" aria-label="Chọn vai trò hội thoại">{PERSONAS.map((item) => <button key={item.id} type="button" aria-pressed={persona === item.id} className={persona === item.id ? 'active' : ''} onClick={() => changePersona(item.id)}><span>{item.icon}</span><b>{item.label}</b></button>)}</div><p className="v2-disclosure">{persona === 'partner' ? 'Chế độ nhập vai bạn đời theo lựa chọn của anh; Mira vẫn là AI, không khẳng định quan hệ thực tế. Có thể đổi bất cứ lúc nào.' : persona === 'close' ? 'Gần gũi và biết lắng nghe hơn, nhưng không tự chuyển sang xưng hô yêu đương.' : 'Mira tự điều chỉnh sự ấm áp theo nội dung, không mặc định nhập vai người yêu hoặc bạn đời.'}</p>{adultPrompt && <div className="v2-adult-gate" role="alertdialog" aria-labelledby="v2-adult-title" aria-describedby="v2-adult-desc"><b id="v2-adult-title">Xác nhận đủ 18 tuổi</b><p id="v2-adult-desc">{adultPrompt === 'partner' ? 'Chế độ nhập vai bạn đời chỉ dành cho người từ 18 tuổi trở lên.' : 'Cảnh “Về nhà” và “Đi ngủ” chỉ dành cho người từ 18 tuổi trở lên.'} Mira vẫn là AI và không tạo nội dung tình dục.</p><div><button type="button" className="primary" onClick={confirmAdult}>Tôi đủ 18 tuổi</button><button type="button" onClick={() => setAdultPrompt(null)}>Huỷ</button></div></div>}{adult && <button type="button" className="v2-adult-revoke" onClick={revokeAdult}>Tắt xác nhận 18+ trên thiết bị này</button>}</div>
             <div className="v2-setting-group"><h3>Hội thoại tự nhiên</h3><Toggle checked={smartTurn} onChange={changeSmart} label="Smart turn-taking" hint="Chờ đúng lúc anh nói xong thay vì cắt theo khoảng lặng cứng." /><Toggle checked={vad} onChange={changeVad} label="Ngắt lời bằng giọng" hint="Cho phép nói chen khi Mira đang trả lời." /></div>
           </>}
           {tab === 'control' && <Suspense fallback={<p className="v2-empty">Đang mở hiệu chuẩn…</p>}><SpatialCalibrationPanel visionOn={props.visionOn} visionBooting={props.visionBooting} onToggleVision={props.onToggleVision} getVisionSnapshot={props.getVisionSnapshot} getVisionStream={props.getVisionStream}/></Suspense>}
+          {tab === 'appearance' && <div className="v2-setting-group"><h3>Hiện diện</h3><Toggle checked={props.femalePresentation === 'portrait'} onChange={() => props.onToggleFemalePresentation()} label="Khung chân dung" hint="Bật: cận cảnh Mira. Tắt: toàn cảnh căn phòng." /><Toggle checked={intimateScenes} onChange={changeIntimateScenes} label="Cảnh buổi tối theo giờ (18+)" hint="Tự đổi sang cảnh “Về nhà” và “Đi ngủ” vào buổi tối. Mặc định tắt." /><Toggle checked={props.visionOn} onChange={() => props.onToggleVision()} label="Camera nhận diện" hint={props.visionBooting ? 'Đang mở camera…' : 'Chỉ bật khi anh cho phép; xử lý trên thiết bị, không lưu hình ảnh.'} /></div>}
           {tab === 'appearance' && <div className="v2-setting-group"><h3>Màu quả cầu</h3><div className="v2-theme-grid">{THEMES.map((item) => <button key={item} type="button" data-theme-preview={item} className={props.theme === item ? 'active' : ''} onClick={() => props.onTheme(item)}><i /><span>{item}</span></button>)}</div></div>}
           {tab === 'feedback' && <Suspense fallback={<p className="v2-empty">Đang mở góp ý…</p>}><FeedbackPanel recentHistory={props.recentHistory}/></Suspense>}
           {tab === 'memory' && <>

@@ -1,7 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useMira } from '../core/useMira';
+import { intimateScenesEnabled } from '../core/voice-prefs';
+import type { LiveTalkView } from './VoiceDock';
 import type { MiraState, Theme } from '../core/types';
-import { IconCamera, IconCameraOff, IconMic, IconPhoneOff, IconSettings } from '../ui/app-shell-icons';
+import { IconSettings } from '../ui/app-shell-icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 // Spatial/photo rendering is separately lazy to preserve the strict AppV2 bundle budget.
 import type { FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
@@ -92,6 +94,8 @@ const HandSkeletonOverlay = lazy(() => import('../presence/HandSkeletonOverlay')
 const SpatialControlOverlay = lazy(() => import('../presence/SpatialControlOverlay'));
 const ContentPanel = lazy(() => import('../ui/ContentPanel'));
 const SettingsPanel = lazy(() => import('../settings/SettingsPanel'));
+const CrisisBanner = lazy(() => import('../ui/CrisisBanner'));
+const VoiceDock = lazy(() => import('./VoiceDock'));
 
 const STATE_COPY: Record<MiraState, string> = {
   idle: 'Sẵn sàng',
@@ -108,6 +112,14 @@ const EMPTY_SPATIAL_CONTROL_FRAME: SpatialControlFrame = {
 };
 export default function AppV2() {
   const mira = useMira();
+  // Mira Live (realtime speech-to-speech) lives in the lazy VoiceDock; while a Live call
+  // is open its state/caption drive the presence instead of the chained voice pipeline.
+  const [liveView, setLiveView] = useState<LiveTalkView | null>(null);
+  const liveActive = Boolean(liveView && liveView.state !== 'idle' && liveView.state !== 'error');
+  const [intimateScenes, setIntimateScenes] = useState(intimateScenesEnabled);
+  const talk = liveActive && liveView
+    ? liveView
+    : { state: mira.state, caption: mira.caption, who: mira.who };
   const {
     theme,
     setTheme,
@@ -636,7 +648,6 @@ export default function AppV2() {
     setFaceTelemetry,
   });
 
-  const cycleTheme = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
   const openLabs = () => {
     const url = new URL(window.location.href);
     url.searchParams.set('legacy', '1');
@@ -675,6 +686,7 @@ export default function AppV2() {
     interactionState: interactionTelemetry.state,
     expectedReturnMinute,
     recentReturnAt,
+    intimateScenes,
   });
   const cameraConnected = Boolean(
     webXRSnapshot.active ||
@@ -698,34 +710,22 @@ export default function AppV2() {
         </div>
         <details className="v2-status v2-session-details">
           <summary title="Xem trạng thái kết nối Mira">
-            <span className={`v2-status-dot ${mira.state}`} aria-hidden="true" />
-            <span>{STATE_COPY[mira.state]}</span>
+            <span className={`v2-status-dot ${talk.state}`} aria-hidden="true" />
+            <span>{liveActive ? `Live · ${STATE_COPY[talk.state]}` : STATE_COPY[talk.state]}</span>
             <span className="sr-only">— mở chi tiết kết nối</span>
           </summary>
-          <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{STATE_COPY[mira.state]}</span>
+          <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{STATE_COPY[talk.state]}</span>
           <div className="v2-session-panel" aria-label="Trạng thái kết nối Mira">
             <strong>Trạng thái phiên</strong>
             <dl>
-              <div><dt>Giọng nói</dt><dd>{voiceBooting ? 'Đang khởi tạo' : mira.live ? STATE_COPY[mira.state] : 'Chưa bắt đầu'}</dd></div>
+              <div><dt>Giọng nói</dt><dd>{voiceBooting ? 'Đang khởi tạo' : liveActive ? `Mira Live · ${STATE_COPY[talk.state]}` : mira.live ? STATE_COPY[mira.state] : 'Chưa bắt đầu'}</dd></div>
               <div><dt>Camera</dt><dd>{visionError ? 'Cần kiểm tra' : visionBooting ? 'Đang mở' : visionOn ? (faceSeen || handSeen ? 'Đang nhận diện' : 'Đang quan sát') : 'Đang tắt'}</dd></div>
               <div><dt>Không gian XR</dt><dd>{webXRSnapshot.active ? 'Đang hoạt động' : 'Chưa bật'}</dd></div>
             </dl>
-            <p>Camera và XR chỉ hoạt động khi được bật từ thanh điều khiển.</p>
+            <p>Camera chỉ hoạt động khi anh bật trong Cài đặt → Giao diện.</p>
           </div>
         </details>
         <nav className="v2-actions" aria-label="Điều khiển Mira">
-          <button
-            type="button"
-            className={visionOn ? 'vision-active' : ''}
-            onClick={() => void toggleVision()}
-            aria-pressed={visionOn}
-            title={visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}
-            data-spatial-action="camera.toggle"
-            data-spatial-label={visionOn ? 'Tắt camera' : 'Bật camera'}
-          >
-            {visionOn ? <IconCameraOff /> : <IconCamera />}
-            <span className="sr-only">{visionOn ? 'Tắt camera nhận diện' : 'Bật camera nhận diện'}</span>
-          </button>
           {(webXRAvailable || webXRSnapshot.active) && (
             <button
               type="button"
@@ -740,19 +740,12 @@ export default function AppV2() {
               <span className="sr-only">{webXRSnapshot.active ? 'Thoát WebXR' : 'Mở WebXR AR'}</span>
             </button>
           )}
-          <button type="button" className={`v2-female-mode${femalePresentation==='portrait'?' active':''}`}
-            onClick={toggleFemalePresentation}
-            aria-pressed={femalePresentation==='portrait'}
-            title={femalePresentation==='portrait'?'Chuyển sang toàn cảnh':'Chuyển sang chân dung Mira'}
-            data-spatial-action="avatar.presentation.toggle"
-            data-spatial-label="Đổi chế độ nhân vật nữ"
-          ><span className="v2-female-mode-icon" aria-hidden="true"/><span className="sr-only">{femalePresentation==='portrait'?'Chế độ chân dung nữ, chuyển sang toàn cảnh':'Chế độ toàn cảnh, chuyển sang chân dung nữ'}</span></button>
-          <button type="button" onClick={cycleTheme} title="Đổi màu" data-spatial-action="theme.cycle" data-spatial-label="Đổi màu"><span className="v2-theme-dot" aria-hidden="true" /><span className="sr-only">Đổi màu</span></button>
           <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt" data-spatial-action="settings.open" data-spatial-label="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
         </nav>
       </header>
 
-      {(mira.error || visionError) && <div className="v2-error" role="alert">{visionError || mira.error}</div>}
+      {(mira.error || visionError || liveView?.error) && <div className="v2-error" role="alert">{visionError || liveView?.error || mira.error}</div>}
+      {mira.crisis && <Suspense fallback={null}><CrisisBanner onClose={mira.dismissCrisis} /></Suspense>}
 
       {(visionOn || webXRSnapshot.active) && (
         <div
@@ -849,14 +842,14 @@ export default function AppV2() {
         <div className="voice-stage holographic-stage">
           <Suspense fallback={<div className="voice-presence-loading" aria-hidden="true" />}>
           <PhotorealMira
-            state={mira.state}
+            state={talk.state}
             femalePresentation={femalePresentation}
             onActivate={activateVoice}
             contextText={constellationContext}
-            live={mira.live}
+            live={mira.live || liveActive}
             voiceReady={voiceReady}
-            caption={mira.caption}
-            who={mira.who}
+            caption={talk.caption}
+            who={talk.who}
             brainName={mira.brainName}
             sttAvailable={mira.sttAvailable}
             observedMood={affectFollowing ? faceAffect.mood : 'neutral'}
@@ -909,7 +902,7 @@ export default function AppV2() {
         </div>
 
         <div className="sr-only" aria-live="polite" aria-atomic="true">
-          {mira.who}: {mira.caption}
+          {talk.who}: {talk.caption}
         </div>
 
         {mira.content && (
@@ -940,40 +933,17 @@ export default function AppV2() {
         />
       </Suspense>
 
-      <div className={`voice-footer state-${mira.state}${mira.live ? ' is-live' : ''}`}>
-        <div className="voice-session-caption" role="status" aria-live="polite" aria-atomic="true">
-          <small>{mira.state === 'idle' ? `Tự động · ${PRESENCE_SCENE_LABEL[presenceScene]}` : STATE_COPY[mira.state]}</small>
-          <span>{mira.caption}</span>
-        </div>
-        <div className="voice-control-dock">
-          <span className="voice-wave-mini" aria-hidden="true">
-            {Array.from({ length: 9 }, (_, index) => <i key={index} />)}
-          </span>
-          <button
-            type="button"
-            className={`voice-primary state-${mira.state}${voiceSessionActive ? ' active' : ''}`}
-            onClick={mira.live ? mira.toggleMic : activateVoice}
-            aria-label={mira.live ? 'Điều khiển micro Mira' : 'Bắt đầu trò chuyện bằng giọng nói'}
-            title={mira.live ? STATE_COPY[mira.state] : 'Nói với Mira'}
-            data-spatial-action="voice.primary"
-            data-spatial-label="Nói với Mira"
-          >
-            <IconMic />
-          </button>
-          <button
-            type="button"
-            className="voice-end"
-            onClick={mira.stopLive}
-            disabled={!mira.live}
-            aria-label="Kết thúc trò chuyện"
-            title="Kết thúc trò chuyện"
-            data-spatial-action="voice.end"
-            data-spatial-label="Kết thúc trò chuyện"
-          >
-            <IconPhoneOff />
-          </button>
-        </div>
-      </div>
+      <Suspense fallback={null}>
+        <VoiceDock
+          mira={mira}
+          activateVoice={activateVoice}
+          voiceSessionActive={voiceSessionActive}
+          idleLabel={PRESENCE_SCENE_LABEL[presenceScene]}
+          stateCopy={STATE_COPY}
+          talk={talk}
+          onLiveView={setLiveView}
+        />
+      </Suspense>
 
       {settingsOpen && (
         <Suspense fallback={null}>
@@ -994,6 +964,9 @@ export default function AppV2() {
             onToggleVision={() => void toggleVision()}
             getVisionSnapshot={() => visionModulesRef.current?.visionSnapshot() ?? null}
             getVisionStream={() => visionModulesRef.current?.visionStream() ?? null}
+            femalePresentation={femalePresentation}
+            onToggleFemalePresentation={toggleFemalePresentation}
+            onIntimateScenesChange={setIntimateScenes}
           />
         </Suspense>
       )}

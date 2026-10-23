@@ -7,7 +7,20 @@
   <img src="public/mira-assets/scenes/scene_work_together.webp" width="48%" alt="Mira work scene" />
 </p>
 
-Mira là AI companion ưu tiên **giọng nói + continuity**: trò chuyện, ghi nhớ có kiểm soát, nhận biết tín hiệu cảm xúc, thực thi skill và chạy dưới dạng Web/PWA hoặc Desktop Windows/macOS.
+Mira là AI companion ưu tiên **giọng nói + continuity**: trò chuyện, ghi nhớ có kiểm soát, nhận biết tín hiệu cảm xúc, thực thi skill và chạy dưới dạng Web/PWA hoặc Desktop Windows/macOS. Mira là sản phẩm độc lập (không còn kế hoạch nhúng vào Soi).
+
+## Mira Live — hội thoại thời gian thực
+
+Nút **LIVE** mở một cuộc gọi song công với mô hình speech-to-speech (Gemini Live API): anh nói, Mira trả lời bằng giọng ngay, nói chen thì Mira dừng. Âm thanh trả về đi qua `AnalyserNode` và điều khiển khẩu hình của lớp hiện diện (2D photoreal, và avatar 3D khi manifest được duyệt). Server phát token tạm thời dùng 1 lần qua `POST /api/chat?route=live-token`; API key không bao giờ xuống trình duyệt.
+
+```env
+GEMINI_API_KEY=        # bắt buộc cho Live
+MIRA_LIVE_MODEL=       # mặc định gemini-3.8-live
+MIRA_LIVE_VOICE=       # tuỳ chọn, tên prebuilt voice
+MIRA_LIVE_DISABLED=    # =1 để tắt
+```
+
+Kế hoạch triển khai (định dạng ECC planner): [`docs/plans/2026-10-23-live-3d-companion.md`](docs/plans/2026-10-23-live-3d-companion.md). Bản đồ code Graphify: [`graphify-out/GRAPH_REPORT.md`](graphify-out/GRAPH_REPORT.md) — cập nhật bằng `graphify update .`.
 
 
 

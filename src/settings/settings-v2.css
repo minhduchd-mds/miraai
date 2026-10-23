@@ -254,3 +254,11 @@
 .v2-personas button{min-width:0;min-height:72px;overflow-wrap:anywhere}
 .v2-personas button[aria-pressed="true"]{outline-offset:2px}
 @media(max-width:550px){.v2-personas{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* 18+ gate for the partner role-play and evening scenes. */
+.v2-adult-gate { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(255, 196, 120, .4); background: rgba(40, 26, 10, .55); }
+.v2-adult-gate b { display: block; margin-bottom: 6px; }
+.v2-adult-gate p { margin: 0 0 10px; font-size: 13px; line-height: 1.45; }
+.v2-adult-gate div { display: flex; gap: 8px; flex-wrap: wrap; }
+.v2-adult-gate button, .v2-adult-revoke { min-height: 44px; padding: 0 16px; border-radius: 999px; cursor: pointer; }
+.v2-adult-revoke { margin-top: 10px; background: transparent; border: 1px solid rgba(255, 255, 255, .2); color: inherit; }

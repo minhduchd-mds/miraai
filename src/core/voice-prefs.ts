@@ -16,6 +16,32 @@ export const voicePrefs: VoicePrefs = {
 };
 
 const LS = 'mira.voice.prefs';
+const ADULT_LS = 'mira.adult.confirmed.v1';
+const INTIMATE_SCENES_LS = 'mira.scenes.intimate.v1';
+
+/** Self-attested 18+ gate for the partner role-play and intimate scenes (device-local). */
+export function isAdultConfirmed(): boolean {
+  try { return localStorage.getItem(ADULT_LS) === 'yes'; } catch { return false; }
+}
+
+export function setAdultConfirmed(value: boolean): void {
+  try {
+    if (value) localStorage.setItem(ADULT_LS, 'yes');
+    else { localStorage.removeItem(ADULT_LS); localStorage.removeItem(INTIMATE_SCENES_LS); }
+  } catch { /* storage blocked: gate stays closed */ }
+}
+
+/** Evening "welcome home" and bedtime scenes are opt-in and require the 18+ gate. */
+export function intimateScenesEnabled(): boolean {
+  try { return isAdultConfirmed() && localStorage.getItem(INTIMATE_SCENES_LS) === 'yes'; } catch { return false; }
+}
+
+export function setIntimateScenesEnabled(value: boolean): void {
+  try {
+    if (value && isAdultConfirmed()) localStorage.setItem(INTIMATE_SCENES_LS, 'yes');
+    else localStorage.removeItem(INTIMATE_SCENES_LS);
+  } catch { /* noop */ }
+}
 
 export function isResponseLength(value: unknown): value is ResponseLength {
   return value === 'short' || value === 'auto' || value === 'detailed' || value === 'deep';
@@ -41,6 +67,8 @@ export function loadVoicePrefs(): VoicePrefs {
     } else {
       if (typeof c.rate === 'number') voicePrefs.rate = c.rate;
       if (typeof c.persona === 'string' && PERSONAS.some((p) => p.id === c.persona)) voicePrefs.persona = c.persona;
+      // The intimate role never survives without an explicit 18+ confirmation on this device.
+      if (voicePrefs.persona === 'partner' && !isAdultConfirmed()) voicePrefs.persona = 'close';
       if (isResponseLength(c.responseLength)) voicePrefs.responseLength = c.responseLength;
     }
   } catch {
@@ -52,6 +80,7 @@ export function loadVoicePrefs(): VoicePrefs {
 export function saveVoicePrefs(p: Partial<VoicePrefs>): void {
   const safe = { ...p };
   if (safe.persona != null && !PERSONAS.some((item) => item.id === safe.persona)) delete safe.persona;
+  if (safe.persona === 'partner' && !isAdultConfirmed()) delete safe.persona;
   Object.assign(voicePrefs, safe);
   try {
     localStorage.setItem(LS, JSON.stringify({ ...voicePrefs, voiceProfileVersion: 2 }));

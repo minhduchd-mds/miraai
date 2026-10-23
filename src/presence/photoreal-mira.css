@@ -2388,3 +2388,5 @@
 @media(max-width:760px){
   .photo-mira[data-female-presentation="portrait"] .pm-scene-fallback {transform-origin:52% 42%;transform:scale(1.045);}
 }
+/* v17: Vietnamese kicker — readable fallback font and AA-leaning contrast over photography. */
+.pm-hero-kicker { font-family: 'Be Vietnam Pro', 'Inter', system-ui, sans-serif; letter-spacing: .14em; text-shadow: 0 1px 10px rgba(0,0,0,.55); }
