@@ -45,6 +45,8 @@ export interface PreparedRig {
   jawW: Float32Array;      // lower-face opening weight
   upperLipW: Float32Array; // small upward lift of the upper lip
   lipW: Float32Array;      // horizontal lip shaping weight
+  cheekW: Float32Array;    // zygomatic cheek mass (smile lift, stretch on opening)
+  cheekSide: Float32Array; // -1 left / +1 right of the mouth
   headW: Float32Array;
   breathW: Float32Array;
   faceH: number;           // pixels
@@ -85,6 +87,12 @@ export function prepareRig(rig: LiveAvatarRig): PreparedRig {
   const jawW = new Float32Array(count);
   const upperLipW = new Float32Array(count);
   const lipW = new Float32Array(count);
+  const cheekW = new Float32Array(count);
+  const cheekSide = new Float32Array(count);
+  // Cheeks span from beside the nose wings to past the mouth corners, between the lower lids and
+  // just below the mouth line; a smooth bump so the skin moves as one mass (no folds).
+  const lidY = (py(145) + py(374)) / 2;
+  const cheekTop = lidY + faceH * 0.06, cheekBottom = mouthY + faceH * 0.08;
   const lowerLips = new Set([...g.lowerInner, ...g.lowerOuter]);
   const upperLips = new Set([...g.upperInner, ...g.upperOuter]);
   const chin = new Set(g.chin);
@@ -108,6 +116,13 @@ export function prepareRig(rig: LiveAvatarRig): PreparedRig {
         jawW[i] = (0.5 + 0.45 * along) * (0.35 + 0.65 * across) * (chin.has(i) ? 1.08 : 1) * taper;
       }
       if (upperLips.has(i) && !lowerLips.has(i)) upperLipW[i] = (g.upperInner.includes(i) ? 1 : 0.5) * lens(x);
+      if (!lowerLips.has(i) && !upperLips.has(i) && y > cheekTop && y < cheekBottom) {
+        const ax = Math.abs(x - mouthX) / Math.max(1, halfWidth);
+        const across = clamp01((ax - 0.35) / 0.5) * clamp01((2.6 - ax) / 0.9);
+        const vert = Math.sin(Math.PI * clamp01((y - cheekTop) / (cheekBottom - cheekTop)));
+        cheekW[i] = across * vert;
+        cheekSide[i] = x < mouthX ? -1 : 1;
+      }
       if (lowerLips.has(i) || upperLips.has(i)) lipW[i] = 1;
       else if (Math.abs(y - mouthY) < faceH * 0.12) {
         // Cheek skin next to the corners follows pucker/stretch so no gap opens at the corners.
@@ -157,7 +172,7 @@ export function prepareRig(rig: LiveAvatarRig): PreparedRig {
   const irisRadius = Math.hypot(px(g.irisLeft[1]) - px(g.irisLeft[3]), py(g.irisLeft[1]) - py(g.irisLeft[3])) / 2 || faceH * 0.03;
 
   return {
-    rig, count, rest, depth, uv, jawW, upperLipW, lipW,
+    rig, count, rest, depth, uv, jawW, upperLipW, lipW, cheekW, cheekSide,
     headW: Float32Array.from(rig.headWeight),
     breathW: Float32Array.from(rig.breathWeight),
     faceH,
@@ -179,12 +194,21 @@ export function deformRig(prep: PreparedRig, p: FaceParams, out: Float32Array): 
   const jaw = clamp01(p.jaw);
   const openPx = jaw * faceH * 0.092; // 24/10: wider articulation (fold-free verified in tests)
 
-  // Lips, jaw and chin.
-  const shape = 1 - 0.12 * clamp01(p.round) + 0.08 * clamp01(p.spread) + 0.04 * clamp01(p.smile);
+  // Lips, jaw and chin. Opening an "a" draws the corners in slightly (orbicularis).
+  const smile = clamp01(p.smile), spread = clamp01(p.spread), round = clamp01(p.round);
+  const shape = 1 - 0.12 * round + 0.08 * spread + 0.04 * smile - 0.05 * jaw;
   for (let i = 0; i < count; i += 1) {
     const ix = i * 2, iy = ix + 1;
     if (prep.jawW[i]) out[iy] += openPx * prep.jawW[i];
-    if (prep.upperLipW[i]) out[iy] -= openPx * 0.12 * prep.upperLipW[i];
+    // Upper lip lifts with the opening and on spread vowels ("i/e"), showing the teeth.
+    if (prep.upperLipW[i]) out[iy] -= (openPx * 0.18 + spread * faceH * 0.006) * prep.upperLipW[i];
+    // Cheeks: lift and widen with a smile (deepening the nasolabial line), stretch down a little
+    // as the jaw opens, and draw in on a pucker.
+    const cw = prep.cheekW[i];
+    if (cw) {
+      out[iy] += (-smile * faceH * 0.016 + openPx * 0.16 + round * faceH * 0.002) * cw;
+      out[ix] += prep.cheekSide[i] * (smile * faceH * 0.006 - round * faceH * 0.006) * cw;
+    }
     const lw = prep.lipW[i];
     if (lw) {
       const dx = rest[ix] - mouth.x;

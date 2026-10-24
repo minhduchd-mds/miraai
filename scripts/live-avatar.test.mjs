@@ -195,3 +195,21 @@ test('UI 24/10: no badge over the face; AI disclosure in header + aria; dismisse
   assert.match(app, /statusError = Boolean\(toastText\) && toastText !== dismissedToast/);
   assert.match(readFileSync('src/presence/live-avatar/live-avatar-gl.ts', 'utf8'), /PANEL_ASPECT = 1\.42/);
 });
+
+test('teeth/muscles 24/10: anatomical teeth, crease fix, cheek mass that lifts with a smile', () => {
+  const gl = readFileSync('src/presence/live-avatar/live-avatar-gl.ts', 'utf8');
+  // Teeth have a fixed anatomical height (face-relative), not a band that scales with the opening.
+  assert.match(gl, /float toothH = min\(u_faceH \* 0\.05, h \* 0\.58\)/);
+  assert.match(gl, /precision highp float/);
+  // The photo's closed-lip crease is replaced while the lips are parted.
+  assert.match(gl, /u_seamT/);
+  const rig = JSON.parse(readFileSync('public/mira-assets/live/mira-live-face-v1.rig.json', 'utf8'));
+  const prep = prepareRig(rig);
+  const lifted = [...prep.cheekW].filter((w) => w > 0.3).length;
+  assert.ok(lifted > 12, `cheek region has ${lifted} strongly weighted vertices`);
+  const out = new Float32Array(prep.count * 2);
+  deformRig(prep, { ...NEUTRAL_FACE, smile: 1 }, out);
+  let rise = 0;
+  for (let i = 0; i < prep.count; i++) if (prep.cheekW[i] > 0.5) rise = Math.max(rise, prep.rest[i * 2 + 1] - out[i * 2 + 1]);
+  assert.ok(rise > prep.faceH * 0.006, `smile lifts the cheeks by ${rise.toFixed(1)} px`);
+});
