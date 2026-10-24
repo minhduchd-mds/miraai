@@ -53,6 +53,6 @@ await browser.close();
 execFileSync(FF, ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', join(frames, 'f%05d.jpg'),
   '-itsoffset', String(LEAD), '-i', AUDIO, '-map', '0:v', '-map', '1:a',
   '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(FPS),
-  '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', OUT]);
+  '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', OUT]);
 rmSync(frames, { recursive: true, force: true });
 console.log(JSON.stringify({ out: OUT, frames: total, seconds: +(total / FPS).toFixed(2), bytes: statSync(OUT).size }));
