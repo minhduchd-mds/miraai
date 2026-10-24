@@ -16,6 +16,9 @@ concurrency:
 
 jobs:
   build:
+    # The repo is private; GitHub Pages for private repos needs a paid GitHub plan.
+    # Vercel (miraai-five.vercel.app) is the production host. Skip instead of failing.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     environment: elevenlabs
     steps:

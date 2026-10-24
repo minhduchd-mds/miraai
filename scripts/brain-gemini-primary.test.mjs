@@ -34,7 +34,7 @@ test('Configured Gemini runs first, free Gateway second, never OpenAI',async()=>
  });
 });
 test('Gemini free tier model allowlist ignores unknown or chargeable model override',()=>{
- assert.deepEqual(GEMINI_FREE_CHAT_MODELS,['gemini-3.8-flash','gemini-3.5-flash-lite']);
+ assert.deepEqual(GEMINI_FREE_CHAT_MODELS,['gemini-3.8-flash','gemini-3.5-flash-lite','gemini-2.5-flash']);
  assert.deepEqual(geminiChatModels({GEMINI_MODEL:'other-paid-pro-preview'}),GEMINI_FREE_CHAT_MODELS);
  assert.deepEqual(geminiChatModels({GEMINI_MODEL:'gemini-3.7-flash'}),GEMINI_FREE_CHAT_MODELS);
 });
@@ -113,12 +113,12 @@ test('429 cooldown avoids retrying Gemini 3.8 alias and does not affect unrelate
   assert.ok(!JSON.stringify(second).includes('do-not-log-provider-message'));
 });
 
-test('Short speech uses bounded sequential model budgets, deeper requests retain 12s',()=>{
- assert.equal(geminiAttemptBudgetMs(450,'gemini-3.8-flash',48_000),6000);
- assert.equal(geminiAttemptBudgetMs(450,'gemini-3.5-flash-lite',48_000),9000);
- assert.equal(geminiAttemptBudgetMs(1200,'gemini-3.8-flash',48_000),8000);
- assert.equal(geminiAttemptBudgetMs(1200,'gemini-3.5-flash-lite',48_000),10000);
- assert.equal(geminiAttemptBudgetMs(2200,'gemini-3.8-flash',48_000),12000);
+test('Free-tier attempt budgets leave headroom for latency spikes and respect the deadline',()=>{
+ assert.equal(geminiAttemptBudgetMs(450,'gemini-3.8-flash',48_000),12000);
+ assert.equal(geminiAttemptBudgetMs(450,'gemini-3.5-flash-lite',48_000),10000);
+ assert.equal(geminiAttemptBudgetMs(1200,'gemini-3.8-flash',48_000),14000);
+ assert.equal(geminiAttemptBudgetMs(1200,'gemini-3.5-flash-lite',48_000),12000);
+ assert.equal(geminiAttemptBudgetMs(2200,'gemini-3.8-flash',48_000),18000);
  assert.equal(geminiAttemptBudgetMs(450,'gemini-3.8-flash',3100),3100);
  assert.equal(geminiAttemptBudgetMs(450,'gemini-3.8-flash',100),600);
 });
@@ -140,4 +140,40 @@ test('A slow free provider never triggers speculative concurrent paid inference'
  assert.equal(maxPending,1);
  assert.deepEqual(requests,['gemini-3.8-flash','gemini-3.5-flash-lite']);
  assert.equal(response.model,'gemini-3.5-flash-lite');
+});
+// These two run last: they advance the shared module clock/cooldowns far into the future.
+test('Gemini 2.5 fallback uses thinkingBudget, 3.x models keep thinkingLevel',async()=>{
+ const seen={};
+ const result=await generateGeminiFreeChat('s',[{role:'user',text:'hi'}],
+  {maxTokens:450,deadlineAt:Date.now()+1_000_000},
+  {env:{GEMINI_API_KEY:'k'},now:()=>Date.now()+600_000,
+   fetcher:async(url,init)=>{
+     const model=String(url).split('/models/')[1].split(':')[0];
+     seen[model]=JSON.parse(init.body).generationConfig.thinkingConfig;
+     if(model!=='gemini-2.5-flash')return new Response('busy',{status:503});
+     return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Ổn rồi.'}]}}]}));
+   }});
+ assert.equal(result.model,'gemini-2.5-flash');
+ assert.deepEqual(seen['gemini-2.5-flash'],{thinkingBudget:0});
+ assert.deepEqual(seen['gemini-3.8-flash'],{thinkingLevel:'low'});
+});
+test('When every model is cooling down after transient failures, the next turn still probes one',async()=>{
+ const base=Date.now()+900_000;
+ let t=base;const calls=[];
+ const deps={env:{GEMINI_API_KEY:'k'},now:()=>t,
+  fetcher:async(url)=>{
+    calls.push(String(url).split('/models/')[1].split(':')[0]);
+    return new Response('busy',{status:503});
+  }};
+ await assert.rejects(generateGeminiFreeChat('s',[{role:'user',text:'1'}],{deadlineAt:t+60_000},deps));
+ assert.equal(calls.length,3);
+ // 5s later all three are still in their 30s cooldown: previously this failed instantly (no_candidates).
+ t=base+5_000;
+ deps.fetcher=async(url)=>{
+   calls.push(String(url).split('/models/')[1].split(':')[0]);
+   return new Response(JSON.stringify({candidates:[{content:{parts:[{text:'Đã hồi phục.'}]}}]}));
+ };
+ const reply=await generateGeminiFreeChat('s',[{role:'user',text:'2'}],{deadlineAt:t+60_000},deps);
+ assert.equal(reply.text,'Đã hồi phục.');
+ assert.equal(calls.length,4,'exactly one half-open probe, no fan-out');
 });
