@@ -38,4 +38,4 @@ Trạng thái quyền: **review_required** (nhóm `live-avatar-generated` trong 
 2. Rà soát tương đồng: so ảnh với nhận diện người nổi tiếng/ảnh công khai để loại trừ trùng gương mặt thật.
 3. Ký duyệt và đổi `status` của nhóm `live-avatar-generated` sang `verified` kèm `approvedBy`.
 
-Mira luôn hiển thị nhãn "Nhân vật AI" trên LiveAvatar để người dùng biết đây là nhân vật tổng hợp.
+Mira luôn cho người dùng biết đây là nhân vật tổng hợp: dòng "Bạn đồng hành AI" dưới tên Mira ở header và nhãn trợ năng "Mira, nhân vật AI" của khung hình (từ 24/10 không còn huy hiệu chồng lên khuôn mặt, theo yêu cầu chủ dự án).

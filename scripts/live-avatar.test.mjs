@@ -143,3 +143,55 @@ test('empathy: camera mood nudges the face (joy → warmer smile, sadness → co
   assert.ok(EMPATHY_OFFSETS.angry.smile <= 0 && EMPATHY_OFFSETS.angry.brow < 0.2, 'calm attention, no anger mirroring');
   for (const p of [happy, sad, surprised]) assert.equal(flippedTriangles(p), 0);
 });
+
+test('lips keep moving when the reply is audible but unmeasured, never during a silent fetch', () => {
+  const run = (voiceAudible) => {
+    const m = new AvatarMotion(11);
+    let maxJaw = 0, minJaw = 1;
+    for (let t = 0; t < 4000; t += 16) {
+      const p = m.update({ timeMs: t, state: 'speaking', voiceLevel: -1, voiceBands: null, userLevel: 0, reducedMotion: false, voiceAudible });
+      if (t > 500) { maxJaw = Math.max(maxJaw, p.jaw); minJaw = Math.min(minJaw, p.jaw); }
+    }
+    return { maxJaw, minJaw };
+  };
+  assert.equal(run(false).maxJaw, 0, 'state "speaking" while TTS is still loading: mouth stays closed');
+  const r = run(true);
+  assert.ok(r.maxJaw > 0.5 && r.minJaw < 0.25, `syllables open and close: ${JSON.stringify(r)}`);
+});
+
+test('measured speech opens the mouth wider and closes it between syllables', () => {
+  const m = new AvatarMotion(5);
+  let maxJaw = 0, minJaw = 1;
+  for (let t = 0; t < 2000; t += 16) {
+    const level = 0.35 * Math.max(0, Math.sin(t / 1000 * Math.PI * 2 * 5)); // ~5 syllables/s, typical RMS
+    const p = m.update({ timeMs: t, state: 'speaking', voiceLevel: level, voiceBands: { low: 0.3, mid: 0.4, high: 0.2 }, userLevel: 0, reducedMotion: false });
+    if (t > 300) { maxJaw = Math.max(maxJaw, p.jaw); minJaw = Math.min(minJaw, p.jaw); }
+  }
+  assert.ok(maxJaw > 0.45, `maxJaw=${maxJaw}`);
+  assert.ok(minJaw < 0.12, `minJaw=${minJaw}`);
+});
+
+test('interactive: eyes follow the pointer; head motion stays inside the fold-free range', () => {
+  const m = new AvatarMotion(9);
+  let p;
+  for (let t = 0; t < 1500; t += 16) p = m.update({ timeMs: t, state: 'idle', voiceLevel: -1, voiceBands: null, userLevel: 0, reducedMotion: false, lookAt: { x: 1, y: 0.4 } });
+  assert.ok(p.gazeX > 0.6, `gazeX=${p.gazeX}`);
+  assert.ok(p.gazeY > 0.15, `gazeY=${p.gazeY}`);
+  const s = new AvatarMotion(2);
+  let maxHead = 0;
+  for (let t = 0; t < 20000; t += 16) {
+    const q = s.update({ timeMs: t, state: t % 6000 < 3000 ? 'speaking' : 'listening', voiceLevel: t % 6000 < 3000 ? Math.abs(Math.sin(t / 90)) : -1, voiceBands: null, userLevel: t % 1500 < 900 ? 0.6 : 0, reducedMotion: false, lookAt: { x: -1, y: -1 } });
+    maxHead = Math.max(maxHead, Math.abs(q.yaw), Math.abs(q.pitch), Math.abs(q.roll));
+  }
+  assert.ok(maxHead <= 0.08 + 1e-9, `maxHead=${maxHead}`);
+});
+
+test('UI 24/10: no badge over the face; AI disclosure in header + aria; dismissed toast clears "Có lỗi"', () => {
+  const comp = readFileSync('src/presence/live-avatar/LiveAvatarPresence.tsx', 'utf8');
+  assert.doesNotMatch(comp, /live-avatar-ai-note|>Nhân vật AI</);
+  assert.match(comp, /aria-label=\{live \? 'Mira, nhân vật AI, đang trò chuyện' : 'Mira, nhân vật AI'\}/);
+  const app = readFileSync('src/app/AppV2.tsx', 'utf8');
+  assert.match(app, /<small>Bạn đồng hành AI<\/small>/);
+  assert.match(app, /statusError = Boolean\(toastText\) && toastText !== dismissedToast/);
+  assert.match(readFileSync('src/presence/live-avatar/live-avatar-gl.ts', 'utf8'), /PANEL_ASPECT = 1\.42/);
+});

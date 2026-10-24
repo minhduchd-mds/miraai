@@ -22,7 +22,7 @@ rig.json (582 đỉnh) ──► deformRig (rig-deform.ts) ──► LiveAvatarR
 | `src/presence/live-avatar/rig-deform.ts` | Biến dạng thuần (test bằng Node): miệng dạng thấu kính, chớp mắt đơn điệu, ánh mắt, đầu có parallax theo độ sâu |
 | `src/presence/live-avatar/motion.ts` | Hành vi: khẩu hình chỉ theo giọng Mira, chớp mắt 2,2–5,8 s, liếc mắt, gật theo năng lượng giọng, nghiêng đầu khi nghe |
 | `src/presence/live-avatar/live-avatar-gl.ts` | Renderer: khoang miệng (răng/lưỡi thủ tục) rồi lớp da; màn rộng hiển thị khung dọc kiểu livestream |
-| `src/presence/live-avatar/LiveAvatarPresence.tsx` | Component lazy; badge LIVE khi gọi Live; nhãn "Nhân vật AI" luôn hiện |
+| `src/presence/live-avatar/LiveAvatarPresence.tsx` | Component lazy; badge LIVE khi gọi Live; công khai AI ở header ("Bạn đồng hành AI") và aria-label, không chồng nhãn lên mặt |
 | `scripts/live-avatar/qa.html` | Harness dev (vite dev) để chụp tư thế cố định |
 
 Chọn kiểu hiện diện: Cài đặt → Giao diện → "Mira LiveAvatar". Các URL QA (`visual-test`, `room3d`, `humanLab`…) tự dùng ảnh cảnh cũ.

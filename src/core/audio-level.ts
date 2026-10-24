@@ -8,6 +8,11 @@ export const audioLevel = { value: 0, active: false };
 export const ttsLevel = { value: 0, active: false,
   bands: {low:0,mid:0,high:0} };
 
+// True only while Mira's reply is actually audible (audio element playing or the device
+// voice speaking). Lets the avatar animate lips procedurally when no analyser level exists
+// (AudioContext still locked, device speech) without moving them during a silent fetch.
+export const speechPlayback = { active: false };
+
 export interface MicProsodySnapshot {
   energy: number;
   activity: number;

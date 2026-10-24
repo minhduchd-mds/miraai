@@ -20,9 +20,10 @@
 .live-avatar-canvas { opacity: 0; transition: opacity .35s ease; }
 .live-avatar[data-live-avatar="live"] .live-avatar-canvas { opacity: 1; }
 .live-avatar[data-live-avatar="live"] .live-avatar-still {
-  /* Ambient fill around the height-fitted camera panel on wide screens. */
-  filter: blur(28px) brightness(.62) saturate(1.1);
-  transform: scale(1.12);
+  /* Ambient fill beyond the wide camera panel: soft, bright enough that the scene reads
+     as one continuous room rather than a strip between dark bars. */
+  filter: blur(22px) brightness(.74) saturate(1.12);
+  transform: scale(1.16);
 }
 
 /* Soft vignette so header/footer controls stay legible over the photo. */
@@ -56,23 +57,8 @@
 .live-avatar.is-realtime .live-avatar-badge { visibility: visible; background: #e5323b; }
 .live-avatar.is-realtime .live-avatar-badge i { background: #fff; animation: liveAvatarPulse 1.2s ease-in-out infinite; }
 
-/* Transparency: users always know the host is synthetic (EU AI Act art. 50 style disclosure). */
-.live-avatar-ai-note {
-  position: absolute;
-  z-index: 2;
-  top: calc(env(safe-area-inset-top) + 76px);
-  right: 16px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: rgba(10, 10, 14, .5);
-  color: rgba(255, 255, 255, .86);
-  font: 500 11px/1 'Inter', system-ui, sans-serif;
-}
-
 @media (max-width: 760px) {
   .live-avatar-badge { top: calc(env(safe-area-inset-top) + 124px); }
-  .live-avatar-ai-note { top: calc(env(safe-area-inset-top) + 128px); right: auto; left: 16px; }
-  .live-avatar.is-realtime .live-avatar-ai-note { left: 92px; }
 }
 
 @keyframes liveAvatarPulse { 50% { opacity: .35; } }
@@ -80,11 +66,9 @@
   .live-avatar.is-realtime .live-avatar-badge i { animation: none; }
 }
 
-/* Wide screens: the renderer height-fits a centred camera panel (width = 1.06 · H · 896/1200
-   ≈ 0.7915 · H, see viewTransform). Keep the LIVE badge and the AI disclosure on that panel
-   instead of the far edges of the blurred ambient fill (UI QA 24/10, P3). */
+/* Wide screens: the renderer draws a centred camera panel up to 1.42 × height wide (see
+   LiveAvatarRenderer.PANEL_ASPECT). Keep the LIVE badge on that panel, not on the blurred fill. */
 .live-avatar { container-type: size; }
 @container (min-aspect-ratio: 859/1000) {
-  .live-avatar-badge { left: calc(50% - 39.57cqh + 16px); }
-  .live-avatar-ai-note { right: calc(50% - 39.57cqh + 16px); }
+  .live-avatar-badge { left: calc(50% - min(50cqw, 71cqh) + 16px); }
 }

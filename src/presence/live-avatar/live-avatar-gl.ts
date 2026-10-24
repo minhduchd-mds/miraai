@@ -21,8 +21,13 @@ void main() {
 const SKIN_FRAG = `
 precision mediump float;
 uniform sampler2D u_tex;
+uniform float u_feather; // >0 on wide screens: soften the panel's left/right edges into the ambient fill
 varying vec2 v_uv;
-void main() { gl_FragColor = texture2D(u_tex, v_uv); }`;
+void main() {
+  vec4 c = texture2D(u_tex, v_uv);
+  float a = u_feather > 0.0 ? smoothstep(0.0, u_feather, v_uv.x) * smoothstep(0.0, u_feather, 1.0 - v_uv.x) : 1.0;
+  gl_FragColor = vec4(c.rgb * a, a); // premultiplied
+}`;
 
 const MOUTH_FRAG = `
 precision mediump float;
@@ -81,9 +86,11 @@ export class LiveAvatarRenderer {
   private mouthCount: number;
   private positions: Float32Array;
   private texture: WebGLTexture;
+  private feather = 0;
 
-  constructor(private canvas: HTMLCanvasElement, private prep: PreparedRig, image: HTMLImageElement) {
-    const gl = canvas.getContext('webgl', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
+  constructor(private canvas: HTMLCanvasElement, private prep: PreparedRig, image: HTMLImageElement, preserveDrawingBuffer = false) {
+    // preserveDrawingBuffer only for frame-by-frame video export (screenshots after render).
+    const gl = canvas.getContext('webgl', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer });
     if (!gl) throw new Error('webgl_unavailable');
     this.gl = gl;
     this.skin = program(gl, SKIN_FRAG);
@@ -118,14 +125,21 @@ export class LiveAvatarRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   }
 
+  /** Wide screens: the centred "camera" panel spans up to this many screen heights. */
+  static readonly PANEL_ASPECT = 1.42;
+
   /** Object-fit: cover, with an optional focus point (0..1) kept in view. */
   private viewTransform(focusY: number) {
     const { width: iw, height: ih } = this.prep.rig.image;
     const cw = this.canvas.width, ch = this.canvas.height;
-    // Portrait/tall screens: cover. Wide screens: fit the height (a centred "camera" panel,
-    // like a livestream on a landscape monitor); the blurred still fills the sides in CSS.
+    // Portrait/tall screens: cover the viewport. Wide screens: a wide landscape "camera" panel
+    // (up to PANEL_ASPECT × height, user request 24/10: larger, wider scene) that covers its own
+    // area — the portrait is zoomed so the face reads like a webcam close-up — with feathered
+    // edges blending into the blurred ambient fill drawn in CSS.
     const wide = cw / ch > (iw / ih) * 1.15;
-    const scale = wide ? (ch / ih) * 1.06 : Math.max(cw / iw, ch / ih);
+    const panelW = wide ? Math.min(cw, ch * LiveAvatarRenderer.PANEL_ASPECT) : cw;
+    const scale = Math.max(panelW / iw, ch / ih);
+    this.feather = wide && panelW < cw ? 0.07 : 0;
     const sx = (iw * scale) / cw, sy = (ih * scale) / ch;
     // Put the face slightly above centre (clip y = 0.12) while the photo still covers the
     // whole viewport: top edge ≥ 1 and bottom edge ≤ -1 in clip space.
@@ -151,6 +165,8 @@ export class LiveAvatarRenderer {
     const view = this.viewTransform(prep.rig.center[1]);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
@@ -167,6 +183,7 @@ export class LiveAvatarRenderer {
       gl.uniform2f(gl.getUniformLocation(p, 'u_image'), prep.rig.image.width, prep.rig.image.height);
       gl.uniform4f(gl.getUniformLocation(p, 'u_view'), view[0], view[1], view[2], view[3]);
       gl.uniform1i(gl.getUniformLocation(p, 'u_tex'), 0);
+      if (p === this.skin) gl.uniform1f(gl.getUniformLocation(p, 'u_feather'), this.feather);
       if (p === this.mouth) {
         gl.uniform2f(gl.getUniformLocation(p, 'u_mouthTop'), this.positions[13 * 2], this.positions[13 * 2 + 1]);
         gl.uniform1f(gl.getUniformLocation(p, 'u_open'), open);

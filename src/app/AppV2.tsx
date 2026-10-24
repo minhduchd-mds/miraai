@@ -706,7 +706,8 @@ export default function AppV2() {
     handsFreeP50 != null && mira.responseLatency ? `Rảnh tay ${fmtSec(handsFreeP50)} (${mira.responseLatency.firstAudio.count} lượt)` : '',
   ].filter(Boolean).join(' · ') || 'Chưa có số đo';
   // The header must not say "Sẵn sàng" while an error toast says the opposite (UI QA 24/10).
-  const statusError = Boolean(toastText) && talk.state === 'idle';
+  // …and must clear once the user has dismissed that toast (it stayed on "Có lỗi" before).
+  const statusError = Boolean(toastText) && toastText !== dismissedToast && talk.state === 'idle';
 
   return (
     <div
@@ -721,7 +722,7 @@ export default function AppV2() {
       <header className="v2-header voice-header">
         <div className="v2-brand" aria-label="Mira">
           <span className="v2-mark" aria-hidden="true"><i /></span>
-          <span className="v2-wordmark"><b>Mira</b><small>Voice Companion</small></span>
+          <span className="v2-wordmark"><b>Mira</b><small>Bạn đồng hành AI</small></span>
         </div>
         <details className="v2-status v2-session-details">
           <summary title="Xem trạng thái kết nối Mira">

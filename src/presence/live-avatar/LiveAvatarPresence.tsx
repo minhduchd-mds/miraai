@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MiraState } from '../../core/types';
 import type { MotionInput } from './motion.ts';
-import { audioLevel, ttsLevel } from '../../core/audio-level';
+import { audioLevel, speechPlayback, ttsLevel } from '../../core/audio-level';
 import { prepareRig, type LiveAvatarRig } from './rig-deform.ts';
 import { AvatarMotion } from './motion.ts';
 import { LiveAvatarRenderer } from './live-avatar-gl.ts';
@@ -40,6 +40,29 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
     let observer: ResizeObserver | null = null;
     const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     const motion = new AvatarMotion(Date.now() & 0xffff);
+    const debugProbe = /[?&]avatar-debug=1\b/.test(window.location.search);
+    // Frame-by-frame video export (?avatar-export=1, scripts/media/render-talking.mjs): the
+    // real-time loop stops and the recorder drives time + Mira's voice envelope per frame, so
+    // the video is a smooth 30 fps with exact lip sync even on a CPU-only machine.
+    const exportMode = /[?&]avatar-export=1\b/.test(window.location.search);
+    // Interactive gaze: Mira's eyes follow the pointer/touch over the stage, then return.
+    let lookAt: { x: number; y: number } | null = null;
+    let lookUntil = 0;
+    const onPointer = (event: PointerEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      lookAt = {
+        x: Math.max(-1, Math.min(1, (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2))),
+        y: Math.max(-1, Math.min(1, (event.clientY - (rect.top + rect.height * 0.36)) / (rect.height / 2))),
+      };
+      lookUntil = performance.now() + 2500;
+    };
+    const onLeave = () => { lookAt = null; };
+    window.addEventListener('pointermove', onPointer, { passive: true });
+    window.addEventListener('pointerdown', onPointer, { passive: true });
+    document.addEventListener('pointerleave', onLeave);
 
     (async () => {
       try {
@@ -55,7 +78,7 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
         ]);
         if (disposed || !canvasRef.current) return;
         const canvas = canvasRef.current;
-        renderer = new LiveAvatarRenderer(canvas, prepareRig(rig), image);
+        renderer = new LiveAvatarRenderer(canvas, prepareRig(rig), image, exportMode);
         const fit = () => {
           const rect = canvas.getBoundingClientRect();
           const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -65,9 +88,22 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
         observer = new ResizeObserver(fit);
         observer.observe(canvas);
         setMode('live');
+        if (exportMode) {
+          type ExportFrame = { timeMs: number; state: MotionInput['state']; level: number; bands: { low: number; mid: number; high: number } | null; lookAt?: { x: number; y: number } | null; userLevel?: number };
+          (window as unknown as { __miraRenderFrame?: (f: ExportFrame) => void }).__miraRenderFrame = (f) => {
+            if (!renderer) return;
+            renderer.render(motion.update({
+              timeMs: f.timeMs, state: f.state, voiceLevel: f.state === 'speaking' ? f.level : -1,
+              voiceBands: f.state === 'speaking' ? f.bands : null, userLevel: f.userLevel || 0,
+              reducedMotion: false, userMood: moodRef.current, lookAt: f.lookAt ?? null,
+            }));
+          };
+          return;
+        }
         const frame = (now: number) => {
           if (disposed || !renderer) return;
           const speaking = stateRef.current === 'speaking' && ttsLevel.active;
+          if (lookAt && now > lookUntil) lookAt = null;
           const params = motion.update({
             timeMs: now,
             state: stateRef.current,
@@ -76,7 +112,13 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
             userLevel: stateRef.current === 'listening' && audioLevel.active ? audioLevel.value : 0,
             reducedMotion: reduced,
             userMood: moodRef.current,
+            // No analyser level (AudioContext locked, device voice) but the reply is audible.
+            voiceAudible: speechPlayback.active,
+            lookAt,
           });
+          // Opt-in QA probe (?avatar-debug=1): expose live face params + drive signals for
+          // recording/sync checks. One reference assignment; nothing leaves the page.
+          if (debugProbe) (window as unknown as { __miraFace?: object }).__miraFace = { ...params, speaking, level: ttsLevel.value, analyser: ttsLevel.active, audible: speechPlayback.active, state: stateRef.current };
           // Dev-only QA hook (stripped from production builds): force a pose for screenshots.
           if (import.meta.env.DEV) Object.assign(params, (window as unknown as { __liveAvatarPose?: object }).__liveAvatarPose || {});
           renderer.render(params);
@@ -91,6 +133,9 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
+      window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('pointerleave', onLeave);
       observer?.disconnect();
       renderer?.dispose();
     };
@@ -108,7 +153,6 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
       <span className="live-avatar-badge" aria-hidden="true">
         <i />{realtime ? 'LIVE' : state === 'speaking' ? 'ĐANG NÓI' : 'MIRA'}
       </span>
-      <span className="live-avatar-ai-note" aria-hidden="true">Nhân vật AI</span>
     </div>
   );
 }

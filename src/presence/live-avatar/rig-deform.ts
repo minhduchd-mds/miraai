@@ -177,7 +177,7 @@ export function deformRig(prep: PreparedRig, p: FaceParams, out: Float32Array): 
   const { rest, count, faceH, mouth } = prep;
   out.set(rest);
   const jaw = clamp01(p.jaw);
-  const openPx = jaw * faceH * 0.075;
+  const openPx = jaw * faceH * 0.092; // 24/10: wider articulation (fold-free verified in tests)
 
   // Lips, jaw and chin.
   const shape = 1 - 0.12 * clamp01(p.round) + 0.08 * clamp01(p.spread) + 0.04 * clamp01(p.smile);

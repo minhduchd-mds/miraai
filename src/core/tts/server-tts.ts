@@ -1,6 +1,6 @@
 import type { TTSAdapter, TTSSpeakOptions, VoiceOption } from '../types';
 import type { TTSDiagnostics } from './diagnostics';
-import { attachAnalyser } from '../audio-level';
+import { attachAnalyser, speechPlayback } from '../audio-level';
 import { BrowserSpeech } from './browser-speech';
 
 /** Human label for the voice that actually spoke (x-mira-tts-provider or device). */
@@ -142,9 +142,9 @@ export class ServerTTS implements TTSAdapter {
     // Never leave a reply unspoken when the device itself can say it.
     const utteranceId = this.utteranceId;
     const started = this.browser.speak(opts.text, opts.rate ?? 1, {
-      onStart: () => { if (this.utteranceId === utteranceId) { this.activeProvider = 'browser'; opts.onStart?.(); } },
-      onEnd: () => { if (this.utteranceId === utteranceId) opts.onEnd?.(); },
-      onError: (browserError) => { if (this.utteranceId === utteranceId) opts.onError?.(`${message}; ${browserError}`); },
+      onStart: () => { if (this.utteranceId === utteranceId) { this.activeProvider = 'browser'; speechPlayback.active = true; opts.onStart?.(); } },
+      onEnd: () => { speechPlayback.active = false; if (this.utteranceId === utteranceId) opts.onEnd?.(); },
+      onError: (browserError) => { speechPlayback.active = false; if (this.utteranceId === utteranceId) opts.onError?.(`${message}; ${browserError}`); },
     });
     if (!started) opts.onError?.(message);
   }
@@ -164,7 +164,7 @@ export class ServerTTS implements TTSAdapter {
     audio.playbackRate = opts.rate ?? 1;
     audio.preservesPitch = true;
     this.detach = attachAnalyser(audio);
-    audio.onplaying = () => { if (this.utteranceId === utteranceId) opts.onStart?.(); };
+    audio.onplaying = () => { if (this.utteranceId === utteranceId) { speechPlayback.active = true; opts.onStart?.(); } };
     audio.onended = () => {
       if (this.utteranceId !== utteranceId || this.audio !== audio) return;
       this.cleanupAudio();
@@ -252,6 +252,7 @@ export class ServerTTS implements TTSAdapter {
       this.detach = attachAnalyser(stream.audio);
       stream.audio.onplaying = () => {
         if (!isCurrent()) return;
+        speechPlayback.active = true;
         this.fetching = false;
         this.markHealthy();
         opts.onStart?.();
@@ -366,6 +367,7 @@ export class ServerTTS implements TTSAdapter {
     this.prefetched = null;
     this.fetching = false;
     this.browser.cancel();
+    speechPlayback.active = false;
     if (this.audio) {
       try { this.audio.pause(); } catch { /* noop */ }
     }
@@ -373,6 +375,7 @@ export class ServerTTS implements TTSAdapter {
   }
 
   private cleanupAudio(): void {
+    speechPlayback.active = false;
     this.detach?.();
     this.detach = null;
     if (this.audio) {

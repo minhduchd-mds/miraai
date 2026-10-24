@@ -1,0 +1,72 @@
+name: Media render (Mira talking video)
+
+# Renders a talking-head video of Mira LiveAvatar with her real production voice
+# (free Gemini TTS fallback via /api/tts), frame by frame through the app's own motion model
+# and WebGL renderer, then publishes the MP4s on the `media-renders` branch.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/media/**"
+      - "media/talking-script.txt"
+      - ".github/workflows/media-render.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mira-media-render
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false playwright@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - name: Tools (ffmpeg, numpy)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null || true
+          python3 -m pip install --quiet --break-system-packages numpy imageio-ffmpeg
+          if ! command -v ffmpeg >/dev/null; then echo "FFMPEG=$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')" >> "$GITHUB_ENV"; fi
+      - run: npm run build
+      - name: Mira's real voice from production
+        run: |
+          mkdir -p out
+          text="$(cat media/talking-script.txt)"
+          body=$(node -e 'console.log(JSON.stringify({text: process.argv[1]}))' "$text")
+          code=$(curl -sS -D out/tts-headers.txt -o out/reply.bin -w '%{http_code}' -X POST https://miraai-five.vercel.app/api/tts \
+            -H 'content-type: application/json' -H 'origin: https://miraai-five.vercel.app' --data "$body")
+          provider=$(grep -i '^x-mira-tts-provider' out/tts-headers.txt | tr -d '\r' | cut -d' ' -f2)
+          echo "::notice title=TTS::HTTP $code provider=${provider:-?} bytes=$(stat -c%s out/reply.bin)"
+          test "$code" = 200
+          # ElevenLabs answers MP3, the free fallback WAV: normalise to 24 kHz mono WAV.
+          "${FFMPEG:-ffmpeg}" -y -loglevel error -i out/reply.bin -ac 1 -ar 24000 -sample_fmt s16 out/reply.wav
+      - name: Render (landscape 1280×720 and vertical 720×1280)
+        run: |
+          npx vite preview --port 4173 --strictPort > /dev/null 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ >/dev/null && break; sleep 1; done
+          node scripts/media/render-talking.mjs --app http://localhost:4173/ --audio out/reply.wav --out out/mira-talking-1280x720.mp4 --width 1280 --height 720
+          node scripts/media/render-talking.mjs --app http://localhost:4173/ --audio out/reply.wav --out out/mira-talking-720x1280.mp4 --width 720 --height 1280
+          for f in out/*.mp4; do echo "::notice title=Rendered::$(basename $f) $(stat -c%s $f) bytes"; done
+      - name: Publish to the media-renders branch
+        run: |
+          set -e
+          cp out/mira-talking-*.mp4 media/talking-script.txt "$RUNNER_TEMP/"
+          git config user.name "mira-media-bot"
+          git config user.email "mira-media-bot@users.noreply.github.com"
+          git checkout --orphan media-renders-tmp
+          git rm -rq --cached . && git clean -fdq -e out
+          mkdir -p renders && cp "$RUNNER_TEMP"/mira-talking-*.mp4 renders/
+          printf 'Rendered from %s at %s by .github/workflows/media-render.yml\nScript: %s\n' "$GITHUB_SHA" "$(date -u +%FT%TZ)" "$(cat "$RUNNER_TEMP/talking-script.txt")" > renders/README.txt
+          git add renders && git commit -qm "Mira talking renders from ${GITHUB_SHA::7}"
+          git push -f origin HEAD:media-renders
+          echo "::notice title=Published::branch media-renders @ $(git rev-parse --short HEAD)"
