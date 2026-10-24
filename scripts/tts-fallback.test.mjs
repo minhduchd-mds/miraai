@@ -34,7 +34,8 @@ test('Gemini TTS uses only free-tier TTS models and asks for audio with a female
   const body = geminiTtsRequestBody('Chào anh', 'Aoede');
   assert.deepEqual(body.generationConfig.responseModalities, ['AUDIO']);
   assert.equal(body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName, 'Aoede');
-  assert.match(body.contents[0].parts[0].text, /Chào anh$/);
+  // Only the reply itself: a style prefix was spoken aloud in production.
+  assert.equal(body.contents[0].parts[0].text, 'Chào anh');
 });
 
 test('Gemini TTS falls through to the lighter model on 429 and never sends the key elsewhere', async () => {
