@@ -4,6 +4,7 @@ import { requestGatewayOidcToken, gatewayModels } from '../lib/vercel-ai-gateway
 import {freeRouterSnapshot} from '../lib/free-model-router.js';
 import { applyCors, originAllowed } from '../server/tts-policy.mjs';
 import { liveModel } from '../lib/live-token.js';
+import { LLAMA_FREE_CHAT_MODELS } from '../lib/llama-chat-free.js';
 
 /** Configuration readiness only: never executes a paid model request. */
 export default function handler(req, res) {
@@ -28,6 +29,8 @@ export default function handler(req, res) {
     providers,
     freeOnly: process.env.MIRA_BRAIN_FREE_ONLY === '1',
     gatewayModels: providers.includes('gateway') ? gatewayModels() : [],
+    // Meta Llama via GroqCloud Free plan: allowlisted model IDs only (configuration, not inference).
+    llamaModels: providers.includes('llama') ? [...LLAMA_FREE_CHAT_MODELS] : [],
     autoModelRouting: process.env.MIRA_BRAIN_FREE_ONLY === '1' && process.env.MIRA_BRAIN_AUTO_ROUTER === '1',
     routing,
     // Mira Live readiness (configuration only; a token is minted only on POST /api/chat?route=live-token).

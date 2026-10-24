@@ -70,3 +70,23 @@ When `MIRA_BRAIN_FREE_ONLY=1` and `MIRA_BRAIN_PROVIDER=gemini`, the server tries
 **Credentials:** Add `GEMINI_API_KEY` as a Vercel Production *Sensitive* env var, never `VITE_GEMINI_API_KEY` and never a GitHub Secret. Creating a Google AI Studio Free Tier key/project is required before Gemini can run in Production. The application cannot determine whether a Google project has billing enabled from the key, so verify Free Tier status in Google AI Studio; Google may use Free Tier prompts for product improvement. No real Gemini call is possible without the user's key. After saving the key, redeploy Production.
 
 API details: [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing); [3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash); [thinking config](https://ai.google.dev/gemini-api/docs/thinking).
+
+## Meta Llama free fallback via GroqCloud (24/10/2026)
+
+Order in free-only mode: **Gemini Free Tier → Meta Llama (Groq Free plan) → free AI Gateway SKUs**. Llama is
+activated only when the server env has `GROQ_API_KEY`; without it nothing changes. OpenAI/Anthropic remain excluded.
+
+| | |
+| --- | --- |
+| Endpoint | `https://api.groq.com/openai/v1/chat/completions` (OpenAI-compatible), key in `Authorization` header only |
+| Models (allowlist, `lib/llama-chat-free.js`) | `llama-3.3-70b-versatile` → `meta-llama/llama-4-scout-17b-16e-instruct` (preview) → `llama-3.1-8b-instant` |
+| Free limits (third-party summary, June 2026 — confirm at console.groq.com/docs/rate-limits) | 30 RPM each; 1,000 RPD for 70B and Scout, 14,400 RPD for 8B; org-level, not per key |
+| Budgets | 9 s per attempt for short turns, 12 s otherwise; 429 honours `retry-after` (min 60 s); invalid model 5 min; half-open probe like Gemini |
+| `MIRA_LLAMA_MODEL` | Optional; may only reorder the allowlist, never add a model |
+| Health | `/api/brain-health` lists `llama` in `providers` and `llamaModels` (configuration only, no inference) |
+
+Cost safety: a free model ID does not prove the Groq organisation is unbilled. Create the key in an org on the
+**Free plan with no card**; if a paid plan is ever attached there, rotate to a key from a free org.
+
+Licence: the Llama 3.3 / Llama 4 Community Licences ask services built on them to display "Built with Llama";
+Settings → Giọng & hội thoại shows it next to the provider disclosure.
