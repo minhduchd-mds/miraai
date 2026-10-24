@@ -1,0 +1,12 @@
+{
+ "version": "0.10.35",
+ "wasm": true,
+ "models": {
+  "holistic": "models/holistic_landmarker.task",
+  "face": "models/face_landmarker.task",
+  "gesture": "models/gesture_recognizer.task",
+  "pose": "models/pose_landmarker_lite.task",
+  "object": "models/efficientdet_lite0.tflite"
+ },
+ "fetchedAt": "2026-10-24T11:13:15.682Z"
+}
