@@ -198,9 +198,17 @@ test('UI 24/10: no badge over the face; AI disclosure in header + aria; dismisse
 
 test('teeth/muscles 24/10: anatomical teeth, crease fix, cheek mass that lifts with a smile', () => {
   const gl = readFileSync('src/presence/live-avatar/live-avatar-gl.ts', 'utf8');
-  // Teeth have a fixed anatomical height (face-relative), not a band that scales with the opening.
-  assert.match(gl, /float toothH = min\(u_faceH \* 0\.05, h \* 0\.58\)/);
+  // Teeth come from an original anatomical atlas projected onto the curved arch (front view),
+  // lit by the opening, with side teeth falling into the buccal corridor shadow.
+  assert.match(gl, /uniform sampler2D u_teeth/);
+  assert.match(gl, /float s = radius \* asin\(k\)/);
+  assert.match(gl, /float corridor = /);
   assert.match(gl, /precision highp float/);
+  const inv = JSON.parse(readFileSync('docs/MIRA-ASSET-RIGHTS-INVENTORY.json', 'utf8'));
+  const teethAsset = inv.assets.find((a) => a.path === 'public/mira-assets/live/mira-teeth-v1.webp');
+  assert.equal(teethAsset?.group, 'live-avatar-procedural');
+  assert.equal(inv.groups['live-avatar-procedural'].status, 'review_required', 'no self-approval of rights');
+  assert.ok(statSync('public/mira-assets/live/mira-teeth-v1.webp').size < 80 * 1024);
   // The photo's closed-lip crease is replaced while the lips are parted.
   assert.match(gl, /u_seamT/);
   const rig = JSON.parse(readFileSync('public/mira-assets/live/mira-live-face-v1.rig.json', 'utf8'));

@@ -60,6 +60,12 @@
       "license": "Figma AI generated output (gemini-3.1-flash-image) on the user's Figma team plan",
       "url": "https://www.figma.com/design/4ZUXPxQvSWfWJXsAJwRr8V",
       "note": "Original fictional adult character generated 2026-10-24 for Mira LiveAvatar; prompt, model, file key and node recorded in docs/MIRA-LIVE-AVATAR-FACE-PROVENANCE.md. Prompt forbids resemblance to real people. Generator output terms and similarity review pending human sign-off."
+    },
+    "live-avatar-procedural": {
+      "status": "review_required",
+      "license": "Original procedural texture generated in this repository (scripts/live-avatar/build-teeth.py); no photographic or third-party source",
+      "url": "scripts/live-avatar/build-teeth.py",
+      "note": "Mira LiveAvatar teeth atlas drawn from anatomical dimensions with numpy/Pillow (deterministic seed). Added 2026-10-24; awaiting the same human rights sign-off as other assets."
     }
   },
   "assets": [
@@ -656,6 +662,12 @@
       "gitBlobSha": "3a380f0f1248b59f8bb61c1ba05af446fda51ee4",
       "bytes": 119020,
       "group": "live-avatar-generated"
+    },
+    {
+      "path": "public/mira-assets/live/mira-teeth-v1.webp",
+      "gitBlobSha": "0aae2d34bb48df954b8eac04564221110891bae8",
+      "bytes": 40988,
+      "group": "live-avatar-procedural"
     },
     {
       "path": "public/mira-assets/poses/pose_bed_close.png",

@@ -13,6 +13,15 @@ import './live-avatar.css';
 
 const FACE = 'mira-assets/live/mira-live-face-v1.webp';
 const RIG = 'mira-assets/live/mira-live-face-v1.rig.json';
+// Original procedural teeth atlas (scripts/live-avatar/build-teeth.py).
+const TEETH = 'mira-assets/live/mira-teeth-v1.webp';
+const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const img = new Image();
+  img.decoding = 'async';
+  img.onload = () => resolve(img);
+  img.onerror = () => reject(new Error(src));
+  img.src = src;
+});
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
 interface Props {
@@ -66,7 +75,7 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
 
     (async () => {
       try {
-        const [rig, image] = await Promise.all([
+        const [rig, image, teeth] = await Promise.all([
           fetch(asset(RIG), { cache: 'force-cache' }).then((r) => { if (!r.ok) throw new Error('rig'); return r.json() as Promise<LiveAvatarRig>; }),
           new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new Image();
@@ -75,10 +84,11 @@ export default function LiveAvatarPresence({ state, live, realtime, userMood = '
             img.onerror = () => reject(new Error('face'));
             img.src = asset(FACE);
           }),
+          loadImage(asset(TEETH)).catch(() => null),
         ]);
         if (disposed || !canvasRef.current) return;
         const canvas = canvasRef.current;
-        renderer = new LiveAvatarRenderer(canvas, prepareRig(rig), image, exportMode);
+        renderer = new LiveAvatarRenderer(canvas, prepareRig(rig), image, exportMode, teeth);
         const fit = () => {
           const rect = canvas.getBoundingClientRect();
           const dpr = Math.min(2, window.devicePixelRatio || 1);

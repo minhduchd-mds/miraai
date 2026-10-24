@@ -39,3 +39,7 @@ Trạng thái quyền: **review_required** (nhóm `live-avatar-generated` trong 
 3. Ký duyệt và đổi `status` của nhóm `live-avatar-generated` sang `verified` kèm `approvedBy`.
 
 Mira luôn cho người dùng biết đây là nhân vật tổng hợp: dòng "Bạn đồng hành AI" dưới tên Mira ở header và nhãn trợ năng "Mira, nhân vật AI" của khung hình (từ 24/10 không còn huy hiệu chồng lên khuôn mặt, theo yêu cầu chủ dự án).
+
+## Răng (mira-teeth-v1.webp, 24/10/2026)
+
+Atlas răng do script trong repo vẽ hoàn toàn bằng thuật toán (`scripts/live-avatar/build-teeth.py`, numpy + Pillow, seed cố định), không dùng ảnh chụp hay tài nguyên bên thứ ba: cung răng trên/dưới "trải phẳng" theo chiều dài cung, kích thước thân răng theo số đo giải phẫu trung bình (răng cửa giữa 8,6 × 10,6 mm, răng cửa bên, răng nanh, răng tiền hàm, răng hàm lớn thứ nhất). Shader chiếu lại lên mặt trước cong (x = R·sin(s/R)), chiếu sáng theo độ mở miệng và bóng má. Đã ghi vào `MIRA-ASSET-RIGHTS-INVENTORY.json`, nhóm `live-avatar-procedural`, trạng thái `review_required` chờ người có thẩm quyền ký duyệt như các tài sản khác.
