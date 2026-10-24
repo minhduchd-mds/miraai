@@ -76,7 +76,7 @@ test('device preflight reports denied camera without opening media capture', asy
   await expect(microphone).toContainText('Đã cấp');
   await expect(xr).toContainText('Sẵn sàng');
 
-  await expect(settings.getByText('Preflight read-only · không bật camera/mic, không xin quyền.')).toBeVisible();
+  await expect(settings.getByText('Chỉ đọc trạng thái · không bật camera/mic, không xin quyền.')).toBeVisible();
   await expect(page.locator('.v2-vision-monitor')).toHaveCount(0);
 });
 

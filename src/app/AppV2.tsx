@@ -128,6 +128,8 @@ export default function AppV2() {
   const liveActive = Boolean(liveView && liveView.state !== 'idle' && liveView.state !== 'error');
   const [intimateScenes, setIntimateScenes] = useState(intimateScenesEnabled);
   const [presenceStyle, setPresenceStyle] = useState(readPresenceStyle);
+  // A dismissed toast stays hidden until a different message arrives.
+  const [dismissedToast, setDismissedToast] = useState('');
   const talk = liveActive && liveView
     ? liveView
     : { state: mira.state, caption: mira.caption, who: mira.who };
@@ -694,6 +696,9 @@ export default function AppV2() {
     webXRSnapshot.active ||
     (visionOn && (faceSeen || handSeen)),
   );
+  const toastText = visionError || liveView?.error || mira.error || '';
+  // The header must not say "Sẵn sàng" while an error toast says the opposite (UI QA 24/10).
+  const statusError = Boolean(toastText) && talk.state === 'idle';
 
   return (
     <div
@@ -712,8 +717,8 @@ export default function AppV2() {
         </div>
         <details className="v2-status v2-session-details">
           <summary title="Xem trạng thái kết nối Mira">
-            <span className={`v2-status-dot ${talk.state}`} aria-hidden="true" />
-            <span>{liveActive ? `Live · ${STATE_COPY[talk.state]}` : STATE_COPY[talk.state]}</span>
+            <span className={`v2-status-dot ${statusError ? 'error' : talk.state}`} aria-hidden="true" />
+            <span>{statusError ? 'Có lỗi' : liveActive ? `Live · ${STATE_COPY[talk.state]}` : STATE_COPY[talk.state]}</span>
             <span className="sr-only">— mở chi tiết kết nối</span>
           </summary>
           <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{STATE_COPY[talk.state]}</span>
@@ -746,7 +751,19 @@ export default function AppV2() {
         </nav>
       </header>
 
-      {(mira.error || visionError || liveView?.error) && <div className="v2-error" role="alert">{visionError || liveView?.error || mira.error}</div>}
+      {toastText && toastText !== dismissedToast && (
+        <div className="v2-error" role="alert">
+          <span>{toastText}</span>
+          {toastText === mira.error && mira.retryText && (
+            <button type="button" className="primary" onClick={mira.retryLast}>Thử lại</button>
+          )}
+          <button
+            type="button"
+            onClick={() => { if (toastText === mira.error) mira.dismissError(); setDismissedToast(toastText); }}
+            aria-label="Đóng thông báo"
+          >Đóng</button>
+        </div>
+      )}
       {mira.crisis && <Suspense fallback={null}><CrisisBanner onClose={mira.dismissCrisis} /></Suspense>}
 
       {(visionOn || webXRSnapshot.active) && (
@@ -844,7 +861,7 @@ export default function AppV2() {
         <div className="voice-stage holographic-stage">
           <Suspense fallback={<div className="voice-presence-loading" aria-hidden="true" />}>
           {presenceStyle === 'live' ? (
-            <LiveAvatarPresence state={talk.state} live={mira.live || liveActive} realtime={liveActive} onActivate={activateVoice} />
+            <LiveAvatarPresence state={talk.state} live={mira.live || liveActive} realtime={liveActive} />
           ) : <PhotorealMira
             state={talk.state}
             femalePresentation={femalePresentation}

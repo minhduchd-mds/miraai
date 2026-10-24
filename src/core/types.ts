@@ -83,6 +83,13 @@ export interface BrainTurn {
   text: string;
 }
 
+/** One line of the on-screen session transcript (never persisted by itself). */
+export interface TranscriptTurn extends BrainTurn {
+  id: number;
+  /** Mira could not reach a model; the line is a fallback, not an answer. */
+  failed?: boolean;
+}
+
 /** Brain adapters may ignore context/tool-call fields; the runtime keeps them backward compatible. */
 export interface Brain {
   readonly name: string;

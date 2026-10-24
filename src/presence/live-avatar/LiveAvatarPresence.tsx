@@ -18,10 +18,11 @@ interface Props {
   state: MiraState;
   live: boolean;
   realtime: boolean;
-  onActivate: () => void;
 }
 
-export default function LiveAvatarPresence({ state, live, realtime, onActivate }: Props) {
+// Not a button: the whole stage used to start the mic on any stray tap (UI QA 24/10).
+// Conversation starts only from the explicit mic / LIVE controls in the dock.
+export default function LiveAvatarPresence({ state, live, realtime }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -90,12 +91,11 @@ export default function LiveAvatarPresence({ state, live, realtime, onActivate }
   }, []);
 
   return (
-    <button
-      type="button"
+    <div
       className={`live-avatar state-${state}${live ? ' is-live' : ''}${realtime ? ' is-realtime' : ''}`}
       data-live-avatar={mode}
-      onClick={onActivate}
-      aria-label={live ? 'Mira đang trò chuyện' : 'Bắt đầu trò chuyện với Mira'}
+      role="img"
+      aria-label={live ? 'Mira, nhân vật AI, đang trò chuyện' : 'Mira, nhân vật AI'}
     >
       <img className="live-avatar-still" src={asset(FACE)} alt="" aria-hidden="true" draggable={false} />
       <canvas ref={canvasRef} className="live-avatar-canvas" aria-hidden="true" />
@@ -103,6 +103,6 @@ export default function LiveAvatarPresence({ state, live, realtime, onActivate }
         <i />{realtime ? 'LIVE' : state === 'speaking' ? 'ĐANG NÓI' : 'MIRA'}
       </span>
       <span className="live-avatar-ai-note" aria-hidden="true">Nhân vật AI</span>
-    </button>
+    </div>
   );
 }

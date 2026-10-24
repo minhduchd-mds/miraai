@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MiraState } from '../core/types';
 import type { UseMira } from '../core/useMira';
 import { useLiveConversation } from '../core/live/useLiveConversation';
@@ -33,6 +33,16 @@ export default function VoiceDock({ mira, activateVoice, voiceSessionActive, idl
     recordTurn: (turn) => { void mira.recordTurn(turn); },
   });
   const [text, setText] = useState('');
+  const [transcriptOpen, setTranscriptOpen] = useState(true);
+  const logRef = useRef<HTMLDivElement | null>(null);
+  const turns = mira.transcript;
+  const lastTurnId = turns.length ? turns[turns.length - 1].id : 0;
+
+  // Keep the newest line in view (the log is bottom-anchored like a chat).
+  useEffect(() => {
+    const el = logRef.current;
+    if (el && transcriptOpen) el.scrollTop = el.scrollHeight;
+  }, [lastTurnId, transcriptOpen]);
 
   useEffect(() => {
     onLiveView(liveTalk.active || liveTalk.error
@@ -57,12 +67,46 @@ export default function VoiceDock({ mira, activateVoice, voiceSessionActive, idl
   }, [liveTalk, mira, text]);
 
   const live = liveTalk.active;
+  const inSession = mira.live || live;
+  const hasTurns = turns.length > 0;
+  // The transcript now carries answers; the caption is only for transient states
+  // (listening / thinking / Live streaming) or the first-run hint.
+  const showCaption = live || (talk.state !== 'idle' && talk.state !== 'speaking') || !hasTurns;
   return (
-    <div className={`voice-footer state-${talk.state}${mira.live || live ? ' is-live' : ''}${live ? ' is-realtime' : ''}`}>
-      <div className="voice-session-caption" aria-hidden="true">
-        <small>{talk.state === 'idle' ? idleLabel : live ? `Live · ${stateCopy[talk.state]}` : stateCopy[talk.state]}</small>
-        <span>{talk.caption}</span>
-      </div>
+    <div className={`voice-footer state-${talk.state}${inSession ? ' is-live' : ''}${live ? ' is-realtime' : ''}`}>
+      {hasTurns && (
+        <section className={`voice-transcript${transcriptOpen ? '' : ' collapsed'}`} aria-label="Hội thoại">
+          <button
+            type="button"
+            className="voice-transcript-toggle"
+            onClick={() => setTranscriptOpen((open) => !open)}
+            aria-expanded={transcriptOpen}
+          >
+            {transcriptOpen ? 'Ẩn hội thoại' : `Hiện hội thoại · ${turns.length}`}
+          </button>
+          {transcriptOpen && (
+            <div ref={logRef} className="voice-transcript-log" role="log" aria-live="polite" aria-relevant="additions">
+              <ol className="voice-transcript-list">
+              {turns.map((turn) => (
+                <li key={turn.id} className={`voice-turn ${turn.role}${turn.failed ? ' failed' : ''}`}>
+                  <span className="sr-only">{turn.role === 'user' ? 'Anh: ' : 'Mira: '}</span>
+                  <p>{turn.text}</p>
+                  {turn.failed && turn.id === lastTurnId && mira.retryText && (
+                    <button type="button" className="voice-turn-retry" onClick={mira.retryLast}>Thử lại</button>
+                  )}
+                </li>
+              ))}
+              </ol>
+            </div>
+          )}
+        </section>
+      )}
+      {showCaption && (
+        <div className="voice-session-caption" aria-hidden="true">
+          {talk.state !== 'idle' && <small>{live ? `Live · ${stateCopy[talk.state]}` : stateCopy[talk.state]}</small>}
+          <span>{talk.state === 'idle' && !live ? talk.caption || idleLabel : talk.caption}</span>
+        </div>
+      )}
       <div className="voice-control-dock">
         <span className="voice-wave-mini" aria-hidden="true">
           {Array.from({ length: 9 }, (_, index) => <i key={index} />)}
@@ -91,18 +135,17 @@ export default function VoiceDock({ mira, activateVoice, voiceSessionActive, idl
         >
           <IconMic />
         </button>
-        <button
+        {inSession && <button
           type="button"
           className="voice-end"
           onClick={live ? liveTalk.stop : mira.stopLive}
-          disabled={!mira.live && !live}
           aria-label="Kết thúc trò chuyện"
           title="Kết thúc trò chuyện"
           data-spatial-action="voice.end"
           data-spatial-label="Kết thúc trò chuyện"
         >
           <IconPhoneOff />
-        </button>
+        </button>}
       </div>
       <form className="voice-composer" onSubmit={submit}>
         <label className="sr-only" htmlFor="mira-composer">Nhắn cho Mira</label>

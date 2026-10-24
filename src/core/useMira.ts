@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { BrainTurn, MiraState, Mood, VoiceOption } from './types';
+import type { BrainTurn, MiraState, Mood, TranscriptTurn, VoiceOption } from './types';
 import type { Content } from './content';
 import { WebSpeechSTT } from './stt/webspeech-stt';
 import { startMicLevel, stopMicLevel, primeAudio } from './audio-level';
@@ -111,6 +111,12 @@ export function useMira() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<BrainTurn[]>([]);
   const historyRef = useRef<BrainTurn[]>([]);
+  // On-screen transcript for THIS session only (turns loaded from Memory are not replayed).
+  // Without it a typed answer vanished as soon as speech ended or TTS failed (UI QA 24/10).
+  const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
+  const transcriptSeqRef = useRef(0);
+  // The user text of the last turn that got no AI answer, so the UI can offer "Thử lại".
+  const [retryText, setRetryText] = useState<string | null>(null);
   const [content, setContent] = useState<Content | null>(null);
   const [voices, setVoices] = useState<VoiceOption[]>([]);
   const [voiceURI, setVoiceURI] = useState<string | undefined>('');
@@ -151,9 +157,11 @@ export function useMira() {
     speechQueueRef.current?.cancel();
   }, [clearThinkingSignals]);
 
-  const pushHistory = useCallback((turn: BrainTurn, persist = true) => {
+  const pushHistory = useCallback((turn: BrainTurn, persist = true, failed = false) => {
     historyRef.current = [...historyRef.current, turn].slice(-12);
     setHistory(historyRef.current);
+    const id = ++transcriptSeqRef.current;
+    setTranscript((prev) => [...prev, { id, role: turn.role, text: turn.text, ...(failed ? { failed } : {}) }].slice(-30));
     // Crisis disclosures stay in the on-screen session only: never distilled into memory.
     if (persist) memoryRef.current!.save(turn);
   }, []);
@@ -378,6 +386,7 @@ export function useMira() {
     if (!text) return;
 
     emptyCountRef.current = 0;
+    setRetryText(null);
     proactiveRef.current.noteUserActivity();
     stopMicLevel();
     const token = ++turnSeqRef.current;
@@ -421,10 +430,13 @@ export function useMira() {
       lastBrainLatencyRef.current = result.latencyMs;
       setLatencyMs(result.latencyMs);
       setMoodBoth(result.reply.mood || 'neutral');
-      if (result.reply.runtimeSource === 'fallback') {
+      const noAnswer = result.reply.runtimeSource === 'fallback';
+      if (noAnswer) {
         setError(brainFailureMessage(result.reply.failureCode));
+        setRetryText(text);
       }
-      pushHistory({ role: 'mira', text: result.reply.text });
+      // A fallback line is not a real answer: show it, but never distil it into Memory.
+      pushHistory({ role: 'mira', text: result.reply.text }, !noAnswer, noAnswer);
       speak(result.reply.text, () => {
         if (turnSeqRef.current !== token) return;
         const firstAudioMs = Math.max(0, Math.round(performance.now() - turnStartedAt));
@@ -441,9 +453,10 @@ export function useMira() {
     } catch (err) {
       clearThinkingSignals();
       if (turnSeqRef.current !== token) return;
-      const message = err instanceof Error ? err.message : String(err);
+      // Raw provider/runtime errors go to the console only, never into the UI.
       console.error('[Mira Brain] reply failed:', err);
-      setError(`Bộ não lỗi: ${message.slice(0, 160)}`);
+      setError(brainFailureMessage());
+      setRetryText(text);
       if (stateRef.current === 'thinking') {
         speak('Xin lỗi anh, bộ não của em đang trục trặc. Anh thử lại giúp em nhé.');
       }
@@ -710,6 +723,23 @@ export function useMira() {
     }
   }, []);
 
+  /** Retry the last unanswered turn, replacing (not duplicating) the failed exchange on screen. */
+  const retryLast = useCallback(() => {
+    const last = retryText;
+    if (!last) return;
+    const h = historyRef.current;
+    if (h.length >= 2 && h[h.length - 1].role === 'mira' && h[h.length - 2].role === 'user' && h[h.length - 2].text === last) {
+      historyRef.current = h.slice(0, -2);
+      setHistory(historyRef.current);
+    }
+    setTranscript((prev) => {
+      const n = prev.length;
+      return n >= 2 && prev[n - 1].failed && prev[n - 2].role === 'user' && prev[n - 2].text === last ? prev.slice(0, -2) : prev;
+    });
+    setError(null);
+    sendText(last);
+  }, [retryText, sendText]);
+
   return {
     state,
     stateRef,
@@ -750,6 +780,10 @@ export function useMira() {
     startListening,
     interrupt,
     sendText,
+    transcript,
+    retryText,
+    retryLast,
+    dismissError: () => setError(null),
     demoGo,
     say: speak,
     content,

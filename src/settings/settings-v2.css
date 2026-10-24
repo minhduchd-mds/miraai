@@ -262,3 +262,10 @@
 .v2-adult-gate div { display: flex; gap: 8px; flex-wrap: wrap; }
 .v2-adult-gate button, .v2-adult-revoke { min-height: 44px; padding: 0 16px; border-radius: 999px; cursor: pointer; }
 .v2-adult-revoke { margin-top: 10px; background: transparent; border: 1px solid rgba(255, 255, 255, .2); color: inherit; }
+
+/* UI QA 24/10/2026: on phones all five tabs stay visible (the strip overflowed 509/388 px and
+   hid "Ký ức & riêng tư"), and the sheet keeps one height so switching tabs does not jump. */
+@media (max-width: 680px) {
+  .v2-settings-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
+  .v2-settings { height: 94dvh; }
+}

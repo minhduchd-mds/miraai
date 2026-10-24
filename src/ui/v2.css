@@ -557,3 +557,118 @@
 }
 /* Vietnamese status labels need full diacritic support even if the mono webfont fails to load. */
 .voice-session-caption small { font-family: 'Inter', system-ui, sans-serif; letter-spacing: .06em; }
+
+/* ── UI QA 24/10/2026 fixes ──────────────────────────────────────────────── */
+/* Session transcript: answers stay readable after speech ends or TTS fails (P0). */
+.voice-transcript {
+  pointer-events: auto;
+  width: min(480px, calc(100vw - 32px));
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.voice-transcript-toggle {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(168, 187, 241, .16);
+  border-radius: 999px;
+  background: rgba(4, 8, 24, .55);
+  color: rgba(232, 238, 255, .86);
+  font: 600 12px/1 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+}
+.voice-transcript-log {
+  width: 100%;
+  max-height: min(34vh, 320px);
+  padding: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(168, 187, 241, .12);
+  border-radius: 18px;
+  background: rgba(4, 8, 24, .6);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .2);
+}
+.voice-transcript-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.voice-turn {
+  max-width: 86%;
+  padding: 8px 12px;
+  border-radius: 16px;
+  color: #f2f6ff;
+  font: 500 14px/1.45 'Inter', system-ui, sans-serif;
+}
+.voice-turn p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.voice-turn.user {
+  align-self: flex-end;
+  border-bottom-right-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 34%, rgba(20, 30, 70, .92));
+}
+.voice-turn.mira {
+  align-self: flex-start;
+  border-bottom-left-radius: 6px;
+  background: rgba(255, 255, 255, .1);
+}
+.voice-turn.failed {
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  background: rgba(70, 38, 16, .62);
+  color: rgba(255, 240, 225, .94);
+}
+.voice-turn-retry {
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 214, 160, .5);
+  border-radius: 999px;
+  background: transparent;
+  color: #ffd9a6;
+  font: 600 13px/1 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+}
+/* Listening partials may run long: wrap to two lines instead of a one-line ellipsis. */
+.voice-session-caption span {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Error toast: readable size, dismissible, with retry (P1). */
+.v2-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  padding: 6px 6px 6px 14px;
+  border-radius: 18px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.v2-error > span { min-width: 0; }
+.v2-error button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: inherit;
+  font: 600 13px/1 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+}
+.v2-error button.primary { border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+@media (max-width: 760px) {
+  /* `.v2-session-details { position: relative }` (same specificity, later) overrode the
+     mobile rule, dropping the status pill onto a second header row (header 110px). */
+  .v2-status.v2-session-details { position: absolute; }
+  .voice-transcript-log { max-height: 30vh; }
+  .v2-error { top: calc(max(10px, env(safe-area-inset-top)) + 52px); width: calc(100vw - 24px); }
+}
+/* Short phones: keep Mira's face visible above the transcript. */
+@media (max-height: 700px) { .voice-transcript-log { max-height: 22vh; } }
