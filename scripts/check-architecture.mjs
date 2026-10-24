@@ -558,7 +558,7 @@ if (/GEMINI_API_KEY|x-goog-api-key|[?&]key=/.test(liveSession)) failures.push('M
 if (!v2.includes('getVoiceDiagnostics={mira.ttsDiagnostics}')) failures.push('voice runtime diagnostics must stay wired into Settings');
 
 const settingsPanel = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
-for (const token of ['getVoiceDiagnostics', 'voiceDiagnostics', 'v2-voice-runtime', 'data-health', "'Sẵn sàng'", "'Đang phục hồi'", 'không tự chuyển sang provider khác']) {
+for (const token of ['getVoiceDiagnostics', 'voiceDiagnostics', 'v2-voice-runtime', 'data-health', "'Sẵn sàng'", "'Đang phục hồi'", 'giọng dự phòng Gemini (miễn phí)']) {
   if (!settingsPanel.includes(token)) failures.push(`voice runtime Settings status missing: ${token}`);
 }
 const settingsCss = readFileSync('src/settings/settings-v2.css', 'utf8');

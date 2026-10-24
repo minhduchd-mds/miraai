@@ -1,6 +1,7 @@
 import { markPrivateResponse } from '../lib/private-response.js';
 import { readLimitedTtsAudio, streamLimitedTtsAudio } from '../server/tts-response.mjs';
 import { enforceAiQuota } from '../lib/ai-quota.js';
+import { geminiTtsKey, geminiTtsSynthesize } from '../lib/gemini-tts-free.js';
 import {
   applyCors,
   MIRA_TTS_MAX_TEXT_LENGTH,
@@ -20,6 +21,29 @@ function parseBody(req) {
 }
 
 
+const ELEVEN_SKIP_MS = 10 * 60_000;
+let elevenSkipUntil = 0;
+
+/**
+ * Free fallback when ElevenLabs is missing or failing (quota, plan, outage): Gemini TTS.
+ * A different voice, so it is labelled via x-mira-tts-provider and shown in Settings.
+ * Always a buffered WAV, also for ?stream=1 (the client checks content-type).
+ */
+async function sendGeminiFallback(res, text) {
+  try {
+    const { audio, contentType, model, voice } = await geminiTtsSynthesize(text);
+    res.setHeader('content-type', contentType);
+    res.setHeader('cache-control', 'no-store');
+    res.setHeader('x-mira-tts-provider', 'gemini');
+    res.setHeader('x-mira-tts-model', model);
+    res.setHeader('x-mira-tts-voice', voice);
+    return res.status(200).send(audio);
+  } catch (error) {
+    console.error('[tts] gemini fallback', String(error?.message || error).slice(0, 300));
+    return res.status(502).json({ error: 'tts_failed', detail: 'provider_unavailable' });
+  }
+}
+
 export default async function handler(req, res) {
   applyCors(req, res, 'POST,OPTIONS');
   markPrivateResponse(res);
@@ -34,8 +58,10 @@ export default async function handler(req, res) {
   if (text.length > MIRA_TTS_MAX_TEXT_LENGTH) return res.status(413).json({ error: 'text_too_long' });
 
   const key = process.env.elevenlabs_api_key || process.env.ELEVENLABS_API_KEY || '';
-  if (!key) return res.status(503).json({ error: 'elevenlabs_not_configured' });
+  const geminiFallback = Boolean(geminiTtsKey());
+  if (!key && !geminiFallback) return res.status(503).json({ error: 'elevenlabs_not_configured' });
   if (!await enforceAiQuota(req, res, 'tts')) return;
+  if (!key || (geminiFallback && Date.now() < elevenSkipUntil)) return sendGeminiFallback(res, text);
 
   // Production voice identity/model are server-controlled through the shared contract.
   const payload = elevenDialoguePayload(text, body.instructions);
@@ -60,6 +86,9 @@ export default async function handler(req, res) {
     );
 
     if (!response.ok) {
+      // Account-level failures (bad key, plan, quota) will not fix themselves per request:
+      // go straight to the free fallback for a while instead of paying ~1 s each turn.
+      if ([401, 402, 403, 429].includes(response.status)) elevenSkipUntil = Date.now() + ELEVEN_SKIP_MS;
       const detail = (await response.text()).slice(0, 360);
       throw new Error(`ElevenLabs TTS ${response.status}: ${detail}`);
     }
@@ -86,6 +115,8 @@ export default async function handler(req, res) {
       res.destroy?.();
       return;
     }
+    if (controller.signal.aborted) return;
+    if (geminiFallback) return sendGeminiFallback(res, text);
     return res.status(502).json({
       error: 'elevenlabs_tts_failed',
       detail: 'provider_unavailable',

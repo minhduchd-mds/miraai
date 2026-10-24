@@ -5517,9 +5517,11 @@ test('voice runtime diagnostics expose the active neural gateway without retired
   assert.ok(app.includes('getVoiceDiagnostics={mira.ttsDiagnostics}'));
 });
 
-test('voice settings report gateway health without claiming a local provider fallback', () => {
+test('voice settings report gateway health and say honestly which voice is speaking', () => {
   const source = readFileSync('src/settings/SettingsPanel.tsx', 'utf8');
-  for (const token of ["'Sẵn sàng'", "'Đang phục hồi'", "'Đang kiểm tra'", 'không tự chuyển sang provider khác']) {
+  // ElevenLabs free credits ran out in production (Mira went silent): the free fallback
+  // voices are now disclosed instead of the old "never switches provider" promise.
+  for (const token of ["'Sẵn sàng'", "'Đang phục hồi'", "'Đang kiểm tra'", 'giọng dự phòng Gemini (miễn phí)', 'activeProvider']) {
     assert.ok(source.includes(token));
   }
   assert.ok(!source.includes('Piper Local'));

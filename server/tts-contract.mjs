@@ -29,11 +29,13 @@ export function isTtsOriginAllowed(origin, ownOrigin = '') {
   return configuredTtsOrigins().includes(normalized);
 }
 
-export function ttsContractMetadata(configured) {
+export function ttsContractMetadata(configured, geminiFallback = false) {
   return {
     provider: 'elevenlabs',
-    configured: Boolean(configured),
-    elevenLabsOnly: true,
+    // Spoken replies work when either the primary voice or the free fallback is set up.
+    configured: Boolean(configured || geminiFallback),
+    elevenLabsConfigured: Boolean(configured),
+    elevenLabsOnly: !geminiFallback,
     serverControlled: true,
     voice: defaultElevenVoice(),
     model: defaultElevenModel(),

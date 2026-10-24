@@ -1,6 +1,14 @@
 import type { TTSAdapter, TTSSpeakOptions, VoiceOption } from '../types';
 import type { TTSDiagnostics } from './diagnostics';
 import { attachAnalyser } from '../audio-level';
+import { BrowserSpeech } from './browser-speech';
+
+/** Human label for the voice that actually spoke (x-mira-tts-provider or device). */
+export function voiceProviderLabel(provider: string | null, primary: string): string {
+  if (provider === 'gemini') return 'Giọng dự phòng · Gemini (miễn phí)';
+  if (provider === 'browser') return 'Giọng của thiết bị (dự phòng)';
+  return primary;
+}
 
 export interface ServerTTSOptions {
   serverUrl: string;
@@ -23,6 +31,8 @@ export class ServerTTS implements TTSAdapter {
   private detach: (() => void) | null = null;
   private fetching = false;
   private lastError: string | null = null;
+  private activeProvider: string | null = null;
+  private browser = new BrowserSpeech();
   private cancelled = false;
   private utteranceId = 0;
   private voices: VoiceOption[];
@@ -129,7 +139,43 @@ export class ServerTTS implements TTSAdapter {
     const message = reason instanceof Error ? reason.message : String(reason || 'server_tts_failed');
     this.lastError = message;
     console.error(`[Mira TTS·${this.label}]`, message);
-    opts.onError?.(message);
+    // Never leave a reply unspoken when the device itself can say it.
+    const utteranceId = this.utteranceId;
+    const started = this.browser.speak(opts.text, opts.rate ?? 1, {
+      onStart: () => { if (this.utteranceId === utteranceId) { this.activeProvider = 'browser'; opts.onStart?.(); } },
+      onEnd: () => { if (this.utteranceId === utteranceId) opts.onEnd?.(); },
+      onError: (browserError) => { if (this.utteranceId === utteranceId) opts.onError?.(`${message}; ${browserError}`); },
+    });
+    if (!started) opts.onError?.(message);
+  }
+
+  private noteProvider(response: Response): void {
+    this.activeProvider = response.headers?.get?.('x-mira-tts-provider') || this.activeProvider;
+  }
+
+  /** Buffered playback (Safari/iOS path, prefetch, and the WAV fallback voice). */
+  private playBlob(blob: Blob, opts: TTSSpeakOptions, utteranceId: number): Promise<void> {
+    if (!blob.size) throw new Error('empty_audio');
+    this.markHealthy();
+    const url = URL.createObjectURL(blob);
+    this.objectUrl = url;
+    const audio = new Audio(url);
+    this.audio = audio;
+    audio.playbackRate = opts.rate ?? 1;
+    audio.preservesPitch = true;
+    this.detach = attachAnalyser(audio);
+    audio.onplaying = () => { if (this.utteranceId === utteranceId) opts.onStart?.(); };
+    audio.onended = () => {
+      if (this.utteranceId !== utteranceId || this.audio !== audio) return;
+      this.cleanupAudio();
+      opts.onEnd?.();
+    };
+    audio.onerror = () => {
+      if (this.utteranceId !== utteranceId || this.audio !== audio) return;
+      this.cleanupAudio();
+      this.fail(opts, 'audio_playback_failed');
+    };
+    return audio.play();
   }
 
   private speechKey(opts: Pick<TTSSpeakOptions, 'text' | 'voiceURI' | 'instructions'>): string {
@@ -156,6 +202,7 @@ export class ServerTTS implements TTSAdapter {
       catch { detail = response.statusText; }
       throw new Error(`${this.label} ${response.status}: ${detail}`);
     }
+    this.noteProvider(response);
     const blob = await response.blob();
     if (!blob.size) throw new Error('empty_audio');
     return blob;
@@ -180,6 +227,16 @@ export class ServerTTS implements TTSAdapter {
         signal: controller.signal,
       });
       if (!response.ok || !response.body) throw new Error('elevenlabs_stream_unavailable');
+      this.noteProvider(response);
+      // The free fallback voice answers with a buffered WAV even on ?stream=1.
+      if (!/mpeg/i.test(response.headers?.get?.('content-type') || 'audio/mpeg')) {
+        const blob = await response.blob();
+        if (!isCurrent()) return;
+        this.fetching = false;
+        if (this.abortCtl === controller) this.abortCtl = null;
+        await this.playBlob(blob, opts, utteranceId);
+        return;
+      }
       const {startProgressiveMp3} = await import('./progressive-mp3');
       if (!isCurrent()) return;
       const stream = startProgressiveMp3(response, controller.signal, (error) => {
@@ -282,29 +339,7 @@ export class ServerTTS implements TTSAdapter {
         this.fetching = false;
         if (this.abortCtl === controller) this.abortCtl = null;
         if (this.cancelled || !blob) return;
-        if (!blob.size) throw new Error('empty_audio');
-
-        this.markHealthy();
-
-        const url = URL.createObjectURL(blob);
-        this.objectUrl = url;
-        const audio = new Audio(url);
-        this.audio = audio;
-        audio.playbackRate = opts.rate ?? 1;
-        audio.preservesPitch = true;
-        this.detach = attachAnalyser(audio);
-        audio.onplaying = () => { if (this.utteranceId === utteranceId) opts.onStart?.(); };
-        audio.onended = () => {
-          if (this.utteranceId !== utteranceId || this.audio !== audio) return;
-          this.cleanupAudio();
-          opts.onEnd?.();
-        };
-        audio.onerror = () => {
-          if (this.utteranceId !== utteranceId || this.audio !== audio) return;
-          this.cleanupAudio();
-          this.fail(opts, 'audio_playback_failed');
-        };
-        return audio.play();
+        return this.playBlob(blob, opts, utteranceId);
       })
       .catch((error: unknown) => {
         if (this.utteranceId !== utteranceId || controller.signal.aborted) return;
@@ -330,6 +365,7 @@ export class ServerTTS implements TTSAdapter {
     this.prefetched?.controller.abort();
     this.prefetched = null;
     this.fetching = false;
+    this.browser.cancel();
     if (this.audio) {
       try { this.audio.pause(); } catch { /* noop */ }
     }
@@ -363,12 +399,13 @@ export class ServerTTS implements TTSAdapter {
     return {
       voices: this.voices.length,
       viVoices: this.voices.length,
-      speaking: !!this.audio && !this.audio.paused,
+      speaking: (!!this.audio && !this.audio.paused) || this.browser.speaking,
       pending: this.fetching || !!this.healthProbePromise,
       paused: !!this.audio?.paused && !this.fetching,
       unlocked: true,
       lastError: this.lastError || healthNote,
       provider: this.label,
+      activeProvider: voiceProviderLabel(this.activeProvider, this.label),
       health: this.healthState,
     };
   }

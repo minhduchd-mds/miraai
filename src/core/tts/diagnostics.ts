@@ -7,5 +7,7 @@ export interface TTSDiagnostics {
   unlocked: boolean;
   lastError: string | null;
   provider?: string;
+  /** The voice that actually spoke last (primary, Gemini fallback or device voice). */
+  activeProvider?: string;
   health?: 'unknown' | 'healthy' | 'unhealthy';
 }

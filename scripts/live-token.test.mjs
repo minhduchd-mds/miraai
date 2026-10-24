@@ -44,10 +44,15 @@ test('token request is single-use, short-lived and locked to model + server syst
   assert.equal(body.uses, 1);
   assert.equal(body.expireTime, '2026-10-23T15:30:00.000Z');
   assert.equal(body.newSessionExpireTime, '2026-10-23T15:01:00.000Z');
-  assert.equal(body.liveConnectConstraints.model, `models/${LIVE_DEFAULT_MODEL}`);
-  const config = body.liveConnectConstraints.config;
-  assert.deepEqual(config.responseModalities, ['AUDIO']);
+  // REST shape: `liveConnectConstraints` is the SDK name and the API rejects it (production 400).
+  assert.equal(body.liveConnectConstraints, undefined);
+  const config = body.bidiGenerateContentSetup;
+  assert.equal(config.model, `models/${LIVE_DEFAULT_MODEL}`);
+  assert.deepEqual(config.generationConfig.responseModalities, ['AUDIO']);
   assert.ok(config.inputAudioTranscription && config.outputAudioTranscription);
+  // Safety-critical fields locked; resumption left to the client so resume handles work.
+  assert.deepEqual(body.fieldMask.split(','), ['model', 'systemInstruction.parts', 'generationConfig.responseModalities']);
+  assert.doesNotMatch(body.fieldMask, /sessionResumption/);
   const system = config.systemInstruction.parts[0].text;
   assert.match(system, /QUY TẮC AN TOÀN/);
   assert.match(system, /thích cà phê sữa/);

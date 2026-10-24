@@ -140,6 +140,8 @@ export function buildSetupMessage(model: string, resumeHandle?: string): Json {
     inputAudioTranscription: {},
     outputAudioTranscription: {},
     sessionResumption: resumeHandle ? { handle: resumeHandle } : {},
+    // Sessions longer than ~15 min need compression; the token does not lock it.
+    contextWindowCompression: { slidingWindow: {} },
   };
   return { setup };
 }

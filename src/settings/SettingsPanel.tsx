@@ -342,11 +342,11 @@ export default function SettingsPanel(props: Props) {
               <label className="v2-field"><span>Giọng Mira</span><select value={props.voiceURI || ''} onChange={(event) => props.onSelectVoice(event.target.value)}><option value="">Tự động · Tiếng Việt</option>{props.voices.map((voice) => <option key={voice.voiceURI || voice.name} value={voice.voiceURI}>{voice.name}</option>)}</select></label>
               <div className="v2-voice-runtime" data-health={voiceDiagnostics?.health || 'unknown'}>
                 <i aria-hidden="true" />
-                <span><b>{voiceDiagnostics?.provider || 'Đang kiểm tra'}</b><small>{voiceStatus}</small></span>
+                <span><b>{voiceDiagnostics?.activeProvider || voiceDiagnostics?.provider || 'Đang kiểm tra'}</b><small>{voiceStatus}</small></span>
               </div>
               <div className="v2-choice-block"><span>Tốc độ</span><div className="v2-segmented">{SPEEDS.map((speed) => <button key={speed.id} type="button" className={Math.abs(rate - speed.rate) < .01 ? 'active' : ''} onClick={() => changeRate(speed.rate)}>{speed.label}</button>)}</div></div>
               <div className="v2-memory-actions"><button type="button" onClick={props.onTestVoice}>Nghe thử giọng</button></div>
-              <p className="v2-disclosure">Mira dùng ElevenLabs qua gateway server-side; khi gateway lỗi Mira báo trạng thái và không tự chuyển sang provider khác.</p>
+              <p className="v2-disclosure">Mira ưu tiên giọng ElevenLabs qua server. Khi ElevenLabs lỗi hoặc hết hạn mức, Mira nói bằng giọng dự phòng Gemini (miễn phí), rồi đến giọng tiếng Việt có sẵn trên máy, để câu trả lời luôn được đọc to; dòng trên cho biết giọng nào đang nói.</p>
               <p className="v2-disclosure">Trò chuyện chạy trên Google Gemini (gói miễn phí); khi Gemini bận, Mira chuyển sang Meta Llama qua Groq. Built with Llama.</p>
             </div>
             <div className="v2-setting-group v2-device-check">

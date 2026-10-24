@@ -37,7 +37,8 @@ test('cancelled speech never plays a stale HTTP audio result after a newer utter
       pause() { this.paused = true; }
     };
     const source = readFileSync('src/core/tts/server-tts.ts', 'utf8')
-      .replace("import { attachAnalyser } from '../audio-level';", 'const attachAnalyser = () => () => {};');
+      .replace("import { attachAnalyser } from '../audio-level';", 'const attachAnalyser = () => () => {};')
+      .replace("import { BrowserSpeech } from './browser-speech';", 'class BrowserSpeech { speaking = false; speak() { return false; } cancel() {} }');
     const transpiled = ts.transpileModule(source, { compilerOptions: {
       target: ts.ScriptTarget.ES2022,
       module: ts.ModuleKind.ESNext,
@@ -87,7 +88,8 @@ test('look-ahead reuses exact next ElevenLabs audio, preserving voice/direction 
       pause(){this.paused=true;}
     };
     const source=readFileSync('src/core/tts/server-tts.ts','utf8')
-      .replace("import { attachAnalyser } from '../audio-level';",'const attachAnalyser=()=>()=>{};');
+      .replace("import { attachAnalyser } from '../audio-level';",'const attachAnalyser=()=>()=>{};')
+      .replace("import { BrowserSpeech } from './browser-speech';",'class BrowserSpeech{speaking=false;speak(){return false;}cancel(){}}');
     const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
     const {ServerTTS}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
     const tts=new ServerTTS({serverUrl:'https://voice.example',label:'test',fallbackVoice:{name:'v',voiceURI:'v',lang:'vi-VN'}});
