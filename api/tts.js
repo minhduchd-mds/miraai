@@ -79,6 +79,8 @@ export default async function handler(req, res) {
     res.setHeader('content-type', contentType);
     return res.status(200).send(audio);
   } catch (error) {
+    // Operator diagnostics: upstream status + provider message (no key, no user text).
+    console.error('[tts] elevenlabs', String(error?.message || error).slice(0, 300));
     if (res.headersSent) {
       // Never append a JSON error to a partially streamed MP3.
       res.destroy?.();
