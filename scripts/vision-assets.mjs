@@ -40,11 +40,13 @@ async function main() {
         const res = await fetch(url, { signal: AbortSignal.timeout(25_000) });
         if (!res.ok) throw new Error(`http_${res.status}`);
         const bytes = new Uint8Array(await res.arrayBuffer());
-        if (!looksLikeModel(file, bytes)) throw new Error('unexpected_format');
+        if (!looksLikeModel(file, bytes)) throw new Error(`unexpected_format ${bytes.length}B head=${Buffer.from(bytes.subarray(0, 8)).toString('hex')}`);
         writeFileSync(join(OUT, 'models', file), bytes);
         manifest.models[key] = `models/${file}`;
       } catch (error) {
-        console.warn(`[vision-assets] ${key}: not self-hosted (${error?.message || error}); runtime uses the CDN.`);
+        const why = `${key}: not self-hosted (${error?.message || error}); runtime uses the CDN.`;
+        console.warn(`[vision-assets] ${why}`);
+        if (process.env.GITHUB_ACTIONS) console.log(`::warning title=vision-assets::${why}`);
       }
     }
   }
