@@ -19,10 +19,11 @@ export const MODELS = {
   object: 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite',
 };
 
-/** .task bundles are zip files; .tflite files carry the "TFL3" flatbuffer identifier at byte 4. */
+/** .task bundles are zip files whose "PK\x03\x04" header sits after a few zero bytes (seen in CI:
+ *  `0000504b0304…`); .tflite files carry the "TFL3" flatbuffer identifier at byte 4. */
 export function looksLikeModel(name, bytes) {
   if (bytes.length < 100_000) return false;
-  if (name.endsWith('.task')) return bytes[0] === 0x50 && bytes[1] === 0x4b;
+  if (name.endsWith('.task')) return Buffer.from(bytes.subarray(0, 16)).indexOf(Buffer.from([0x50, 0x4b, 0x03, 0x04])) >= 0;
   if (name.endsWith('.tflite')) return Buffer.from(bytes.subarray(4, 8)).toString('ascii') === 'TFL3';
   return false;
 }

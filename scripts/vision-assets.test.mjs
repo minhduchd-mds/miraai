@@ -6,6 +6,8 @@ import { visionAssetCandidates, CDN_WASM } from '../src/core/vision/mediapipe-as
 test('E8: model format check accepts .task zips and TFL3 flatbuffers only', () => {
   const big = (head) => { const b = new Uint8Array(200_000); b.set(head); return b; };
   assert.equal(looksLikeModel('x.task', big([0x50, 0x4b, 3, 4])), true);
+  assert.equal(looksLikeModel('x.task', big([0, 0, 0x50, 0x4b, 3, 4])), true, 'real face_landmarker.task header');
+  assert.equal(looksLikeModel('x.task', big([0, 0, 0, 0, 0x50, 0x4b, 3, 4])), true, 'real holistic_landmarker.task header');
   assert.equal(looksLikeModel('x.task', big([0x3c, 0x68])), false, 'an HTML error page is rejected');
   assert.equal(looksLikeModel('x.tflite', big([0, 0, 0, 0, 0x54, 0x46, 0x4c, 0x33])), true);
   assert.equal(looksLikeModel('x.task', new Uint8Array(10)), false);
