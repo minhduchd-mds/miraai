@@ -1,4 +1,5 @@
 import { acquireVisionCamera, releaseVisionCamera } from './camera-manager';
+import { createWithVisionAssets } from './mediapipe-assets';
 import { VisionVideoFrameGate, type VisionFrameMetadata } from './vision-frame-gate';
 import { faceData } from '../face/face-tracker';
 import { handData, type TrackedHand } from '../face/gesture-tracker';
@@ -27,7 +28,6 @@ import {
   type PerceptionTraceSession,
 } from './perception-trace';
 
-const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/1/holistic_landmarker.task';
 
@@ -699,11 +699,10 @@ function readFrame(
 
 async function createLandmarker(delegate: Delegate): Promise<any> {
   const vision = await import('@mediapipe/tasks-vision');
-  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
   const HolisticLandmarker = (vision as any).HolisticLandmarker;
   if (!HolisticLandmarker) throw new Error('HolisticLandmarker is unavailable in @mediapipe/tasks-vision');
-  return HolisticLandmarker.createFromOptions(resolver, {
-    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+  return createWithVisionAssets('holistic', MODEL_URL, async (wasm, modelAssetPath) => HolisticLandmarker.createFromOptions(await vision.FilesetResolver.forVisionTasks(wasm), {
+    baseOptions: { modelAssetPath, delegate },
     runningMode: 'VIDEO',
     minFaceDetectionConfidence: 0.32,
     minFacePresenceConfidence: 0.32,
@@ -712,7 +711,7 @@ async function createLandmarker(delegate: Delegate): Promise<any> {
     minHandLandmarksConfidence: 0.45,
     outputFaceBlendshapes: true,
     outputPoseSegmentationMasks: false,
-  });
+  }));
 }
 
 export function holisticTrackerError(): string | null {

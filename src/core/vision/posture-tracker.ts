@@ -1,8 +1,8 @@
 import { acquireVisionCamera, releaseVisionCamera } from './camera-manager';
+import { createWithVisionAssets } from './mediapipe-assets';
 import { isRecoverableGpuDelegateError, visionInferenceErrorMessage } from './vision-delegate-fallback';
 import { derivePosture, EMPTY_POSTURE, type PosePoint, type PostureEstimate, type PostureLabel } from './posture-model';
 
-const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 
@@ -56,15 +56,14 @@ function clearPose(): void {
 
 async function createPostureLandmarker(delegate: 'GPU' | 'CPU'): Promise<any> {
   const vision = await import('@mediapipe/tasks-vision');
-  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
-  return vision.PoseLandmarker.createFromOptions(resolver, {
-    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+  return createWithVisionAssets('pose', MODEL_URL, async (wasm, modelAssetPath) => vision.PoseLandmarker.createFromOptions(await vision.FilesetResolver.forVisionTasks(wasm), {
+    baseOptions: { modelAssetPath, delegate },
     runningMode: 'VIDEO',
     numPoses: 1,
     minPoseDetectionConfidence: 0.45,
     minPosePresenceConfidence: 0.45,
     minTrackingConfidence: 0.45,
-  } as any);
+  } as any));
 }
 
 async function fallbackPostureToCpu(reason: unknown): Promise<boolean> {

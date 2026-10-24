@@ -41,6 +41,8 @@ export interface LiveSessionOptions {
   onError: (message: string) => void;
   /** Created and resumed synchronously inside the user's tap (iOS keeps late contexts suspended). */
   audioContext?: AudioContext;
+  /** E4: ms from the user's last transcribed speech (or typed text) to Mira's first audio. */
+  onLatency?: (ms: number) => void;
 }
 
 export function createUnlockedAudioContext(): AudioContext | undefined {
@@ -114,6 +116,7 @@ export class LiveSession {
   private reconnectAttempts = 0;
   private ready = false;
   private lastActivity = Date.now();
+  private turnStartAt = 0;
   private idleTimer = 0;
   private readonly onVisibility = () => this.handleVisibility();
 
@@ -182,6 +185,7 @@ export class LiveSession {
   sendText(text: string): void {
     if (!this.ready || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     this.lastActivity = Date.now();
+    this.turnStartAt = this.lastActivity;
     this.stopPlayback();
     this.ws.send(JSON.stringify(buildTextMessage(text)));
   }
@@ -270,10 +274,16 @@ export class LiveSession {
           break;
         case 'audio':
           this.lastActivity = Date.now();
+          if (this.turnStartAt && this.phase !== 'speaking') {
+            const ms = Date.now() - this.turnStartAt;
+            this.turnStartAt = 0;
+            if (ms > 0 && ms < 30_000) this.options.onLatency?.(ms);
+          }
           this.enqueueAudio(event.data, event.rate);
           break;
         case 'inputTranscript':
           this.lastActivity = Date.now();
+          this.turnStartAt = this.lastActivity;
           this.userText = appendTranscript(this.userText, event.text);
           this.options.onUserText(this.userText.trim(), false);
           break;

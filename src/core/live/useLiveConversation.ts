@@ -44,6 +44,9 @@ export function useLiveConversation(deps: LiveConversationDeps) {
   const [caption, setCaption] = useState('');
   const [who, setWho] = useState('MIRA LIVE');
   const [error, setError] = useState<string | null>(null);
+  // E4 telemetry: numbers only, session-local, never sent anywhere.
+  const latencySamplesRef = useRef<number[]>([]);
+  const [latency, setLatency] = useState<{ p50: number; n: number } | null>(null);
 
   const stop = useCallback(() => {
     sessionRef.current?.stop();
@@ -83,6 +86,12 @@ export function useLiveConversation(deps: LiveConversationDeps) {
         onMiraText: (text) => { setWho('MIRA'); setCaption(text); },
         onTurn: (turn) => depsRef.current.recordTurn(turn),
         onError: (message) => setError(message),
+        onLatency: (ms) => {
+          const samples = [...latencySamplesRef.current, ms].slice(-30);
+          latencySamplesRef.current = samples;
+          const sorted = [...samples].sort((a, b) => a - b);
+          setLatency({ p50: sorted[Math.floor((sorted.length - 1) / 2)], n: samples.length });
+        },
         audioContext,
       });
       handedOver = true;
@@ -107,5 +116,5 @@ export function useLiveConversation(deps: LiveConversationDeps) {
 
   useEffect(() => () => { sessionRef.current?.stop(); sessionRef.current = null; }, []);
 
-  return { active, state, caption, who, error, start, stop, sendText };
+  return { active, state, caption, who, error, latency, start, stop, sendText };
 }

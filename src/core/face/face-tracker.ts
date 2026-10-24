@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createWithVisionAssets } from '../vision/mediapipe-assets';
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
 import { isRecoverableGpuDelegateError, visionInferenceErrorMessage } from '../vision/vision-delegate-fallback';
 import { inferFacialGesture, type FacialGesture } from './facial-gesture';
@@ -6,7 +7,6 @@ import { EMPTY_FACS_PROXY, facsProxyFromBlendshapes, type FACSProxy } from './fa
 import { blendshapeMap, normalizeFaceLandmarks } from '../vision/face-frame-guard';
 import { MicroExpressionTracker, type MicroExpressionState } from './micro-expression';
 
-const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
@@ -187,14 +187,13 @@ function updateEmotion(bs: Record<string, number>): void {
 
 async function createFaceLandmarker(delegate: 'GPU' | 'CPU'): Promise<any> {
   const vision = await import('@mediapipe/tasks-vision');
-  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
-  return vision.FaceLandmarker.createFromOptions(resolver, {
-    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+  return createWithVisionAssets('face', MODEL_URL, async (wasm, modelAssetPath) => vision.FaceLandmarker.createFromOptions(await vision.FilesetResolver.forVisionTasks(wasm), {
+    baseOptions: { modelAssetPath, delegate },
     runningMode: 'VIDEO',
     numFaces: 1,
     outputFaceBlendshapes: true,
     outputFacialTransformationMatrixes: true,
-  });
+  }));
 }
 
 async function fallbackFaceToCpu(reason: unknown): Promise<boolean> {

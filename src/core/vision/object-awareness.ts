@@ -1,4 +1,5 @@
 import { acquireVisionCamera, releaseVisionCamera } from './camera-manager';
+import { createWithVisionAssets } from './mediapipe-assets';
 import {
   EMPTY_ENVIRONMENT,
   ObjectTemporalTracker,
@@ -17,7 +18,6 @@ import {
 } from './onnx-accelerator-lab';
 import type { AcceleratorProvider } from './accelerator-selection';
 
-const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite';
 
@@ -337,16 +337,15 @@ async function runAcceleratorCycle(currentSession: number): Promise<void> {
 
 async function createDetector(delegate: 'GPU' | 'CPU'): Promise<any> {
   const vision = await import('@mediapipe/tasks-vision');
-  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
-  return vision.ObjectDetector.createFromOptions(resolver, {
+  return createWithVisionAssets('object', MODEL_URL, async (wasm, modelAssetPath) => vision.ObjectDetector.createFromOptions(await vision.FilesetResolver.forVisionTasks(wasm), {
     baseOptions: {
-      modelAssetPath: MODEL_URL,
+      modelAssetPath,
       delegate,
     },
     runningMode: 'VIDEO',
     maxResults: 10,
     scoreThreshold: 0.36,
-  });
+  }));
 }
 
 export async function startObjectAwareness(): Promise<boolean> {

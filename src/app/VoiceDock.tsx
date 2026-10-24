@@ -13,6 +13,8 @@ export interface LiveTalkView {
   caption: string;
   who: string;
   error: string | null;
+  /** E4: Live speech-end → first audio, p50 over the session. */
+  latency?: { p50: number; n: number } | null;
 }
 
 interface Props {
@@ -46,9 +48,9 @@ export default function VoiceDock({ mira, activateVoice, voiceSessionActive, idl
 
   useEffect(() => {
     onLiveView(liveTalk.active || liveTalk.error
-      ? { state: liveTalk.state, caption: liveTalk.caption, who: liveTalk.who, error: liveTalk.error }
+      ? { state: liveTalk.state, caption: liveTalk.caption, who: liveTalk.who, error: liveTalk.error, latency: liveTalk.latency }
       : null);
-  }, [liveTalk.active, liveTalk.caption, liveTalk.error, liveTalk.state, liveTalk.who, onLiveView]);
+  }, [liveTalk.active, liveTalk.caption, liveTalk.error, liveTalk.latency, liveTalk.state, liveTalk.who, onLiveView]);
 
   const toggleRealtime = useCallback(() => {
     if (liveTalk.active) { liveTalk.stop(); return; }

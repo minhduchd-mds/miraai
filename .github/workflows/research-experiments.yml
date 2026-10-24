@@ -1,0 +1,57 @@
+name: Research experiments
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/camera-e2e.spec.mjs"
+      - "scripts/vision-assets.mjs"
+      - "src/core/vision/mediapipe-assets.ts"
+      - "playwright.experiments.config.mjs"
+      - ".github/workflows/research-experiments.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mira-research-experiments
+  cancel-in-progress: true
+
+jobs:
+  camera:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - name: Build (fetches MediaPipe models into dist/mediapipe)
+        run: npm run build
+      - name: Self-hosted vision assets
+        run: |
+          cat dist/mediapipe/manifest.json
+          du -sh dist/mediapipe/wasm dist/mediapipe/models || true
+          ls -la dist/mediapipe/models || true
+      - name: Face video for the fake camera
+        run: |
+          ffmpeg -hide_banner -loglevel error -loop 1 -i public/mira-assets/live/mira-live-face-v1.webp -t 6 -r 15 -vf "scale=640:-2,format=yuv420p" "$RUNNER_TEMP/face.y4m"
+          ls -la "$RUNNER_TEMP/face.y4m"
+      - name: E8 camera end-to-end (CDNs blocked)
+        env:
+          FACE_Y4M: ${{ runner.temp }}/face.y4m
+        run: npx playwright test --config=playwright.experiments.config.mjs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mira-research-experiments-${{ github.sha }}
+          path: |
+            artifacts/experiments
+            test-results
+          if-no-files-found: warn
+          retention-days: 30

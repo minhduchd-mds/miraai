@@ -698,6 +698,13 @@ export default function AppV2() {
     (visionOn && (faceSeen || handSeen)),
   );
   const toastText = visionError || liveView?.error || mira.error || '';
+  // E4: measured on-device, p50 per mode (Live = speech end → first audio; hands-free = transcript → first audio).
+  const fmtSec = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
+  const handsFreeP50 = mira.responseLatency?.firstAudio.p50Ms;
+  const latencySummary = [
+    liveView?.latency ? `Live ${fmtSec(liveView.latency.p50)} (${liveView.latency.n} lượt)` : '',
+    handsFreeP50 != null && mira.responseLatency ? `Rảnh tay ${fmtSec(handsFreeP50)} (${mira.responseLatency.firstAudio.count} lượt)` : '',
+  ].filter(Boolean).join(' · ') || 'Chưa có số đo';
   // The header must not say "Sẵn sàng" while an error toast says the opposite (UI QA 24/10).
   const statusError = Boolean(toastText) && talk.state === 'idle';
 
@@ -728,6 +735,7 @@ export default function AppV2() {
             <dl>
               <div><dt>Giọng nói</dt><dd>{voiceBooting ? 'Đang khởi tạo' : liveActive ? `Mira Live · ${STATE_COPY[talk.state]}` : mira.live ? STATE_COPY[mira.state] : 'Chưa bắt đầu'}</dd></div>
               <div><dt>Camera</dt><dd>{visionDegraded ? 'Bật · chưa nhận diện được' : visionError ? 'Cần kiểm tra' : visionBooting ? 'Đang mở' : visionOn ? (faceSeen || handSeen ? 'Đang nhận diện' : 'Đang quan sát') : 'Đang tắt'}</dd></div>
+              <div><dt>Độ trễ phản hồi</dt><dd>{latencySummary}</dd></div>
               <div><dt>Không gian XR</dt><dd>{webXRSnapshot.active ? 'Đang hoạt động' : 'Chưa bật'}</dd></div>
             </dl>
             <p>Camera chỉ hoạt động khi anh bật trong Cài đặt → Giao diện.</p>

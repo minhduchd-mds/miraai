@@ -656,7 +656,8 @@ export function useMira() {
         const vad = new SileroVAD();
         vadRef.current = vad;
         void vad.init({
-          onSpeechStart: () => {
+          // Interrupt only once speech is confirmed (≥ 200 ms), not on the first loud frame.
+          onSpeechConfirmed: () => {
             if (stateRef.current === 'speaking') interrupt();
           },
         }).then((ok) => {

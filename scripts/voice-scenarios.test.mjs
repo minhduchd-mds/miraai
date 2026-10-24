@@ -27,7 +27,8 @@ test('Live: audioStreamEnd flush message and a bounded idle timeout', () => {
   assert.deepEqual(buildAudioStreamEndMessage(), { realtimeInput: { audioStreamEnd: true } });
   assert.equal(LIVE_IDLE_TIMEOUT_MS, 180_000);
   assert.match(session, /idle_timeout/);
-  assert.match(session, /this\.lastActivity = Date\.now\(\);\s*this\.enqueueAudio/);
+  assert.match(session, /case 'audio':\s*this\.lastActivity = Date\.now\(\);/);
+  assert.match(session, /this\.options\.onLatency\?\.\(ms\)/, 'E4 latency telemetry');
 });
 
 test('Live on iOS: the AudioContext is created before any await in the tap handler', () => {

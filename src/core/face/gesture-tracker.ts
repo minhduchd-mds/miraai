@@ -1,11 +1,11 @@
 import { acquireVisionCamera, releaseVisionCamera } from '../vision/camera-manager';
+import { createWithVisionAssets } from '../vision/mediapipe-assets';
 import { isRecoverableGpuDelegateError, visionInferenceErrorMessage } from '../vision/vision-delegate-fallback';
 
 // Điều khiển bằng BÀN TAY qua webcam (MediaPipe GestureRecognizer — cùng @mediapipe/tasks-vision với face).
 // FREE, chạy trong trình duyệt, không GPU server. Lazy-load. Xuất handData để App đọc mỗi frame:
 //   gesture: 'Open_Palm' | 'Thumb_Up' | 'Victory' | 'Closed_Fist' | 'Pointing_Up' | 'None' ...
 //   x,y: tâm bàn tay (chuẩn hoá 0..1, CHƯA soi gương) · wave: đang vẫy tay · present: có tay trong khung.
-const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const GESTURE_MODEL =
   'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
 
@@ -115,12 +115,11 @@ function detectWave(): boolean {
 
 async function createGestureRecognizer(delegate: 'GPU' | 'CPU'): Promise<any> {
   const vision = await import('@mediapipe/tasks-vision');
-  const resolver = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
-  return vision.GestureRecognizer.createFromOptions(resolver, {
-    baseOptions: { modelAssetPath: GESTURE_MODEL, delegate },
+  return createWithVisionAssets('gesture', GESTURE_MODEL, async (wasm, modelAssetPath) => vision.GestureRecognizer.createFromOptions(await vision.FilesetResolver.forVisionTasks(wasm), {
+    baseOptions: { modelAssetPath, delegate },
     runningMode: 'VIDEO',
     numHands: 2,
-  });
+  }));
 }
 
 async function fallbackGestureToCpu(reason: unknown): Promise<boolean> {
