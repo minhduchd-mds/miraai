@@ -35,3 +35,11 @@ test('Fallback messages are not promoted into distilled user memory', () => {
   const s=readFileSync('src/runtime/turn-manager.ts','utf8');
   assert.match(s,/reply\.runtimeSource !== 'fallback'/);
 });
+
+test('E5: every [mood:…] tag is stripped, the first one sets the mood', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('src/core/brain/prompt.ts', 'utf8');
+  assert.match(src, /const MOOD_TAG = \/\\\[\\s\*mood\\s\*:\\s\*\(\[a-z\]\+\)\\s\*\\\]\\s\*\/gi;/);
+  assert.match(src, /Không bịa nội dung các cuộc trò chuyện trước/);
+  assert.match(src, /hiểu biết của em có thể đã cũ/);
+});

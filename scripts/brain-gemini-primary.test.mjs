@@ -33,6 +33,12 @@ test('Configured Gemini runs first, free Gateway second, never OpenAI',async()=>
   assert.equal(geminiKeyConfigured(),true);
  });
 });
+test('E5: voice-length turns start with Flash-Lite; long answers keep 3.8 Flash first',()=>{
+ const far=Date.now()+50_000_000;
+ assert.deepEqual(geminiChatModels({},far,450),['gemini-3.5-flash-lite','gemini-3.8-flash','gemini-2.5-flash']);
+ assert.deepEqual(geminiChatModels({},far,1200)[0],'gemini-3.5-flash-lite');
+ assert.deepEqual(geminiChatModels({GEMINI_MODEL:'gemini-3.8-flash'},far,1800),['gemini-3.8-flash','gemini-3.5-flash-lite','gemini-2.5-flash']);
+});
 test('Gemini free tier model allowlist ignores unknown or chargeable model override',()=>{
  assert.deepEqual(GEMINI_FREE_CHAT_MODELS,['gemini-3.8-flash','gemini-3.5-flash-lite','gemini-2.5-flash']);
  assert.deepEqual(geminiChatModels({GEMINI_MODEL:'other-paid-pro-preview'}),GEMINI_FREE_CHAT_MODELS);
@@ -41,7 +47,7 @@ test('Gemini free tier model allowlist ignores unknown or chargeable model overr
 test('Gemini direct API switches to second model on rate limit and keeps keys server-only',async()=>{
  const models=[];
  const result=await generateGeminiFreeChat('Chỉ trả lời ngắn',[{role:'user',text:'Em nghe thấy không?'}],
-  {maxTokens:200,deadlineAt:Date.now()+20_000},{
+  {maxTokens:1800,deadlineAt:Date.now()+40_000},{
   env:{GEMINI_API_KEY:'synthetic-private-key'},
   fetcher:async(url,init)=>{
     assert.equal(init.headers['x-goog-api-key'],'synthetic-private-key');
@@ -126,7 +132,7 @@ test('A slow free provider never triggers speculative concurrent paid inference'
  const requests=[];
  let pending=0,maxPending=0;
  const response=await generateGeminiFreeChat('synthetic',[{role:'user',text:'hello'}],
-   {maxTokens:450,deadlineAt:Date.now()+360_000},
+   {maxTokens:1800,deadlineAt:Date.now()+360_000},
    {env:{GEMINI_API_KEY:'synthetic-key'},now:()=>Date.now()+300_000,
     fetcher:async(url)=>{
       pending++;maxPending=Math.max(maxPending,pending);

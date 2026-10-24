@@ -36,5 +36,8 @@ test('Vercel Brain function duration covers the bounded free-provider chain',()=
  assert.equal(config.functions['api/chat.js'].maxDuration,60);
  const router=readFileSync('lib/brain-gateway.js','utf8');
  assert.match(router,/48_000/);
- assert.doesNotMatch(JSON.stringify(config),/env|token|key|secret|rewrites/i);
+ const { headers = [], ...rest } = config;
+ assert.doesNotMatch(JSON.stringify(rest),/env|token|key|secret|rewrites/i);
+ // Only cache headers are allowed in vercel.json (self-hosted MediaPipe, E8).
+ for (const h of headers) for (const kv of h.headers) assert.equal(kv.key,'Cache-Control');
 });

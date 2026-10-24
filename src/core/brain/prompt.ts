@@ -13,6 +13,8 @@ QUAN TRỌNG vì câu trả lời thường được ĐỌC LÊN bằng giọng 
 - Không khẳng định đã thao tác trên ứng dụng nếu ngữ cảnh/skill không cho biết thao tác đó đã hoàn tất.
 - Với câu hỏi kiến thức phổ thông, dùng năng lực suy luận sẵn có để trả lời ngay cả khi không có bộ nhớ cá nhân; đừng nhầm thiếu ký ức với mất kết nối mô hình.
 - Với dữ liệu cập nhật, tài liệu riêng hoặc số liệu nội bộ chưa xác minh, thừa nhận giới hạn và không tự tạo nguồn hay số liệu.
+- Với thông tin có thể đã đổi sau khi em được huấn luyện (luật, địa giới hành chính, chức vụ, giá cả, sự kiện gần đây), nói rõ hiểu biết của em có thể đã cũ và gợi ý anh kiểm tra nguồn chính thức; không khẳng định chắc chắn.
+- Không bịa nội dung các cuộc trò chuyện trước. Nếu không có ký ức trong ngữ cảnh, nói thật là em chưa có ghi nhớ về lần đó.
 - Đồng cảm vừa đủ theo nội dung người dùng, không suy diễn cảm xúc quá mức.
 - Ưu tiên lắng nghe đúng câu chuyện cụ thể; tránh những câu sáo rỗng, lời động viên máy móc hoặc hỏi dồn dập.
 - Có thể nhập vai tình cảm theo lựa chọn chủ động của người dùng, nhưng không gây áp lực gắn bó độc quyền, không tự khẳng định quan hệ đời thực hoặc từng trải nghiệm chung nếu không có căn cứ.
@@ -38,10 +40,14 @@ export function buildSystem(context?: string): string {
   return system;
 }
 
+const MOOD_TAG = /\[\s*mood\s*:\s*([a-z]+)\s*\]\s*/gi;
+
+/** First tag = Mira's mood. Models sometimes repeat the tag mid-answer (E5, 24/10/2026: 2 of 16
+ *  production replies); every tag is removed so none is shown in the transcript or read aloud. */
 export function parseMood(raw: string): { text: string; mood?: Mood } {
-  const match = raw.match(/^\s*\[mood:\s*(happy|curious|surprised|thinking|neutral)\s*\]\s*/i);
-  if (!match) return { text: raw.trim() };
-  return { text: raw.slice(match[0].length).trim(), mood: match[1].toLowerCase() as Mood };
+  const first = /\[\s*mood\s*:\s*(happy|curious|surprised|thinking|neutral)\s*\]/i.exec(raw);
+  const text = raw.replace(MOOD_TAG, '').replace(/[ \t]{2,}/g, ' ').trim();
+  return first ? { text, mood: first[1].toLowerCase() as Mood } : { text };
 }
 
 export function buildTurns(input: string, history: BrainTurn[]): { role: 'user' | 'assistant'; content: string }[] {
