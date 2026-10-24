@@ -49,10 +49,10 @@ test('token request is single-use, short-lived and locked to model + server syst
   const config = body.bidiGenerateContentSetup;
   assert.equal(config.model, `models/${LIVE_DEFAULT_MODEL}`);
   assert.deepEqual(config.generationConfig.responseModalities, ['AUDIO']);
-  assert.ok(config.inputAudioTranscription && config.outputAudioTranscription);
-  // Safety-critical fields locked; resumption left to the client so resume handles work.
+  // Every setup field must be in fieldMask (API rule); unlocked fields stay out of the token.
   assert.deepEqual(body.fieldMask.split(','), ['model', 'systemInstruction.parts', 'generationConfig.responseModalities']);
-  assert.doesNotMatch(body.fieldMask, /sessionResumption/);
+  assert.deepEqual(Object.keys(config).sort(), ['generationConfig', 'model', 'systemInstruction']);
+  assert.deepEqual(Object.keys(config.generationConfig), ['responseModalities']);
   const system = config.systemInstruction.parts[0].text;
   assert.match(system, /QUY TẮC AN TOÀN/);
   assert.match(system, /thích cà phê sữa/);
