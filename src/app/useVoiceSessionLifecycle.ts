@@ -8,17 +8,15 @@ const VOICE_HANDSHAKE_TIMEOUT = 5000;
 type VoiceSessionLifecycleOptions = {
   mira: UseMira;
   settingsOpen: boolean;
-  visionOn: boolean;
-  visionBooting: boolean;
-  toggleVision: () => Promise<void>;
+  /** Kept for call-site compatibility; voice never starts the camera (opt-in in Settings). */
+  visionOn?: boolean;
+  visionBooting?: boolean;
+  toggleVision?: () => Promise<void>;
 };
 
 export function useVoiceSessionLifecycle({
   mira,
   settingsOpen,
-  visionOn,
-  visionBooting,
-  toggleVision,
 }: VoiceSessionLifecycleOptions) {
   const [voiceReady, setVoiceReady] = useState(false);
   const [voiceBooting, setVoiceBooting] = useState(false);
@@ -63,7 +61,7 @@ export function useVoiceSessionLifecycle({
 
   const activateVoice = useCallback(() => {
     mira.unlockAudio();
-    if (!visionOn && !visionBooting) void toggleVision();
+    // Camera is opt-in only (Settings → Giao diện); the mic button must never turn it on.
 
     if (voiceReady) {
       if (!mira.live) {
@@ -125,9 +123,6 @@ export function useVoiceSessionLifecycle({
     mira.startLive,
     mira.stateRef,
     mira.unlockAudio,
-    toggleVision,
-    visionBooting,
-    visionOn,
     voiceReady,
   ]);
 
@@ -145,6 +140,7 @@ export function useVoiceSessionLifecycle({
 
   useEffect(() => {
     const resumeIfNeeded = () => {
+      if (document.visibilityState === 'hidden') { mira.pauseForBackground(); return; }
       if (document.visibilityState !== 'visible' || !mira.live) return;
       mira.notifyContextEvent('resume');
       if (mira.stateRef.current === 'idle' || mira.stateRef.current === 'interrupted') {
@@ -161,7 +157,7 @@ export function useVoiceSessionLifecycle({
       document.removeEventListener('visibilitychange', resumeIfNeeded);
       window.removeEventListener('focus', resumeIfNeeded);
     };
-  }, [mira.live, mira.notifyContextEvent, mira.startListening, mira.stateRef]);
+  }, [mira.live, mira.notifyContextEvent, mira.pauseForBackground, mira.startListening, mira.stateRef]);
 
   useEffect(() => {
     if (!mira.live) {

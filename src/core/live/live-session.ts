@@ -9,9 +9,13 @@ import { audioLevel, ttsLevel } from '../audio-level';
 import { miraApiUrl } from '../../desktop/cloud-endpoints';
 import {
   LIVE_INPUT_RATE,
+  LIVE_IDLE_TIMEOUT_MS,
   appendTranscript,
   base64ToBytes,
   buildAudioMessage,
+  buildAudioStreamEndMessage,
+  liveReconnectDelayMs,
+  liveReconnectPlan,
   buildSetupMessage,
   buildTextMessage,
   bytesToBase64,
@@ -35,6 +39,19 @@ export interface LiveSessionOptions {
   onMiraText: (text: string, final: boolean) => void;
   onTurn: (turn: LiveTurn) => void;
   onError: (message: string) => void;
+  /** Created and resumed synchronously inside the user's tap (iOS keeps late contexts suspended). */
+  audioContext?: AudioContext;
+}
+
+export function createUnlockedAudioContext(): AudioContext | undefined {
+  try {
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctor();
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
+    return ctx;
+  } catch {
+    return undefined;
+  }
 }
 
 interface TokenResponse { token: string; model: string; wsUrl: string; expiresAt: string }
@@ -68,7 +85,9 @@ const ERROR_COPY: Record<string, string> = {
   global_rate_limited: 'Mira Live đang quá tải, anh thử lại sau ít phút nhé.',
   origin_not_allowed: 'Trang này chưa được phép dùng Mira Live.',
   mic_denied: 'Mic bị chặn. Cho phép micro rồi bật Live lại nhé.',
-  socket: 'Mất kết nối Mira Live.',
+  mic_lost: 'Mất tín hiệu micro (tai nghe vừa ngắt hoặc mic bị tắt). Bấm LIVE để nối lại.',
+  socket: 'Mất kết nối Mira Live. Kiểm tra mạng rồi bấm LIVE để nối lại.',
+  idle_timeout: 'Em tạm dừng Live vì mình im lặng hơi lâu. Bấm LIVE khi anh muốn nói tiếp nhé.',
 };
 
 export function liveErrorMessage(code: string): string {
@@ -80,9 +99,9 @@ export class LiveSession {
   private token: TokenResponse | null = null;
   private resumeHandle = '';
   private micStream: MediaStream | null = null;
-  private captureCtx: AudioContext | null = null;
+  // One context for capture and playback, created inside the user gesture.
+  private ctx: AudioContext | null = null;
   private captureNode: AudioWorkletNode | ScriptProcessorNode | null = null;
-  private playCtx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private playing = new Set<AudioBufferSourceNode>();
   private nextStart = 0;
@@ -92,12 +111,18 @@ export class LiveSession {
   private phase: LivePhase = 'connecting';
   private stopped = false;
   private reconnecting = false;
+  private reconnectAttempts = 0;
   private ready = false;
+  private lastActivity = Date.now();
+  private idleTimer = 0;
+  private readonly onVisibility = () => this.handleVisibility();
 
   constructor(private readonly options: LiveSessionOptions) {}
 
   async start(): Promise<void> {
     this.setPhase('connecting');
+    // Must happen before any await so iOS Safari treats it as part of the tap.
+    this.ctx = this.options.audioContext || createUnlockedAudioContext() || null;
     try {
       // Ask for the mic first: if it is denied we never spend a token.
       this.micStream = await navigator.mediaDevices.getUserMedia({
@@ -107,6 +132,23 @@ export class LiveSession {
       this.fail('mic_denied');
       return;
     }
+    if (this.stopped) return;
+    // Headset unplugged, Bluetooth switched, OS revoked the mic: never stream silence silently.
+    this.micStream.getAudioTracks().forEach((track) => track.addEventListener('ended', () => { if (!this.stopped) this.fail('mic_lost'); }));
+    const token = await this.fetchToken();
+    if (!token) return;
+    this.token = token;
+    if (this.stopped) return;
+    this.setupPlayback();
+    document.addEventListener('visibilitychange', this.onVisibility);
+    this.lastActivity = Date.now();
+    this.idleTimer = window.setInterval(() => {
+      if (!this.stopped && Date.now() - this.lastActivity > LIVE_IDLE_TIMEOUT_MS) this.fail('idle_timeout');
+    }, 15_000);
+    this.connect();
+  }
+
+  private async fetchToken(): Promise<TokenResponse | null> {
     const response = await fetch(miraApiUrl('chat?route=live-token'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -121,17 +163,25 @@ export class LiveSession {
       let code = response ? `http_${response.status}` : 'socket';
       try { code = String((await response?.json())?.error || code); } catch { /* keep generic */ }
       this.fail(code);
-      return;
+      return null;
     }
-    this.token = await response.json() as TokenResponse;
+    try { return await response.json() as TokenResponse; } catch { this.fail('socket'); return null; }
+  }
+
+  /** Tab hidden / phone locked: flush server audio; back in front: wake the suspended context. */
+  private handleVisibility(): void {
     if (this.stopped) return;
-    this.setupPlayback();
-    this.connect();
+    if (document.visibilityState === 'hidden') {
+      if (this.ready && this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(buildAudioStreamEndMessage()));
+    } else if (this.ctx?.state === 'suspended') {
+      void this.ctx.resume().catch(() => undefined);
+    }
   }
 
   /** Text typed while Live is open goes into the same realtime conversation. */
   sendText(text: string): void {
     if (!this.ready || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.lastActivity = Date.now();
     this.stopPlayback();
     this.ws.send(JSON.stringify(buildTextMessage(text)));
   }
@@ -144,14 +194,14 @@ export class LiveSession {
     this.ws = null;
     this.stopPlayback();
     cancelAnimationFrame(this.raf);
+    window.clearInterval(this.idleTimer);
+    document.removeEventListener('visibilitychange', this.onVisibility);
     this.captureNode?.disconnect();
     this.captureNode = null;
     this.micStream?.getTracks().forEach((track) => track.stop());
     this.micStream = null;
-    void this.captureCtx?.close().catch(() => undefined);
-    void this.playCtx?.close().catch(() => undefined);
-    this.captureCtx = null;
-    this.playCtx = null;
+    void this.ctx?.close().catch(() => undefined);
+    this.ctx = null;
     audioLevel.value = 0; audioLevel.active = false;
     ttsLevel.value = 0; ttsLevel.active = false;
     ttsLevel.bands.low = 0; ttsLevel.bands.mid = 0; ttsLevel.bands.high = 0;
@@ -180,13 +230,29 @@ export class LiveSession {
     ws.onerror = () => { /* onclose decides */ };
     ws.onclose = (event) => {
       this.ready = false;
-      if (this.stopped) return;
-      if (this.resumeHandle && !this.reconnecting && Date.parse(this.token?.expiresAt || '') > Date.now()) {
-        this.reconnecting = true;
-        window.setTimeout(() => { this.reconnecting = false; if (!this.stopped) this.connect(); }, 300);
-        return;
-      }
-      this.fail(event.code === 1008 ? 'origin_not_allowed' : 'socket');
+      if (this.stopped || this.reconnecting) return;
+      if (event.code === 1008) { this.fail('origin_not_allowed'); return; }
+      // Connections reset about every 10 min and tokens expire after 30 min: resume the same
+      // conversation (handle valid 2 h), minting a new token when the old one is spent.
+      const plan = liveReconnectPlan({
+        hasResumeHandle: Boolean(this.resumeHandle),
+        tokenExpiresAt: this.token?.expiresAt || '',
+        now: Date.now(),
+        attempts: this.reconnectAttempts,
+      });
+      if (plan === 'give-up') { this.fail('socket'); return; }
+      this.reconnecting = true;
+      const attempt = this.reconnectAttempts++;
+      window.setTimeout(async () => {
+        if (this.stopped) { this.reconnecting = false; return; }
+        if (plan === 'refresh-token') {
+          const fresh = await this.fetchToken();
+          if (!fresh || this.stopped) { this.reconnecting = false; return; }
+          this.token = fresh;
+        }
+        this.reconnecting = false;
+        this.connect();
+      }, liveReconnectDelayMs(attempt));
     };
   }
 
@@ -195,6 +261,7 @@ export class LiveSession {
     for (const event of parseServerMessage(text)) {
       switch (event.kind) {
         case 'setupComplete':
+          this.reconnectAttempts = 0;
           if (!this.ready) {
             this.ready = true;
             await this.startCapture();
@@ -202,9 +269,11 @@ export class LiveSession {
           }
           break;
         case 'audio':
+          this.lastActivity = Date.now();
           this.enqueueAudio(event.data, event.rate);
           break;
         case 'inputTranscript':
+          this.lastActivity = Date.now();
           this.userText = appendTranscript(this.userText, event.text);
           this.options.onUserText(this.userText.trim(), false);
           break;
@@ -244,8 +313,8 @@ export class LiveSession {
 
   private async startCapture(): Promise<void> {
     if (!this.micStream || this.captureNode) return;
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    this.captureCtx = ctx;
+    const ctx = this.ctx;
+    if (!ctx) return;
     if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
     const source = ctx.createMediaStreamSource(this.micStream);
     const send = (chunk: Float32Array) => {
@@ -258,10 +327,22 @@ export class LiveSession {
     if (ctx.audioWorklet) {
       const url = URL.createObjectURL(new Blob([WORKLET_SOURCE], { type: 'application/javascript' }));
       try {
-        await ctx.audioWorklet.addModule(url);
+        // addModule can hang forever (no audio device, some embedded/older browsers): without a
+        // bound the session sat on "Đang kết nối…" (voice E2E 24/10). Fall back after 2.5 s.
+        await Promise.race([
+          ctx.audioWorklet.addModule(url),
+          new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('worklet_timeout')), 2500)),
+        ]);
+        if (this.stopped) return;
         const node = new AudioWorkletNode(ctx, 'mira-live-capture');
         node.port.onmessage = (event: MessageEvent<Float32Array>) => send(event.data);
         source.connect(node);
+        // Chrome only renders nodes reachable from the destination: without this the worklet
+        // never ran and no mic audio reached Gemini (voice E2E S1, 24/10). Muted, never heard.
+        const mute = ctx.createGain();
+        mute.gain.value = 0;
+        node.connect(mute);
+        mute.connect(ctx.destination);
         this.captureNode = node;
         return;
       } catch { /* fall back below */ }
@@ -279,9 +360,8 @@ export class LiveSession {
   }
 
   private setupPlayback(): void {
-    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctor();
-    this.playCtx = ctx;
+    const ctx = this.ctx;
+    if (!ctx) { this.fail('audio_unavailable'); return; }
     if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
@@ -323,7 +403,7 @@ export class LiveSession {
   }
 
   private enqueueAudio(base64: string, rate: number): void {
-    const ctx = this.playCtx;
+    const ctx = this.ctx;
     if (!ctx || !this.analyser) return;
     const samples = pcm16ToFloat(base64ToBytes(base64));
     if (!samples.length) return;

@@ -151,3 +151,23 @@ export function buildAudioMessage(base64Pcm16k: string): Json {
 export function buildTextMessage(text: string): Json {
   return { realtimeInput: { text: String(text).slice(0, 4000) } };
 }
+
+/** Flush the server-side audio cache when the mic pauses for > 1 s (tab hidden, mic lost). */
+export function buildAudioStreamEndMessage(): Json {
+  return { realtimeInput: { audioStreamEnd: true } };
+}
+
+/** Live session policy (pure, unit-tested). */
+export const LIVE_IDLE_TIMEOUT_MS = 3 * 60_000;
+export const LIVE_MAX_RECONNECTS = 3;
+/** Reconnect with the same token while it is valid; otherwise a fresh token is required. */
+export function liveReconnectPlan(input: { hasResumeHandle: boolean; tokenExpiresAt: string; now: number; attempts: number }):
+  'reuse-token' | 'refresh-token' | 'give-up' {
+  if (!input.hasResumeHandle || input.attempts >= LIVE_MAX_RECONNECTS) return 'give-up';
+  const expires = Date.parse(input.tokenExpiresAt || '');
+  return Number.isFinite(expires) && expires - input.now > 15_000 ? 'reuse-token' : 'refresh-token';
+}
+/** Backoff between reconnect attempts: 300 ms, 1.2 s, 3 s. */
+export function liveReconnectDelayMs(attempt: number): number {
+  return [300, 1200, 3000][Math.max(0, Math.min(2, attempt))];
+}

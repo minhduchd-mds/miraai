@@ -71,9 +71,11 @@ export default function VoiceDock({ mira, activateVoice, voiceSessionActive, idl
   const hasTurns = turns.length > 0;
   // The transcript now carries answers; the caption is only for transient states
   // (listening / thinking / Live streaming) or the first-run hint.
-  const showCaption = live || (talk.state !== 'idle' && talk.state !== 'speaking') || !hasTurns;
+  // An idle caption that differs from the default hint is a notice ("Em tạm dừng nghe…").
+  const idleNotice = talk.state === 'idle' && Boolean(talk.caption) && talk.caption !== mira.idleCaption;
+  const showCaption = live || (talk.state !== 'idle' && talk.state !== 'speaking') || !hasTurns || idleNotice;
   return (
-    <div className={`voice-footer state-${talk.state}${inSession ? ' is-live' : ''}${live ? ' is-realtime' : ''}`}>
+    <section className={`voice-footer state-${talk.state}${inSession ? ' is-live' : ''}${live ? ' is-realtime' : ''}`} aria-label="Trò chuyện với Mira">
       {hasTurns && (
         <section className={`voice-transcript${transcriptOpen ? '' : ' collapsed'}`} aria-label="Hội thoại">
           <button
@@ -161,6 +163,6 @@ export default function VoiceDock({ mira, activateVoice, voiceSessionActive, idl
         />
         <button type="submit" disabled={!text.trim()} aria-label="Gửi tin nhắn">Gửi</button>
       </form>
-    </div>
+    </section>
   );
 }

@@ -14,6 +14,19 @@ const PHASE_STATE: Record<LivePhase, MiraState> = {
   error: 'error',
 };
 
+/** Created synchronously in the tap handler: iOS Safari leaves contexts made after an await suspended. */
+function unlockedAudioContext(): AudioContext | undefined {
+  try {
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) return undefined;
+    const ctx = new Ctor();
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
+    return ctx;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface LiveConversationDeps {
   persona: () => string;
   adultConfirmed: () => boolean;
@@ -41,6 +54,8 @@ export function useLiveConversation(deps: LiveConversationDeps) {
 
   const start = useCallback(async () => {
     if (sessionRef.current) return;
+    const audioContext = unlockedAudioContext();
+    let handedOver = false;
     setError(null);
     setActive(true);
     setState('thinking');
@@ -68,10 +83,13 @@ export function useLiveConversation(deps: LiveConversationDeps) {
         onMiraText: (text) => { setWho('MIRA'); setCaption(text); },
         onTurn: (turn) => depsRef.current.recordTurn(turn),
         onError: (message) => setError(message),
+        audioContext,
       });
+      handedOver = true;
       sessionRef.current = session;
       await session.start();
     } catch {
+      if (!handedOver) void audioContext?.close().catch(() => undefined);
       setError('Mira Live chưa tải được. Anh thử lại sau nhé.');
       stop();
     }

@@ -32,6 +32,14 @@ import { crisisReply, isHighRiskText } from '../intelligence/safety/crisis-clien
 const LANG = 'vi-VN';
 const IDLE_CAPTION = 'Chạm mic để nói, hoặc gõ tin nhắn bên dưới.';
 const MAX_EMPTY_BACKOFF = 6;
+// Hands-free mode stops itself after this many consecutive empty listens (~1 min of silence):
+// an open mic nobody uses costs battery and privacy (voice QA 24/10).
+const SILENCE_AUTO_STOP = 8;
+const SILENCE_STOP_CAPTION = 'Em tạm dừng nghe vì mình im lặng một lúc. Chạm mic khi anh muốn nói tiếp nhé.';
+/** STT sometimes returns pure noise/punctuation; never send that to the model. */
+export function isMeaningfulTranscript(text: string): boolean {
+  return /[\p{L}\p{N}]/u.test(text);
+}
 
 const DEMO_COPY: Record<MiraState, { who: string; txt: string }> = {
   idle: { who: 'CHẠM ĐỂ NÓI', txt: IDLE_CAPTION },
@@ -126,6 +134,8 @@ export function useMira() {
   const pendingTranscriptRef = useRef('');
   const lastInterimRef = useRef<{ transcript: string; atMs: number } | null>(null);
   const emptyCountRef = useRef(0);
+  const silentStreakRef = useRef(0);
+  const sttNetworkRetryRef = useRef(false);
   const startListeningRef = useRef<() => void>(() => {});
   const pendingListenRef = useRef<number | null>(null);
   const endpointTimerRef = useRef<number | null>(null);
@@ -386,6 +396,7 @@ export function useMira() {
     if (!text) return;
 
     emptyCountRef.current = 0;
+    silentStreakRef.current = 0;
     setRetryText(null);
     proactiveRef.current.noteUserActivity();
     stopMicLevel();
@@ -470,6 +481,14 @@ export function useMira() {
     }
 
     emptyCountRef.current = Math.min(emptyCountRef.current + 1, MAX_EMPTY_BACKOFF);
+    silentStreakRef.current += 1;
+    if (silentStreakRef.current >= SILENCE_AUTO_STOP) {
+      silentStreakRef.current = 0;
+      setLive(false);
+      vadRef.current?.pause();
+      goIdle(SILENCE_STOP_CAPTION);
+      return;
+    }
     const proactive = proactiveRef.current.nextForSilence(affectRef.current);
     if (proactive) {
       speak(proactive);
@@ -479,7 +498,7 @@ export function useMira() {
     setPartial(false);
     setCaption('Em vẫn ở đây — anh cứ nói khi cần.');
     schedulePendingListen(silenceRetryDelayMs(emptyCountRef.current), () => liveRef.current);
-  }, [goIdle, schedulePendingListen, speak]);
+  }, [goIdle, schedulePendingListen, setLive, speak]);
 
   const startListening = useCallback(() => {
     const stt = sttRef.current!;
@@ -496,7 +515,7 @@ export function useMira() {
     if (!stt.available) {
       sendEvent('FAIL');
       setLive(false);
-      setError('Trình duyệt không hỗ trợ nhận giọng nói. Hãy mở bằng Chrome hoặc Edge.');
+      setError('Trình duyệt này chưa nhận giọng nói. Anh bấm LIVE để nói chuyện trực tiếp, hoặc mở bằng Chrome/Edge.');
       return;
     }
 
@@ -506,10 +525,22 @@ export function useMira() {
     sendEvent('MIC_START');
     void startMicLevel();
 
+    // A failed mic/STT start must not leave "Đang nghe…" on screen.
+    const failMic = (message: string) => {
+      setLive(false);
+      sendEvent('FAIL');
+      stopMicLevel();
+      setWho('CHẠM ĐỂ NÓI');
+      setPartial(false);
+      setCaption(IDLE_CAPTION);
+      setError(message);
+    };
+
     stt.start({
       lang: LANG,
       continuous: smart,
       onResult: (result) => {
+        sttNetworkRetryRef.current = false;
         pendingTranscriptRef.current = result.transcript;
         const receivedAt = performance.now();
         if (!result.isFinal && lastInterimRef.current?.transcript !== result.transcript) {
@@ -529,25 +560,37 @@ export function useMira() {
             if (stateRef.current !== 'listening') return;
             const text = pendingTranscriptRef.current.trim();
             stt.abort();
-            if (text) void handleUtterance(text, 'voice');
+            if (text && isMeaningfulTranscript(text)) void handleUtterance(text, 'voice');
             else handleEmptyListen();
           }, delay);
         } else if (result.isFinal && result.transcript) {
-          void handleUtterance(result.transcript, 'voice');
+          if (isMeaningfulTranscript(result.transcript)) void handleUtterance(result.transcript, 'voice');
+          else { stt.abort(); handleEmptyListen(); }
         }
       },
       onError: (err) => {
         if (err === 'aborted' || err === 'no-speech') return;
         if (err === 'not-allowed' || err === 'service-not-allowed') {
-          setLive(false);
-          sendEvent('FAIL');
-          setError('Mic bị chặn. Cho phép quyền micro cho trang này rồi thử lại nhé.');
+          failMic('Mic bị chặn. Cho phép quyền micro cho trang này rồi thử lại nhé.');
           return;
         }
         if (err === 'network') {
-          setLive(false);
-          sendEvent('FAIL');
-          setError('Mất kết nối khi nhận giọng nói.');
+          // Browser STT runs on a cloud service: one quiet retry before giving up.
+          if (liveRef.current && !sttNetworkRetryRef.current) {
+            sttNetworkRetryRef.current = true;
+            schedulePendingListen(1200, () => liveRef.current);
+            return;
+          }
+          sttNetworkRetryRef.current = false;
+          failMic('Mất kết nối khi nhận giọng nói. Kiểm tra mạng rồi chạm mic để thử lại.');
+          return;
+        }
+        if (err === 'audio-capture') {
+          failMic('Không tìm thấy micro. Cắm tai nghe/mic hoặc kiểm tra cài đặt âm thanh rồi thử lại.');
+          return;
+        }
+        if (err === 'language-not-supported') {
+          failMic('Trình duyệt này chưa nhận tiếng Việt. Anh bấm LIVE để nói chuyện trực tiếp nhé.');
           return;
         }
         setLive(false);
@@ -557,11 +600,21 @@ export function useMira() {
         if (stateRef.current !== 'listening') return;
         clearEndpointTimer();
         const pending = pendingTranscriptRef.current.trim();
-        if (pending) void handleUtterance(pending, 'voice');
+        if (pending && isMeaningfulTranscript(pending)) void handleUtterance(pending, 'voice');
         else handleEmptyListen();
       },
     });
-  }, [cancelSpeech, clearEndpointTimer, clearPendingListen, goIdle, handleEmptyListen, handleUtterance, sendEvent, setLive]);
+  }, [cancelSpeech, clearEndpointTimer, clearPendingListen, goIdle, handleEmptyListen, handleUtterance, schedulePendingListen, sendEvent, setLive]);
+
+  /** Tab hidden / screen locked: stop the mic but keep hands-free armed; visibility resumes it. */
+  const pauseForBackground = useCallback(() => {
+    if (!liveRef.current || stateRef.current !== 'listening') return;
+    turnSeqRef.current += 1;
+    clearEndpointTimer();
+    sttRef.current!.abort();
+    sendEvent('MIC_STOP');
+    goIdle('Đã tạm dừng nghe khi anh rời trang. Quay lại là em nghe tiếp.');
+  }, [clearEndpointTimer, goIdle, sendEvent]);
 
   useEffect(() => {
     startListeningRef.current = startListening;
@@ -595,6 +648,7 @@ export function useMira() {
     }
     setLive(true);
     emptyCountRef.current = 0;
+    silentStreakRef.current = 0;
     ttsRef.current!.unlock();
 
     if (loadVadEnabled()) {
@@ -752,6 +806,7 @@ export function useMira() {
     mood,
     moodRef,
     caption,
+    idleCaption: IDLE_CAPTION,
     who,
     partial,
     latencyMs,
@@ -778,6 +833,7 @@ export function useMira() {
     startLive,
     stopLive,
     startListening,
+    pauseForBackground,
     interrupt,
     sendText,
     transcript,

@@ -79,3 +79,12 @@
 @media (prefers-reduced-motion: reduce) {
   .live-avatar.is-realtime .live-avatar-badge i { animation: none; }
 }
+
+/* Wide screens: the renderer height-fits a centred camera panel (width = 1.06 · H · 896/1200
+   ≈ 0.7915 · H, see viewTransform). Keep the LIVE badge and the AI disclosure on that panel
+   instead of the far edges of the blurred ambient fill (UI QA 24/10, P3). */
+.live-avatar { container-type: size; }
+@container (min-aspect-ratio: 859/1000) {
+  .live-avatar-badge { left: calc(50% - 39.57cqh + 16px); }
+  .live-avatar-ai-note { right: calc(50% - 39.57cqh + 16px); }
+}
