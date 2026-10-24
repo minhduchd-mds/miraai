@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MiraState } from '../../core/types';
+import type { MotionInput } from './motion.ts';
 import { audioLevel, ttsLevel } from '../../core/audio-level';
 import { prepareRig, type LiveAvatarRig } from './rig-deform.ts';
 import { AvatarMotion } from './motion.ts';
@@ -18,14 +19,18 @@ interface Props {
   state: MiraState;
   live: boolean;
   realtime: boolean;
+  /** Observed user mood when the camera is on and "Phản ứng" is enabled; otherwise neutral. */
+  userMood?: MotionInput['userMood'];
 }
 
 // Not a button: the whole stage used to start the mic on any stray tap (UI QA 24/10).
 // Conversation starts only from the explicit mic / LIVE controls in the dock.
-export default function LiveAvatarPresence({ state, live, realtime }: Props) {
+export default function LiveAvatarPresence({ state, live, realtime, userMood = 'neutral' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const moodRef = useRef(userMood);
+  moodRef.current = userMood;
   const [mode, setMode] = useState<'loading' | 'live' | 'still'>('loading');
 
   useEffect(() => {
@@ -70,6 +75,7 @@ export default function LiveAvatarPresence({ state, live, realtime }: Props) {
             voiceBands: speaking ? ttsLevel.bands : null,
             userLevel: stateRef.current === 'listening' && audioLevel.active ? audioLevel.value : 0,
             reducedMotion: reduced,
+            userMood: moodRef.current,
           });
           // Dev-only QA hook (stripped from production builds): force a pose for screenshots.
           if (import.meta.env.DEV) Object.assign(params, (window as unknown as { __liveAvatarPose?: object }).__liveAvatarPose || {});

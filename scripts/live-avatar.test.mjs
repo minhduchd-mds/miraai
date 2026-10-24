@@ -127,3 +127,19 @@ test('face asset is an original, budgeted WebP with provenance on file', () => {
   assert.match(provenance, /gemini-3\.1-flash-image/);
   assert.match(provenance, /4ZUXPxQvSWfWJXsAJwRr8V/);
 });
+
+test('empathy: camera mood nudges the face (joy → warmer smile, sadness → concerned brows), never folds', async () => {
+  const { EMPATHY_OFFSETS } = await import('../src/presence/live-avatar/motion.ts');
+  const run = (userMood) => {
+    const m = new AvatarMotion(11);
+    let last;
+    for (let t = 0; t < 3000; t += 16) last = m.update({ timeMs: t, state: 'listening', voiceLevel: -1, voiceBands: null, userLevel: 0, reducedMotion: false, userMood });
+    return last;
+  };
+  const neutral = run('neutral'), happy = run('happy'), sad = run('sad'), surprised = run('surprised');
+  assert.ok(happy.smile > neutral.smile + 0.1, `happy ${happy.smile} vs ${neutral.smile}`);
+  assert.ok(sad.smile < neutral.smile && sad.brow > neutral.brow + 0.15);
+  assert.ok(surprised.brow > neutral.brow + 0.25);
+  assert.ok(EMPATHY_OFFSETS.angry.smile <= 0 && EMPATHY_OFFSETS.angry.brow < 0.2, 'calm attention, no anger mirroring');
+  for (const p of [happy, sad, surprised]) assert.equal(flippedTriangles(p), 0);
+});

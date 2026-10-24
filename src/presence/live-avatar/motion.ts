@@ -13,7 +13,20 @@ export interface MotionInput {
   /** Microphone level 0..1 while the user talks, else 0. */
   userLevel: number;
   reducedMotion: boolean;
+  /** User's observed expression (camera, opt-in "Phản ứng"): Mira responds with empathy, not mimicry. */
+  userMood?: 'happy' | 'sad' | 'tired' | 'angry' | 'surprised' | 'neutral';
 }
+
+/** Small expression offsets: warmer smile for joy, softer face + concerned brows for sadness/fatigue,
+ *  calm attention (never anger back), raised brows for surprise. */
+export const EMPATHY_OFFSETS: Record<NonNullable<MotionInput['userMood']>, { smile: number; brow: number }> = {
+  happy: { smile: 0.18, brow: 0.05 },
+  sad: { smile: -0.14, brow: 0.25 },
+  tired: { smile: -0.08, brow: 0.12 },
+  angry: { smile: -0.12, brow: 0.1 },
+  surprised: { smile: 0.04, brow: 0.35 },
+  neutral: { smile: 0, brow: 0 },
+};
 
 /** Seeded PRNG so blink timing is natural but reproducible in tests. */
 function mulberry32(seed: number) {
@@ -63,9 +76,10 @@ export class AvatarMotion {
     this.envelope = this.ease(this.envelope, speaking ? input.voiceLevel : 0, dt, 0.25, 0.6);
 
     // Expression: warm resting smile, a touch more while listening to the user.
-    const smileTarget = input.state === 'listening' ? 0.38 : input.state === 'thinking' ? 0.12 : 0.28;
+    const empathy = EMPATHY_OFFSETS[input.userMood || 'neutral'];
+    const smileTarget = Math.max(0.06, (input.state === 'listening' ? 0.38 : input.state === 'thinking' ? 0.12 : 0.28) + empathy.smile);
     p.smile = this.ease(p.smile, smileTarget * (1 - p.jaw * 0.6), dt, 0.4, 0.6);
-    const browTarget = input.state === 'thinking' ? 0.35 : speaking ? this.envelope * 0.5 : input.state === 'listening' ? 0.18 : 0;
+    const browTarget = Math.min(0.75, (input.state === 'thinking' ? 0.35 : speaking ? this.envelope * 0.5 : input.state === 'listening' ? 0.18 : 0) + empathy.brow);
     p.brow = this.ease(p.brow, browTarget, dt, 0.18, 0.4);
 
     // Blinks: every 2.2–5.8 s, 120 ms down / 160 ms up; double blink sometimes.

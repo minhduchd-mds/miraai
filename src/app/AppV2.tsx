@@ -3,7 +3,7 @@ import { useMira } from '../core/useMira';
 import { intimateScenesEnabled } from '../core/voice-prefs';
 import type { LiveTalkView } from './VoiceDock';
 import type { MiraState, Theme } from '../core/types';
-import { IconSettings } from '../ui/app-shell-icons';
+import { IconCamera, IconSettings } from '../ui/app-shell-icons';
 import { useDialogFocus } from '../ui/useDialogFocus';
 // Spatial/photo rendering is separately lazy to preserve the strict AppV2 bundle budget.
 import type { FaceLandmarkPoint } from '../presence/FaceMeshOverlay';
@@ -164,6 +164,7 @@ export default function AppV2() {
     visionOn,
     visionBooting,
     visionError,
+    visionDegraded,
     startVisionTransport,
     stopVisionTransport,
   } = useVisionTransport();
@@ -726,7 +727,7 @@ export default function AppV2() {
             <strong>Trạng thái phiên</strong>
             <dl>
               <div><dt>Giọng nói</dt><dd>{voiceBooting ? 'Đang khởi tạo' : liveActive ? `Mira Live · ${STATE_COPY[talk.state]}` : mira.live ? STATE_COPY[mira.state] : 'Chưa bắt đầu'}</dd></div>
-              <div><dt>Camera</dt><dd>{visionError ? 'Cần kiểm tra' : visionBooting ? 'Đang mở' : visionOn ? (faceSeen || handSeen ? 'Đang nhận diện' : 'Đang quan sát') : 'Đang tắt'}</dd></div>
+              <div><dt>Camera</dt><dd>{visionDegraded ? 'Bật · chưa nhận diện được' : visionError ? 'Cần kiểm tra' : visionBooting ? 'Đang mở' : visionOn ? (faceSeen || handSeen ? 'Đang nhận diện' : 'Đang quan sát') : 'Đang tắt'}</dd></div>
               <div><dt>Không gian XR</dt><dd>{webXRSnapshot.active ? 'Đang hoạt động' : 'Chưa bật'}</dd></div>
             </dl>
             <p>Camera chỉ hoạt động khi anh bật trong Cài đặt → Giao diện.</p>
@@ -745,6 +746,20 @@ export default function AppV2() {
             >
               <span className="v2-xr-glyph" aria-hidden="true">XR</span>
               <span className="sr-only">{webXRSnapshot.active ? 'Thoát WebXR' : 'Mở WebXR AR'}</span>
+            </button>
+          )}
+          {visionOn && (
+            // Always-visible privacy indicator while the camera runs; one tap turns it off.
+            <button
+              type="button"
+              className="v2-camera-live"
+              onClick={() => void toggleVision()}
+              title="Camera đang bật — chạm để tắt"
+              data-spatial-action="camera.off"
+              data-spatial-label="Tắt camera"
+            >
+              <IconCamera aria-hidden="true" /><i aria-hidden="true" />
+              <span className="sr-only">Camera đang bật — tắt camera</span>
             </button>
           )}
           <button type="button" onClick={() => setSettingsOpen(true)} title="Cài đặt" data-spatial-action="settings.open" data-spatial-label="Cài đặt"><IconSettings /><span className="sr-only">Mở cài đặt</span></button>
@@ -861,7 +876,12 @@ export default function AppV2() {
         <div className="voice-stage holographic-stage">
           <Suspense fallback={<div className="voice-presence-loading" aria-hidden="true" />}>
           {presenceStyle === 'live' ? (
-            <LiveAvatarPresence state={talk.state} live={mira.live || liveActive} realtime={liveActive} />
+            <LiveAvatarPresence
+              state={talk.state}
+              live={mira.live || liveActive}
+              realtime={liveActive}
+              userMood={visionOn && affectFollowing && !visionDegraded ? faceAffect.mood : 'neutral'}
+            />
           ) : <PhotorealMira
             state={talk.state}
             femalePresentation={femalePresentation}

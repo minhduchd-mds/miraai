@@ -26,6 +26,17 @@ model → TTS). Bảng dưới là ma trận tình huống, hành vi hiện tạ
 | 17 | Rảnh tay: STT trả về toàn tiếng ồn / dấu câu | Bỏ qua, không gửi model ("ừ" vẫn được tính) | unit |
 | 18 | Trình duyệt không có Web Speech (Firefox…) | Gợi ý dùng LIVE (chỉ cần mic + WebSocket) | unit |
 
+## Camera nhận diện cảm xúc (opt-in)
+
+| # | Tình huống | Hành vi | Bằng chứng |
+| --- | --- | --- | --- |
+| 19 | Bật camera | Chỉ từ Cài đặt → Giao diện; nút mic không còn bật camera | E2E S8, camera E2E |
+| 20 | Camera đang chạy | Nút camera chấm đỏ luôn hiện trên header, chạm để tắt (video track dừng) | camera E2E |
+| 21 | Không tải được model MediaPipe (CDN bị chặn/offline) | Báo "chưa đọc được biểu cảm", trạng thái "Bật · chưa nhận diện được"; trước đây im lặng ghi "Đang quan sát" | camera E2E |
+| 22 | Có biểu cảm + bật "Phản ứng" | Cảm xúc đi vào lời nhắc model, tốc độ nói, câu chủ động; LiveAvatar đáp lại nhẹ (vui → cười ấm hơn, buồn/mệt → mày lo lắng, giận → điềm tĩnh, ngạc nhiên → nhướn mày) | unit (live-avatar) |
+
+Giới hạn: nhận diện thật cần tải model từ `cdn.jsdelivr.net` và `storage.googleapis.com`; môi trường test của Claude bị chặn hai host này nên chưa chạy được nhận diện khuôn mặt thật đầu-cuối.
+
 ## Chưa làm / khuyến nghị
 
 - **Ngắt lời bằng giọng ở chế độ rảnh tay** cần Silero VAD (mặc định tắt vì phải tải model và dễ tự ngắt khi loa to).

@@ -3,12 +3,16 @@ import { VisionCameraRecoveryPolicy } from '../core/vision/camera-recovery-polic
 
 type VisionRuntimeModule = typeof import('../presence/vision-runtime');
 
+export const FACE_MODEL_UNAVAILABLE = 'Camera đã bật nhưng chưa tải được bộ nhận diện khuôn mặt, nên Mira chưa đọc được biểu cảm. Kiểm tra mạng rồi tắt/bật lại camera.';
+
 export function useVisionTransport() {
   const cameraPreviewRef = useRef<HTMLVideoElement>(null);
   const visionModulesRef = useRef<VisionRuntimeModule | null>(null);
   const [visionOn, setVisionOn] = useState(false);
   const [visionBooting, setVisionBooting] = useState(false);
   const [visionError, setVisionError] = useState('');
+  // Camera is live but no face model loaded (CDN blocked/offline): emotion reading is OFF.
+  const [visionDegraded, setVisionDegraded] = useState(false);
   const visionWantedRef = useRef(false);
   const visionGenerationRef = useRef(0);
   const visionStartingRef = useRef(false);
@@ -33,6 +37,7 @@ export function useVisionTransport() {
     if (cameraPreviewRef.current) cameraPreviewRef.current.srcObject = null;
     setVisionOn(false);
     setVisionBooting(false);
+    setVisionDegraded(false);
   }, []);
 
   const startVisionTransport = useCallback(async () => {
@@ -53,6 +58,11 @@ export function useVisionTransport() {
       }
       const on = result.ok && Boolean(modules.visionStream());
       setVisionOn(on);
+      // ok + error = the stream works (e.g. rPPG) but the face detector did not load. This used
+      // to be dropped silently while the UI said "Đang quan sát" (camera QA 24/10).
+      const degraded = on && Boolean(result.error);
+      setVisionDegraded(degraded);
+      if (degraded) setVisionError(FACE_MODEL_UNAVAILABLE);
       if (!on) {
         visionWantedRef.current = false;
         setVisionError(result.error || 'Không mở được camera. Hãy kiểm tra quyền Camera của trình duyệt.');
@@ -173,6 +183,7 @@ export function useVisionTransport() {
     visionOn,
     visionBooting,
     visionError,
+    visionDegraded,
     startVisionTransport,
     stopVisionTransport,
   };

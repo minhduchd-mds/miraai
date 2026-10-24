@@ -672,3 +672,8 @@
 }
 /* Short phones: keep Mira's face visible above the transcript. */
 @media (max-height: 700px) { .voice-transcript-log { max-height: 22vh; } }
+
+/* Camera privacy indicator (only while the camera runs): tap to turn it off. */
+.v2-actions .v2-camera-live { position: relative; color: #ffd9d9; border-color: rgba(255, 120, 120, .45); }
+.v2-camera-live svg { width: 18px; height: 18px; }
+.v2-camera-live i { position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ff4d4f; box-shadow: 0 0 0 2px rgba(10, 10, 14, .8); }

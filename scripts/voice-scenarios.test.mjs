@@ -74,3 +74,12 @@ test('Live capture: worklet is routed to the destination and addModule is time-b
 test('Mic/STT failures reset the caption instead of leaving "Đang nghe…"', () => {
   assert.match(mira, /const failMic = \(message: string\) => \{[\s\S]*setCaption\(IDLE_CAPTION\);[\s\S]*setError\(message\);/);
 });
+
+test('Camera: degraded face model is surfaced, indicator is always visible, LiveAvatar mood is opt-in', () => {
+  const transport = read('src/app/useVisionTransport.ts');
+  const app = read('src/app/AppV2.tsx');
+  assert.match(transport, /const degraded = on && Boolean\(result\.error\);/);
+  assert.match(transport, /if \(degraded\) setVisionError\(FACE_MODEL_UNAVAILABLE\);/);
+  assert.match(app, /\{visionOn && \(\s*\/\/ Always-visible privacy indicator/);
+  assert.match(app, /userMood=\{visionOn && affectFollowing && !visionDegraded \? faceAffect\.mood : 'neutral'\}/);
+});
